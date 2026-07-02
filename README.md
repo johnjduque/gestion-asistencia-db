@@ -14,10 +14,10 @@ Este repositorio contiene el diseño lógico, la estructura y los objetos progra
 
 El archivo principal `gestionasistenciadb.sql` inicializa la base de datos completa, estructurada de la siguiente manera:
 
-* **Estructura Base:** `32 Tablas` principales que gestionan el núcleo del negocio (ej. `Usuario`, `Docente`, `PlanEstudio`, `TipoIdentificacion`, `EstudianteGrupo`, etc.).
-* **Capa de Abstracción:** `25 Vistas (Views)` que exponen la información de manera limpia (ej. `uv_usuario`, `uv_plan_estudio`, `uv_tipo_identificacion`, etc.).
-* **Lógica de Negocio:** `6 Procedimientos Almacenados (Stored Procedures)` para operaciones transaccionales y validaciones complejas (ej. `usp_sincronizar_estudiante_interno`, `usp_validar_estudiante_exista_por_id`, entre otros).
-* **Funciones Auxiliares:** `4 Funciones (UFN)` enfocadas en el manejo robusto de excepciones y mensajería estructurada (ej. `ufn_obtener_detalle_error`, `ufn_obtener_mensaje`).
+* **Estructura Base:** `Tablas` principales que gestionan el núcleo del negocio (ej. `Usuario`, `Docente`, `PlanEstudio`, `TipoIdentificacion`, `EstudianteGrupo`, etc.).
+* **Capa de Abstracción:** `Vistas (Views)` que exponen la información de manera limpia (ej. `uv_usuario`, `uv_plan_estudio`, `uv_tipo_identificacion`, etc.).
+* **Lógica de Negocio:** `Procedimientos Almacenados (Stored Procedures)` para operaciones transaccionales y validaciones complejas (ej. `usp_sincronizar_estudiante_interno`, `usp_validar_estudiante_exista_por_id`, entre otros).
+* **Funciones Auxiliares:** `Funciones (UFN)` enfocadas en el manejo robusto de excepciones y mensajería estructurada (ej. `ufn_obtener_detalle_error`, `ufn_obtener_mensaje`).
 
 ---
 
