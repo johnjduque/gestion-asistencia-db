@@ -10,14 +10,14 @@ Este repositorio contiene el diseño lógico, la estructura y los objetos progra
 
 ---
 
-## 🚀 Arquitectura y Componentes del Script
+## 🚀 Metodología de Migraciones (Estructura del Proyecto)
 
-El archivo principal `gestionasistenciadb.sql` inicializa la base de datos completa, estructurada de la siguiente manera:
+Para evitar conflictos en Git y garantizar un orden estricto de despliegue, el proyecto sigue un **enfoque basado en la organización de scripts** bajo la carpeta `migrations/`.
 
-* **Estructura Base:** `Tablas` principales que gestionan el núcleo del negocio (ej. `Usuario`, `Docente`, `PlanEstudio`, `TipoIdentificacion`, `EstudianteGrupo`, etc.).
-* **Capa de Abstracción:** `Vistas (Views)` que exponen la información de manera limpia (ej. `uv_usuario`, `uv_plan_estudio`, `uv_tipo_identificacion`, etc.).
-* **Lógica de Negocio:** `Procedimientos Almacenados (Stored Procedures)` para operaciones transaccionales y validaciones complejas (ej. `usp_sincronizar_estudiante_interno`, `usp_validar_estudiante_exista_por_id`, entre otros).
-* **Funciones Auxiliares:** `Funciones (UFN)` enfocadas en el manejo robusto de excepciones y mensajería estructurada (ej. `ufn_obtener_detalle_error`, `ufn_obtener_mensaje`).
+Los archivos ubicados dentro de la carpeta `migrations/` son:
+
+* **Estructura Base (`gestionasistenciadb.sql`):** Inicializa las tablas base, tipos, vistas y procedimientos iniciales del sistema.
+* **Ajustes y Parches (`fix-ajuste-*.sql`):** Modificaciones incrementales aplicadas sobre los procedimientos almacenados y la lógica de negocio.
 
 ---
 
@@ -36,4 +36,8 @@ Si aún no tienes un contenedor activo, puedes crear uno ejecutando el siguiente
 ```bash
 docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=TuPasswordSeguro123" \
    -p 1433:1433 --name sql_server_asistencias \
-   -d [mcr.microsoft.com/mssql/server:2022-latest](https://mcr.microsoft.com/mssql/server:2022-latest)
+   -d mcr.microsoft.com/mssql/server:2022-latest
+```
+
+### 3. Aplicar las Migraciones en Orden
+Conéctate a tu servidor local de base de datos y ejecuta los scripts ubicados dentro de la carpeta `migrations/` en orden cronológico para garantizar que no existan errores de dependencias de objetos.
