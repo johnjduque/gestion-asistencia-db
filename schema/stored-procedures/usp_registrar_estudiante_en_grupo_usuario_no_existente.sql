@@ -175,7 +175,7 @@ BEGIN
         IF @estadoResultado = 1
         BEGIN
         SELECT
-            @mensajeUsuarioResultado = 'Holaaaaaaa, Se ha enrolado el estudiante en el grupo de forma sactisfactoria',
+            @mensajeUsuarioResultado = 'Se ha enrolado el estudiante en el grupo de forma sactisfactoria',
             @mensajeTecnicoResultado = [dbo].[ufn_obtener_mensaje_exito](@idCorrelacionDefecto, OBJECT_NAME(@@PROCID), CONCAT('Operaci??n exitosa completa. Orquestador finalizado para Estudiante: ', @idEstudianteCreado, ' en Grupo: ', @grupoDefecto))
     END
 

@@ -8,6 +8,8 @@
     "editor.gotoLocation.multipleDeclarations": "goto",
     "editor.definitionLinkOpensInMode": "gotoSource",
     "editor.multiCursorModifier": "ctrlCmd",
+    "saralsql.sqlproj.strictBuildMembership": false,
+    "saralsql.sqlproj.warnMissingProjectFile": false,
     "files.associations": {
         "*.sql": "sql"
     }

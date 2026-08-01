@@ -24,12 +24,12 @@
   </PropertyGroup>
   <ItemGroup>
     <Folder Include="schema" />
-    <Folder Include="schema\tables" />
-    <Folder Include="schema\views" />
-    <Folder Include="schema\stored-procedures" />
-    <Folder Include="schema\functions" />
+    <Folder Include="schema/tables" />
+    <Folder Include="schema/views" />
+    <Folder Include="schema/stored-procedures" />
+    <Folder Include="schema/functions" />
   </ItemGroup>
   <ItemGroup>
-    <Build Include="schema\**\*.sql" />
+    <Build Include="schema/**/*.sql" />
   </ItemGroup>
 </Project>
