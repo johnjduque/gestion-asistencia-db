@@ -1,0 +1,14 @@
+{
+    "sql.project.enableAutoBuild": true,
+    "mssql.enableSqlAuthentication": true,
+    "mssql.intelliSense.enableIntelliSense": true,
+    "mssql.intelliSense.enableErrorChecking": true,
+    "mssql.intelliSense.enableQuickInfo": true,
+    "editor.gotoLocation.multipleDefinitions": "goto",
+    "editor.gotoLocation.multipleDeclarations": "goto",
+    "editor.definitionLinkOpensInMode": "gotoSource",
+    "editor.multiCursorModifier": "ctrlCmd",
+    "files.associations": {
+        "*.sql": "sql"
+    }
+}
