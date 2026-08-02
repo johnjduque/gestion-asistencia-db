@@ -20,14 +20,14 @@ AS
     DECLARE @idGrupoDefecto UNIQUEIDENTIFIER = UPPER(LTRIM(RTRIM(ISNULL(@idGrupo,'00000000-0000-0000-0000-000000000000'))));
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = UPPER(LTRIM(RTRIM(ISNULL(@idCorrelacion,'00000000-0000-0000-0000-000000000000'))));
 
-    -- Inicializaci??n
+    -- Inicializacion
     SELECT @mensajeUsuarioResultado = '', @mensajeTecnicoResultado = '', @estadoResultado = 1;
 
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
 
-        -- 1. Validar correlaci??n
+        -- 1. Validar correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
@@ -44,7 +44,7 @@ BEGIN
         END
 
         --------------------------------------------------------------------
-        -- 2. Detecci??n de Cruce de Horario
+        -- 2. Deteccion de Cruce de Horario
         --------------------------------------------------------------------
         IF @estadoResultado = 1 
         BEGIN
@@ -55,7 +55,7 @@ BEGIN
             SELECT TOP 1 
                 @estadoResultado = 0,
                 @nombreGrupoConflicto = gExistente.nombre,
-                @diaConflicto = hNuevo.nombreDia -- Asumiendo que uv_horario tiene el nombre del d??a
+                @diaConflicto = hNuevo.nombreDia -- Asumiendo que uv_horario tiene el nombre del dia
             FROM uv_horario hNuevo
             INNER JOIN uv_horario hExistente ON hNuevo.idDia = hExistente.idDia 
                 AND hNuevo.idPeriodoAcademico = hExistente.idPeriodoAcademico
@@ -64,13 +64,13 @@ BEGIN
             WHERE hNuevo.idGrupo = @idGrupoDefecto
                 AND eg.idEstudiante = @idEstudianteDefecto
                 AND hNuevo.idGrupo <> hExistente.idGrupo
-                -- L??gica de traslape: (InicioA < FinB) AND (FinA > InicioB)
+                -- Logica de traslape: (InicioA < FinB) AND (FinA > InicioB)
                 AND hNuevo.horaInicio < hExistente.horaFin
                 AND hNuevo.horaFin > hExistente.horaInicio;
 
             IF @estadoResultado = 0
             BEGIN
-                SELECT @mensajeUsuarioResultado = CONCAT('No es posible realizar el registro. Existe un cruce de horario el d??a ', @diaConflicto, ' con el grupo: ', @nombreGrupoConflicto, '.'),
+                SELECT @mensajeUsuarioResultado = CONCAT('No es posible realizar el registro. Existe un cruce de horario el dia ', @diaConflicto, ' con el grupo: ', @nombreGrupoConflicto, '.'),
                        @mensajeTecnicoResultado = [dbo].[ufn_obtener_mensaje_exito](@idCorrelacionDefecto, OBJECT_NAME(@@PROCID), CONCAT('Cruce detectado en uv_horario para Estudiante: ', @idEstudianteDefecto, ' Conflicto con GrupoID: ', @idGrupoDefecto));
             END
         END
@@ -78,7 +78,7 @@ BEGIN
     END TRY
     BEGIN CATCH
         SELECT @mensajeUsuarioResultado = 'Error al validar disponibilidad de horario.',
-               @mensajeTecnicoResultado = CONCAT('Error cr??tico en orquestador [usp_validar_cruce_horario_estudiante_interno]: ', ERROR_MESSAGE(), '. L??nea: ', ERROR_LINE()),
+               @mensajeTecnicoResultado = CONCAT('Error critico en orquestador [usp_validar_cruce_horario_estudiante_interno]: ', ERROR_MESSAGE(), '. Linea: ', ERROR_LINE()),
                @estadoResultado = 0;
     END CATCH
 END

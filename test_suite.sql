@@ -7,7 +7,7 @@ PRINT '======================================================================';
 PRINT '  SUITE DE PRUEBAS COMPLETAS: usp_registrar_estudiante_en_grupo_usuario_no_existente';
 PRINT '======================================================================';
 
--- 1. Declarar variables para los ID válidos del sistema
+-- 1. Declarar variables para los ID validos del sistema
 DECLARE @tipoIdIdentificacion UNIQUEIDENTIFIER;
 DECLARE @idGrupoValido UNIQUEIDENTIFIER;
 DECLARE @idPeriodoValido UNIQUEIDENTIFIER;
@@ -19,15 +19,15 @@ SELECT TOP 1 @idGrupoValido = id, @idPeriodoValido = periodoAcademico FROM dbo.G
 -- Control para asegurar que existan datos base
 IF @tipoIdIdentificacion IS NULL OR @idGrupoValido IS NULL OR @idPeriodoValido IS NULL
 BEGIN
-    PRINT 'ERROR CRÍTICO: No se encontraron registros base en TipoIdentificacion, Grupo o PeriodoAcademico. Deteniendo pruebas.';
+    PRINT 'ERROR CRITICO: No se encontraron registros base en TipoIdentificacion, Grupo o PeriodoAcademico. Deteniendo pruebas.';
     SET NOEXEC ON;
 END
 
 ----------------------------------------------------------------------
--- CAMINO 1: IdCorrelacion Ausente / Vacío
+-- CAMINO 1: IdCorrelacion Ausente / Vacio
 ----------------------------------------------------------------------
 PRINT '';
-PRINT '--- [CAMINO 1]: IdCorrelacion Ausente / Vacío (00000000-0000-0000-0000-000000000000) ---';
+PRINT '--- [CAMINO 1]: IdCorrelacion Ausente / Vacio (00000000-0000-0000-0000-000000000000) ---';
 BEGIN TRANSACTION;
 BEGIN
     EXEC [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
@@ -51,7 +51,7 @@ PRINT '';
 PRINT '--- [CAMINO 2]: Happy Path (Usuario Nuevo -> Estudiante Nuevo -> Registro Exitoso) ---';
 BEGIN TRANSACTION;
 BEGIN
-    -- Forzar vigencia del periodo académico para pasar la validación
+    -- Forzar vigencia del periodo academico para pasar la validacion
     UPDATE dbo.PeriodoAcademico 
     SET fechaInicio = DATEADD(month, -1, GETDATE()), 
         fechaFin = DATEADD(month, 3, GETDATE()) 
@@ -73,16 +73,16 @@ BEGIN
         @idGrupo = @idGrupoValido,
         @idCorrelacion = @idCorrelacionC2;
 
-    -- Verificación
+    -- Verificacion
     IF EXISTS (
         SELECT 1 FROM dbo.Usuario u
         INNER JOIN dbo.Estudiante e ON u.id = e.usuario
         INNER JOIN dbo.EstudianteGrupo eg ON e.id = eg.estudiante
         WHERE u.correo = @correoC2 AND eg.grupo = @idGrupoValido
     )
-        PRINT '>> RESULTADO: PASÓ (Estudiante creado e inscrito en el grupo exitosamente)';
+        PRINT '>> RESULTADO: PASO (Estudiante creado e inscrito en el grupo exitosamente)';
     ELSE
-        PRINT '>> RESULTADO: FALLÓ (La inscripción no se realizó correctamente)';
+        PRINT '>> RESULTADO: FALLO (La inscripcion no se realizo correctamente)';
 END;
 ROLLBACK TRANSACTION;
 
@@ -93,7 +93,7 @@ PRINT '';
 PRINT '--- [CAMINO 3]: Usuario Preexistente -> Actualiza Nombres, Crea Perfil y Asigna ---';
 BEGIN TRANSACTION;
 BEGIN
-    -- Forzar vigencia del periodo académico para pasar la validación
+    -- Forzar vigencia del periodo academico para pasar la validacion
     UPDATE dbo.PeriodoAcademico 
     SET fechaInicio = DATEADD(month, -1, GETDATE()), 
         fechaFin = DATEADD(month, 3, GETDATE()) 
@@ -121,7 +121,7 @@ BEGIN
         @idGrupo = @idGrupoValido,
         @idCorrelacion = @idCorrelacionC3;
 
-    -- Verificación
+    -- Verificacion
     IF EXISTS (
         SELECT 1 FROM dbo.Usuario u
         INNER JOIN dbo.Estudiante e ON u.id = e.usuario
@@ -131,24 +131,24 @@ BEGIN
           AND u.primerApellido = 'NUEVOAP'
           AND eg.grupo = @idGrupoValido
     )
-        PRINT '>> RESULTADO: PASÓ (Usuario preexistente actualizado, perfil estudiante creado e inscrito)';
+        PRINT '>> RESULTADO: PASO (Usuario preexistente actualizado, perfil estudiante creado e inscrito)';
     ELSE
-        PRINT '>> RESULTADO: FALLÓ (La actualización o inscripción no se realizó correctamente)';
+        PRINT '>> RESULTADO: FALLO (La actualizacion o inscripcion no se realizo correctamente)';
 END;
 ROLLBACK TRANSACTION;
 
 ----------------------------------------------------------------------
--- CAMINO 4: Fallo en Sincronizar Usuario (Campos Nulos / Inválidos)
+-- CAMINO 4: Fallo en Sincronizar Usuario (Campos Nulos / Invalidos)
 ----------------------------------------------------------------------
 PRINT '';
-PRINT '--- [CAMINO 4]: Fallo en Sincronizar Usuario (Campos Nulos / Inválidos) ---';
+PRINT '--- [CAMINO 4]: Fallo en Sincronizar Usuario (Campos Nulos / Invalidos) ---';
 BEGIN TRANSACTION;
 BEGIN
     DECLARE @idCorrelacionC4 UNIQUEIDENTIFIER = NEWID();
 
     EXEC [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
         @tipoIdIdentificacion = @tipoIdIdentificacion,
-        @numeroIdentificacion = NULL, -- Causará error de formato / ufn_validar_numero
+        @numeroIdentificacion = NULL, -- Causara error de formato / ufn_validar_numero
         @primerApellido = NULL,
         @segundoApellido = NULL,
         @primerNombre = NULL,
@@ -167,7 +167,7 @@ PRINT '';
 PRINT '--- [CAMINO 5]: Fallo por Cruce de Horario (Estudiante con clases coincidentes) ---';
 BEGIN TRANSACTION;
 BEGIN
-    -- Forzar vigencia del periodo académico para pasar la validación
+    -- Forzar vigencia del periodo academico para pasar la validacion
     UPDATE dbo.PeriodoAcademico 
     SET fechaInicio = DATEADD(month, -1, GETDATE()), 
         fechaFin = DATEADD(month, 3, GETDATE()) 
@@ -177,7 +177,7 @@ BEGIN
     DECLARE @correoC5 NVARCHAR(255) = 'estudiante.cruce.c5@test.com';
     DECLARE @numeroIdC5 INT = 100000005;
 
-    -- Obtener periodo académico del grupo válido
+    -- Obtener periodo academico del grupo valido
     DECLARE @idPeriodo UNIQUEIDENTIFIER;
     SELECT @idPeriodo = periodoAcademico FROM dbo.Grupo WHERE id = @idGrupoValido;
 
@@ -192,12 +192,12 @@ BEGIN
     INSERT INTO dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron, cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)
     VALUES (@idGrupo2, @idAsignatura, @idPeriodo, 99992, 'Grupo Test Cruce Estudiante 2', 30, 0, 0, 0, @idDocenteValido);
 
-    -- Crear un día común para los horarios
+    -- Crear un dia comun para los horarios
     DECLARE @idDia UNIQUEIDENTIFIER;
     SELECT TOP 1 @idDia = id FROM dbo.Dia;
 
     -- Agregar horarios cruzados
-    -- Grupo 1 (Grupo Válido): 08:00 a 10:00
+    -- Grupo 1 (Grupo Valido): 08:00 a 10:00
     INSERT INTO dbo.Horario (id, grupo, dia, horaInicio, horaFin)
     VALUES (NEWID(), @idGrupoValido, @idDia, '08:00:00', '10:00:00');
 
@@ -218,7 +218,7 @@ BEGIN
         @idGrupo = @idGrupoValido,
         @idCorrelacion = @idCorrelacionC5;
 
-    -- Intentar enrolar al mismo estudiante al Grupo 2 (Debería fallar por cruce)
+    -- Intentar enrolar al mismo estudiante al Grupo 2 (Deberia fallar por cruce)
     EXEC [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
         @tipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC5,

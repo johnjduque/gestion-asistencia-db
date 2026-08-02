@@ -21,7 +21,7 @@ BEGIN
     END
     -- 2. Validaci?n de caracteres permitidos (Incluye n?meros 0-9)
     -- Si encuentra algo que NO sea letras, n?meros, tildes o espacios, devuelve 0
-    ELSE IF PATINDEX('%[^A-Za-z????????????0-9 ]%', @p_texto) > 0
+    ELSE IF PATINDEX('%[^A-Za-zaeiouaeiouuu0-9 ]%', @p_texto) > 0
     BEGIN
         SET @resultado = 0;
     END

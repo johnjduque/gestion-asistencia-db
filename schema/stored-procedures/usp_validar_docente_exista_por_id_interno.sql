@@ -22,14 +22,14 @@ BEGIN
     
     SET NOCOUNT ON;  
     BEGIN TRY  
-        -- 1. Validar correlación  
+        -- 1. Validar correlacion  
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
             @idCorrelacion = @idCorrelacionDefecto,  
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
             @estadoResultado = @estadoResultado OUTPUT;  
 
-        -- 2. Validar identificador Docente no es vacío  
+        -- 2. Validar identificador Docente no es vacio  
         IF @estadoResultado = 1  
         BEGIN  
             EXEC dbo.usp_validar_id_interno 
@@ -38,8 +38,8 @@ BEGIN
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,   
                 @estadoResultado = @estadoResultado OUTPUT;  
   
-            SELECT  @mensajeUsuarioResultado = 'El identificador del docente no es válido o está vacío.',  
-                    @mensajeTecnicoResultado = CONCAT('ID Docente vacío o por defecto. ID CORRELACION=[', @idCorrelacionDefecto, ']'),  
+            SELECT  @mensajeUsuarioResultado = 'El identificador del docente no es valido o esta vacio.',  
+                    @mensajeTecnicoResultado = CONCAT('ID Docente vacio o por defecto. ID CORRELACION=[', @idCorrelacionDefecto, ']'),  
                     @estadoResultado = 0  
             WHERE   @estadoResultado = 0;  
         END  
@@ -55,7 +55,7 @@ BEGIN
         END  
   
         --------------------------------------------------------------------  
-        -- 4. Validar que esté Activo en la identidad base
+        -- 4. Validar que este Activo en la identidad base
         --------------------------------------------------------------------  
         IF @estadoResultado = 1 AND EXISTS (SELECT 1 FROM uv_docente_identidad WHERE id = @idDocenteDefecto AND estaActivoUsuario = 0)  
         BEGIN  
@@ -66,8 +66,8 @@ BEGIN
   
     END TRY  
     BEGIN CATCH  
-        SELECT @mensajeUsuarioResultado = 'Ocurrió un error inesperado al validar el docente.',   
-               @mensajeTecnicoResultado = CONCAT('Error crítico en orquestador [usp_validar_docente_exista_por_id_interno]: ', ERROR_MESSAGE(), '. Línea: ', ERROR_LINE()),
+        SELECT @mensajeUsuarioResultado = 'Ocurrio un error inesperado al validar el docente.',   
+               @mensajeTecnicoResultado = CONCAT('Error critico en orquestador [usp_validar_docente_exista_por_id_interno]: ', ERROR_MESSAGE(), '. Linea: ', ERROR_LINE()),
                @estadoResultado = 0;  
     END CATCH  
 END;

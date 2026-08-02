@@ -166,7 +166,7 @@ BEGIN
             ELSE
             BEGIN
             SELECT
-                @mensajeUsuarioResultado = 'No se encontr?? un programa acad??mico asociado a este grupo.',
+                @mensajeUsuarioResultado = 'No se encontro un programa academico asociado a este grupo.',
                 @mensajeTecnicoResultado = CONCAT('Error: Trazabilidad rota para Grupo ID ', @grupoDefecto),
                 @estadoResultado = 0;
         END
@@ -176,14 +176,14 @@ BEGIN
         BEGIN
         SELECT
             @mensajeUsuarioResultado = 'Se ha enrolado el estudiante en el grupo de forma sactisfactoria',
-            @mensajeTecnicoResultado = [dbo].[ufn_obtener_mensaje_exito](@idCorrelacionDefecto, OBJECT_NAME(@@PROCID), CONCAT('Operaci??n exitosa completa. Orquestador finalizado para Estudiante: ', @idEstudianteCreado, ' en Grupo: ', @grupoDefecto))
+            @mensajeTecnicoResultado = [dbo].[ufn_obtener_mensaje_exito](@idCorrelacionDefecto, OBJECT_NAME(@@PROCID), CONCAT('Operacion exitosa completa. Orquestador finalizado para Estudiante: ', @idEstudianteCreado, ' en Grupo: ', @grupoDefecto))
     END
 
     END TRY
     BEGIN CATCH
         SELECT
         @mensajeUsuarioResultado = 'Hubo un error inesperado al procesar el registro completo del estudiante.',
-        @mensajeTecnicoResultado = CONCAT('Error cr??tico en orquestador [usp_registrar_estudiante_en_grupo_usuario_no_existente]: ', ERROR_MESSAGE(), '. L??nea: ', ERROR_LINE()),
+        @mensajeTecnicoResultado = CONCAT('Error critico en orquestador [usp_registrar_estudiante_en_grupo_usuario_no_existente]: ', ERROR_MESSAGE(), '. Linea: ', ERROR_LINE()),
         @estadoResultado = 0;
     END CATCH
 

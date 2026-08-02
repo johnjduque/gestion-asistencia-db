@@ -25,7 +25,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
-        -- 1. Validar correlaci??n
+        -- 1. Validar correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
@@ -57,8 +57,8 @@ BEGIN
 
     END TRY
     BEGIN CATCH
-        SELECT @mensajeUsuarioResultado = 'Ocurri?? un error al validar su registro previo.',
-               @mensajeTecnicoResultado = CONCAT('Error cr??tico en orquestador [usp_validar_registro_estudiante_en_grupo_interno]: ', ERROR_MESSAGE(), '. L??nea: ', ERROR_LINE()),
+        SELECT @mensajeUsuarioResultado = 'Ocurrio un error al validar su registro previo.',
+               @mensajeTecnicoResultado = CONCAT('Error critico en orquestador [usp_validar_registro_estudiante_en_grupo_interno]: ', ERROR_MESSAGE(), '. Linea: ', ERROR_LINE()),
                @estadoResultado = 0;
     END CATCH
 END

@@ -16,12 +16,12 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_docente_en_grupo_interno]
 )
 AS
 BEGIN
-    -- 1. Estandarización de identificadores
+    -- 1. Estandarizacion de identificadores
     DECLARE @docenteDefecto UNIQUEIDENTIFIER = ISNULL(@docente,'00000000-0000-0000-0000-000000000000');
     DECLARE @grupoDefecto UNIQUEIDENTIFIER = ISNULL(@grupo,'00000000-0000-0000-0000-000000000000');
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = ISNULL(@idCorrelacion, '00000000-0000-0000-0000-000000000000');
 
-    -- Inicialización de respuesta
+    -- Inicializacion de respuesta
     SELECT @mensajeUsuarioResultado = '', @mensajeTecnicoResultado = '', @estadoResultado = 1;
 
     SET NOCOUNT ON;
@@ -30,14 +30,14 @@ BEGIN
         -- 2. CADENA DE VALIDACIONES
         --------------------------------------------------------------------
         
-        -- Validación de Correlación
+        -- Validacion de Correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
             @idCorrelacion = @idCorrelacionDefecto, 
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- Validación de Docente
+        -- Validacion de Docente
         IF @estadoResultado = 1 BEGIN
             EXEC dbo.usp_validar_docente_exista_por_id_interno 
                 @idDocente = @docenteDefecto, 
@@ -47,7 +47,7 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
-        -- Validación de Grupo
+        -- Validacion de Grupo
         IF @estadoResultado = 1 BEGIN
             EXEC dbo.usp_validar_grupo_exista_para_docente_interno 
                 @idGrupo = @grupoDefecto, 
@@ -57,7 +57,7 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
             
-        -- Validación de Horario (Cruce)
+        -- Validacion de Horario (Cruce)
         IF @estadoResultado = 1 BEGIN
             EXEC dbo.usp_validar_cruce_horario_docente_interno 
                 @idDocente = @docenteDefecto, 
@@ -69,7 +69,7 @@ BEGIN
         END
 
         --------------------------------------------------------------------
-        -- 3. REGISTRO/ASIGNACIÓN FINAL (UPDATE)
+        -- 3. REGISTRO/ASIGNACION FINAL (UPDATE)
         --------------------------------------------------------------------
         IF @estadoResultado = 1 
         BEGIN
@@ -78,15 +78,15 @@ BEGIN
             WHERE id = @grupoDefecto;
 
             SELECT 
-                @mensajeUsuarioResultado = 'La asignación del docente al grupo se ha realizado exitosamente.',
-                @mensajeTecnicoResultado = CONCAT('Asignación exitosa. Se actualizó el docente del grupo [', CAST(@grupoDefecto AS NVARCHAR(50)), '] con el docente [', CAST(@docenteDefecto AS NVARCHAR(50)), ']. Correlación: ', CAST(@idCorrelacionDefecto AS NVARCHAR(50))),
+                @mensajeUsuarioResultado = 'La asignacion del docente al grupo se ha realizado exitosamente.',
+                @mensajeTecnicoResultado = CONCAT('Asignacion exitosa. Se actualizo el docente del grupo [', CAST(@grupoDefecto AS NVARCHAR(50)), '] con el docente [', CAST(@docenteDefecto AS NVARCHAR(50)), ']. Correlacion: ', CAST(@idCorrelacionDefecto AS NVARCHAR(50))),
                 @estadoResultado = 1;
         END
 
     END TRY
     BEGIN CATCH
-        SELECT @mensajeUsuarioResultado = 'No se pudo completar la asignación del docente al grupo.',
-               @mensajeTecnicoResultado = CONCAT('Error crítico en [usp_registrar_docente_en_grupo_interno]: ', ERROR_MESSAGE(), '. Línea: ', ERROR_LINE()),
+        SELECT @mensajeUsuarioResultado = 'No se pudo completar la asignacion del docente al grupo.',
+               @mensajeTecnicoResultado = CONCAT('Error critico en [usp_registrar_docente_en_grupo_interno]: ', ERROR_MESSAGE(), '. Linea: ', ERROR_LINE()),
                @estadoResultado = 0;
     END CATCH
 END;

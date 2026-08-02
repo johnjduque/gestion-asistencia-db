@@ -17,16 +17,16 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- 1. Estandarizaci??n y cura de variables
+    -- 1. Estandarizacion y cura de variables
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER;
     DECLARE @idUsuarioDefecto UNIQUEIDENTIFIER;
     DECLARE @idPerfilBusquedad UNIQUEIDENTIFIER;
 
-    -- Asignaci??n segura con validaci??n de nulos
+    -- Asignacion segura con validacion de nulos
     SET @idCorrelacionDefecto = ISNULL(@idCorrelacion, '00000000-0000-0000-0000-000000000000');
     SET @idUsuarioDefecto = ISNULL(@idUsuario, '00000000-0000-0000-0000-000000000000');
 
-    -- Inicializaci??n estricta de respuestas
+    -- Inicializacion estricta de respuestas
     SELECT 
         @mensajeUsuarioResultado = '', 
         @mensajeTecnicoResultado = '', 
@@ -35,7 +35,7 @@ BEGIN
     BEGIN TRY
 
         --------------------------------------------------------------------
-        -- VALIDACI??N DE CORRELACI??N
+        -- VALIDACION DE CORRELACIoN
         --------------------------------------------------------------------
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
             @idCorrelacion = @idCorrelacionDefecto, 
@@ -44,7 +44,7 @@ BEGIN
             @estadoResultado = @estadoResultado OUTPUT;
         
         --------------------------------------------------------------------
-        -- VALIDAR PERFIL (Busca el ID por el c??digo 'ES')
+        -- VALIDAR PERFIL (Busca el ID por el codigo 'ES')
         --------------------------------------------------------------------
         IF @estadoResultado = 1
         BEGIN
@@ -81,13 +81,13 @@ BEGIN
             BEGIN
                 SELECT 
                     @mensajeUsuarioResultado = 'El usuario ya se encuentra registrado como estudiante.',
-                    @mensajeTecnicoResultado = CONCAT('Fallo unicidad: El idUsuario [', CAST(@idUsuarioDefecto AS NVARCHAR(50)), '] ya existe en la tabla dbo.Estudiante. Correlaci??n: ', CAST(@idCorrelacionDefecto AS NVARCHAR(50))),
+                    @mensajeTecnicoResultado = CONCAT('Fallo unicidad: El idUsuario [', CAST(@idUsuarioDefecto AS NVARCHAR(50)), '] ya existe en la tabla dbo.Estudiante. Correlacion: ', CAST(@idCorrelacionDefecto AS NVARCHAR(50))),
                     @estadoResultado = 0;
             END
         END
 
         --------------------------------------------------------------------
-        -- INSERCI??N FINAL
+        -- INSERCIoN FINAL
         --------------------------------------------------------------------
         IF @estadoResultado = 1
         BEGIN
@@ -96,15 +96,15 @@ BEGIN
 
             SELECT 
                 @mensajeUsuarioResultado = 'Registro de estudiante completado exitosamente.',
-                @mensajeTecnicoResultado = CONCAT('Inserci??n exitosa en dbo.Estudiante para idUsuario [', CAST(@idUsuarioDefecto AS NVARCHAR(50)), ']. Correlaci??n: ', CAST(@idCorrelacionDefecto AS NVARCHAR(50))),
+                @mensajeTecnicoResultado = CONCAT('Insercion exitosa en dbo.Estudiante para idUsuario [', CAST(@idUsuarioDefecto AS NVARCHAR(50)), ']. Correlacion: ', CAST(@idCorrelacionDefecto AS NVARCHAR(50))),
                 @estadoResultado = 1;
         END
 
     END TRY
     BEGIN CATCH
         SELECT 
-            @mensajeUsuarioResultado = 'Ocurri?? un error al intentar agregar el estudiante.',
-            @mensajeTecnicoResultado = CONCAT('Error cr??tico en [usp_sincronizar_estudiante_interno]: ', ERROR_MESSAGE(), '. Correlaci??n: ', CAST(@idCorrelacionDefecto AS NVARCHAR(50))),
+            @mensajeUsuarioResultado = 'Ocurrio un error al intentar agregar el estudiante.',
+            @mensajeTecnicoResultado = CONCAT('Error critico en [usp_sincronizar_estudiante_interno]: ', ERROR_MESSAGE(), '. Correlacion: ', CAST(@idCorrelacionDefecto AS NVARCHAR(50))),
             @estadoResultado = 0;
     END CATCH
 END;
