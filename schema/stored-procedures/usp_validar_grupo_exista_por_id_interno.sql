@@ -29,7 +29,7 @@ BEGIN
     --------------------------------------------------------------------
     BEGIN TRY
         -- 1. Validar correlaci??n
-        EXEC dbo.usp_validar_id_correlacion_esta_presente
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
@@ -46,7 +46,7 @@ BEGIN
         -- 2. Validar que est?? el id del grupo
         IF @estadoResultado = 1
         BEGIN
-            EXEC usp_validar_id 
+            EXEC dbo.usp_validar_id_interno 
                 @id = @idGrupoDefecto, 
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 

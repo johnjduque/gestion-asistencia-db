@@ -28,7 +28,7 @@ BEGIN
     BEGIN TRY
 
         -- 1. Validar correlaci??n
-        EXEC dbo.usp_validar_id_correlacion_esta_presente
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
@@ -36,11 +36,11 @@ BEGIN
 
         -- 1. Validaciones previas de existencia
         IF @estadoResultado = 1 BEGIN
-            EXEC dbo.usp_validar_estudiante_exista_por_id @idEstudiante = @idEstudianteDefecto, @idCorrelacion = @idCorrelacionDefecto, @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, @estadoResultado = @estadoResultado OUTPUT;
+            EXEC dbo.usp_validar_estudiante_exista_por_id_interno @idEstudiante = @idEstudianteDefecto, @idCorrelacion = @idCorrelacionDefecto, @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, @estadoResultado = @estadoResultado OUTPUT;
         END
 
         IF @estadoResultado = 1 BEGIN
-            EXEC dbo.usp_validar_grupo_exista_por_id @idGrupo = @idGrupoDefecto, @idCorrelacion = @idCorrelacionDefecto, @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, @estadoResultado = @estadoResultado OUTPUT;
+            EXEC dbo.usp_validar_grupo_exista_por_id_interno @idGrupo = @idGrupoDefecto, @idCorrelacion = @idCorrelacionDefecto, @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, @estadoResultado = @estadoResultado OUTPUT;
         END
 
         --------------------------------------------------------------------

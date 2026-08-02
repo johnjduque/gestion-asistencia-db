@@ -1,20 +1,11 @@
-USE [gestionasistenciadb]
+USE [gestionasistenciadb];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
 GO
 
-/****** Object:  StoredProcedure [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]    Script Date: 22/07/2026 11:55:06 p. m. ******/
-DROP PROCEDURE [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
-GO
-
-/****** Object:  StoredProcedure [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]    Script Date: 22/07/2026 11:55:06 p. m. ******/
-SET ANSI_NULLS ON
-GO
-
-SET QUOTED_IDENTIFIER ON
-GO
-
-
-
-CREATE  OR  ALTER    PROCEDURE [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
+CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
 (
     @tipoIdIdentificacion UNIQUEIDENTIFIER,
     @numeroIdentificacion INT,
@@ -24,39 +15,42 @@ CREATE  OR  ALTER    PROCEDURE [dbo].[usp_registrar_estudiante_en_grupo_usuario_
     @segundoNombre NVARCHAR(255),
     @correo NVARCHAR(255),
     @password NVARCHAR(MAX),
-    @idGrupo UNIQUEIDENTIFIER,      
+    @idGrupo UNIQUEIDENTIFIER,
     @idCorrelacion UNIQUEIDENTIFIER
 )
 AS
+BEGIN
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = ISNULL(@idCorrelacion, '00000000-0000-0000-0000-000000000000');
     DECLARE @grupoDefecto UNIQUEIDENTIFIER = ISNULL(@idGrupo,'00000000-0000-0000-0000-000000000000');
-    
+
     DECLARE @idUsuarioCreado UNIQUEIDENTIFIER;
-    DECLARE @idEstudianteCreado UNIQUEIDENTIFIER;
-    DECLARE @idProgramaGrupo UNIQUEIDENTIFIER;
+    DECLARE @idDocenteCreado UNIQUEIDENTIFIER;
 
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = '';
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = '';
     DECLARE @estadoResultado BIT = 1;
 
-BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
 
+        -- 1. Validar ID de correlaciÃ³n
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
             @idCorrelacion = @idCorrelacionDefecto, 
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
             @estadoResultado = @estadoResultado OUTPUT;
 
+        -- 2. Buscar si el usuario ya existe en el sistema
         IF @estadoResultado = 1
         BEGIN
-            SELECT TOP 1 @idUsuarioCreado = id 
-            FROM [dbo].[uv_usuario] 
-            WHERE correo = LOWER(LTRIM(RTRIM(@correo))) 
+            SELECT TOP 1
+                @idUsuarioCreado = id
+            FROM [dbo].[uv_usuario]
+            WHERE correo = LOWER(LTRIM(RTRIM(@correo)))
                OR (idTipoIdentificacion = @tipoIdIdentificacion AND numeroIdentificacion = @numeroIdentificacion);
         END
 
+        -- 3. Si el usuario existe, validarlo y actualizarlo. Si no, crearlo.
         IF @estadoResultado = 1
         BEGIN
             IF @idUsuarioCreado IS NOT NULL
@@ -100,21 +94,26 @@ BEGIN
                     @estadoResultado = @estadoResultado OUTPUT;
 
                 IF @estadoResultado = 1 
-                BEGIN 
-                    SELECT TOP 1 @idUsuarioCreado = id FROM [dbo].[uv_usuario] WHERE correo = LOWER(LTRIM(RTRIM(@correo)));
+                BEGIN
+                    SELECT TOP 1
+                        @idUsuarioCreado = id
+                    FROM [dbo].[uv_usuario]
+                    WHERE correo = LOWER(LTRIM(RTRIM(@correo)));
                 END
             END
         END
        
+        -- 4. Verificar perfil de Docente
         IF @estadoResultado = 1
         BEGIN
-            SELECT TOP 1 @idEstudianteCreado = id 
-            FROM [dbo].[uv_estudiante_identidad] 
+            SELECT TOP 1
+                @idDocenteCreado = id
+            FROM [dbo].[uv_docente_identidad]
             WHERE idUsuario = @idUsuarioCreado;
 
-            IF @idEstudianteCreado IS NULL
+            IF @idDocenteCreado IS NULL
             BEGIN
-                EXEC [dbo].[usp_sincronizar_estudiante_interno]
+                EXEC [dbo].[usp_sincronizar_docente_interno]
                     @idUsuario = @idUsuarioCreado,
                     @idCorrelacion = @idCorrelacionDefecto,
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
@@ -123,20 +122,23 @@ BEGIN
 
                 IF @estadoResultado = 1
                 BEGIN
-                    SELECT TOP 1 @idEstudianteCreado = id FROM [dbo].[uv_estudiante_identidad] WHERE idUsuario = @idUsuarioCreado;
+                    SELECT TOP 1
+                        @idDocenteCreado = id
+                    FROM [dbo].[uv_docente_identidad]
+                    WHERE idUsuario = @idUsuarioCreado;
                 END
             END
             ELSE
             BEGIN
-                SET @mensajeTecnicoResultado = 'Perfil base de estudiante verificado.';
+                SET @mensajeTecnicoResultado = 'Perfil base de docente verificado.';
             END
         END
         
-        -- PASO 3 
+        -- 5. Asignar el docente al grupo
         IF @estadoResultado = 1
         BEGIN
-            EXEC [dbo].[usp_registrar_estudiante_en_grupo_interno]
-                @estudiante = @idEstudianteCreado,
+            EXEC [dbo].[usp_registrar_docente_en_grupo_interno]
+                @docente = @idDocenteCreado,
                 @grupo = @grupoDefecto,
                 @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
@@ -144,55 +146,26 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
         
+        -- 6. Respuesta final exitosa
         IF @estadoResultado = 1
         BEGIN
-            SELECT TOP 1 @idProgramaGrupo = pe.idPrograma
-            FROM [dbo].[uv_grupo] g
-            INNER JOIN [dbo].[uv_asignatura] a ON g.idAsignatura = a.id
-            INNER JOIN [dbo].[uv_semestre_plan_estudio] spe ON a.idSemestrePlanEstudio = spe.id
-            INNER JOIN [dbo].[uv_plan_estudio] pe ON spe.idPlanEstudio = pe.id
-            WHERE g.id = @grupoDefecto;
-
-            IF @idProgramaGrupo IS NOT NULL
-            BEGIN
-                EXEC [dbo].[usp_registrar_estudiante_en_programa_interno]
-                    @idEstudiante = @idEstudianteCreado,
-                    @idPrograma = @idProgramaGrupo,
-                    @idCorrelacion = @idCorrelacionDefecto,
-                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
-                    @estadoResultado = @estadoResultado OUTPUT;
-            END
-            ELSE
-            BEGIN
-                SELECT 
-                    @mensajeUsuarioResultado = 'No se encontró un programa académico asociado a este grupo.',
-                    @mensajeTecnicoResultado = CONCAT('Error: Trazabilidad rota para Grupo ID ', @grupoDefecto),
-                    @estadoResultado = 0;
-            END
-        END
-        
-        IF @estadoResultado = 1
-        BEGIN
-            SELECT 
-                @mensajeUsuarioResultado = 'Se ha enrolado el estudiante en el grupo de forma sactisfactoria',
-                @mensajeTecnicoResultado = [dbo].[ufn_obtener_mensaje_exito](@idCorrelacionDefecto, OBJECT_NAME(@@PROCID), CONCAT('Operación exitosa completa. Orquestador finalizado para Estudiante: ', @idEstudianteCreado, ' en Grupo: ', @grupoDefecto))
+            SELECT
+                @mensajeUsuarioResultado = 'Se ha registrado el docente en el grupo de forma satisfactoria',
+                @mensajeTecnicoResultado = [dbo].[ufn_obtener_mensaje_exito](@idCorrelacionDefecto, OBJECT_NAME(@@PROCID), CONCAT('OperaciÃ³n exitosa completa. Orquestador finalizado para Docente: ', @idDocenteCreado, ' en Grupo: ', @grupoDefecto))
         END
 
     END TRY
     BEGIN CATCH
-        SELECT 
-            @mensajeUsuarioResultado = 'Hubo un error inesperado al procesar el registro completo del estudiante.',
-            @mensajeTecnicoResultado = CONCAT('Error crítico en orquestador [usp_registrar_estudiante_en_grupo_usuario_no_existente]: ', ERROR_MESSAGE(), '. Línea: ', ERROR_LINE()),
+        SELECT
+            @mensajeUsuarioResultado = 'Hubo un error inesperado al procesar el registro completo del docente.',
+            @mensajeTecnicoResultado = CONCAT('Error crÃ­tico en orquestador [usp_registrar_docente_en_grupo_usuario_no_existente]: ', ERROR_MESSAGE(), '. LÃ­nea: ', ERROR_LINE()),
             @estadoResultado = 0;
-    END CATCH           
+    END CATCH
 
-    SELECT 
-        id = @idCorrelacionDefecto, 
-        mensajeUsuarioResultado = @mensajeUsuarioResultado, 
-        mensajeTecnicoResultado = @mensajeTecnicoResultado, 
-        estadoResultado = @estadoResultado;    
-END
+    SELECT
+        id = @idCorrelacionDefecto,
+        mensajeUsuarioResultado = @mensajeUsuarioResultado,
+        mensajeTecnicoResultado = @mensajeTecnicoResultado,
+        estadoResultado = @estadoResultado;
+END;
 GO
-
-
