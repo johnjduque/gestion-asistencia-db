@@ -1,0 +1,15 @@
+USE [gestionasistenciadb];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+CREATE OR ALTER  VIEW [dbo].[uv_tipo_programa]
+AS
+SELECT  id,
+		nombre,
+		estaActivoTipoPrograma =  estado,
+		estaActivoTextoTipoPrograma = IIF(estado = 1, 'SI', 'NO')
+FROM	TipoPrograma
+GO

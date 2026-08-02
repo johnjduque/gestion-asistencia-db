@@ -1,0 +1,16 @@
+{
+    "sql.project.enableAutoBuild": true,
+    "mssql.enableSqlAuthentication": true,
+    "mssql.intelliSense.enableIntelliSense": true,
+    "mssql.intelliSense.enableErrorChecking": true,
+    "mssql.intelliSense.enableQuickInfo": true,
+    "editor.gotoLocation.multipleDefinitions": "goto",
+    "editor.gotoLocation.multipleDeclarations": "goto",
+    "editor.definitionLinkOpensInMode": "gotoSource",
+    "editor.multiCursorModifier": "ctrlCmd",
+    "saralsql.sqlproj.strictBuildMembership": false,
+    "saralsql.sqlproj.warnMissingProjectFile": false,
+    "files.associations": {
+        "*.sql": "sql"
+    }
+}

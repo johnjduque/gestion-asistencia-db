@@ -2,42 +2,74 @@
 
 Este repositorio contiene el diseño lógico, la estructura y los objetos programables de la base de datos para el **Sistema de Gestión de Asistencias**. El entorno de desarrollo está completamente dockerizado para garantizar que todos los miembros del equipo trabajen sobre la misma versión del motor de bases de datos de forma idéntica.
 
+---
+
 ## 🛠️ Stack Tecnológico
 * **Motor:** SQL Server 2022+ (Compatibilidad Nivel 160)
 * **Entorno Local:** Docker & Docker Desktop
-* **IDE Recomendado:** SQL Server Management Studio (SSMS) 21 o Azure Data Studio
+* **IDE Recomendado:** VS Code / Antigravity IDE con extensión *SQL Server (mssql)* o Azure Data Studio / SSMS 21.
 * **Control de Versiones:** Git + GitHub / Azure DevOps
 
 ---
 
-## 🚀 Metodología de Migraciones (Estructura del Proyecto)
+## 📁 Arquitectura Universal del Esquema (`/schema`)
 
-Para evitar conflictos en Git y garantizar un orden estricto de despliegue, el proyecto sigue un **enfoque basado en la organización de scripts** bajo la carpeta `migrations/`.
+El proyecto utiliza un **enfoque modular por objetos**. En lugar de crear archivos de parches sueltos (`fix-*.sql`), cada objeto de la base de datos se mantiene en un archivo `.sql` individual bajo la carpeta `schema/`:
 
-Los archivos ubicados dentro de la carpeta `migrations/` son:
+```text
+/schema
+├── /tables/              <-- Un archivo por cada Tabla (ej. Usuario.sql, Grupo.sql)
+├── /functions/           <-- Un archivo por cada Función UFN (ej. ufn_validar_correo.sql)
+├── /views/               <-- Un archivo por cada Vista (ej. uv_usuario.sql)
+└── /stored-procedures/   <-- Un archivo por cada Procedimiento Almacenado (ej. usp_sincronizar_usuario_interno.sql)
+```
 
-* **Estructura Base (`gestionasistenciadb.sql`):** Inicializa las tablas base, tipos, vistas y procedimientos iniciales del sistema.
-* **Ajustes y Parches (`fix-ajuste-*.sql`):** Modificaciones incrementales aplicadas sobre los procedimientos almacenados y la lógica de negocio.
+### 💡 Flujo de Modificación
+1. Edita directamente el archivo del objeto que necesites modificar (por ejemplo `schema/stored-procedures/usp_sincronizar_usuario_interno.sql`).
+2. Ejecuta el script universal `.\deploy_schema.ps1` para compilar los cambios en tu entorno local.
 
 ---
 
-## ⚙️ Guía de Despliegue Local (Paso a Paso)
-
-Sigue estas instrucciones para clonar el repositorio y levantar la base de datos en tu entorno local.
+## ⚙️ Guía de Despliegue y Pruebas Locales (Paso a Paso)
 
 ### 1. Prerrequisitos
-Asegúrate de tener instalado y ejecutándose:
-* [Docker Desktop](https://www.docker.com/products/docker-desktop/)
-* [SSMS 21](https://learn.microsoft.com/sql/ssms/download-sql-server-management-studio-ssms) o VS Code con la extensión *SQL Server (mssql)*.
+* [Docker Desktop](https://www.docker.com/products/docker-desktop/) ejecutándose.
 
 ### 2. Levantar el Contenedor de SQL Server
-Si aún no tienes un contenedor activo, puedes crear uno ejecutando el siguiente comando en tu terminal (reemplaza `TuPasswordSeguro123` por tu contraseña local):
+Si aún no tienes el contenedor activo, créalo ejecutando el siguiente comando en PowerShell:
 
-```bash
-docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=TuPasswordSeguro123" \
-   -p 1433:1433 --name sql_server_asistencias \
-   -d mcr.microsoft.com/mssql/server:2022-latest
+```powershell
+docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=TuPasswordSeguro123" -p 1433:1433 --name sql_server_asistencias -d mcr.microsoft.com/mssql/server:2022-latest
 ```
 
-### 3. Aplicar las Migraciones en Orden
-Conéctate a tu servidor local de base de datos y ejecuta los scripts ubicados dentro de la carpeta `migrations/` en orden cronológico para garantizar que no existan errores de dependencias de objetos.
+---
+
+## 🚀 Comandos de Despliegue y Pruebas
+
+### 🔹 Desplegar todo el Esquema Modular (`deploy_schema.ps1`)
+Para compilar y aplicar todas las tablas, funciones, vistas y procedimientos almacenados en la base de datos en Docker, ejecuta:
+
+```powershell
+.\deploy_schema.ps1
+```
+
+### 🔹 Ejecutar la Suite de Pruebas Automáticas (`test_suite.sql`)
+Para validar los 6 caminos del orquestador (`usp_registrar_estudiante_en_grupo_usuario_no_existente`), ejecuta el siguiente comando en PowerShell:
+
+```powershell
+Get-Content -Path .\test_suite.sql -Raw | docker exec -i sql_server_asistencias /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "TuPasswordSeguro123" -C -y 35 -Y 35
+```
+
+### 🔹 Reiniciar y Limpiar la Base de Datos desde Cero
+Si deseas simular una instalación fresca y verificar el esquema completo:
+
+```powershell
+# 1. Recrear Base de Datos Vacía en Docker
+docker exec -i sql_server_asistencias /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "TuPasswordSeguro123" -C -d master -Q "ALTER DATABASE gestionasistenciadb SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE gestionasistenciadb; CREATE DATABASE gestionasistenciadb;"
+
+# 2. Desplegar todo el esquema
+.\deploy_schema.ps1
+
+# 3. Correr Pruebas
+Get-Content -Path .\test_suite.sql -Raw | docker exec -i sql_server_asistencias /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "TuPasswordSeguro123" -C -y 35 -Y 35
+```
