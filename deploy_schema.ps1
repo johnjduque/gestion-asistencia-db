@@ -24,13 +24,41 @@ Get-ChildItem -Path "$schemaDir\functions" -Filter "*.sql" -Recurse | Sort-Objec
     Get-Content -Path $_.FullName -Raw | docker exec -i $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$Password" -C
 }
 
-# 3. Aplicar Vistas (Doble pasada por dependencias)
-Write-Host "`nAplicando Vistas (Ordenando dependencias)..." -ForegroundColor Yellow
-1..2 | ForEach-Object {
-    Get-ChildItem -Path "$schemaDir\views" -Filter "*.sql" -Recurse | Sort-Object Name | ForEach-Object {
-        Get-Content -Path $_.FullName -Raw | docker exec -i $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$Password" -C
+# 3. Aplicar Vistas (Optimizadas dinámicamente)
+Write-Host "`nAplicando Vistas (Resolviendo dependencias dinámicamente)..." -ForegroundColor Yellow
+$views = Get-ChildItem -Path "$schemaDir\views" -Filter "*.sql" -Recurse
+$pendingViews = [System.Collections.Generic.List[System.IO.FileInfo]]::new()
+foreach ($v in $views) { $pendingViews.Add($v) }
+
+$maxPasses = 15
+$pass = 1
+$progressMade = $true
+
+while ($pendingViews.Count -gt 0 -and $progressMade -and $pass -le $maxPasses) {
+    $progressMade = $false
+    $failedThisPass = [System.Collections.Generic.List[System.IO.FileInfo]]::new()
+    foreach ($viewFile in $pendingViews) {
+        $sqlResult = Get-Content -Path $viewFile.FullName -Raw | docker exec -i $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$Password" -C 2>&1
+        if ($sqlResult -match "Msg \d+, Level \d+") {
+            $failedThisPass.Add($viewFile)
+        } else {
+            $progressMade = $true
+        }
     }
+    $pendingViews = $failedThisPass
+    $pass++
 }
+
+if ($pendingViews.Count -gt 0) {
+    Write-Host "`n[ERROR] No se pudieron aplicar las siguientes vistas debido a errores reales o dependencias circulares:" -ForegroundColor Red
+    foreach ($viewFile in $pendingViews) {
+        Write-Host "  - $($viewFile.Name)" -ForegroundColor Red
+        Get-Content -Path $viewFile.FullName -Raw | docker exec -i $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$Password" -C
+    }
+} else {
+    Write-Host "¡Todas las vistas aplicadas correctamente!" -ForegroundColor Green
+}
+
 
 # 4. Aplicar Procedimientos Almacenados (soporta internos, externos, etc.)
 Write-Host "`nAplicando Procedimientos Almacenados..." -ForegroundColor Yellow
