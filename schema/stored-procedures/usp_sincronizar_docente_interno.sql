@@ -17,16 +17,16 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- 1. Estandarización y cura de variables
+    -- 1. Estandarizacion y cura de variables
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER;
     DECLARE @idUsuarioDefecto UNIQUEIDENTIFIER;
     DECLARE @idPerfilBusqueda UNIQUEIDENTIFIER;
 
-    -- Asignación segura con validación de nulos
+    -- Asignacion segura con validacion de nulos
     SET @idCorrelacionDefecto = ISNULL(@idCorrelacion, '00000000-0000-0000-0000-000000000000');
     SET @idUsuarioDefecto = ISNULL(@idUsuario, '00000000-0000-0000-0000-000000000000');
 
-    -- Inicialización estricta de respuestas
+    -- Inicializacion estricta de respuestas
     SELECT 
         @mensajeUsuarioResultado = '', 
         @mensajeTecnicoResultado = '', 
@@ -35,7 +35,7 @@ BEGIN
     BEGIN TRY
 
         --------------------------------------------------------------------
-        -- VALIDACIÓN DE CORRELACIÓN
+        -- VALIDACION DE CORRELACION
         --------------------------------------------------------------------
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
             @idCorrelacion = @idCorrelacionDefecto, 
@@ -44,7 +44,7 @@ BEGIN
             @estadoResultado = @estadoResultado OUTPUT;
         
         --------------------------------------------------------------------
-        -- VALIDAR PERFIL (Busca el ID por el código 'DO' de Docente)
+        -- VALIDAR PERFIL (Busca el ID por el codigo 'DO' de Docente)
         --------------------------------------------------------------------
         IF @estadoResultado = 1
         BEGIN
@@ -79,13 +79,13 @@ BEGIN
             BEGIN
                 SELECT 
                     @mensajeUsuarioResultado = 'El usuario ya se encuentra registrado como docente.',
-                    @mensajeTecnicoResultado = CONCAT('Fallo unicidad: El idUsuario [', CAST(@idUsuarioDefecto AS NVARCHAR(50)), '] ya existe en la tabla dbo.Docente. Correlación: ', CAST(@idCorrelacionDefecto AS NVARCHAR(50))),
+                    @mensajeTecnicoResultado = CONCAT('Fallo unicidad: El idUsuario [', CAST(@idUsuarioDefecto AS NVARCHAR(50)), '] ya existe en la tabla dbo.Docente. Correlacion: ', CAST(@idCorrelacionDefecto AS NVARCHAR(50))),
                     @estadoResultado = 0;
             END
         END
 
         --------------------------------------------------------------------
-        -- INSERCIÓN FINAL
+        -- INSERCION FINAL
         --------------------------------------------------------------------
         IF @estadoResultado = 1
         BEGIN
@@ -94,15 +94,15 @@ BEGIN
 
             SELECT 
                 @mensajeUsuarioResultado = 'Registro de docente completado exitosamente.',
-                @mensajeTecnicoResultado = CONCAT('Inserción exitosa en dbo.Docente para idUsuario [', CAST(@idUsuarioDefecto AS NVARCHAR(50)), ']. Correlación: ', CAST(@idCorrelacionDefecto AS NVARCHAR(50))),
+                @mensajeTecnicoResultado = CONCAT('Insercion exitosa en dbo.Docente para idUsuario [', CAST(@idUsuarioDefecto AS NVARCHAR(50)), ']. Correlacion: ', CAST(@idCorrelacionDefecto AS NVARCHAR(50))),
                 @estadoResultado = 1;
         END
 
     END TRY
     BEGIN CATCH
         SELECT 
-            @mensajeUsuarioResultado = 'Ocurrió un error al intentar agregar el docente.',
-            @mensajeTecnicoResultado = CONCAT('Error crítico en [usp_sincronizar_docente_interno]: ', ERROR_MESSAGE(), '. Correlación: ', CAST(@idCorrelacionDefecto AS NVARCHAR(50))),
+            @mensajeUsuarioResultado = 'Ocurrio un error al intentar agregar el docente.',
+            @mensajeTecnicoResultado = CONCAT('Error critico en [usp_sincronizar_docente_interno]: ', ERROR_MESSAGE(), '. Correlacion: ', CAST(@idCorrelacionDefecto AS NVARCHAR(50))),
             @estadoResultado = 0;
     END CATCH
 END;

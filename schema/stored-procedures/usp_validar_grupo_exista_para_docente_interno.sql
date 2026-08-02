@@ -22,18 +22,18 @@ BEGIN
 
     SET NOCOUNT ON;
     BEGIN TRY
-        -- 1. Validar correlación
+        -- 1. Validar correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- 2. Validar que el ID no sea el vacío
+        -- 2. Validar que el ID no sea el vacio
         IF @estadoResultado = 1 AND @idGrupoDefecto = '00000000-0000-0000-0000-000000000000'
         BEGIN
-            SELECT @mensajeUsuarioResultado = 'El identificador del grupo no es válido.',
-                   @mensajeTecnicoResultado = CONCAT('ID vacío. ID CORRELACION=[', @idCorrelacionDefecto, ']'),
+            SELECT @mensajeUsuarioResultado = 'El identificador del grupo no es valido.',
+                   @mensajeTecnicoResultado = CONCAT('ID vacio. ID CORRELACION=[', @idCorrelacionDefecto, ']'),
                    @estadoResultado = 0;
         END
 
@@ -61,23 +61,23 @@ BEGIN
             IF @@ROWCOUNT = 0
             BEGIN
                 SELECT  @mensajeUsuarioResultado = CONCAT('No existe un grupo con el identificador [', @idGrupoDefecto, '].'),
-                        @mensajeTecnicoResultado = CONCAT('No se encontró el registro en uv_grupo. ID CORRELACION=[', @idCorrelacionDefecto, ']'),
+                        @mensajeTecnicoResultado = CONCAT('No se encontro el registro en uv_grupo. ID CORRELACION=[', @idCorrelacionDefecto, ']'),
                         @estadoResultado = 0;
             END
         END
 
-        -- 5. Validar Periodo Académico
+        -- 5. Validar Periodo Academico
         IF @estadoResultado = 1 AND @idPeriodo IS NULL
         BEGIN
-            SELECT  @mensajeUsuarioResultado = 'El grupo no tiene un periodo académico válido asignado.',
+            SELECT  @mensajeUsuarioResultado = 'El grupo no tiene un periodo academico valido asignado.',
                     @mensajeTecnicoResultado = CONCAT('El idPeriodoAcademicoGrupo es NULL en uv_grupo. ID CORRELACION=[', @idCorrelacionDefecto, ']'),
                     @estadoResultado = 0;
         END
 
-        -- 6. Validar que el grupo esté habilitado (fecha actual en el rango del periodo)
+        -- 6. Validar que el grupo este habilitado (fecha actual en el rango del periodo)
         IF @estadoResultado = 1 AND @grupoEstaHabilitado = 0
         BEGIN
-            SELECT  @mensajeUsuarioResultado = 'El grupo seleccionado no se encuentra habilitado para el periodo académico actual.',
+            SELECT  @mensajeUsuarioResultado = 'El grupo seleccionado no se encuentra habilitado para el periodo academico actual.',
                     @mensajeTecnicoResultado = CONCAT('El atributo grupoEstaHabilitado es 0. ID CORRELACION=[', @idCorrelacionDefecto, ']'),
                     @estadoResultado = 0;
         END
@@ -85,7 +85,7 @@ BEGIN
     END TRY
     BEGIN CATCH
         SELECT @mensajeUsuarioResultado = 'Error al validar la existencia del grupo para el docente.',
-               @mensajeTecnicoResultado = CONCAT('Error crítico en orquestador [usp_validar_grupo_exista_para_docente_interno]: ', ERROR_MESSAGE(), '. Línea: ', ERROR_LINE()),
+               @mensajeTecnicoResultado = CONCAT('Error critico en orquestador [usp_validar_grupo_exista_para_docente_interno]: ', ERROR_MESSAGE(), '. Linea: ', ERROR_LINE()),
                @estadoResultado = 0;
     END CATCH
 END;

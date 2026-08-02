@@ -7,7 +7,7 @@ PRINT '======================================================================';
 PRINT '  SUITE DE PRUEBAS COMPLETAS: usp_registrar_docente_en_grupo_usuario_no_existente';
 PRINT '======================================================================';
 
--- Obtener datos válidos preexistentes para pruebas
+-- Obtener datos validos preexistentes para pruebas
 DECLARE @tipoIdIdentificacion UNIQUEIDENTIFIER;
 SELECT TOP 1 @tipoIdIdentificacion = id FROM [dbo].[TipoIdentificacion];
 
@@ -19,15 +19,15 @@ SELECT @idPeriodoValido = periodoAcademico FROM [dbo].[Grupo] WHERE id = @idGrup
 
 IF @tipoIdIdentificacion IS NULL OR @idGrupoValido IS NULL OR @idPeriodoValido IS NULL
 BEGIN
-    PRINT 'ERROR CRÍTICO: No se encontraron registros base en TipoIdentificacion, Grupo o PeriodoAcademico. Deteniendo pruebas.';
+    PRINT 'ERROR CRITICO: No se encontraron registros base en TipoIdentificacion, Grupo o PeriodoAcademico. Deteniendo pruebas.';
     RETURN;
 END
 
 ----------------------------------------------------------------------
--- CAMINO 1: Validación de ID Correlación Ausente/Vacío
+-- CAMINO 1: Validacion de ID Correlacion Ausente/Vacio
 ----------------------------------------------------------------------
 PRINT '';
-PRINT '--- [CAMINO 1]: IdCorrelacion Ausente / Vacío (00000000-0000-0000-0000-000000000000) ---';
+PRINT '--- [CAMINO 1]: IdCorrelacion Ausente / Vacio (00000000-0000-0000-0000-000000000000) ---';
 BEGIN
     DECLARE @mensajeUsuarioC1 NVARCHAR(4000);
     DECLARE @mensajeTecnicoC1 NVARCHAR(4000);
@@ -43,7 +43,7 @@ BEGIN
         @correo = 'juan.docente.c1@test.com',
         @password = 'Pass1234!',
         @idGrupo = @idGrupoValido,
-        @idCorrelacion = '00000000-0000-0000-0000-000000000000'; -- Inválido
+        @idCorrelacion = '00000000-0000-0000-0000-000000000000'; -- Invalido
 
     -- Nota: Al llamarse desde SSMS o script de prueba, el orquestador retorna un Result Set.
 END;
@@ -52,10 +52,10 @@ END;
 -- CAMINO 2: Happy Path (Usuario Nuevo + Docente Nuevo + Registro Exitoso)
 ----------------------------------------------------------------------
 PRINT '';
-PRINT '--- [CAMINO 2]: Happy Path (Usuario Nuevo -> Docente Nuevo -> Asignación Exitosa) ---';
+PRINT '--- [CAMINO 2]: Happy Path (Usuario Nuevo -> Docente Nuevo -> Asignacion Exitosa) ---';
 BEGIN TRANSACTION;
 BEGIN
-    -- Forzar vigencia del periodo académico para pasar la validación
+    -- Forzar vigencia del periodo academico para pasar la validacion
     UPDATE dbo.PeriodoAcademico 
     SET fechaInicio = DATEADD(month, -1, GETDATE()), 
         fechaFin = DATEADD(month, 3, GETDATE()) 
@@ -78,16 +78,16 @@ BEGIN
         @idGrupo = @idGrupoValido,
         @idCorrelacion = @idCorrelacionC2;
 
-    -- Verificación de Inserción
+    -- Verificacion de Insercion
     IF EXISTS (
         SELECT 1 FROM dbo.Usuario u
         INNER JOIN dbo.Docente d ON u.id = d.usuario
         INNER JOIN dbo.Grupo g ON d.id = g.docente
         WHERE u.correo = @correoC2 AND g.id = @idGrupoValido
     )
-        PRINT '>> RESULTADO: PASÓ (Docente creado y asignado al grupo exitosamente)';
+        PRINT '>> RESULTADO: PASO (Docente creado y asignado al grupo exitosamente)';
     ELSE
-        PRINT '>> RESULTADO: FALLÓ (No se encontró la asociación completa)';
+        PRINT '>> RESULTADO: FALLO (No se encontro la asociacion completa)';
 END;
 ROLLBACK TRANSACTION;
 
@@ -98,7 +98,7 @@ PRINT '';
 PRINT '--- [CAMINO 3]: Usuario Preexistente -> Actualiza Nombres, Crea Perfil y Asigna ---';
 BEGIN TRANSACTION;
 BEGIN
-    -- Forzar vigencia del periodo académico para pasar la validación
+    -- Forzar vigencia del periodo academico para pasar la validacion
     UPDATE dbo.PeriodoAcademico 
     SET fechaInicio = DATEADD(month, -1, GETDATE()), 
         fechaFin = DATEADD(month, 3, GETDATE()) 
@@ -126,7 +126,7 @@ BEGIN
         @idGrupo = @idGrupoValido,
         @idCorrelacion = @idCorrelacionC3;
 
-    -- Verificación
+    -- Verificacion
     IF EXISTS (
         SELECT 1 FROM dbo.Usuario u
         INNER JOIN dbo.Docente d ON u.id = d.usuario
@@ -136,24 +136,24 @@ BEGIN
           AND u.primerApellido = 'NUEVOAP'
           AND g.id = @idGrupoValido
     )
-        PRINT '>> RESULTADO: PASÓ (Usuario preexistente actualizado, perfil docente creado y asignado)';
+        PRINT '>> RESULTADO: PASO (Usuario preexistente actualizado, perfil docente creado y asignado)';
     ELSE
-        PRINT '>> RESULTADO: FALLÓ (La actualización o asignación no se realizó correctamente)';
+        PRINT '>> RESULTADO: FALLO (La actualizacion o asignacion no se realizo correctamente)';
 END;
 ROLLBACK TRANSACTION;
 
 ----------------------------------------------------------------------
--- CAMINO 4: Fallo por Sincronización de Usuario (Campos Obligatorios NULL)
+-- CAMINO 4: Fallo por Sincronizacion de Usuario (Campos Obligatorios NULL)
 ----------------------------------------------------------------------
 PRINT '';
-PRINT '--- [CAMINO 4]: Fallo en Sincronizar Usuario (Campos Nulos / Inválidos) ---';
+PRINT '--- [CAMINO 4]: Fallo en Sincronizar Usuario (Campos Nulos / Invalidos) ---';
 BEGIN TRANSACTION;
 BEGIN
     DECLARE @idCorrelacionC4 UNIQUEIDENTIFIER = NEWID();
 
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
         @tipoIdIdentificacion = @tipoIdIdentificacion,
-        @numeroIdentificacion = NULL, -- Causará error de formato / ufn_validar_numero
+        @numeroIdentificacion = NULL, -- Causara error de formato / ufn_validar_numero
         @primerApellido = NULL,
         @segundoApellido = NULL,
         @primerNombre = NULL,
@@ -172,7 +172,7 @@ PRINT '';
 PRINT '--- [CAMINO 5]: Fallo por Cruce de Horario (Docente con clases coincidentes) ---';
 BEGIN TRANSACTION;
 BEGIN
-    -- Forzar vigencia del periodo académico para pasar la validación
+    -- Forzar vigencia del periodo academico para pasar la validacion
     UPDATE dbo.PeriodoAcademico 
     SET fechaInicio = DATEADD(month, -1, GETDATE()), 
         fechaFin = DATEADD(month, 3, GETDATE()) 
@@ -182,7 +182,7 @@ BEGIN
     DECLARE @correoC5 NVARCHAR(255) = 'docente.cruce.c5@test.com';
     DECLARE @numeroIdC5 INT = 200000005;
 
-    -- Obtener periodo académico del grupo válido
+    -- Obtener periodo academico del grupo valido
     DECLARE @idPeriodo UNIQUEIDENTIFIER;
     SELECT @idPeriodo = periodoAcademico FROM dbo.Grupo WHERE id = @idGrupoValido;
 
@@ -197,12 +197,12 @@ BEGIN
     INSERT INTO dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron, cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)
     VALUES (@idGrupo2, @idAsignatura, @idPeriodo, 99991, 'Grupo Test Cruce 2', 30, 0, 0, 0, @idDocenteValido);
 
-    -- Crear un día común para los horarios
+    -- Crear un dia comun para los horarios
     DECLARE @idDia UNIQUEIDENTIFIER;
     SELECT TOP 1 @idDia = id FROM dbo.Dia;
 
     -- Agregar horarios cruzados
-    -- Grupo 1 (Grupo Válido): 08:00 a 10:00
+    -- Grupo 1 (Grupo Valido): 08:00 a 10:00
     INSERT INTO dbo.Horario (id, grupo, dia, horaInicio, horaFin)
     VALUES (NEWID(), @idGrupoValido, @idDia, '08:00:00', '10:00:00');
 
@@ -223,7 +223,7 @@ BEGIN
         @idGrupo = @idGrupoValido,
         @idCorrelacion = @idCorrelacionC5;
 
-    -- Intentar asignar el mismo docente al Grupo 2 (Debería fallar por cruce)
+    -- Intentar asignar el mismo docente al Grupo 2 (Deberia fallar por cruce)
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
         @tipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC5,
@@ -263,7 +263,7 @@ END;
 ROLLBACK TRANSACTION;
 
 ----------------------------------------------------------------------
--- CAMINO 7: Captura de Excepción en Bloque CATCH (Error Crítico)
+-- CAMINO 7: Captura de Excepcion en Bloque CATCH (Error Critico)
 ----------------------------------------------------------------------
 PRINT '';
 PRINT '--- [CAMINO 7]: Captura de error en CATCH (idGrupo = NULL) ---';
@@ -279,7 +279,7 @@ BEGIN
         @segundoNombre = '',
         @correo = 'test.catch.c7@test.com',
         @password = 'Pass1234!',
-        @idGrupo = NULL, -- Causará error en la inserción/validación interna al no admitir nulo
+        @idGrupo = NULL, -- Causara error en la insercion/validacion interna al no admitir nulo
         @idCorrelacion = @idCorrelacionC7;
 END;
 GO

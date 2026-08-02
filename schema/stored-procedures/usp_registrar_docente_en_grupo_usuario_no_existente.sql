@@ -33,7 +33,7 @@ BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
 
-        -- 1. Validar ID de correlación
+        -- 1. Validar ID de correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
             @idCorrelacion = @idCorrelacionDefecto, 
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
@@ -151,14 +151,14 @@ BEGIN
         BEGIN
             SELECT
                 @mensajeUsuarioResultado = 'Se ha registrado el docente en el grupo de forma satisfactoria',
-                @mensajeTecnicoResultado = [dbo].[ufn_obtener_mensaje_exito](@idCorrelacionDefecto, OBJECT_NAME(@@PROCID), CONCAT('Operación exitosa completa. Orquestador finalizado para Docente: ', @idDocenteCreado, ' en Grupo: ', @grupoDefecto))
+                @mensajeTecnicoResultado = [dbo].[ufn_obtener_mensaje_exito](@idCorrelacionDefecto, OBJECT_NAME(@@PROCID), CONCAT('Operacion exitosa completa. Orquestador finalizado para Docente: ', @idDocenteCreado, ' en Grupo: ', @grupoDefecto))
         END
 
     END TRY
     BEGIN CATCH
         SELECT
             @mensajeUsuarioResultado = 'Hubo un error inesperado al procesar el registro completo del docente.',
-            @mensajeTecnicoResultado = CONCAT('Error crítico en orquestador [usp_registrar_docente_en_grupo_usuario_no_existente]: ', ERROR_MESSAGE(), '. Línea: ', ERROR_LINE()),
+            @mensajeTecnicoResultado = CONCAT('Error critico en orquestador [usp_registrar_docente_en_grupo_usuario_no_existente]: ', ERROR_MESSAGE(), '. Linea: ', ERROR_LINE()),
             @estadoResultado = 0;
     END CATCH
 
