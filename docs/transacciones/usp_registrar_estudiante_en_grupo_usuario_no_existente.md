@@ -30,6 +30,34 @@ Documentación de la transacción orquestadora para dar de alta o actualizar a u
 
 ---
 
+## 📊 Arquitectura de la Transacción (Entrada - Proceso - Salida)
+
+```mermaid
+flowchart LR
+    %% Bloque de Entrada
+    subgraph Entrada [Entrada]
+        direction TB
+        param1["<b>Parámetros:</b><br/>• tipoIdIdentificacion<br/>• numeroIdentificacion<br/>• primerApellido<br/>• segundoApellido<br/>• primerNombre<br/>• segundoNombre<br/>• correo<br/>• password<br/>• idGrupo<br/>• idCorrelacion"]
+    end
+
+    %% Bloque de Proceso
+    subgraph Proceso [Proceso]
+        direction TB
+        proc1[Registrar Estudiante en Grupo Usuario No Existente]
+    end
+
+    %% Bloque de Salida
+    subgraph Salida [Salida]
+        direction TB
+        out1[Resultado del Procedimiento]
+    end
+
+    %% Conexión de flujo de izquierda a derecha
+    Entrada --> Proceso --> Salida
+```
+
+---
+
 ## 📋 Responsabilidades de la Transacción
 
 La transacción es responsable de los siguientes flujos:
