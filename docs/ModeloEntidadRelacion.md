@@ -1,103 +1,123 @@
 # Diagrama de Entidad Relación (MER) - Especificación del Esquema
 
-Especificación técnica de entidades, claves primarias y foráneas del modelo de base de datos.
+Especificación técnica de las 33 entidades, claves primarias, claves foráneas y catálogos sueltos del modelo de base de datos (`gestionasistenciadb`).
 
 ```mermaid
 erDiagram
     Usuario {
         UUID id PK
-        UUID tipoIdentificacion FK
+        UUID tipoIdIdentificacion FK
         INT numeroIdentificacion
-        NVARCHAR primerNombre
-        NVARCHAR segundoNombre
         NVARCHAR primerApellido
         NVARCHAR segundoApellido
+        NVARCHAR primerNombre
+        NVARCHAR segundoNombre
         NVARCHAR correo
         NVARCHAR password
-        BOOLEAN estado
+        BIT estado
     }
 
     TipoIdentificacion {
         UUID id PK
-        NVARCHAR codigo
+        VARCHAR tipoIdentificacion
         NVARCHAR nombre
-        BOOLEAN estado
     }
 
     Institucion {
         UUID id PK
         NVARCHAR nombre
-        BOOLEAN estado
+        BIT estado
     }
 
-    Facultad {
+    Administrador {
         UUID id PK
-        NVARCHAR nombre
+        UUID usuario FK
         UUID institucion FK
-        UUID decano FK
-        BOOLEAN estado
+        BIT estado
     }
 
     Decano {
         UUID id PK
-        UUID idUsuario FK
-        UUID idInstitucion FK
-        BOOLEAN estado
+        UUID usuario FK
+        UUID institucion FK
+        BIT estado
     }
 
     Coordinador {
         UUID id PK
-        UUID idUsuario FK
-        UUID idInstitucion FK
-        BOOLEAN estado
+        UUID usuario FK
+        UUID institucion FK
+        BIT estado
+    }
+
+    Docente {
+        UUID id PK
+        UUID usuario FK
+        UUID institucion FK
+        BIT estado
+    }
+
+    Estudiante {
+        UUID id PK
+        UUID usuario FK
+        UUID institucion FK
+        BIT estado
+    }
+
+    Facultad {
+        UUID id PK
+        UUID institucion FK
+        NVARCHAR nombre
+        UUID decano FK
+        BIT estado
     }
 
     Programa {
         UUID id PK
-        NVARCHAR nombre
         UUID facultad FK
-        UUID tipoPrograma FK
+        NVARCHAR nombre
+        UUID tipoDePrograma FK
         UUID coordinador FK
-        BOOLEAN estado
+        BIT estado
     }
 
     TipoPrograma {
         UUID id PK
         NVARCHAR nombre
-        BOOLEAN estado
+        NVARCHAR codigo
     }
 
     Area {
         UUID id PK
         NVARCHAR nombre
         UUID facultad FK
-        BOOLEAN estado
+        BIT estado
     }
 
     Componente {
         UUID id PK
         NVARCHAR nombre
-        BOOLEAN estado
+        BIT estado
     }
 
     PlanEstudio {
         UUID id PK
-        NVARCHAR nombre
         UUID programa FK
-        BOOLEAN estado
+        NVARCHAR nombre
+        BIT estado
     }
 
     Semestre {
         UUID id PK
         INT numero
-        BOOLEAN estado
+        BIT estado
     }
 
     SemestrePlanEstudio {
         UUID id PK
         UUID planEstudio FK
         UUID semestre FK
-        BOOLEAN estado
+        BIT estado
     }
 
     Asignatura {
@@ -106,67 +126,53 @@ erDiagram
         UUID area FK
         UUID componente FK
         UUID semestrePlanEstudio FK
-        BOOLEAN estado
+        BIT estado
     }
 
     PeriodoAcademico {
         UUID id PK
-        NVARCHAR codigo
+        UUID institucion FK
+        NVARCHAR nombre
+        INT codigo
         DATE fechaInicio
         DATE fechaFin
-        BOOLEAN estado
+        INT anio
     }
 
     Grupo {
         UUID id PK
-        NVARCHAR nombre
         UUID asignatura FK
         UUID periodoAcademico FK
+        UUID docente FK
+        NVARCHAR nombre
         INT cupoMaximo
-        BOOLEAN estado
-    }
-
-    Docente {
-        UUID id PK
-        UUID idUsuario FK
-        UUID idInstitucion FK
-        BOOLEAN estado
-    }
-
-    Estudiante {
-        UUID id PK
-        UUID idUsuario FK
-        UUID idInstitucion FK
-        BOOLEAN estado
+        BIT estado
     }
 
     EstadoEstudianteGrupo {
         UUID id PK
-        NVARCHAR codigo
         NVARCHAR nombre
-        BOOLEAN estado
+        NVARCHAR codigo
     }
 
     EstudianteGrupo {
         UUID id PK
         UUID estudiante FK
         UUID grupo FK
-        UUID estadoEstudianteGrupo FK
-        BOOLEAN estado
+        UUID estado FK
     }
 
     EstudiantePrograma {
         UUID id PK
         UUID estudiante FK
         UUID programa FK
-        BOOLEAN estado
+        BIT estado
     }
 
     Dia {
         UUID id PK
-        INT numero
         NVARCHAR nombre
-        BOOLEAN estado
+        NVARCHAR codigo
     }
 
     Horario {
@@ -175,7 +181,7 @@ erDiagram
         UUID dia FK
         TIME horaInicio
         TIME horaFin
-        BOOLEAN estado
+        BIT estado
     }
 
     Sesion {
@@ -183,14 +189,7 @@ erDiagram
         UUID grupo FK
         DATETIME fechaHoraInicio
         DATETIME fechaHoraFin
-        BOOLEAN estado
-    }
-
-    Estado {
-        UUID id PK
-        NVARCHAR codigo
-        NVARCHAR nombre
-        BOOLEAN estado
+        BIT estado
     }
 
     Asistencia {
@@ -201,57 +200,108 @@ erDiagram
         UUID estado FK
     }
 
+    Estado {
+        UUID id PK
+        NVARCHAR nombre
+        CHAR codigo
+    }
+
     RazonCausa {
         UUID id PK
-        NVARCHAR codigo
         NVARCHAR nombre
-        BOOLEAN estado
+        NVARCHAR codigo
+    }
+
+    DetalleAsistencia {
+        UUID id PK
+        UUID asistencia FK
+        UUID razonCausa FK
+        NVARCHAR observacion
+        DATETIME fecha
     }
 
     SolicitudRevisionAsistencia {
         UUID id PK
         UUID asistencia FK
-        UUID razonCausa FK
+        UUID estado FK
         NVARCHAR observacion
         DATETIME fechaSolicitud
-        UUID estado FK
     }
 
-    Usuario }|--|| TipoIdentificacion : "tiene"
-    Decano }|--|| Usuario : "es"
-    Decano }|--|| Institucion : "pertenece"
-    Coordinador }|--|| Usuario : "es"
-    Coordinador }|--|| Institucion : "pertenece"
-    Docente }|--|| Usuario : "es"
-    Docente }|--|| Institucion : "pertenece"
-    Estudiante }|--|| Usuario : "es"
-    Estudiante }|--|| Institucion : "pertenece"
-    Facultad }|--|| Institucion : "pertenece"
-    Facultad }|--|| Decano : "liderada por"
-    Programa }|--|| Facultad : "pertenece"
-    Programa }|--|| TipoPrograma : "clasificado"
-    Programa }|--|| Coordinador : "coordinado por"
-    Area }|--|| Facultad : "pertenece"
-    PlanEstudio }|--|| Programa : "pertenece"
-    SemestrePlanEstudio }|--|| PlanEstudio : "pertenece"
-    SemestrePlanEstudio }|--|| Semestre : "corresponde"
-    Asignatura }|--|| Area : "pertenece"
-    Asignatura }|--|| Componente : "clasificada"
-    Asignatura }|--|| SemestrePlanEstudio : "pertenece"
-    Grupo }|--|| Asignatura : "pertenece"
-    Grupo }|--|| PeriodoAcademico : "oferta en"
-    EstudianteGrupo }|--|| Estudiante : "cursa"
-    EstudianteGrupo }|--|| Grupo : "matriculado en"
+    %% TABLAS SUELTAS / CATÁLOGOS AUTÓNOMOS
+    Mensaje {
+        VARCHAR codigo PK
+        NVARCHAR tipo PK
+        NVARCHAR contenido
+    }
+
+    Parametro {
+        VARCHAR grupo PK
+        VARCHAR clave PK
+        NVARCHAR valor
+        NVARCHAR descripcion
+    }
+
+    Perfil {
+        UUID id PK
+        NVARCHAR nombre
+        INT nivel_acceso
+        NVARCHAR codigo
+    }
+
+    %% RELACIONES DEL MODELO DE DATOS
+    Usuario }|--|| TipoIdentificacion : "tipoIdIdentificacion"
+    Administrador }|--|| Usuario : "usuario"
+    Administrador }|--|| Institucion : "institucion"
+    Decano }|--|| Usuario : "usuario"
+    Decano }|--|| Institucion : "institucion"
+    Coordinador }|--|| Usuario : "usuario"
+    Coordinador }|--|| Institucion : "institucion"
+    Docente }|--|| Usuario : "usuario"
+    Docente }|--|| Institucion : "institucion"
+    Estudiante }|--|| Usuario : "usuario"
+    Estudiante }|--|| Institucion : "institucion"
+    
+    Facultad }|--|| Institucion : "institucion"
+    Facultad }|--o| Decano : "decano"
+    Area }|--|| Facultad : "facultad"
+
+    Programa }|--|| Facultad : "facultad"
+    Programa }|--|| TipoPrograma : "tipoDePrograma"
+    Programa }|--o| Coordinador : "coordinador"
+    PlanEstudio }|--|| Programa : "programa"
+
+    SemestrePlanEstudio }|--|| PlanEstudio : "planEstudio"
+    SemestrePlanEstudio }|--|| Semestre : "semestre"
+
+    Asignatura }|--|| Area : "area"
+    Asignatura }|--|| Componente : "componente"
+    Asignatura }|--|| SemestrePlanEstudio : "semestrePlanEstudio"
+
+    PeriodoAcademico }|--|| Institucion : "institucion"
+
+    Grupo }|--|| Asignatura : "asignatura"
+    Grupo }|--|| PeriodoAcademico : "periodoAcademico"
+    Grupo }|--o| Docente : "docente"
+
+    EstudianteGrupo }|--|| Estudiante : "estudiante"
+    EstudianteGrupo }|--|| Grupo : "grupo"
     EstudianteGrupo }|--|| EstadoEstudianteGrupo : "estado"
-    EstudiantePrograma }|--|| Estudiante : "cursa"
-    EstudiantePrograma }|--|| Programa : "inscrito en"
-    Horario }|--|| Grupo : "pertenece"
-    Horario }|--|| Dia : "corresponde"
-    Sesion }|--|| Grupo : "programada en"
-    Asistencia }|--|| EstudianteGrupo : "pertenece"
-    Asistencia }|--|| Sesion : "registrada en"
-    Asistencia }|--|| Estado : "estado"
-    SolicitudRevisionAsistencia }|--|| Asistencia : "aplica a"
-    SolicitudRevisionAsistencia }|--|| RazonCausa : "justificada por"
+
+    EstudiantePrograma }|--|| Estudiante : "estudiante"
+    EstudiantePrograma }|--|| Programa : "programa"
+
+    Horario }|--|| Grupo : "grupo"
+    Horario }|--|| Dia : "dia"
+
+    Sesion }|--|| Grupo : "grupo"
+
+    Asistencia }|--|| EstudianteGrupo : "estudianteGrupo"
+    Asistencia }|--|| Sesion : "sesion"
+
+    DetalleAsistencia }|--|| Asistencia : "asistencia"
+    DetalleAsistencia }|--|| RazonCausa : "razonCausa"
+
+    SolicitudRevisionAsistencia }|--|| Asistencia : "asistencia"
     SolicitudRevisionAsistencia }|--|| Estado : "estado"
 ```
