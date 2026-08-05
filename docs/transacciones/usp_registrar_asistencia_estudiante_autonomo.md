@@ -4,28 +4,6 @@ Documentación de la transacción orquestadora para que un estudiante registre s
 
 ---
 
-## 📥 Parámetros de Entrada
-
-| Parámetro | Tipo | Requerido | Descripción |
-| :--- | :--- | :---: | :--- |
-| `idEstudiante` | `UUID` | Sí | ID del estudiante que registra su asistencia |
-| `idSesion` | `UUID` | Sí | ID de la sesión de clase |
-| `codigoVerificacion` | `NVARCHAR` | No | Código dinámico temporal provisto por el docente |
-| `idCorrelacion` | `UUID` | Sí | ID de trazabilidad de la transacción |
-
----
-
-## 📤 Parámetros de Salida
-
-| Parámetro | Tipo | Descripción |
-| :--- | :--- | :--- |
-| `idCorrelacion` | `UUID` | Identificador de trazabilidad retornado |
-| `mensajeUsuario` | `NVARCHAR` | Mensaje descriptivo para la interfaz de usuario |
-| `mensajeTecnico` | `NVARCHAR` | Mensaje técnico de auditoría o error detallado |
-| `estado` | `BIT` | Estado final de la transacción (`1` = Éxito, `0` = Fallo) |
-
----
-
 ## 📊 Arquitectura de la Transacción (Entrada - Proceso - Salida)
 
 ```mermaid
@@ -45,7 +23,7 @@ flowchart LR
     %% Bloque de Salida
     subgraph Salida [Salida]
         direction TB
-        out1[Resultado del Procedimiento]
+        out1["• idCorrelacion<br/>• mensajeUsuario<br/>• mensajeTecnico<br/>• estado"]
     end
 
     %% Conexión de flujo de izquierda a derecha
@@ -74,15 +52,38 @@ La transacción es responsable de los siguientes flujos:
 
 ### 2. Procedimientos Utilizados y sus Validaciones
 
-*   **`usp_validar_id_correlacion_esta_presente_interno`**
+*   [**`usp_validar_id_correlacion_esta_presente_interno`**](internos/usp_validar_id_correlacion_esta_presente_interno.md)
     *   Validación de Correlación.
 
-*   **`usp_validar_sesion_exista_por_id_interno`**
+*   [**`usp_validar_sesion_exista_por_id_interno`**](internos/usp_validar_sesion_exista_por_id_interno.md)
     *   Validación de Existencia, Vigencia y Actividad de la Sesión de Clase.
 
-*   **`usp_validar_estudiante_pertenece_a_grupo_de_sesion_interno`**
+*   [**`usp_validar_estudiante_pertenece_a_grupo_de_sesion_interno`**](internos/usp_validar_estudiante_pertenece_a_grupo_de_sesion_interno.md)
     *   Validación de Matrícula Activa en el Grupo Correspondiente a la Sesión.
 
-*   **`usp_sincronizar_asistencia_estudiante_interno`**
+*   [**`usp_sincronizar_asistencia_estudiante_interno`**](internos/usp_sincronizar_asistencia_estudiante_interno.md)
     *   Validación de No Duplicidad.
     *   Persistencia del estado de asistencia (`A` de Asistió).
+
+
+## 📥 Parámetros de Entrada
+
+| Parámetro | Tipo | Requerido | Descripción |
+| :--- | :--- | :---: | :--- |
+| `idEstudiante` | `UUID` | Sí | ID del estudiante que registra su asistencia |
+| `idSesion` | `UUID` | Sí | ID de la sesión de clase |
+| `codigoVerificacion` | `NVARCHAR` | No | Código dinámico temporal provisto por el docente |
+| `idCorrelacion` | `UUID` | Sí | ID de trazabilidad de la transacción |
+
+---
+
+## 📤 Parámetros de Salida
+
+| Parámetro | Tipo | Descripción |
+| :--- | :--- | :--- |
+| `idCorrelacion` | `UUID` | Identificador de trazabilidad retornado |
+| `mensajeUsuario` | `NVARCHAR` | Mensaje descriptivo para la interfaz de usuario |
+| `mensajeTecnico` | `NVARCHAR` | Mensaje técnico de auditoría o error detallado |
+| `estado` | `BIT` | Estado final de la transacción (`1` = Éxito, `0` = Fallo) |
+
+---
