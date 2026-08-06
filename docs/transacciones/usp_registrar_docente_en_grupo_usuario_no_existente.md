@@ -1,6 +1,8 @@
 # Transacción: Registrar Docente en Grupo (Usuario No Existente)
 
-Documentación de la transacción orquestadora para dar de alta o actualizar a un usuario, asegurar su rol de docente y asignarlo como el docente a cargo de un grupo académico.
+Documentación de la transacción orquestadora para dar de alta o actualizar a un usuario, asegurar su rol de docente y asignarlo como el docente titular de un grupo académico.
+
+---
 
 ## 📥 Parámetros de Entrada
 
@@ -14,7 +16,7 @@ Documentación de la transacción orquestadora para dar de alta o actualizar a u
 | `segundoNombre` | `NVARCHAR` | No | Segundo nombre |
 | `correo` | `NVARCHAR` | Sí | Dirección de correo electrónico |
 | `password` | `NVARCHAR` | No | Contraseña del usuario |
-| `idGrupo` | `UUID` | Sí | ID del grupo al cual se le asignará el docente |
+| `idGrupo` | `UUID` | Sí | ID del grupo en el que se registrará el docente |
 | `idCorrelacion` | `UUID` | Sí | ID de trazabilidad de la transacción |
 
 ---
@@ -30,41 +32,65 @@ Documentación de la transacción orquestadora para dar de alta o actualizar a u
 
 ---
 
+## 📊 Arquitectura de la Transacción (Entrada - Proceso - Salida)
+
+```mermaid
+flowchart LR
+    %% Bloque de Entrada
+    subgraph Entrada [Entrada]
+        direction TB
+        param1["<b>Parámetros:</b><br/>• tipoIdIdentificacion<br/>• numeroIdentificacion<br/>• primerApellido<br/>• segundoApellido<br/>• primerNombre<br/>• segundoNombre<br/>• correo<br/>• password<br/>• idGrupo<br/>• idCorrelacion"]
+    end
+
+    %% Bloque de Proceso
+    subgraph Proceso [Proceso]
+        direction TB
+        proc1[Registrar Docente en Grupo Usuario No Existente]
+    end
+
+    %% Bloque de Salida
+    subgraph Salida [Salida]
+        direction TB
+        out1[Resultado del Procedimiento]
+    end
+
+    %% Conexión de flujo de izquierda a derecha
+    Entrada --> Proceso --> Salida
+```
+
+---
+
 ## 📋 Responsabilidades de la Transacción
 
 La transacción es responsable de los siguientes flujos:
-*   Validar que el id de correlación esté presente.
-*   Validar si el usuario ya está registrado en el sistema (por correo o por tipo/número de documento).
-*   Si el usuario ya existe, actualizar sus datos básicos; de lo contrario, crearlo (sincronizar usuario).
-*   Validar si el usuario tiene el perfil de docente (en la tabla `Docente`), de lo contrario crearlo (sincronizar docente).
-*   Asignar al docente al grupo académico correspondiente (actualizando la columna `docente` en la tabla `Grupo`).
+*   Validar id correlacion esta presente.
+*   Validar si el usuario esta creado.
+*   Si existe actualizarlo, de lo contrario crearlo.
+*   Sincronizar el rol de docente institucionalmente.
+*   Registrar al docente en el grupo asignado.
 
 ---
 
 ## 🔍 Reglas de Negocio y Validaciones
 
 ### 1. Validaciones Propias de `usp_registrar_docente_en_grupo_usuario_no_existente`
-*   **Validación de Consistencia del Grupo**: El grupo en el cual se asignará el docente debe existir previamente en el sistema y no tener un estado inactivo.
+*   **Validación de Flujo Orquestador**: Maneja la secuencialidad y consistencia transaccional del proceso completo de registro en bloque.
 
 ### 2. Procedimientos Utilizados y sus Validaciones
 
 *   **`usp_validar_id_correlacion_esta_presente_interno`**
     *   Validación de Correlación.
 
-*   **`usp_validar_usuario_existe_por_id_interno`**
-    *   Validación de Existencia y Actividad del Usuario.
-
 *   **`usp_sincronizar_usuario_interno`**
     *   Validación del Tipo de Documento.
-    *   Validación de Unicidad (el correo y el número de identificación deben ser únicos).
-    *   Validación de Formatos (nombres, primer apellido, correo y contraseña).
+    *   Validación de Unicidad por identificación y correo.
+    *   Validación de Formatos.
 
 *   **`usp_sincronizar_docente_interno`**
-    *   Validación del Perfil de Docente (busca perfil con código `'DO'`).
-    *   Validación de Unicidad (el usuario no debe estar registrado previamente en la tabla `Docente`).
+    *   Validación del Perfil de Docente y asignación de perfil académico.
 
 *   **`usp_registrar_docente_en_grupo_interno`**
     *   Validación de Existencia del Docente.
     *   Validación de Existencia del Grupo.
-    *   Validación de Habilitación y Periodo Académico (el grupo debe pertenecer a un periodo académico activo).
-    *   Validación de Cruces de Horario (el docente no debe tener asignado otro grupo en el mismo periodo académico con horarios coincidentes).
+    *   Validación de Cruces de Horario para el docente en otros grupos.
+    *   Validación de Asignación previa del docente al grupo.
