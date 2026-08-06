@@ -1,7 +1,7 @@
 # Script para desplegar la arquitectura modularizada /schema en Docker (Con soporte para subcarpetas)
 param (
-    [string]$ContainerName = "sql_server_asistencias",
-    [string]$Password = "TuPasswordSeguro123"
+    [string]$ContainerName = "sqlserver",
+    [string]$Password = "Rionegro2233+"
 )
 
 Write-Host "Iniciando despliegue de arquitectura por objeto (/schema)..." -ForegroundColor Cyan

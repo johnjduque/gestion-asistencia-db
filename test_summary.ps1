@@ -1,6 +1,6 @@
 param (
-    [string]$ContainerName = "sql_server_asistencias",
-    [string]$Password = "TuPasswordSeguro123"
+    [string]$ContainerName = "sqlserver",
+    [string]$Password = "Rionegro2233+"
 )
 
 Write-Host "Ejecutando suite de pruebas y generando resumen..." -ForegroundColor Cyan
