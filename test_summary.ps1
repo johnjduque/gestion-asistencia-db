@@ -5,8 +5,12 @@ param (
 
 Write-Host "Ejecutando suite de pruebas y generando resumen..." -ForegroundColor Cyan
 
-# Ejecutar el script original y capturar todo el output
-$output = Get-Content -Path .\test_suite.sql -Raw | docker exec -i $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -d gestionasistenciadb -U sa -P "$Password" -C -y 0 -Y 0 2>&1
+# Copiar test_suite.sql al contenedor para evitar corrupción de codificación por tubería
+$testSuitePath = Join-Path $PSScriptRoot "test_suite.sql"
+docker cp "$testSuitePath" "${ContainerName}:/tmp/test_suite.sql"
+
+# Ejecutar el script original apuntando al archivo en el contenedor y capturar el output
+$output = docker exec $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -d gestionasistenciadb -U sa -P "$Password" -C -y 0 -Y 0 -i /tmp/test_suite.sql 2>&1
 $outputStr = $output -join "`n"
 
 # Evaluar cada camino usando expresiones regulares sobre el output crudo
@@ -37,6 +41,15 @@ $a_c3 = $outputStr -match "no est.*matriculado.*0" -or $outputStr -match "no est
 # usp_registrar_asistencias_sesion
 $m_c1 = $outputStr -match "RESULTADO: PASO.*Carga masiva JSON exitosa"
 $m_c2 = $outputStr -match "no est.*matriculado.*0" -or $outputStr -match "no est.*inscrito.*0"
+
+# usp_registrar_docente_en_grupo_usuario_no_existente
+$d_c1 = $outputStr -match "correlacion.*no.*presente.*0"
+$d_c2 = $outputStr -match "RESULTADO: PASO.*Docente creado"
+$d_c3 = $outputStr -match "RESULTADO: PASO.*Usuario preexistente"
+$d_c4 = $outputStr -match "numero.*identificacion.*obligatorio.*0"
+$d_c5 = $outputStr -match "cruce.*horario.*0"
+$d_c6 = $outputStr -match "No existe.*grupo.*identificador.*0"
+$d_c7 = $outputStr -match "identificador.*grupo.*no.*valido.*0"
 
 Write-Host "`n========================================================" -ForegroundColor Green
 Write-Host "             RESULTADOS RESUMIDOS DE PRUEBAS" -ForegroundColor Green
@@ -74,18 +87,28 @@ Report-Path "Camino 3: Fallo por Grupo sin Horarios" $g_c3
 # 3. usp_registrar_asistencia_estudiante
 Report-Method "usp_registrar_asistencia_estudiante"
 Report-Path "Camino 1: Happy Path (Registro Unitario)" $r_c1
-Report-Path "Camino 2: Happy Path (Actualización de Estado)" $r_c2
-Report-Path "Camino 3: Fallo por Matrícula Inexistente" $r_c3
+Report-Path "Camino 2: Happy Path (Actualizacion de Estado)" $r_c2
+Report-Path "Camino 3: Fallo por Matricula Inexistente" $r_c3
 
 # 4. usp_registrar_asistencia_estudiante_autonomo
 Report-Method "usp_registrar_asistencia_estudiante_autonomo"
-Report-Path "Camino 1: Happy Path (Auto-registro con código)" $a_c1
-Report-Path "Camino 2: Fallo por Código de Verificación Incorrecto" $a_c2
+Report-Path "Camino 1: Happy Path (Auto-registro con codigo)" $a_c1
+Report-Path "Camino 2: Fallo por Codigo de Verificacion Incorrecto" $a_c2
 Report-Path "Camino 3: Fallo por Estudiante no Matriculado" $a_c3
 
 # 5. usp_registrar_asistencias_sesion
 Report-Method "usp_registrar_asistencias_sesion"
 Report-Path "Camino 1: Happy Path (Carga JSON Masiva)" $m_c1
 Report-Path "Camino 2: Fallo por Estudiante No Matriculado en JSON" $m_c2
+
+# 6. usp_registrar_docente_en_grupo_usuario_no_existente
+Report-Method "usp_registrar_docente_en_grupo_usuario_no_existente"
+Report-Path "Camino 1: IdCorrelacion Ausente / Vacio" $d_c1
+Report-Path "Camino 2: Happy Path (Registro Completo)" $d_c2
+Report-Path "Camino 3: Usuario Preexistente" $d_c3
+Report-Path "Camino 4: Fallo Sincronizacion (Campos Nulos)" $d_c4
+Report-Path "Camino 5: Fallo por Cruce de Horario" $d_c5
+Report-Path "Camino 6: Fallo por Grupo Inexistente" $d_c6
+Report-Path "Camino 7: Captura de error en CATCH" $d_c7
 
 Write-Host "`n========================================================" -ForegroundColor Green
