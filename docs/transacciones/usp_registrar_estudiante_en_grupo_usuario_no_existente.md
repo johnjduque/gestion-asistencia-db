@@ -2,42 +2,23 @@
 
 Documentación de la transacción orquestadora para dar de alta o actualizar a un usuario, asegurar su rol de estudiante y enrolarlo tanto en un grupo como en su programa académico correspondiente.
 
-## 📥 Parámetros de Entrada
 
-| Parámetro | Tipo | Requerido | Descripción |
-| :--- | :--- | :---: | :--- |
-| `tipoIdIdentificacion` | `UUID` | Sí | ID del tipo de documento de identidad |
-| `numeroIdentificacion` | `INT` | Sí | Número del documento de identidad |
-| `primerApellido` | `NVARCHAR` | Sí | Primer apellido |
-| `segundoApellido` | `NVARCHAR` | No | Segundo apellido |
-| `primerNombre` | `NVARCHAR` | Sí | Primer nombre |
-| `segundoNombre` | `NVARCHAR` | No | Segundo nombre |
-| `correo` | `NVARCHAR` | Sí | Dirección de correo electrónico |
-| `password` | `NVARCHAR` | No | Contraseña del usuario |
-| `idGrupo` | `UUID` | Sí | ID del grupo en el que se inscribirá |
-| `idCorrelacion` | `UUID` | Sí | ID de trazabilidad de la transacción |
+##  Responsabilidades de la Transacción
 
----
+La transacción es responsable de los siguientes flujos:
+*   Validar id correlacion esta presente
+*   Validar si el usuario esta creado
+*   Si existe actualizarlo de lo contrario crearlo
+*   Registrar estudiante en el grupo
+*   Registrar estudiante en programa
 
-## 📤 Parámetros de Salida
-
-| Parámetro | Tipo | Descripción |
-| :--- | :--- | :--- |
-| `idCorrelacion` | `UUID` | Identificador de trazabilidad retornado |
-| `mensajeUsuario` | `NVARCHAR` | Mensaje descriptivo para la interfaz de usuario |
-| `mensajeTecnico` | `NVARCHAR` | Mensaje técnico de auditoría o error detallado |
-| `estado` | `BIT` | Estado final de la transacción (`1` = Éxito, `0` = Fallo) |
-
----
-
-## 📊 Arquitectura de la Transacción (Entrada - Proceso - Salida)
-
+--- 
 ```mermaid
 flowchart LR
     %% Bloque de Entrada
     subgraph Entrada [Entrada]
         direction TB
-        param1["<b>Parámetros:</b><br/>• tipoIdIdentificacion<br/>• numeroIdentificacion<br/>• primerApellido<br/>• segundoApellido<br/>• primerNombre<br/>• segundoNombre<br/>• correo<br/>• password<br/>• idGrupo<br/>• idCorrelacion"]
+        param1["• tipoIdIdentificacion<br/>• numeroIdentificacion<br/>• primerApellido<br/>• segundoApellido<br/>• primerNombre<br/>• segundoNombre<br/>• correo<br/>• password<br/>• idGrupo<br/>• idCorrelacion"]
     end
 
     %% Bloque de Proceso
@@ -49,7 +30,7 @@ flowchart LR
     %% Bloque de Salida
     subgraph Salida [Salida]
         direction TB
-        out1[Resultado del Procedimiento]
+        out1["• idCorrelacion<br/>• mensajeUsuario<br/>• mensajeTecnico<br/>• estado"]
     end
 
     %% Conexión de flujo de izquierda a derecha
@@ -58,14 +39,6 @@ flowchart LR
 
 ---
 
-## 📋 Responsabilidades de la Transacción
-
-La transacción es responsable de los siguientes flujos:
-*   Validar id correlacion esta presente
-*   Validar si el usuario esta creado
-*   Si existe actualizarlo de lo contrario crearlo
-*   Registrar estudiante en el grupo
-*   Registrar estudiante en programa
 
 ---
 
