@@ -181,26 +181,24 @@ BEGIN
         END
 
         -- PASO 5: Evaluación de Resultado Final
-        -- En caso de ÉXITO: No se retornan mensajes de texto (el backend gestiona el éxito)
         IF @estadoResultado = 1
         BEGIN
-            SET @mensajeUsuarioResultado = '';
-            SET @mensajeTecnicoResultado = '';
+            SELECT
+                @mensajeUsuarioResultado = 'Se ha registrado el estudiante en el grupo de forma satisfactoria',
+                @mensajeTecnicoResultado = [dbo].[ufn_obtener_mensaje_exito](@idCorrelacionDefecto, OBJECT_NAME(@@PROCID), CONCAT('Operación exitosa completa. Orquestador finalizado para Estudiante: ', @idEstudianteCreado, ' en Grupo: ', @grupoDefecto));
         END
 
     END TRY
     BEGIN CATCH
         SELECT
             @mensajeUsuarioResultado = ISNULL(dbo.ufn_obtener_mensaje('ERR_INESPERADO_REGISTRO_ESTUDIANTE', 'USUARIO', 'Estudiante'), 'Hubo un error inesperado al procesar el registro completo del estudiante.'),
-            @mensajeTecnicoResultado = CONCAT('Error crítico en orquestador [usp_registrar_estudiante_en_grupo_usuario_no_existente]: ', ERROR_MESSAGE(), '. Línea: ', ERROR_LINE()),
+            @mensajeTecnicoResultado = [dbo].[ufn_obtener_detalle_error](@idCorrelacionDefecto),
             @estadoResultado = 0;
     END CATCH
 
     -- Retorno unificado de resultados
     SELECT
         id = @idCorrelacionDefecto,
-        idUsuario = @idUsuarioCreado,
-        idEstudiante = @idEstudianteCreado,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,
         mensajeTecnicoResultado = @mensajeTecnicoResultado,
         estadoResultado = @estadoResultado;

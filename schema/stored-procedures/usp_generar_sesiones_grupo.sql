@@ -171,7 +171,7 @@ BEGIN
 
         SELECT 
             @mensajeUsuarioResultado = 'Hubo un error inesperado al generar las sesiones del grupo.',
-            @mensajeTecnicoResultado = CONCAT('Error crítico en orquestador [usp_generar_sesiones_grupo]: ', ERROR_MESSAGE(), '. Línea: ', ERROR_LINE()),
+            @mensajeTecnicoResultado = [dbo].[ufn_obtener_detalle_error](@idCorrelacionDefecto),
             @estadoResultado = 0;
     END CATCH
 
