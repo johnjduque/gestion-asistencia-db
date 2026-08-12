@@ -74,11 +74,11 @@ IF NOT EXISTS (SELECT 1 FROM dbo.RazonCausa WHERE codigo = 'J')
 
 -- 4.1. Asegurar catálogo de Mensaje
 IF NOT EXISTS (SELECT 1 FROM dbo.Mensaje WHERE codigo = 'ERR_PROGRAMA_GRUPO_NO_ENCONTRADO' AND tipo = 'USUARIO')
-    INSERT INTO dbo.Mensaje (codigo, tipo, contenido) VALUES ('ERR_PROGRAMA_GRUPO_NO_ENCONTRADO', 'USUARIO', 'No se encontró un programa académico asociado a este grupo.');
+    INSERT INTO dbo.Mensaje (codigo, tipo, contenidoUsuario, contenidoTecnico) VALUES ('ERR_PROGRAMA_GRUPO_NO_ENCONTRADO', 'USUARIO', 'No se encontró un programa académico asociado a este grupo.', 'No se encontró un programa académico asociado a este grupo.');
 IF NOT EXISTS (SELECT 1 FROM dbo.Mensaje WHERE codigo = 'ERR_PROGRAMA_GRUPO_NO_ENCONTRADO' AND tipo = 'TECNICO')
-    INSERT INTO dbo.Mensaje (codigo, tipo, contenido) VALUES ('ERR_PROGRAMA_GRUPO_NO_ENCONTRADO', 'TECNICO', 'Error: Trazabilidad rota para {entidad}');
+    INSERT INTO dbo.Mensaje (codigo, tipo, contenidoUsuario, contenidoTecnico) VALUES ('ERR_PROGRAMA_GRUPO_NO_ENCONTRADO', 'TECNICO', 'Error: Trazabilidad rota para {entidad}', 'Error: Trazabilidad rota para {entidad}');
 IF NOT EXISTS (SELECT 1 FROM dbo.Mensaje WHERE codigo = 'ERR_INESPERADO_REGISTRO_ESTUDIANTE' AND tipo = 'USUARIO')
-    INSERT INTO dbo.Mensaje (codigo, tipo, contenido) VALUES ('ERR_INESPERADO_REGISTRO_ESTUDIANTE', 'USUARIO', 'Hubo un error inesperado al procesar el registro completo del estudiante.');
+    INSERT INTO dbo.Mensaje (codigo, tipo, contenidoUsuario, contenidoTecnico) VALUES ('ERR_INESPERADO_REGISTRO_ESTUDIANTE', 'USUARIO', 'Hubo un error inesperado al procesar el registro completo del estudiante.', 'Hubo un error inesperado al procesar el registro completo del estudiante.');
 
 -- 4.2. Asegurar catálogo de Parametro
 IF OBJECT_ID('dbo.Parametro', 'U') IS NOT NULL

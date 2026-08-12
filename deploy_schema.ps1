@@ -1,8 +1,26 @@
-# Script para desplegar la arquitectura modularizada /schema en Docker (Con soporte para subcarpetas)
 param (
-    [string]$ContainerName = "sqlserver",
-    [string]$Password = "Rionegro2233+"
+    [string]$ContainerName,
+    [string]$Password
 )
+
+# Cargar variables de entorno desde archivo .env si existe
+$envFile = Join-Path $PSScriptRoot ".env"
+if (Test-Path $envFile) {
+    Get-Content $envFile | ForEach-Object {
+        $line = $_.Trim()
+        if ($line -and -not $line.StartsWith("#") -and $line.Contains("=")) {
+            $parts = $line.Split("=", 2)
+            [System.Environment]::SetEnvironmentVariable($parts[0].Trim(), $parts[1].Trim())
+        }
+    }
+}
+
+if (-not $ContainerName) {
+    $ContainerName = if ($env:SQL_CONTAINER_NAME) { $env:SQL_CONTAINER_NAME } else { "sqlserver" }
+}
+if (-not $Password) {
+    $Password = if ($env:SQL_CONTAINER_PASSWORD) { $env:SQL_CONTAINER_PASSWORD } else { "Rionegro2233+" }
+}
 
 Write-Host "Iniciando despliegue de arquitectura por objeto (/schema)..." -ForegroundColor Cyan
 
