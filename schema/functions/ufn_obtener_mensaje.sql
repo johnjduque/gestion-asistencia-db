@@ -5,7 +5,7 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
-CREATE OR ALTER  FUNCTION [dbo].[ufn_obtener_mensaje] (
+CREATE OR ALTER FUNCTION [dbo].[ufn_obtener_mensaje] (
     @p_codigo NVARCHAR(50),
     @p_tipo NVARCHAR(20),
     @p_entidad NVARCHAR(100)
@@ -15,10 +15,10 @@ AS
 BEGIN
     DECLARE @plantilla NVARCHAR(MAX);
 
-    SELECT @plantilla = contenido
+    SELECT @plantilla = CASE WHEN UPPER(TRIM(@p_tipo)) = 'USUARIO' THEN contenidoUsuario ELSE contenidoTecnico END
     FROM dbo.Mensaje
-    WHERE codigo = @p_codigo AND tipo = @p_tipo;
+    WHERE codigo = TRIM(@p_codigo) AND tipo = TRIM(@p_tipo) AND estaActivo = 1;
 
-    RETURN REPLACE(@plantilla, '{entidad}', @p_entidad);
+    RETURN REPLACE(ISNULL(@plantilla, ''), '{entidad}', ISNULL(@p_entidad, ''));
 END;
 GO

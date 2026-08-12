@@ -13,11 +13,16 @@ RETURNS NVARCHAR(MAX)
 AS
 BEGIN
     DECLARE @valor NVARCHAR(MAX);
+    DECLARE @valorDefecto NVARCHAR(MAX);
 
-    SELECT @valor = valor
+    SELECT 
+        @valor = valor,
+        @valorDefecto = valorDefecto
     FROM dbo.Parametro
-    WHERE grupo = @p_grupo AND clave = @p_clave;
+    WHERE grupo = TRIM(@p_grupo) 
+      AND clave = TRIM(@p_clave) 
+      AND estaActivo = 1;
 
-    RETURN @valor;
+    RETURN ISNULL(@valor, @valorDefecto);
 END;
 GO

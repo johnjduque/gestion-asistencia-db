@@ -23,11 +23,13 @@ BEGIN
     SET NOCOUNT ON;
 
     -- PASO 0: Limpieza, sanitización de variables y recuperación de parámetros por defecto
-    SET @correo = LOWER(TRIM(@correo));
-    SET @primerNombre = UPPER(TRIM(@primerNombre));
-    SET @segundoNombre = UPPER(TRIM(@segundoNombre));
-    SET @primerApellido = UPPER(TRIM(@primerApellido));
-    SET @segundoApellido = UPPER(TRIM(@segundoApellido));
+    SET @correo = TRIM(@correo);
+    SET @primerNombre = TRIM(@primerNombre);
+    SET @segundoNombre = TRIM(@segundoNombre);
+    SET @primerApellido = TRIM(@primerApellido);
+    SET @segundoApellido = TRIM(@segundoApellido);
+
+    DECLARE @cadenaVaciaDefecto NVARCHAR(4000) = ISNULL(dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'), '');
 
     DECLARE @uuidDefecto UNIQUEIDENTIFIER = TRY_CAST(dbo.ufn_obtener_parametro('GENERAL', 'UUID_DEFECTO') AS UNIQUEIDENTIFIER);
     IF @uuidDefecto IS NULL
@@ -40,8 +42,8 @@ BEGIN
     DECLARE @idEstudianteCreado UNIQUEIDENTIFIER;
     DECLARE @idProgramaGrupo UNIQUEIDENTIFIER;
 
-    DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = '';
-    DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = '';
+    DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = @cadenaVaciaDefecto;
+    DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = @cadenaVaciaDefecto;
     DECLARE @estadoResultado BIT = 1;
 
     BEGIN TRY
@@ -184,8 +186,8 @@ BEGIN
         IF @estadoResultado = 1
         BEGIN
             SELECT
-                @mensajeUsuarioResultado = 'Se ha registrado el estudiante en el grupo de forma satisfactoria',
-                @mensajeTecnicoResultado = [dbo].[ufn_obtener_mensaje_exito](@idCorrelacionDefecto, OBJECT_NAME(@@PROCID), CONCAT('Operación exitosa completa. Orquestador finalizado para Estudiante: ', @idEstudianteCreado, ' en Grupo: ', @grupoDefecto));
+                @mensajeUsuarioResultado = ISNULL(dbo.ufn_obtener_mensaje('SUC_REGISTRO_ESTUDIANTE_GRUPO', 'USUARIO', 'Estudiante'), 'Se ha registrado el estudiante en el grupo de forma satisfactoria'),
+                @mensajeTecnicoResultado = [dbo].[ufn_obtener_mensaje_exito](@idCorrelacionDefecto, OBJECT_NAME(@@PROCID), CONCAT('Operación exitosa completa. Orquestador finalizado para Estudiante: ', @idEstudianteCreado, ' en Grupo: ', @idGrupoDefecto));
         END
 
     END TRY
