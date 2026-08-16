@@ -76,7 +76,7 @@ BEGIN
     BEGIN CATCH
         SELECT 
             @mensajeUsuarioResultado = 'Hubo un error inesperado al registrar la asistencia del estudiante.',
-            @mensajeTecnicoResultado = CONCAT('Error crítico en orquestador [usp_registrar_asistencia_estudiante]: ', ERROR_MESSAGE(), '. Línea: ', ERROR_LINE()),
+            @mensajeTecnicoResultado = [dbo].[ufn_obtener_detalle_error](@idCorrelacionDefecto),
             @estadoResultado = 0;
     END CATCH
 

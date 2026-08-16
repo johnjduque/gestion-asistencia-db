@@ -158,7 +158,7 @@ BEGIN
     BEGIN CATCH
         SELECT
             @mensajeUsuarioResultado = 'Hubo un error inesperado al procesar el registro completo del docente.',
-            @mensajeTecnicoResultado = CONCAT('Error critico en orquestador [usp_registrar_docente_en_grupo_usuario_no_existente]: ', ERROR_MESSAGE(), '. Linea: ', ERROR_LINE()),
+            @mensajeTecnicoResultado = [dbo].[ufn_obtener_detalle_error](@idCorrelacionDefecto),
             @estadoResultado = 0;
     END CATCH
 

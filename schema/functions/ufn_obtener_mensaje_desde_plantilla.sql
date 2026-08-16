@@ -5,7 +5,7 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
-CREATE OR ALTER  FUNCTION [dbo].[ufn_obtener_mensaje_desde_plantilla]
+CREATE OR ALTER FUNCTION [dbo].[ufn_obtener_mensaje_desde_plantilla]
 	(
 		@idCorrelacion  NVARCHAR(50),
 		@tipo NVARCHAR(50),
@@ -31,6 +31,12 @@ BEGIN
 	
 		SET	@valor = REPLACE(@plantilla, '${1}', @idCorrelacionDefecto)
 		SET	@valor = REPLACE(@valor, '${2}', @tipoDefecto)
+		SET	@valor = REPLACE(@valor, '${3}', @numeroDefecto)
+		SET	@valor = REPLACE(@valor, '${4}', @severidadDefecto)
+		SET	@valor = REPLACE(@valor, '${5}', @estadoDefecto)
+		SET	@valor = REPLACE(@valor, '${6}', @procedimientoDefecto)
+		SET	@valor = REPLACE(@valor, '${7}', @lineaDefecto)
+		SET	@valor = REPLACE(@valor, '${8}', @mensajeDefecto)
 		
 	RETURN @valor
 END
