@@ -5,88 +5,174 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
--- Sembrado Idempotente Completo: Catálogo de Mensajes y Códigos del Sistema
-MERGE INTO [dbo].[Mensaje] AS Target
+-- Sembrado Idempotente Completo: Catálogo de Mensajes de Usuario (CatalogoMensajeUsuario)
+MERGE INTO [dbo].[CatalogoMensajeUsuario] AS Target
 USING (VALUES
-    -- 1. Errores de Validación de Identidad y Seguridad
-    ('ERR_CORRELACION_REQUERIDA', 'USUARIO', '00001', 16, 400, 'El codigo de correlacion es requerido.', 'Error: idCorrelacion no esta presente o es invalido.', 'Validación de UUID de correlación obligatorio'),
-    ('ERR_CORRELACION_REQUERIDA', 'TECNICO', '00001', 16, 400, 'El codigo de correlacion es requerido.', 'Error: idCorrelacion no esta presente o es invalido.', 'Validación de UUID de correlación obligatorio'),
-    
-    ('ERR_USUARIO_NO_EXISTE', 'USUARIO', '00002', 16, 404, 'El usuario especificado no existe.', 'Error: No se encontro el ID de Usuario especificado: {entidad}', 'Usuario no registrado en la BD'),
-    ('ERR_USUARIO_NO_EXISTE', 'TECNICO', '00002', 16, 404, 'El usuario especificado no existe.', 'Error: No se encontro el ID de Usuario especificado: {entidad}', 'Usuario no registrado en la BD'),
+    -- Correlación y Transacción
+    ('CORR_001', 'BUSINESS_ERROR', 'ALTO', 'El identificador de correlación no está presente o está vacío.'),
+    ('ERR_CORRELACION_REQUERIDA', 'BUSINESS_ERROR', 'ALTO', 'El codigo de correlacion es requerido.'),
 
-    ('ERR_UNICIDAD_CORREO', 'USUARIO', '00003', 16, 409, 'El correo electronico ya se encuentra registrado.', 'Fallo unicidad: El correo [{entidad}] ya existe en uv_usuario.', 'Duplicidad de correo electrónico'),
-    ('ERR_UNICIDAD_CORREO', 'TECNICO', '00003', 16, 409, 'El correo electronico ya se encuentra registrado.', 'Fallo unicidad: El correo [{entidad}] ya existe en uv_usuario.', 'Duplicidad de correo electrónico'),
+    -- Plantillas Generales Dinámicas ({})
+    ('GEN_001', 'BUSINESS_ERROR', 'MEDIO', 'El {} especificado no existe en el sistema.'),
+    ('GEN_002', 'BUSINESS_ERROR', 'MEDIO', 'El {} no puede estar vacío o no está presente.'),
+    ('GEN_003', 'BUSINESS_ERROR', 'ALTO', 'Ya existe un {} registrado con este {}.'),
+    ('GEN_004', 'SUCCESS', 'BAJO', '{} registrado(a) exitosamente.'),
+    ('GEN_005', 'SUCCESS', 'BAJO', '{} actualizado(a) exitosamente.'),
 
-    ('ERR_UNICIDAD_DOCUMENTO', 'USUARIO', '00004', 16, 409, 'El numero de documento ya esta registrado para este tipo de identificacion.', 'Fallo unicidad: Duplicado en idTipoIdentificacion y numeroIdentificacion [{entidad}].', 'Duplicidad de documento de identidad'),
-    ('ERR_UNICIDAD_DOCUMENTO', 'TECNICO', '00004', 16, 409, 'El numero de documento ya esta registrado para este tipo de identificacion.', 'Fallo unicidad: Duplicado en idTipoIdentificacion y numeroIdentificacion [{entidad}].', 'Duplicidad de documento de identidad'),
+    -- Validaciones Biográficas y Formato
+    ('VAL_001', 'BUSINESS_ERROR', 'MEDIO', 'El número de identificación es obligatorio.'),
+    ('VAL_002', 'BUSINESS_ERROR', 'MEDIO', 'El número de identificación debe tener entre {} y {} dígitos.'),
+    ('VAL_003', 'BUSINESS_ERROR', 'MEDIO', 'Los nombres y apellidos son obligatorios.'),
+    ('VAL_004', 'BUSINESS_ERROR', 'MEDIO', 'El campo {} contiene caracteres no permitidos.'),
+    ('VAL_005', 'BUSINESS_ERROR', 'MEDIO', 'El correo electrónico es obligatorio y debe tener un formato válido.'),
+    ('VAL_006', 'BUSINESS_ERROR', 'ALTO', 'La dirección de correo electrónico ya se encuentra registrada.'),
+    ('VAL_007', 'BUSINESS_ERROR', 'ALTO', 'La contraseña no cumple con los requisitos mínimos de seguridad.'),
 
-    -- 2. Errores de Roles y Entidades Académicas
-    ('ERR_ESTUDIANTE_NO_EXISTE', 'USUARIO', '00010', 16, 404, 'El estudiante especificado no existe.', 'Error: No se encontro el ID de Estudiante especificado: {entidad}', 'Estudiante no encontrado'),
-    ('ERR_ESTUDIANTE_NO_EXISTE', 'TECNICO', '00010', 16, 404, 'El estudiante especificado no existe.', 'Error: No se encontro el ID de Estudiante especificado: {entidad}', 'Estudiante no encontrado'),
+    -- Entidades del Sistema
+    ('USU_001', 'BUSINESS_ERROR', 'MEDIO', 'El usuario especificado no existe en el sistema.'),
+    ('ERR_USUARIO_NO_EXISTE', 'BUSINESS_ERROR', 'MEDIO', 'El usuario especificado no existe.'),
+    ('USU_002', 'BUSINESS_ERROR', 'ALTO', 'El usuario especificado se encuentra inactivo en la plataforma.'),
+    ('ERR_UNICIDAD_CORREO', 'BUSINESS_ERROR', 'ALTO', 'El correo electronico ya se encuentra registrado.'),
+    ('ERR_UNICIDAD_DOCUMENTO', 'BUSINESS_ERROR', 'ALTO', 'El numero de documento ya esta registrado para este tipo de identificacion.'),
 
-    ('ERR_DOCENTE_NO_EXISTE', 'USUARIO', '00011', 16, 404, 'El docente especificado no existe o esta inactivo.', 'Error: No se encontro el ID de Docente especificado: {entidad}', 'Docente no encontrado'),
-    ('ERR_DOCENTE_NO_EXISTE', 'TECNICO', '00011', 16, 404, 'El docente especificado no existe o esta inactivo.', 'Error: No se encontro el ID de Docente especificado: {entidad}', 'Docente no encontrado'),
+    ('EST_001', 'BUSINESS_ERROR', 'MEDIO', 'El estudiante especificado no existe en el sistema.'),
+    ('ERR_ESTUDIANTE_NO_EXISTE', 'BUSINESS_ERROR', 'MEDIO', 'El estudiante especificado no existe.'),
+    ('EST_002', 'BUSINESS_ERROR', 'ALTO', 'El estudiante ya se encuentra matriculado o registrado en este grupo.'),
+    ('ERR_MATRICULA_DUPLICADA', 'BUSINESS_ERROR', 'ALTO', 'Usted ya se encuentra registrado o matriculado en este grupo.'),
+    ('EST_003', 'BUSINESS_ERROR', 'ALTO', 'El estudiante ya pertenece a este programa académico.'),
+    ('EST_004', 'BUSINESS_ERROR', 'ALTO', 'El estudiante no pertenece al grupo de la sesion seleccionada.'),
+    ('ERR_ESTUDIANTE_NO_PERTENECE_SESION', 'BUSINESS_ERROR', 'ALTO', 'El estudiante no pertenece al grupo de la sesion seleccionada.'),
 
-    ('ERR_GRUPO_NO_EXISTE', 'USUARIO', '00012', 16, 404, 'El grupo seleccionado no existe o no esta habilitado.', 'Error: No existe un grupo habilitado con el identificador: {entidad}', 'Grupo no existe o inactivo'),
-    ('ERR_GRUPO_NO_EXISTE', 'TECNICO', '00012', 16, 404, 'El grupo seleccionado no existe o no esta habilitado.', 'Error: No existe un grupo habilitado con el identificador: {entidad}', 'Grupo no existe o inactivo'),
+    ('DOC_001', 'BUSINESS_ERROR', 'MEDIO', 'El docente especificado no existe o se encuentra inactivo.'),
+    ('ERR_DOCENTE_NO_EXISTE', 'BUSINESS_ERROR', 'MEDIO', 'El docente especificado no existe o esta inactivo.'),
 
-    ('ERR_SESION_NO_EXISTE', 'USUARIO', '00013', 16, 404, 'La sesion de clase no existe o no esta abierta.', 'Error: No se encontro una sesion activa para el ID especificado: {entidad}', 'Sesión de clase no válida'),
-    ('ERR_SESION_NO_EXISTE', 'TECNICO', '00013', 16, 404, 'La sesion de clase no existe o no esta abierta.', 'Error: No se encontro una sesion activa para el ID especificado: {entidad}', 'Sesión de clase no válida'),
+    ('PROG_001', 'BUSINESS_ERROR', 'ALTO', 'El programa académico especificado no existe en el sistema.'),
+    ('ERR_PROGRAMA_GRUPO_NO_ENCONTRADO', 'BUSINESS_ERROR', 'ALTO', 'No se encontro un programa academico asociado a este grupo.'),
 
-    -- 3. Errores de Negocio, Cupos y Horarios
-    ('ERR_CUPO_SUPERADO', 'USUARIO', '00020', 16, 409, 'El grupo ha superado la capacidad maxima de estudiantes permitida.', 'Cupo lleno. Maximo de estudiantes alcanzado para Grupo: {entidad}', 'Cupo máximo de grupo superado'),
-    ('ERR_CUPO_SUPERADO', 'TECNICO', '00020', 16, 409, 'El grupo ha superado la capacidad maxima de estudiantes permitida.', 'Cupo lleno. Maximo de estudiantes alcanzado para Grupo: {entidad}', 'Cupo máximo de grupo superado'),
+    ('GRUP_001', 'BUSINESS_ERROR', 'MEDIO', 'El grupo seleccionado no existe o no se encuentra habilitado.'),
+    ('ERR_GRUPO_NO_EXISTE', 'BUSINESS_ERROR', 'MEDIO', 'El grupo seleccionado no existe o no esta habilitado.'),
+    ('GRUP_002', 'BUSINESS_ERROR', 'ALTO', 'El grupo ha alcanzado o superado la capacidad máxima de estudiantes permitida.'),
+    ('ERR_CUPO_SUPERADO', 'BUSINESS_ERROR', 'ALTO', 'El grupo ha superado la capacidad maxima de estudiantes permitida.'),
+    ('GRUP_003', 'BUSINESS_ERROR', 'ALTO', 'No se encontró un programa académico asociado a este grupo.'),
 
-    ('ERR_CRUCE_HORARIO_ESTUDIANTE', 'USUARIO', '00021', 16, 409, 'No es posible realizar el registro. Existe un cruce de horario con otra asignatura.', 'Cruce detectado en uv_horario para Estudiante con GrupoID: {entidad}', 'Colisión horaria del estudiante'),
-    ('ERR_CRUCE_HORARIO_ESTUDIANTE', 'TECNICO', '00021', 16, 409, 'No es posible realizar el registro. Existe un cruce de horario con otra asignatura.', 'Cruce detectado en uv_horario para Estudiante con GrupoID: {entidad}', 'Colisión horaria del estudiante'),
+    ('HOR_001', 'BUSINESS_ERROR', 'ALTO', 'No es posible realizar el registro. Existe un cruce de horario con otra asignatura.'),
+    ('ERR_CRUCE_HORARIO_ESTUDIANTE', 'BUSINESS_ERROR', 'ALTO', 'No es posible realizar el registro. Existe un cruce de horario con otra asignatura.'),
+    ('HOR_002', 'BUSINESS_ERROR', 'ALTO', 'Existe un cruce de horario para el docente en la misma franja horaria.'),
+    ('ERR_CRUCE_HORARIO_DOCENTE', 'BUSINESS_ERROR', 'ALTO', 'Existe un cruce de horario para el docente en la misma franja horaria.'),
 
-    ('ERR_CRUCE_HORARIO_DOCENTE', 'USUARIO', '00022', 16, 409, 'Existe un cruce de horario para el docente en la misma franja horaria.', 'Cruce detectado en uv_horario para Docente con GrupoID: {entidad}', 'Colisión horaria del docente'),
-    ('ERR_CRUCE_HORARIO_DOCENTE', 'TECNICO', '00022', 16, 409, 'Existe un cruce de horario para el docente en la misma franja horaria.', 'Cruce detectado en uv_horario para Docente con GrupoID: {entidad}', 'Colisión horaria del docente'),
+    ('SES_001', 'BUSINESS_ERROR', 'MEDIO', 'La sesión de clase especificada no existe o no se encuentra activa.'),
+    ('ERR_SESION_NO_EXISTE', 'BUSINESS_ERROR', 'MEDIO', 'La sesion de clase no existe o no esta abierta.'),
+    ('SES_002', 'BUSINESS_ERROR', 'MEDIO', 'El código de verificación de asistencia es incorrecto o ha expirado.'),
+    ('ERR_TOKEN_VERIFICACION_INVALIDO', 'BUSINESS_ERROR', 'MEDIO', 'El codigo de verificacion de asistencia es incorrecto o ha expirado.'),
 
-    ('ERR_MATRICULA_DUPLICADA', 'USUARIO', '00023', 16, 409, 'Usted ya se encuentra registrado o matriculado en este grupo.', 'Registro duplicado detectado en uv_estudiante_grupo para Estudiante en Grupo: {entidad}', 'Estudiante ya inscrito en grupo'),
-    ('ERR_MATRICULA_DUPLICADA', 'TECNICO', '00023', 16, 409, 'Usted ya se encuentra registrado o matriculado en este grupo.', 'Registro duplicado detectado en uv_estudiante_grupo para Estudiante en Grupo: {entidad}', 'Estudiante ya inscrito en grupo'),
+    ('INST_001', 'BUSINESS_ERROR', 'CRITICO', 'El estudiante, programa y facultad deben pertenecer a la misma institución.'),
 
-    ('ERR_ESTUDIANTE_NO_PERTENECE_SESION', 'USUARIO', '00024', 16, 403, 'El estudiante no pertenece al grupo de la sesion seleccionada.', 'Validacion fallida: Estudiante no pertenece al grupo de la sesion: {entidad}', 'Marcaje no autorizado'),
-    ('ERR_ESTUDIANTE_NO_PERTENECE_SESION', 'TECNICO', '00024', 16, 403, 'El estudiante no pertenece al grupo de la sesion seleccionada.', 'Validacion fallida: Estudiante no pertenece al grupo de la sesion: {entidad}', 'Marcaje no autorizado'),
+    -- Errores de Sistema
+    ('SYS_001', 'SYSTEM_ERROR', 'CRITICO', 'Ocurrió un error inesperado al procesar la solicitud.'),
+    ('ERR_INESPERADO_REGISTRO_ESTUDIANTE', 'SYSTEM_ERROR', 'CRITICO', 'Hubo un error inesperado al procesar el registro completo del estudiante.'),
+    ('ERR_INESPERADO_REGISTRO_DOCENTE', 'SYSTEM_ERROR', 'CRITICO', 'Hubo un error inesperado al procesar el registro completo del docente.'),
+    ('ERR_INESPERADO_REGISTRO_ASISTENCIA', 'SYSTEM_ERROR', 'CRITICO', 'Hubo un error inesperado al registrar la asistencia del estudiante.'),
 
-    ('ERR_TOKEN_VERIFICACION_INVALIDO', 'USUARIO', '00025', 16, 400, 'El codigo de verificacion de asistencia es incorrecto o ha expirado.', 'Fallo: Codigo de verificacion incorrecto o expirado para Sesion: {entidad}', 'Token QR expirado o no coincide'),
-    ('ERR_TOKEN_VERIFICACION_INVALIDO', 'TECNICO', '00025', 16, 400, 'El codigo de verificacion de asistencia es incorrecto o ha expirado.', 'Fallo: Codigo de verificacion incorrecto o expirado para Sesion: {entidad}', 'Token QR expirado o no coincide'),
+    -- Éxitos
+    ('SUC_REGISTRO_ESTUDIANTE_GRUPO', 'SUCCESS', 'BAJO', 'Se ha registrado el estudiante en el grupo de forma satisfactoria.'),
+    ('SUC_REGISTRO_DOCENTE_GRUPO', 'SUCCESS', 'BAJO', 'Se ha registrado el docente en el grupo de forma satisfactoria.'),
+    ('SUC_REGISTRO_ASISTENCIA', 'SUCCESS', 'BAJO', 'Asistencia registrada de forma satisfactoria.')
 
-    ('ERR_PROGRAMA_GRUPO_NO_ENCONTRADO', 'USUARIO', '00030', 16, 404, 'No se encontro un programa academico asociado a este grupo.', 'Error: Trazabilidad rota para Grupo ID {entidad}', 'Grupo sin programa académico asociado'),
-    ('ERR_PROGRAMA_GRUPO_NO_ENCONTRADO', 'TECNICO', '00030', 16, 404, 'No se encontro un programa academico asociado a este grupo.', 'Error: Trazabilidad rota para Grupo ID {entidad}', 'Grupo sin programa académico asociado'),
-
-    -- 4. Excepciones Inesperadas (CATCH / HTTP 500)
-    ('ERR_INESPERADO_REGISTRO_ESTUDIANTE', 'USUARIO', '00090', 18, 500, 'Hubo un error inesperado al procesar el registro completo del estudiante.', 'Error critico en orquestador [usp_registrar_estudiante_en_grupo_usuario_no_existente]: {entidad}', 'Excepción general en registro de estudiante'),
-    ('ERR_INESPERADO_REGISTRO_ESTUDIANTE', 'TECNICO', '00090', 18, 500, 'Hubo un error inesperado al procesar el registro completo del estudiante.', 'Error critico en orquestador [usp_registrar_estudiante_en_grupo_usuario_no_existente]: {entidad}', 'Excepción general en registro de estudiante'),
-
-    ('ERR_INESPERADO_REGISTRO_DOCENTE', 'USUARIO', '00091', 18, 500, 'Hubo un error inesperado al procesar el registro completo del docente.', 'Error critico en orquestador [usp_registrar_docente_en_grupo_usuario_no_existente]: {entidad}', 'Excepción general en registro de docente'),
-    ('ERR_INESPERADO_REGISTRO_DOCENTE', 'TECNICO', '00091', 18, 500, 'Hubo un error inesperado al procesar el registro completo del docente.', 'Error critico en orquestador [usp_registrar_docente_en_grupo_usuario_no_existente]: {entidad}', 'Excepción general en registro de docente'),
-
-    ('ERR_INESPERADO_REGISTRO_ASISTENCIA', 'USUARIO', '00092', 18, 500, 'Hubo un error inesperado al registrar la asistencia del estudiante.', 'Error critico en orquestador [usp_registrar_asistencia_estudiante]: {entidad}', 'Excepción general en registro de asistencia'),
-    ('ERR_INESPERADO_REGISTRO_ASISTENCIA', 'TECNICO', '00092', 18, 500, 'Hubo un error inesperado al registrar la asistencia del estudiante.', 'Error critico en orquestador [usp_registrar_asistencia_estudiante]: {entidad}', 'Excepción general en registro de asistencia'),
-
-    -- 5. Mensajes de Éxito
-    ('SUC_REGISTRO_ESTUDIANTE_GRUPO', 'USUARIO', '00100', 0, 200, 'Se ha registrado el estudiante en el grupo de forma satisfactoria.', 'Operacion exitosa completa. Orquestador finalizado para Estudiante en Grupo: {entidad}', 'Registro de estudiante en grupo exitoso'),
-    ('SUC_REGISTRO_ESTUDIANTE_GRUPO', 'TECNICO', '00100', 0, 200, 'Se ha registrado el estudiante en el grupo de forma satisfactoria.', 'Operacion exitosa completa. Orquestador finalizado para Estudiante en Grupo: {entidad}', 'Registro de estudiante en grupo exitoso'),
-
-    ('SUC_REGISTRO_DOCENTE_GRUPO', 'USUARIO', '00101', 0, 200, 'Se ha registrado el docente en el grupo de forma satisfactoria.', 'Operacion exitosa completa. Orquestador finalizado para Docente en Grupo: {entidad}', 'Registro de docente en grupo exitoso'),
-    ('SUC_REGISTRO_DOCENTE_GRUPO', 'TECNICO', '00101', 0, 200, 'Se ha registrado el docente en el grupo de forma satisfactoria.', 'Operacion exitosa completa. Orquestador finalizado para Docente en Grupo: {entidad}', 'Registro de docente en grupo exitoso'),
-
-    ('SUC_REGISTRO_ASISTENCIA', 'USUARIO', '00102', 0, 200, 'Asistencia registrada de forma satisfactoria.', 'Sincronizacion de asistencia completa. Registrada para: {entidad}', 'Toma de asistencia exitosa'),
-    ('SUC_REGISTRO_ASISTENCIA', 'TECNICO', '00102', 0, 200, 'Asistencia registrada de forma satisfactoria.', 'Sincronizacion de asistencia completa. Registrada para: {entidad}', 'Toma de asistencia exitosa')
-
-) AS Source (codigo, tipo, numero, severidad, estado, contenidoUsuario, contenidoTecnico, descripcion)
-ON (Target.codigo = Source.codigo AND Target.tipo = Source.tipo)
+) AS Source (codigo, tipoMensaje, severidad, contenido)
+ON (Target.codigo = Source.codigo)
 WHEN MATCHED THEN
     UPDATE SET 
-        Target.numero = Source.numero,
+        Target.tipoMensaje = Source.tipoMensaje,
         Target.severidad = Source.severidad,
-        Target.estado = Source.estado,
-        Target.contenidoUsuario = Source.contenidoUsuario,
-        Target.contenidoTecnico = Source.contenidoTecnico,
-        Target.descripcion = Source.descripcion
+        Target.contenido = Source.contenido,
+        Target.fechaModificacion = GETDATE()
 WHEN NOT MATCHED THEN
-    INSERT (codigo, tipo, numero, severidad, estado, contenidoUsuario, contenidoTecnico, descripcion)
-    VALUES (Source.codigo, Source.tipo, Source.numero, Source.severidad, Source.estado, Source.contenidoUsuario, Source.contenidoTecnico, Source.descripcion);
+    INSERT (codigo, tipoMensaje, severidad, contenido, estaActivo, fechaCreacion, fechaModificacion)
+    VALUES (Source.codigo, Source.tipoMensaje, Source.severidad, Source.contenido, 1, GETDATE(), GETDATE());
+GO
+
+-- Sembrado Idempotente Completo: Catálogo de Mensajes Técnicos (CatalogoMensajeTecnico)
+MERGE INTO [dbo].[CatalogoMensajeTecnico] AS Target
+USING (VALUES
+    -- Correlación y Transacción
+    ('CORR_001', 'BUSINESS_ERROR', 'CRITICO', 'Validación fallida: idCorrelacion no está presente o no es un UUID válido. Transacción no procesable.'),
+    ('ERR_CORRELACION_REQUERIDA', 'BUSINESS_ERROR', 'CRITICO', 'Error: idCorrelacion no esta presente o es invalido.'),
+
+    -- Plantillas Generales Dinámicas ({})
+    ('GEN_001', 'BUSINESS_ERROR', 'MEDIO', 'Error de existencia: No se encontró el registro para la entidad [{}] con el identificador proporcionado.'),
+    ('GEN_002', 'BUSINESS_ERROR', 'MEDIO', 'Error de validación: El parámetro o campo [{}] es requerido y no contiene un valor válido.'),
+    ('GEN_003', 'BUSINESS_ERROR', 'ALTO', 'Error de unicidad: Se detectó un registro duplicado para la entidad [{}] con la propiedad [{}].'),
+    ('GEN_004', 'SUCCESS', 'BAJO', 'Operación exitosa: Se completó la creación/registro de la entidad [{}] de manera correcta.'),
+    ('GEN_005', 'SUCCESS', 'BAJO', 'Operación exitosa: Se completó la actualización de la entidad [{}] de manera correcta.'),
+
+    -- Validaciones Biográficas y Formato
+    ('VAL_001', 'BUSINESS_ERROR', 'MEDIO', 'Validación de campo: numeroIdentificacion no está presente o es nulo.'),
+    ('VAL_002', 'BUSINESS_ERROR', 'MEDIO', 'Validación de rango: numeroIdentificacion debe tener una longitud de entre {} y {} dígitos.'),
+    ('VAL_003', 'BUSINESS_ERROR', 'MEDIO', 'Validación de campo: nombres o apellidos vacíos o no proporcionados.'),
+    ('VAL_004', 'BUSINESS_ERROR', 'MEDIO', 'Validación de formato: El valor enviado para [{}] contiene caracteres especiales no válidos.'),
+    ('VAL_005', 'BUSINESS_ERROR', 'MEDIO', 'Validación de formato: La dirección de correo electrónico no cumple con la estructura estándar.'),
+    ('VAL_006', 'BUSINESS_ERROR', 'ALTO', 'Fallo de unicidad: El correo electrónico ya existe en la vista uv_usuario.'),
+    ('VAL_007', 'BUSINESS_ERROR', 'ALTO', 'Validación de seguridad: La contraseña no satisface las políticas de complejidad establecidas.'),
+
+    -- Entidades del Sistema
+    ('USU_001', 'BUSINESS_ERROR', 'MEDIO', 'Error de búsqueda: No se encontró el usuario con el ID especificado: {}.'),
+    ('ERR_USUARIO_NO_EXISTE', 'BUSINESS_ERROR', 'MEDIO', 'Error: No se encontro el ID de Usuario especificado: {}.'),
+    ('USU_002', 'BUSINESS_ERROR', 'ALTO', 'Restricción de acceso: El usuario [{}] tiene estaActivo = 0.'),
+    ('ERR_UNICIDAD_CORREO', 'BUSINESS_ERROR', 'ALTO', 'Fallo unicidad: El correo [{}] ya existe en uv_usuario.'),
+    ('ERR_UNICIDAD_DOCUMENTO', 'BUSINESS_ERROR', 'ALTO', 'Fallo unicidad: Duplicado en idTipoIdentificacion y numeroIdentificacion [{}].'),
+
+    ('EST_001', 'BUSINESS_ERROR', 'MEDIO', 'Error de búsqueda: No se encontró el estudiante especificado en uv_estudiante: {}.'),
+    ('ERR_ESTUDIANTE_NO_EXISTE', 'BUSINESS_ERROR', 'MEDIO', 'Error: No se encontro el ID de Estudiante especificado: {}.'),
+    ('EST_002', 'BUSINESS_ERROR', 'ALTO', 'Registro duplicado: El estudiante {} ya se encuentra asociado al grupo {} en uv_estudiante_grupo.'),
+    ('ERR_MATRICULA_DUPLICADA', 'BUSINESS_ERROR', 'ALTO', 'Registro duplicado detectado en uv_estudiante_grupo para Estudiante en Grupo: {}.'),
+    ('EST_003', 'BUSINESS_ERROR', 'ALTO', 'Registro duplicado: El estudiante {} ya está asociado al programa en uv_estudiante_programa.'),
+    ('EST_004', 'BUSINESS_ERROR', 'ALTO', 'Validación de pertenencia fallida: El estudiante {} no está inscrito en el grupo de la sesión {}.'),
+    ('ERR_ESTUDIANTE_NO_PERTENECE_SESION', 'BUSINESS_ERROR', 'ALTO', 'Validacion fallida: Estudiante no pertenece al grupo de la sesion: {}.'),
+
+    ('DOC_001', 'BUSINESS_ERROR', 'MEDIO', 'Error de búsqueda: Docente no encontrado o deshabilitado en uv_docente: {}.'),
+    ('ERR_DOCENTE_NO_EXISTE', 'BUSINESS_ERROR', 'MEDIO', 'Error: No se encontro el ID de Docente especificado: {}.'),
+
+    ('PROG_001', 'BUSINESS_ERROR', 'ALTO', 'Error de búsqueda: No se encontró el programa en uv_programa: {}.'),
+    ('ERR_PROGRAMA_GRUPO_NO_ENCONTRADO', 'BUSINESS_ERROR', 'ALTO', 'Error: Trazabilidad rota para Grupo ID {}.'),
+
+    ('GRUP_001', 'BUSINESS_ERROR', 'MEDIO', 'Error de búsqueda: Grupo inexistente o deshabilitado en uv_grupo: {}.'),
+    ('ERR_GRUPO_NO_EXISTE', 'BUSINESS_ERROR', 'MEDIO', 'Error: No existe un grupo habilitado con el identificador: {}.'),
+    ('GRUP_002', 'BUSINESS_ERROR', 'ALTO', 'Límite alcanzado: Capacidad máxima superada para el grupo seleccionado: {}.'),
+    ('ERR_CUPO_SUPERADO', 'BUSINESS_ERROR', 'ALTO', 'Cupo lleno. Maximo de estudiantes alcanzado para Grupo: {}.'),
+    ('GRUP_003', 'BUSINESS_ERROR', 'ALTO', 'Inconsistencia de trazabilidad: Grupo {} sin programa académico vinculado.'),
+
+    ('HOR_001', 'BUSINESS_ERROR', 'ALTO', 'Colisión horaria: Se detectó una superposición de horario para el estudiante en la misma franja: {}.'),
+    ('ERR_CRUCE_HORARIO_ESTUDIANTE', 'BUSINESS_ERROR', 'ALTO', 'Cruce detectado en uv_horario para Estudiante con GrupoID: {}.'),
+    ('HOR_002', 'BUSINESS_ERROR', 'ALTO', 'Colisión horaria: Se detectó una superposición de horario para el docente en la misma franja: {}.'),
+    ('ERR_CRUCE_HORARIO_DOCENTE', 'BUSINESS_ERROR', 'ALTO', 'Cruce detectado en uv_horario para Docente con GrupoID: {}.'),
+
+    ('SES_001', 'BUSINESS_ERROR', 'MEDIO', 'Error de búsqueda: Sesión no encontrada o cerrada en uv_sesion: {}.'),
+    ('ERR_SESION_NO_EXISTE', 'BUSINESS_ERROR', 'MEDIO', 'Error: No se encontro una sesion activa para el ID especificado: {}.'),
+    ('SES_002', 'BUSINESS_ERROR', 'MEDIO', 'Validación fallida: Token QR o código de verificación no coincide o venció para Sesión: {}.'),
+    ('ERR_TOKEN_VERIFICACION_INVALIDO', 'BUSINESS_ERROR', 'MEDIO', 'Fallo: Codigo de verificacion incorrecto o expirado para Sesion: {}.'),
+
+    ('INST_001', 'BUSINESS_ERROR', 'CRITICO', 'Inconsistencia institucional: Los identificadores de institución no coinciden entre la facultad, programa y estudiante: {}.'),
+
+    -- Errores de Sistema
+    ('SYS_001', 'SYSTEM_ERROR', 'CRITICO', 'Excepción de sistema no controlada capturada en bloque CATCH: {}.'),
+    ('ERR_INESPERADO_REGISTRO_ESTUDIANTE', 'SYSTEM_ERROR', 'CRITICO', 'Error critico en orquestador [usp_registrar_estudiante_en_grupo_usuario_no_existente]: {}.'),
+    ('ERR_INESPERADO_REGISTRO_DOCENTE', 'SYSTEM_ERROR', 'CRITICO', 'Error critico en orquestador [usp_registrar_docente_en_grupo_usuario_no_existente]: {}.'),
+    ('ERR_INESPERADO_REGISTRO_ASISTENCIA', 'SYSTEM_ERROR', 'CRITICO', 'Error critico en orquestador [usp_registrar_asistencia_estudiante]: {}.'),
+
+    -- Éxitos
+    ('SUC_REGISTRO_ESTUDIANTE_GRUPO', 'SUCCESS', 'BAJO', 'Operacion exitosa completa. Orquestador finalizado para Estudiante en Grupo: {}.'),
+    ('SUC_REGISTRO_DOCENTE_GRUPO', 'SUCCESS', 'BAJO', 'Operacion exitosa completa. Orquestador finalizado para Docente en Grupo: {}.'),
+    ('SUC_REGISTRO_ASISTENCIA', 'SUCCESS', 'BAJO', 'Sincronizacion de asistencia completa. Registrada para: {}.')
+
+) AS Source (codigo, tipoMensaje, severidad, contenido)
+ON (Target.codigo = Source.codigo)
+WHEN MATCHED THEN
+    UPDATE SET 
+        Target.tipoMensaje = Source.tipoMensaje,
+        Target.severidad = Source.severidad,
+        Target.contenido = Source.contenido,
+        Target.fechaModificacion = GETDATE()
+WHEN NOT MATCHED THEN
+    INSERT (codigo, tipoMensaje, severidad, contenido, estaActivo, fechaCreacion, fechaModificacion)
+    VALUES (Source.codigo, Source.tipoMensaje, Source.severidad, Source.contenido, 1, GETDATE(), GETDATE());
 GO
