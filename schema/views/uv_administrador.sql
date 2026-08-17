@@ -30,7 +30,7 @@ SELECT		a.id,
 			estaActivaInstitucion = i.estaActivaInstitucion,
 			estaActivoTextoInstitucion = i.estaActivaTextoInstitucion,
 
-			idPerfil = u.id,
+			idPerfil = p.id,
 			codigoPerfil = p.codigo,
 			nombrePerfil = p.nombre,
 			nivelAccesoPerfil = p.nivel_acceso,

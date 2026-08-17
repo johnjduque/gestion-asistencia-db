@@ -38,14 +38,14 @@ BEGIN
 
     -- Primer registro
     EXEC [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC5,
         @primerApellido = 'Cruce',
         @segundoApellido = 'Estudiante',
         @primerNombre = 'Alumno',
         @segundoNombre = '',
         @correo = @correoC5,
-        @password = 'Pass1234!',
+        @password = 'HashBackend_Dump_AbCdEf1234567890',
         @idGrupo = @idGrupoValido,
         @idCorrelacion = @idCorrelacionC5;
 
@@ -58,14 +58,14 @@ BEGIN
 
     -- Segundo registro
     EXEC [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC5,
         @primerApellido = 'Cruce',
         @segundoApellido = 'Estudiante',
         @primerNombre = 'Alumno',
         @segundoNombre = '',
         @correo = @correoC5,
-        @password = 'Pass1234!',
+        @password = 'HashBackend_Dump_AbCdEf1234567890',
         @idGrupo = @idGrupo2,
         @idCorrelacion = @idCorrelacionC5;
 END;

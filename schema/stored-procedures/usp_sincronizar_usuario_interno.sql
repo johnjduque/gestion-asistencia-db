@@ -25,16 +25,18 @@ AS
     DECLARE @idCorrelacionDefecto            UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idTipoIdIdentificacionDefecto   UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idTipoIdIdentificacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     
-    DECLARE @numeroIdentificacionDefecto     INT = @numeroIdentificacion;
-    DECLARE @primerApellidoDefecto           NVARCHAR(255) = TRIM(@primerApellido);
-    DECLARE @segundoApellidoDefecto          NVARCHAR(255) = TRIM(@segundoApellido);
-    DECLARE @primerNombreDefecto             NVARCHAR(255) = TRIM(@primerNombre);
-    DECLARE @segundoNombreDefecto            NVARCHAR(255) = TRIM(@segundoNombre);
-    DECLARE @correoDefecto                   NVARCHAR(255) = TRIM(@correo);
-    DECLARE @passwordDefecto                 NVARCHAR(500) = TRIM(@password);
+    DECLARE @numeroIdentificacionDefecto     INT = COALESCE(@numeroIdentificacion, 0);
+    DECLARE @primerApellidoDefecto           NVARCHAR(255) = UPPER(TRIM(COALESCE(@primerApellido, '')));
+    DECLARE @segundoApellidoDefecto          NVARCHAR(255) = UPPER(TRIM(COALESCE(@segundoApellido, '')));
+    DECLARE @primerNombreDefecto             NVARCHAR(255) = UPPER(TRIM(COALESCE(@primerNombre, '')));
+    DECLARE @segundoNombreDefecto            NVARCHAR(255) = UPPER(TRIM(COALESCE(@segundoNombre, '')));
+    DECLARE @correoDefecto                   NVARCHAR(255) = LOWER(TRIM(COALESCE(@correo, '')));
+
+    -- El password llega preparado por el backend y debe almacenarse sin transformacion.
+    DECLARE @passwordDefecto                 NVARCHAR(500) = @password;
 
     -- Inicialización de respuesta desde parámetros del catálogo
-    SELECT 
+    SELECT
         @mensajeUsuarioResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
         @mensajeTecnicoResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
         @estadoResultado = 1;
@@ -148,8 +150,8 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
-        -- F. Validar Contraseña (Seguridad / Complejidad)
-        IF @estadoResultado = 1 AND dbo.ufn_validar_password(@passwordDefecto, @numeroIdentificacionDefecto) = 0
+        -- F. Validar presencia de Password/Hash
+        IF @estadoResultado = 1 AND (@passwordDefecto IS NULL OR TRIM(@passwordDefecto) = '')
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'VAL_007',

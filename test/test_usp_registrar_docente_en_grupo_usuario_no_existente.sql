@@ -34,14 +34,14 @@ BEGIN
     DECLARE @estadoC1 BIT;
 
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = 200000001,
         @primerApellido = 'Perez',
         @segundoApellido = 'Gomez',
         @primerNombre = 'Juan',
         @segundoNombre = 'Carlos',
         @correo = 'juan.docente.c1@test.com',
-        @password = 'Pass1234!',
+        @password = 'HashBackend_Dump_AbCdEf1234567890',
         @idGrupo = @idGrupoValido,
         @idCorrelacion = '00000000-0000-0000-0000-000000000000'; -- Invalido
 
@@ -67,14 +67,14 @@ BEGIN
 
     -- Ejecutar
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC2,
         @primerApellido = 'Sanchez',
         @segundoApellido = 'Mendoza',
         @primerNombre = 'Luis',
         @segundoNombre = 'Alberto',
         @correo = @correoC2,
-        @password = 'Pass1234!',
+        @password = 'HashBackend_Dump_AbCdEf1234567890',
         @idGrupo = @idGrupoValido,
         @idCorrelacion = @idCorrelacionC2;
 
@@ -115,14 +115,14 @@ BEGIN
 
     -- Ejecutar orquestador con datos actualizados
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC3,
         @primerApellido = 'NuevoAp',
         @segundoApellido = 'Actualizado',
         @primerNombre = 'NuevoNom',
         @segundoNombre = '',
         @correo = @correoC3,
-        @password = 'Pass1234!',
+        @password = 'HashBackend_Dump_AbCdEf1234567890',
         @idGrupo = @idGrupoValido,
         @idCorrelacion = @idCorrelacionC3;
 
@@ -152,7 +152,7 @@ BEGIN
     DECLARE @idCorrelacionC4 UNIQUEIDENTIFIER = NEWID();
 
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = NULL, -- Causara error de formato / ufn_validar_numero
         @primerApellido = NULL,
         @segundoApellido = NULL,
@@ -212,27 +212,27 @@ BEGIN
 
     -- Asignar docente al Grupo 1 exitosamente
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC5,
         @primerApellido = 'Cruce',
         @segundoApellido = 'Docente',
         @primerNombre = 'Profesor',
         @segundoNombre = '',
         @correo = @correoC5,
-        @password = 'Pass1234!',
+        @password = 'HashBackend_Dump_AbCdEf1234567890',
         @idGrupo = @idGrupoValido,
         @idCorrelacion = @idCorrelacionC5;
 
     -- Intentar asignar el mismo docente al Grupo 2 (Deberia fallar por cruce)
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC5,
         @primerApellido = 'Cruce',
         @segundoApellido = 'Docente',
         @primerNombre = 'Profesor',
         @segundoNombre = '',
         @correo = @correoC5,
-        @password = 'Pass1234!',
+        @password = 'HashBackend_Dump_AbCdEf1234567890',
         @idGrupo = @idGrupo2,
         @idCorrelacion = @idCorrelacionC5;
 END;
@@ -249,14 +249,14 @@ BEGIN
     DECLARE @idGrupoInexistente UNIQUEIDENTIFIER = NEWID();
 
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = 200000006,
         @primerApellido = 'Rojas',
         @segundoApellido = '',
         @primerNombre = 'Laura',
         @segundoNombre = '',
         @correo = 'laura.rojas.c6@test.com',
-        @password = 'Pass1234!',
+        @password = 'HashBackend_Dump_AbCdEf1234567890',
         @idGrupo = @idGrupoInexistente,
         @idCorrelacion = @idCorrelacionC6;
 END;
@@ -271,14 +271,14 @@ BEGIN
     DECLARE @idCorrelacionC7 UNIQUEIDENTIFIER = NEWID();
 
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = 200000007,
         @primerApellido = 'Excepcion',
         @segundoApellido = '',
         @primerNombre = 'Test',
         @segundoNombre = '',
         @correo = 'test.catch.c7@test.com',
-        @password = 'Pass1234!',
+        @password = 'HashBackend_Dump_AbCdEf1234567890',
         @idGrupo = NULL, -- Causara error en la insercion/validacion interna al no admitir nulo
         @idCorrelacion = @idCorrelacionC7;
 END;
