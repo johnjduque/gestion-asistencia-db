@@ -257,7 +257,7 @@ PRINT '--- [CAMINO 1]: IdCorrelacion Ausente / Vacio (00000000-0000-0000-0000-00
 BEGIN TRANSACTION;
 BEGIN
     EXEC [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = 100000001,
         @primerApellido = 'Perez',
         @segundoApellido = 'Gomez',
@@ -278,7 +278,7 @@ BEGIN
     DECLARE @numeroIdC2 INT = 100000002;
 
     EXEC [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC2,
         @primerApellido = 'Lopez',
         @segundoApellido = 'Diaz',
@@ -313,7 +313,7 @@ BEGIN
     VALUES (@idUsuarioC3, @tipoIdIdentificacion, @numeroIdC3, 'ViejoAp', '', 'ViejoNom', '', @correoC3, 0, 1, 'ClaveVieja123*');
 
     EXEC [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC3,
         @primerApellido = 'NuevoAp',
         @segundoApellido = 'Actualizado',
@@ -344,8 +344,10 @@ BEGIN TRANSACTION;
 BEGIN
     DECLARE @idCorrelacionC4 UNIQUEIDENTIFIER = NEWID();
 
+    DECLARE @resC4 TABLE (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT);
+    INSERT INTO @resC4
     EXEC [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = NULL,
         @primerApellido = NULL,
         @segundoApellido = NULL,
@@ -355,6 +357,11 @@ BEGIN
         @password = NULL,
         @idGrupo = @idGrupoValido,
         @idCorrelacion = @idCorrelacionC4;
+
+    IF EXISTS (SELECT 1 FROM @resC4 WHERE estadoResultado = 0)
+        PRINT '>> RESULTADO: PASO (Rechazado correctamente por campos nulos)';
+    ELSE
+        PRINT '>> RESULTADO: FALLO (No se rechazo por campos nulos)';
 END;
 IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
 
@@ -381,7 +388,7 @@ BEGIN
     VALUES (NEWID(), @idGrupo2, @idDia, '09:00:00', '11:00:00');
 
     EXEC [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC5,
         @primerApellido = 'Cruce',
         @segundoApellido = 'Estudiante',
@@ -393,7 +400,7 @@ BEGIN
         @idCorrelacion = @idCorrelacionC5;
 
     EXEC [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC5,
         @primerApellido = 'Cruce',
         @segundoApellido = 'Estudiante',
@@ -413,7 +420,7 @@ BEGIN
     DECLARE @idGrupoInexistente UNIQUEIDENTIFIER = '8B8B3878-E6D5-4664-A40E-F768A95A0115';
 
     EXEC [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = 100000006,
         @primerApellido = 'Inexistente',
         @segundoApellido = 'Grupo',
@@ -431,8 +438,10 @@ BEGIN TRANSACTION;
 BEGIN
     DECLARE @idCorrelacionC7 UNIQUEIDENTIFIER = NEWID();
 
+    DECLARE @resC7 TABLE (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT);
+    INSERT INTO @resC7
     EXEC [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = 100000007,
         @primerApellido = 'Error',
         @segundoApellido = 'Catch',
@@ -442,6 +451,11 @@ BEGIN
         @password = 'Pass1234!',
         @idGrupo = '00000000-0000-0000-0000-000000000000',
         @idCorrelacion = @idCorrelacionC7;
+
+    IF EXISTS (SELECT 1 FROM @resC7 WHERE estadoResultado = 0)
+        PRINT '>> RESULTADO: PASO (Capturado error de grupo por defecto)';
+    ELSE
+        PRINT '>> RESULTADO: FALLO (No se capturo el error de idGrupo)';
 END;
 IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
 
@@ -489,9 +503,16 @@ BEGIN
     INSERT INTO dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron, cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)
     VALUES (@idGrupoSinHorarios, @idAsignatura, @idPeriodoValido, 9002, 'Grupo Sin Horarios', 30, 0, 0, 0, @idDocenteValido);
 
+    DECLARE @resGS3 TABLE (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT);
+    INSERT INTO @resGS3
     EXEC [dbo].[usp_generar_sesiones_grupo]
         @idGrupo = @idGrupoSinHorarios,
         @idCorrelacion = @idCorrelacionGS3;
+
+    IF EXISTS (SELECT 1 FROM @resGS3 WHERE estadoResultado = 0)
+        PRINT '>> RESULTADO: PASO (Rechazado correctamente por grupo sin horarios)';
+    ELSE
+        PRINT '>> RESULTADO: FALLO (No se rechazo grupo sin horarios)';
 END;
 IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
 
@@ -609,11 +630,18 @@ BEGIN
     INSERT INTO dbo.Sesion (id, nombre, numero, codigo, numeroSemana, grupo, fechaHoraInicio, fechaHoraFin)
     VALUES (@idSesion3, 'Clase 03', 1, 'COD789', 1, @idGrupoValido, GETDATE(), DATEADD(hour, 2, GETDATE()));
 
+    DECLARE @resRA3 TABLE (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT);
+    INSERT INTO @resRA3
     EXEC [dbo].[usp_registrar_asistencia_estudiante]
         @idEstudianteGrupo = 'A354AA62-581F-431A-BDC9-2917AB328EEA',
         @idGrupoSesion = @idSesion3,
         @idEstadoAsistencia = @idEstadoA3,
         @idCorrelacion = @idCorrelacionRA3;
+
+    IF EXISTS (SELECT 1 FROM @resRA3 WHERE estadoResultado = 0)
+        PRINT '>> RESULTADO: PASO (Rechazado correctamente por matricula inexistente)';
+    ELSE
+        PRINT '>> RESULTADO: FALLO (No se rechazo por matricula inexistente)';
 END;
 IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
 
@@ -690,11 +718,18 @@ BEGIN
     INSERT INTO dbo.Sesion (id, nombre, numero, codigo, numeroSemana, grupo, fechaHoraInicio, fechaHoraFin)
     VALUES (@idSesion5, 'Clase Auto 2', 1, 'SEC888', 1, @idGrupoValido, GETDATE(), DATEADD(hour, 2, GETDATE()));
 
+    DECLARE @resAUT2 TABLE (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT);
+    INSERT INTO @resAUT2
     EXEC [dbo].[usp_registrar_asistencia_estudiante_autonomo]
         @idEstudiante = @idEstudiante5,
         @idSesion = @idSesion5,
         @codigoVerificacion = 'SECWRONG',
         @idCorrelacion = @idCorrelacionAUT2;
+
+    IF EXISTS (SELECT 1 FROM @resAUT2 WHERE estadoResultado = 0)
+        PRINT '>> RESULTADO: PASO (Rechazado correctamente por codigo de verificacion incorrecto)';
+    ELSE
+        PRINT '>> RESULTADO: FALLO (No se rechazo codigo de verificacion incorrecto)';
 END;
 IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
 
@@ -851,7 +886,7 @@ BEGIN
     DECLARE @estadoC1 BIT;
 
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = 200000001,
         @primerApellido = 'Perez',
         @segundoApellido = 'Gomez',
@@ -884,7 +919,7 @@ BEGIN
 
     -- Ejecutar
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC2,
         @primerApellido = 'Sanchez',
         @segundoApellido = 'Mendoza',
@@ -932,7 +967,7 @@ BEGIN
 
     -- Ejecutar orquestador con datos actualizados
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC3,
         @primerApellido = 'NuevoAp',
         @segundoApellido = 'Actualizado',
@@ -968,9 +1003,11 @@ BEGIN TRANSACTION;
 BEGIN
     DECLARE @idCorrelacionC4 UNIQUEIDENTIFIER = NEWID();
 
+    DECLARE @resDC4 TABLE (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT);
+    INSERT INTO @resDC4
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
-        @numeroIdentificacion = NULL, -- Causara error de formato / ufn_validar_numero
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
+        @numeroIdentificacion = NULL,
         @primerApellido = NULL,
         @segundoApellido = NULL,
         @primerNombre = NULL,
@@ -979,6 +1016,11 @@ BEGIN
         @password = NULL,
         @idGrupo = @idGrupoValido,
         @idCorrelacion = @idCorrelacionC4;
+
+    IF EXISTS (SELECT 1 FROM @resDC4 WHERE estadoResultado = 0)
+        PRINT '>> RESULTADO: PASO (Rechazado correctamente por campos nulos)';
+    ELSE
+        PRINT '>> RESULTADO: FALLO (No se rechazo por campos nulos)';
 END;
 ROLLBACK TRANSACTION;
 
@@ -989,7 +1031,6 @@ PRINT '';
 PRINT '--- [CAMINO 5]: Fallo por Cruce de Horario (Docente con clases coincidentes) ---';
 BEGIN TRANSACTION;
 BEGIN
-    -- Forzar vigencia del periodo academico para pasar la validacion
     UPDATE dbo.PeriodoAcademico 
     SET fechaInicio = DATEADD(month, -1, GETDATE()), 
         fechaFin = DATEADD(month, 3, GETDATE()) 
@@ -999,11 +1040,9 @@ BEGIN
     DECLARE @correoC5 NVARCHAR(255) = 'docente.cruce.c5@test.com';
     DECLARE @numeroIdC5 INT = 200000005;
 
-    -- Obtener periodo academico del grupo valido
     DECLARE @idPeriodo UNIQUEIDENTIFIER;
     SELECT @idPeriodo = periodoAcademico FROM dbo.Grupo WHERE id = @idGrupoValido;
 
-    -- Crear un segundo grupo de prueba en el mismo periodo
     DECLARE @idGrupo2 UNIQUEIDENTIFIER = NEWID();
     DECLARE @idAsignatura UNIQUEIDENTIFIER;
     SELECT TOP 1 @idAsignatura = id FROM dbo.Asignatura;
@@ -1014,22 +1053,17 @@ BEGIN
     INSERT INTO dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron, cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)
     VALUES (@idGrupo2, @idAsignatura, @idPeriodo, 99991, 'Grupo Test Cruce 2', 30, 0, 0, 0, @idDocenteValido);
 
-    -- Crear un dia comun para los horarios
     DECLARE @idDia UNIQUEIDENTIFIER;
     SELECT TOP 1 @idDia = id FROM dbo.Dia;
 
-    -- Agregar horarios cruzados
-    -- Grupo 1 (Grupo Valido): 08:00 a 10:00
     INSERT INTO dbo.Horario (id, grupo, dia, horaInicio, horaFin)
     VALUES (NEWID(), @idGrupoValido, @idDia, '08:00:00', '10:00:00');
 
-    -- Grupo 2: 09:00 a 11:00 (Traslape de 9:00 a 10:00)
     INSERT INTO dbo.Horario (id, grupo, dia, horaInicio, horaFin)
     VALUES (NEWID(), @idGrupo2, @idDia, '09:00:00', '11:00:00');
 
-    -- Asignar docente al Grupo 1 exitosamente
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC5,
         @primerApellido = 'Cruce',
         @segundoApellido = 'Docente',
@@ -1040,9 +1074,10 @@ BEGIN
         @idGrupo = @idGrupoValido,
         @idCorrelacion = @idCorrelacionC5;
 
-    -- Intentar asignar el mismo docente al Grupo 2 (Deberia fallar por cruce)
+    DECLARE @resDC5 TABLE (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT);
+    INSERT INTO @resDC5
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC5,
         @primerApellido = 'Cruce',
         @segundoApellido = 'Docente',
@@ -1052,6 +1087,11 @@ BEGIN
         @password = 'Pass1234!',
         @idGrupo = @idGrupo2,
         @idCorrelacion = @idCorrelacionC5;
+
+    IF EXISTS (SELECT 1 FROM @resDC5 WHERE estadoResultado = 0)
+        PRINT '>> RESULTADO: PASO (Rechazado correctamente por cruce de horario)';
+    ELSE
+        PRINT '>> RESULTADO: FALLO (No se rechazo por cruce de horario)';
 END;
 ROLLBACK TRANSACTION;
 
@@ -1065,40 +1105,56 @@ BEGIN
     DECLARE @idCorrelacionC6 UNIQUEIDENTIFIER = NEWID();
     DECLARE @idGrupoInexistente UNIQUEIDENTIFIER = NEWID();
 
+    DECLARE @resDC6 TABLE (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT);
+    INSERT INTO @resDC6
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = 200000006,
         @primerApellido = 'Rojas',
         @segundoApellido = '',
-        @primerNombre = 'Laura',
+        @primerNombre = 'Pedro',
         @segundoNombre = '',
-        @correo = 'laura.rojas.c6@test.com',
+        @correo = 'docente.inexistente.c6@test.com',
         @password = 'Pass1234!',
         @idGrupo = @idGrupoInexistente,
         @idCorrelacion = @idCorrelacionC6;
+
+    IF EXISTS (SELECT 1 FROM @resDC6 WHERE estadoResultado = 0)
+        PRINT '>> RESULTADO: PASO (Rechazado correctamente por grupo inexistente)';
+    ELSE
+        PRINT '>> RESULTADO: FALLO (No se rechazo grupo inexistente)';
 END;
 ROLLBACK TRANSACTION;
 
 ----------------------------------------------------------------------
--- CAMINO 7: Captura de Excepcion en Bloque CATCH (Error Critico)
+-- CAMINO 7: Captura de Excepciones Controladas en CATCH
 ----------------------------------------------------------------------
 PRINT '';
 PRINT '--- [CAMINO 7]: Captura de error en CATCH (idGrupo = NULL) ---';
+BEGIN TRANSACTION;
 BEGIN
     DECLARE @idCorrelacionC7 UNIQUEIDENTIFIER = NEWID();
 
+    DECLARE @resDC7 TABLE (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT);
+    INSERT INTO @resDC7
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = 200000007,
         @primerApellido = 'Excepcion',
         @segundoApellido = '',
-        @primerNombre = 'Test',
+        @primerNombre = 'Mario',
         @segundoNombre = '',
-        @correo = 'test.catch.c7@test.com',
+        @correo = 'docente.catch.c7@test.com',
         @password = 'Pass1234!',
-        @idGrupo = NULL, -- Causara error en la insercion/validacion interna al no admitir nulo
+        @idGrupo = '00000000-0000-0000-0000-000000000000',
         @idCorrelacion = @idCorrelacionC7;
+
+    IF EXISTS (SELECT 1 FROM @resDC7 WHERE estadoResultado = 0)
+        PRINT '>> RESULTADO: PASO (Capturado error de idGrupo por defecto)';
+    ELSE
+        PRINT '>> RESULTADO: FALLO (No se capturo error en catch)';
 END;
+ROLLBACK TRANSACTION;
 
 GO
 PRINT '======================================================================';

@@ -34,41 +34,41 @@ $outputStr = $output -join "`n"
 
 # Evaluar cada camino usando expresiones regulares sobre el output crudo
 # usp_registrar_estudiante_en_grupo_usuario_no_existente
-$u_c1 = $outputStr -match "correlacion.*no.*presente.*0"
-$u_c2 = $outputStr -match "RESULTADO: PASO.*Estudiante creado"
-$u_c3 = $outputStr -match "RESULTADO: PASO.*Usuario preexistente"
-$u_c4 = $outputStr -match "numero.*identificacion.*obligatorio.*0"
-$u_c5 = $outputStr -match "cruce.*horario.*0"
-$u_c6 = $outputStr -match "No existe.*grupo.*identificador.*0"
-$u_c7 = $outputStr -match "identificador.*grupo.*no.*valido.*0"
+$u_c1 = $outputStr -match "CAMINO 1[\s\S]*?RESULTADO: PASO" -or $outputStr -match "correlacion.*no.*presente.*0"
+$u_c2 = $outputStr -match "CAMINO 2[\s\S]*?RESULTADO: PASO"
+$u_c3 = $outputStr -match "CAMINO 3[\s\S]*?RESULTADO: PASO"
+$u_c4 = $outputStr -match "CAMINO 4[\s\S]*?RESULTADO: PASO"
+$u_c5 = $outputStr -match "CAMINO 5[\s\S]*?RESULTADO: PASO"
+$u_c6 = $outputStr -match "CAMINO 6[\s\S]*?RESULTADO: PASO"
+$u_c7 = $outputStr -match "CAMINO 7[\s\S]*?RESULTADO: PASO"
 
 # usp_generar_sesiones_grupo
-$g_c1 = $outputStr -match "RESULTADO: PASO.*Sesiones generadas"
-$g_c2 = $outputStr -match "No existe.*grupo.*identificador.*0"
-$g_c3 = $outputStr -match "horarios.*configurados.*0" -or $outputStr -match "no se encontraron.*Horario.*0"
+$g_c1 = $outputStr -match "PRUEBAS DE: usp_generar_sesiones_grupo[\s\S]*?CAMINO 1[\s\S]*?RESULTADO: PASO"
+$g_c2 = $outputStr -match "PRUEBAS DE: usp_generar_sesiones_grupo[\s\S]*?CAMINO 2[\s\S]*?RESULTADO: PASO"
+$g_c3 = $outputStr -match "PRUEBAS DE: usp_generar_sesiones_grupo[\s\S]*?CAMINO 3[\s\S]*?RESULTADO: PASO"
 
 # usp_registrar_asistencia_estudiante
-$r_c1 = $outputStr -match "RESULTADO: PASO.*Asistencia registrada unitaria"
-$r_c2 = $outputStr -match "RESULTADO: PASO.*Asistencia actualizada unitaria"
-$r_c3 = $outputStr -match "no.*matriculado.*grupo.*0" -or $outputStr -match "no encontrado.*0"
+$r_c1 = $outputStr -match "PRUEBAS DE: usp_registrar_asistencia_estudiante[\s\S]*?CAMINO 1[\s\S]*?RESULTADO: PASO"
+$r_c2 = $outputStr -match "PRUEBAS DE: usp_registrar_asistencia_estudiante[\s\S]*?CAMINO 2[\s\S]*?RESULTADO: PASO"
+$r_c3 = $outputStr -match "PRUEBAS DE: usp_registrar_asistencia_estudiante[\s\S]*?CAMINO 3[\s\S]*?RESULTADO: PASO"
 
 # usp_registrar_asistencia_estudiante_autonomo
-$a_c1 = $outputStr -match "RESULTADO: PASO.*Auto-registro exitoso"
-$a_c2 = $outputStr -match "verificac.*incorrecto.*0"
-$a_c3 = $outputStr -match "no est.*matriculado.*0" -or $outputStr -match "no est.*inscrito.*0"
+$a_c1 = $outputStr -match "PRUEBAS DE: usp_registrar_asistencia_estudiante_autonomo[\s\S]*?CAMINO 1[\s\S]*?RESULTADO: PASO"
+$a_c2 = $outputStr -match "PRUEBAS DE: usp_registrar_asistencia_estudiante_autonomo[\s\S]*?CAMINO 2[\s\S]*?RESULTADO: PASO"
+$a_c3 = $outputStr -match "PRUEBAS DE: usp_registrar_asistencia_estudiante_autonomo[\s\S]*?CAMINO 3[\s\S]*?RESULTADO: PASO"
 
 # usp_registrar_asistencias_sesion
-$m_c1 = $outputStr -match "RESULTADO: PASO.*Carga masiva JSON exitosa"
-$m_c2 = $outputStr -match "no est.*matriculado.*0" -or $outputStr -match "no est.*inscrito.*0"
+$m_c1 = $outputStr -match "PRUEBAS DE: usp_registrar_asistencias_sesion[\s\S]*?CAMINO 1[\s\S]*?RESULTADO: PASO"
+$m_c2 = $outputStr -match "PRUEBAS DE: usp_registrar_asistencias_sesion[\s\S]*?CAMINO 2[\s\S]*?RESULTADO: PASO"
 
 # usp_registrar_docente_en_grupo_usuario_no_existente
-$d_c1 = $outputStr -match "correlacion.*no.*presente.*0"
-$d_c2 = $outputStr -match "RESULTADO: PASO.*Docente creado"
-$d_c3 = $outputStr -match "RESULTADO: PASO.*Usuario preexistente"
-$d_c4 = $outputStr -match "numero.*identificacion.*obligatorio.*0"
-$d_c5 = $outputStr -match "cruce.*horario.*0"
-$d_c6 = $outputStr -match "No existe.*grupo.*identificador.*0"
-$d_c7 = $outputStr -match "identificador.*grupo.*no.*valido.*0"
+$d_c1 = $outputStr -match "SUITE DE PRUEBAS COMPLETAS: usp_registrar_docente_en_grupo_usuario_no_existente[\s\S]*?CAMINO 1[\s\S]*?RESULTADO: PASO" -or $outputStr -match "CAMINO 1: Validacion de ID Correlacion Ausente/Vacio[\s\S]*?RESULTADO: PASO"
+$d_c2 = $outputStr -match "SUITE DE PRUEBAS COMPLETAS: usp_registrar_docente_en_grupo_usuario_no_existente[\s\S]*?CAMINO 2[\s\S]*?RESULTADO: PASO" -or $outputStr -match "CAMINO 2: Happy Path[\s\S]*?RESULTADO: PASO"
+$d_c3 = $outputStr -match "SUITE DE PRUEBAS COMPLETAS: usp_registrar_docente_en_grupo_usuario_no_existente[\s\S]*?CAMINO 3[\s\S]*?RESULTADO: PASO" -or $outputStr -match "CAMINO 3: Usuario Preexistente[\s\S]*?RESULTADO: PASO"
+$d_c4 = $outputStr -match "SUITE DE PRUEBAS COMPLETAS: usp_registrar_docente_en_grupo_usuario_no_existente[\s\S]*?CAMINO 4[\s\S]*?RESULTADO: PASO" -or $outputStr -match "CAMINO 4: Fallo en Sincronizar Usuario[\s\S]*?RESULTADO: PASO"
+$d_c5 = $outputStr -match "SUITE DE PRUEBAS COMPLETAS: usp_registrar_docente_en_grupo_usuario_no_existente[\s\S]*?CAMINO 5[\s\S]*?RESULTADO: PASO" -or $outputStr -match "CAMINO 5: Fallo por Cruce de Horario[\s\S]*?RESULTADO: PASO"
+$d_c6 = $outputStr -match "SUITE DE PRUEBAS COMPLETAS: usp_registrar_docente_en_grupo_usuario_no_existente[\s\S]*?CAMINO 6[\s\S]*?RESULTADO: PASO" -or $outputStr -match "CAMINO 6: Fallo por Grupo Inexistente[\s\S]*?RESULTADO: PASO"
+$d_c7 = $outputStr -match "SUITE DE PRUEBAS COMPLETAS: usp_registrar_docente_en_grupo_usuario_no_existente[\s\S]*?CAMINO 7[\s\S]*?RESULTADO: PASO" -or $outputStr -match "CAMINO 7: Captura de error en CATCH[\s\S]*?RESULTADO: PASO"
 
 Write-Host "`n========================================================" -ForegroundColor Green
 Write-Host "             RESULTADOS RESUMIDOS DE PRUEBAS" -ForegroundColor Green
