@@ -33,8 +33,8 @@ AS
     DECLARE @segundoNombreDefecto NVARCHAR(255) = UPPER(LTRIM(RTRIM(ISNULL(@segundoNombre,''))));
     DECLARE @correoDefecto NVARCHAR(255) = LOWER(LTRIM(RTRIM(ISNULL(@correo,''))));
     
-    -- El password por defecto es el numero de identificacion
-    DECLARE @passwordDefecto NVARCHAR(MAX) = UPPER(LTRIM(RTRIM(ISNULL(@password, CAST(@numeroIdentificacionDefecto AS NVARCHAR(MAX))))));
+    -- El password llega preparado por el backend y debe almacenarse sin transformacion
+    DECLARE @passwordDefecto NVARCHAR(MAX) = @password;
 
     -- Inicializacion de respuesta
     SELECT @mensajeUsuarioResultado = '', @mensajeTecnicoResultado = '', @estadoResultado = 1;
@@ -126,11 +126,11 @@ BEGIN
                    @mensajeTecnicoResultado = CONCAT('Fallo ufn_validar_correo para: ', @correoDefecto, '. Correlacion: ', @idCorrelacionDefecto);
         END
 
-        -- F. Validar Password (Seguridad vs Defecto)
-        IF @estadoResultado = 1 AND dbo.ufn_validar_password(@passwordDefecto, @numeroIdentificacionDefecto) = 0
+        -- F. Validar presencia de Password/Hash
+        IF @estadoResultado = 1 AND (@passwordDefecto IS NULL OR @passwordDefecto = '')
         BEGIN
-            SELECT @mensajeUsuarioResultado = 'La contraseoa no cumple con los requisitos monimos de seguridad.',
-                   @mensajeTecnicoResultado = CONCAT('Fallo ufn_validar_password. No cumple complejidad y no es valor defecto. Correlacion: ', @idCorrelacionDefecto),
+            SELECT @mensajeUsuarioResultado = 'La contrasena es obligatoria.',
+                   @mensajeTecnicoResultado = CONCAT('Fallo: @password no fue suministrado. Correlacion: ', @idCorrelacionDefecto),
                    @estadoResultado = 0;
         END
 

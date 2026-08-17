@@ -73,6 +73,8 @@ IF NOT EXISTS (SELECT 1 FROM dbo.RazonCausa WHERE codigo = 'J')
     INSERT INTO dbo.RazonCausa (id, nombre, codigo) VALUES (NEWID(), 'Justificado', 'J');
 
 -- 4.1. Asegurar catálogo de Mensaje
+IF OBJECT_ID('dbo.Mensaje', 'U') IS NOT NULL
+BEGIN
 IF NOT EXISTS (SELECT 1 FROM dbo.Mensaje WHERE codigo = 'ERR_PROGRAMA_GRUPO_NO_ENCONTRADO' AND tipo = 'USUARIO')
     INSERT INTO dbo.Mensaje (codigo, tipo, contenidoUsuario, contenidoTecnico) VALUES ('ERR_PROGRAMA_GRUPO_NO_ENCONTRADO', 'USUARIO', 'No se encontró un programa académico asociado a este grupo.', 'No se encontró un programa académico asociado a este grupo.');
 IF NOT EXISTS (SELECT 1 FROM dbo.Mensaje WHERE codigo = 'ERR_PROGRAMA_GRUPO_NO_ENCONTRADO' AND tipo = 'TECNICO')
@@ -81,6 +83,8 @@ IF NOT EXISTS (SELECT 1 FROM dbo.Mensaje WHERE codigo = 'ERR_INESPERADO_REGISTRO
     INSERT INTO dbo.Mensaje (codigo, tipo, contenidoUsuario, contenidoTecnico) VALUES ('ERR_INESPERADO_REGISTRO_ESTUDIANTE', 'USUARIO', 'Hubo un error inesperado al procesar el registro completo del estudiante.', 'Hubo un error inesperado al procesar el registro completo del estudiante.');
 
 -- 4.2. Asegurar catálogo de Parametro
+END
+
 IF OBJECT_ID('dbo.Parametro', 'U') IS NOT NULL
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM dbo.Parametro WHERE grupo = 'GENERAL' AND clave = 'UUID_DEFECTO')
@@ -218,7 +222,7 @@ BEGIN
     SELECT TOP 1 @tipoIdCC = id FROM dbo.TipoIdentificacion WHERE tipoIdentificacion = 'CC';
     
     INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, password, estado)
-    VALUES (@idUsuarioDocente, @tipoIdCC, 9999901, 'Docente', 'Prueba', 'Juan', '', 'docente.test@test.com', 1, 'Pass1234!', 1);
+    VALUES (@idUsuarioDocente, @tipoIdCC, 9999901, 'Docente', 'Prueba', 'Juan', '', 'docente.test@test.com', 1, 'HashBackend_AbCdEf1234567890', 1);
     
     SET @idDocenteValido = NEWID();
     INSERT INTO dbo.Docente (id, usuario) VALUES (@idDocenteValido, @idUsuarioDocente);
@@ -258,7 +262,7 @@ BEGIN
         @primerNombre = 'Juan',
         @segundoNombre = 'Carlos',
         @correo = 'juan.perez.c1@test.com',
-        @password = 'Pass1234!',
+        @password = 'HashBackend_AbCdEf1234567890',
         @idGrupo = @idGrupoValido,
         @idCorrelacion = '00000000-0000-0000-0000-000000000000';
 END;
@@ -279,7 +283,7 @@ BEGIN
         @primerNombre = 'Maria',
         @segundoNombre = 'Fernanda',
         @correo = @correoC2,
-        @password = 'Pass1234!',
+        @password = 'HashBackend_AbCdEf1234567890',
         @idGrupo = @idGrupoValido,
         @idCorrelacion = @idCorrelacionC2;
 
@@ -304,7 +308,7 @@ BEGIN
     DECLARE @idUsuarioC3 UNIQUEIDENTIFIER = NEWID();
 
     INSERT INTO [dbo].[Usuario] (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@idUsuarioC3, @tipoIdIdentificacion, @numeroIdC3, 'ViejoAp', '', 'ViejoNom', '', @correoC3, 0, 1, 'ClaveVieja123*');
+    VALUES (@idUsuarioC3, @tipoIdIdentificacion, @numeroIdC3, 'ViejoAp', '', 'ViejoNom', '', @correoC3, 0, 1, 'HashBackend_Preexistente_AbCdEf1234567890');
 
     EXEC [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
         @tipoIdIdentificacion = @tipoIdIdentificacion,
@@ -314,7 +318,7 @@ BEGIN
         @primerNombre = 'NuevoNom',
         @segundoNombre = '',
         @correo = @correoC3,
-        @password = 'Pass1234!',
+        @password = 'HashBackend_AbCdEf1234567890',
         @idGrupo = @idGrupoValido,
         @idCorrelacion = @idCorrelacionC3;
 
@@ -382,7 +386,7 @@ BEGIN
         @primerNombre = 'Alumno',
         @segundoNombre = '',
         @correo = @correoC5,
-        @password = 'Pass1234!',
+        @password = 'HashBackend_AbCdEf1234567890',
         @idGrupo = @idGrupoValido,
         @idCorrelacion = @idCorrelacionC5;
 
@@ -394,7 +398,7 @@ BEGIN
         @primerNombre = 'Alumno',
         @segundoNombre = '',
         @correo = @correoC5,
-        @password = 'Pass1234!',
+        @password = 'HashBackend_AbCdEf1234567890',
         @idGrupo = @idGrupo2,
         @idCorrelacion = @idCorrelacionC5;
 END;
@@ -414,7 +418,7 @@ BEGIN
         @primerNombre = 'Estudiante',
         @segundoNombre = '',
         @correo = 'estudiante.inexistente.c6@test.com',
-        @password = 'Pass1234!',
+        @password = 'HashBackend_AbCdEf1234567890',
         @idGrupo = @idGrupoInexistente,
         @idCorrelacion = @idCorrelacionC6;
 END;
@@ -433,7 +437,7 @@ BEGIN
         @primerNombre = 'Estudiante',
         @segundoNombre = '',
         @correo = 'estudiante.catch.c7@test.com',
-        @password = 'Pass1234!',
+        @password = 'HashBackend_AbCdEf1234567890',
         @idGrupo = '00000000-0000-0000-0000-000000000000',
         @idCorrelacion = @idCorrelacionC7;
 END;
@@ -506,7 +510,7 @@ BEGIN
     -- Crear Estudiante de prueba
     DECLARE @idUsuarioEst UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, password, estado)
-    VALUES (@idUsuarioEst, @tipoIdIdentificacion, 8881001, 'Estudiante', 'Test', 'Pedro', '', 'pedro.est@test.com', 1, 'Pass1234!', 1);
+    VALUES (@idUsuarioEst, @tipoIdIdentificacion, 8881001, 'Estudiante', 'Test', 'Pedro', '', 'pedro.est@test.com', 1, 'HashBackend_AbCdEf1234567890', 1);
     DECLARE @idEstudiante UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.Estudiante (id, usuario) VALUES (@idEstudiante, @idUsuarioEst);
 
@@ -549,7 +553,7 @@ BEGIN
     
     DECLARE @idUsuarioEst2 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, password, estado)
-    VALUES (@idUsuarioEst2, @tipoIdIdentificacion, 8881002, 'Estudiante', 'Test2', 'Ana', '', 'ana.est@test.com', 1, 'Pass1234!', 1);
+    VALUES (@idUsuarioEst2, @tipoIdIdentificacion, 8881002, 'Estudiante', 'Test2', 'Ana', '', 'ana.est@test.com', 1, 'HashBackend_AbCdEf1234567890', 1);
     DECLARE @idEstudiante2 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.Estudiante (id, usuario) VALUES (@idEstudiante2, @idUsuarioEst2);
 
@@ -628,7 +632,7 @@ BEGIN
     -- Crear Estudiante de prueba
     DECLARE @idUsuarioEst4 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, password, estado)
-    VALUES (@idUsuarioEst4, @tipoIdIdentificacion, 8881004, 'Estudiante', 'Auto', 'Luis', '', 'luis.est@test.com', 1, 'Pass1234!', 1);
+    VALUES (@idUsuarioEst4, @tipoIdIdentificacion, 8881004, 'Estudiante', 'Auto', 'Luis', '', 'luis.est@test.com', 1, 'HashBackend_AbCdEf1234567890', 1);
     DECLARE @idEstudiante4 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.Estudiante (id, usuario) VALUES (@idEstudiante4, @idUsuarioEst4);
 
@@ -669,7 +673,7 @@ BEGIN
     -- Crear Estudiante de prueba
     DECLARE @idUsuarioEst5 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, password, estado)
-    VALUES (@idUsuarioEst5, @tipoIdIdentificacion, 8881005, 'Estudiante', 'Auto2', 'Carlos', '', 'carlos.est@test.com', 1, 'Pass1234!', 1);
+    VALUES (@idUsuarioEst5, @tipoIdIdentificacion, 8881005, 'Estudiante', 'Auto2', 'Carlos', '', 'carlos.est@test.com', 1, 'HashBackend_AbCdEf1234567890', 1);
     DECLARE @idEstudiante5 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.Estudiante (id, usuario) VALUES (@idEstudiante5, @idUsuarioEst5);
 
@@ -700,7 +704,7 @@ BEGIN
     -- Crear Estudiante de prueba (NO enrolado)
     DECLARE @idUsuarioEst6 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, password, estado)
-    VALUES (@idUsuarioEst6, @tipoIdIdentificacion, 8881006, 'Estudiante', 'Auto3', 'Diana', '', 'diana.est@test.com', 1, 'Pass1234!', 1);
+    VALUES (@idUsuarioEst6, @tipoIdIdentificacion, 8881006, 'Estudiante', 'Auto3', 'Diana', '', 'diana.est@test.com', 1, 'HashBackend_AbCdEf1234567890', 1);
     DECLARE @idEstudiante6 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.Estudiante (id, usuario) VALUES (@idEstudiante6, @idUsuarioEst6);
 
@@ -734,13 +738,13 @@ BEGIN
     -- Crear Estudiantes
     DECLARE @idUsuarioM1 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, password, estado)
-    VALUES (@idUsuarioM1, @tipoIdIdentificacion, 8882001, 'EstM1', 'Test', 'Juan', '', 'juan.m1@test.com', 1, 'Pass1234!', 1);
+    VALUES (@idUsuarioM1, @tipoIdIdentificacion, 8882001, 'EstM1', 'Test', 'Juan', '', 'juan.m1@test.com', 1, 'HashBackend_AbCdEf1234567890', 1);
     DECLARE @idEstudianteM1 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.Estudiante (id, usuario) VALUES (@idEstudianteM1, @idUsuarioM1);
 
     DECLARE @idUsuarioM2 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, password, estado)
-    VALUES (@idUsuarioM2, @tipoIdIdentificacion, 8882002, 'EstM2', 'Test', 'Sara', '', 'sara.m2@test.com', 1, 'Pass1234!', 1);
+    VALUES (@idUsuarioM2, @tipoIdIdentificacion, 8882002, 'EstM2', 'Test', 'Sara', '', 'sara.m2@test.com', 1, 'HashBackend_AbCdEf1234567890', 1);
     DECLARE @idEstudianteM2 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.Estudiante (id, usuario) VALUES (@idEstudianteM2, @idUsuarioM2);
 
@@ -792,7 +796,7 @@ BEGIN
     -- Crear un estudiante (NO enrolado)
     DECLARE @idUsuarioM3 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, password, estado)
-    VALUES (@idUsuarioM3, @tipoIdIdentificacion, 8882003, 'EstM3', 'Test', 'Jose', '', 'jose.m3@test.com', 1, 'Pass1234!', 1);
+    VALUES (@idUsuarioM3, @tipoIdIdentificacion, 8882003, 'EstM3', 'Test', 'Jose', '', 'jose.m3@test.com', 1, 'HashBackend_AbCdEf1234567890', 1);
     DECLARE @idEstudianteM3 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.Estudiante (id, usuario) VALUES (@idEstudianteM3, @idUsuarioM3);
 
@@ -852,7 +856,7 @@ BEGIN
         @primerNombre = 'Juan',
         @segundoNombre = 'Carlos',
         @correo = 'juan.docente.c1@test.com',
-        @password = 'Pass1234!',
+        @password = 'HashBackend_AbCdEf1234567890',
         @idGrupo = @idGrupoValido,
         @idCorrelacion = '00000000-0000-0000-0000-000000000000'; -- Invalido
 
@@ -885,7 +889,7 @@ BEGIN
         @primerNombre = 'Luis',
         @segundoNombre = 'Alberto',
         @correo = @correoC2,
-        @password = 'Pass1234!',
+        @password = 'HashBackend_AbCdEf1234567890',
         @idGrupo = @idGrupoValido,
         @idCorrelacion = @idCorrelacionC2;
 
@@ -922,7 +926,7 @@ BEGIN
 
     -- Crear usuario base sin perfil de docente
     INSERT INTO [dbo].[Usuario] (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@idUsuarioC3, @tipoIdIdentificacion, @numeroIdC3, 'AntiguoAp', '', 'AntiguoNom', '', @correoC3, 0, 1, 'ClaveVieja123*');
+    VALUES (@idUsuarioC3, @tipoIdIdentificacion, @numeroIdC3, 'AntiguoAp', '', 'AntiguoNom', '', @correoC3, 0, 1, 'HashBackend_Preexistente_AbCdEf1234567890');
 
     -- Ejecutar orquestador con datos actualizados
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
@@ -933,7 +937,7 @@ BEGIN
         @primerNombre = 'NuevoNom',
         @segundoNombre = '',
         @correo = @correoC3,
-        @password = 'Pass1234!',
+        @password = 'HashBackend_AbCdEf1234567890',
         @idGrupo = @idGrupoValido,
         @idCorrelacion = @idCorrelacionC3;
 
@@ -1030,7 +1034,7 @@ BEGIN
         @primerNombre = 'Profesor',
         @segundoNombre = '',
         @correo = @correoC5,
-        @password = 'Pass1234!',
+        @password = 'HashBackend_AbCdEf1234567890',
         @idGrupo = @idGrupoValido,
         @idCorrelacion = @idCorrelacionC5;
 
@@ -1043,7 +1047,7 @@ BEGIN
         @primerNombre = 'Profesor',
         @segundoNombre = '',
         @correo = @correoC5,
-        @password = 'Pass1234!',
+        @password = 'HashBackend_AbCdEf1234567890',
         @idGrupo = @idGrupo2,
         @idCorrelacion = @idCorrelacionC5;
 END;
@@ -1067,7 +1071,7 @@ BEGIN
         @primerNombre = 'Laura',
         @segundoNombre = '',
         @correo = 'laura.rojas.c6@test.com',
-        @password = 'Pass1234!',
+        @password = 'HashBackend_AbCdEf1234567890',
         @idGrupo = @idGrupoInexistente,
         @idCorrelacion = @idCorrelacionC6;
 END;
@@ -1089,7 +1093,7 @@ BEGIN
         @primerNombre = 'Test',
         @segundoNombre = '',
         @correo = 'test.catch.c7@test.com',
-        @password = 'Pass1234!',
+        @password = 'HashBackend_AbCdEf1234567890',
         @idGrupo = NULL, -- Causara error en la insercion/validacion interna al no admitir nulo
         @idCorrelacion = @idCorrelacionC7;
 END;

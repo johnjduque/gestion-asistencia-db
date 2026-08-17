@@ -41,7 +41,7 @@ BEGIN
         @primerNombre = 'Juan',
         @segundoNombre = 'Carlos',
         @correo = 'juan.docente.c1@test.com',
-        @password = 'Pass1234!',
+        @password = 'HashBackend_Dump_AbCdEf1234567890',
         @idGrupo = @idGrupoValido,
         @idCorrelacion = '00000000-0000-0000-0000-000000000000'; -- Invalido
 
@@ -74,7 +74,7 @@ BEGIN
         @primerNombre = 'Luis',
         @segundoNombre = 'Alberto',
         @correo = @correoC2,
-        @password = 'Pass1234!',
+        @password = 'HashBackend_Dump_AbCdEf1234567890',
         @idGrupo = @idGrupoValido,
         @idCorrelacion = @idCorrelacionC2;
 
@@ -122,7 +122,7 @@ BEGIN
         @primerNombre = 'NuevoNom',
         @segundoNombre = '',
         @correo = @correoC3,
-        @password = 'Pass1234!',
+        @password = 'HashBackend_Dump_AbCdEf1234567890',
         @idGrupo = @idGrupoValido,
         @idCorrelacion = @idCorrelacionC3;
 
@@ -219,7 +219,7 @@ BEGIN
         @primerNombre = 'Profesor',
         @segundoNombre = '',
         @correo = @correoC5,
-        @password = 'Pass1234!',
+        @password = 'HashBackend_Dump_AbCdEf1234567890',
         @idGrupo = @idGrupoValido,
         @idCorrelacion = @idCorrelacionC5;
 
@@ -232,7 +232,7 @@ BEGIN
         @primerNombre = 'Profesor',
         @segundoNombre = '',
         @correo = @correoC5,
-        @password = 'Pass1234!',
+        @password = 'HashBackend_Dump_AbCdEf1234567890',
         @idGrupo = @idGrupo2,
         @idCorrelacion = @idCorrelacionC5;
 END;
@@ -256,7 +256,7 @@ BEGIN
         @primerNombre = 'Laura',
         @segundoNombre = '',
         @correo = 'laura.rojas.c6@test.com',
-        @password = 'Pass1234!',
+        @password = 'HashBackend_Dump_AbCdEf1234567890',
         @idGrupo = @idGrupoInexistente,
         @idCorrelacion = @idCorrelacionC6;
 END;
@@ -278,7 +278,7 @@ BEGIN
         @primerNombre = 'Test',
         @segundoNombre = '',
         @correo = 'test.catch.c7@test.com',
-        @password = 'Pass1234!',
+        @password = 'HashBackend_Dump_AbCdEf1234567890',
         @idGrupo = NULL, -- Causara error en la insercion/validacion interna al no admitir nulo
         @idCorrelacion = @idCorrelacionC7;
 END;
