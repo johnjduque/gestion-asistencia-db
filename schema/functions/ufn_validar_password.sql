@@ -13,7 +13,7 @@ RETURNS BIT
 AS
 BEGIN
     DECLARE @resultado BIT = 0;
-    DECLARE @passwordString NVARCHAR(MAX) = LTRIM(RTRIM(ISNULL(@p_password, '')));
+    DECLARE @passwordString NVARCHAR(MAX) = dbo.ufn_obtener_parametro_texto(@p_password, 'GENERAL', 'CADENA_VACIA');
     DECLARE @idString NVARCHAR(MAX) = CAST(@p_numeroIdentificacionDefecto AS NVARCHAR(MAX));
 
     -- 1. Regla de Oro: Si es el valor por defecto, ES V?LIDO

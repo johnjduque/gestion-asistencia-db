@@ -15,7 +15,7 @@ BEGIN
 
     -- Validamos que no sea nulo, que no est? vac?o y que cumpla un patr?n m?s real
     IF @p_correo IS NOT NULL 
-       AND LTRIM(RTRIM(@p_correo)) <> ''
+       AND TRIM(@p_correo) <> ''
        AND @p_correo LIKE '%_@%_._%'          -- Al menos un caracter antes y despu?s de @, y un punto
        AND @p_correo NOT LIKE '%@%@%'        -- No permite doble arroba
        AND @p_correo NOT LIKE '%..%'          -- No permite puntos seguidos

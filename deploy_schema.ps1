@@ -16,10 +16,10 @@ if (Test-Path $envFile) {
 }
 
 if (-not $ContainerName) {
-    $ContainerName = if ($env:SQL_CONTAINER_NAME) { $env:SQL_CONTAINER_NAME } else { "sql_server_asistencias" }
+    $ContainerName = if ($env:SQL_CONTAINER_NAME) { $env:SQL_CONTAINER_NAME } else { "sqlserver" }
 }
 if (-not $Password) {
-    $Password = if ($env:SQL_CONTAINER_PASSWORD) { $env:SQL_CONTAINER_PASSWORD } elseif ($env:MSSQL_SA_PASSWORD) { $env:MSSQL_SA_PASSWORD } else { "AsistenciasDB2026!" }
+    $Password = if ($env:SQL_CONTAINER_PASSWORD) { $env:SQL_CONTAINER_PASSWORD } elseif ($env:MSSQL_SA_PASSWORD) { $env:MSSQL_SA_PASSWORD } else { "Rionegro2233+" }
 }
 
 Write-Host "Iniciando despliegue de arquitectura por objeto (/schema)..." -ForegroundColor Cyan
@@ -78,7 +78,8 @@ while ($pendingViews.Count -gt 0 -and $progressMade -and $pass -le $maxPasses) {
         $sqlResult = docker exec $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$Password" -C -i $containerPath 2>&1
         if ($sqlResult -match "Msg \d+, Level \d+") {
             $failedThisPass.Add($viewFile)
-        } else {
+        }
+        else {
             $progressMade = $true
         }
     }
@@ -92,7 +93,8 @@ if ($pendingViews.Count -gt 0) {
         Write-Host "  - $($viewFile.Name)" -ForegroundColor Red
         Execute-Sql-File -LocalFilePath $viewFile.FullName
     }
-} else {
+}
+else {
     Write-Host "Todas las vistas aplicadas correctamente!" -ForegroundColor Green
 }
 

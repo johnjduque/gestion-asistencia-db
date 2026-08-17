@@ -17,7 +17,7 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_validar_perfil_existe_por_codigo_interno]
 AS
     -- 1. Estandarización e inicialización de variables utilizando funciones de catálogo (Sin ISNULL)
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @codigoPerfilDefecto  NVARCHAR(10)     = TRIM(@codigoPerfil);
+    DECLARE @codigoPerfilDefecto  NVARCHAR(10)     = TRIM(dbo.ufn_obtener_parametro_texto(@codigoPerfil, 'GENERAL', 'CADENA_VACIA'));
 
     -- Inicialización de respuesta desde parámetros del catálogo
     SELECT 

@@ -15,7 +15,7 @@ BEGIN
 
     -- 1. Validaci?n de Vac?o o Nulo
     -- Si el valor es exactamente '', la funci?n devuelve 0
-    IF @p_texto IS NULL OR LTRIM(RTRIM(@p_texto)) = ''
+    IF @p_texto IS NULL OR TRIM(@p_texto) = ''
     BEGIN
         SET @resultado = 0;
     END

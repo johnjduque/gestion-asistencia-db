@@ -17,7 +17,7 @@ AS
     DECLARE @idCorrelacionDefecto      UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idEstudianteDefecto       UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idEstudiante, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idSesionDefecto           UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idSesion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @codigoVerificacionDefecto NVARCHAR(50)     = TRIM(@codigoVerificacion);
+    DECLARE @codigoVerificacionDefecto NVARCHAR(50)     = TRIM(dbo.ufn_obtener_parametro_texto(@codigoVerificacion, 'GENERAL', 'CADENA_VACIA'));
 
     DECLARE @codigoReal NVARCHAR(50);
 

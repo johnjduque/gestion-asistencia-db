@@ -20,7 +20,7 @@ AS
     DECLARE @idCorrelacionDefecto    UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idEstudianteDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idEstudiante, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idSesionDefecto         UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idSesion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @codigoEstadoDefecto     NVARCHAR(5) = TRIM(@codigoEstado);
+    DECLARE @codigoEstadoDefecto     NVARCHAR(5) = TRIM(dbo.ufn_obtener_parametro_texto(@codigoEstado, 'GENERAL', 'CADENA_VACIA'));
 
     DECLARE @idGrupo                 UNIQUEIDENTIFIER;
     DECLARE @fechaInicioSesion       DATETIME2;

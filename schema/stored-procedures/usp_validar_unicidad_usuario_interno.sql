@@ -20,8 +20,8 @@ AS
     DECLARE @idCorrelacionDefecto          UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idTipoIdIdentificacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idTipoIdIdentificacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     
-    DECLARE @numeroIdentificacionDefecto   INT = @numeroIdentificacion;
-    DECLARE @correoDefecto                 NVARCHAR(255) = TRIM(@correo);
+    DECLARE @numeroIdentificacionDefecto   INT = dbo.ufn_obtener_parametro_int(@numeroIdentificacion, 'GENERAL', 'ENTERO_CERO');
+    DECLARE @correoDefecto                 NVARCHAR(255) = LOWER(TRIM(dbo.ufn_obtener_parametro_texto(@correo, 'GENERAL', 'CADENA_VACIA')));
 
     -- Inicialización de respuesta desde parámetros del catálogo
     SELECT 

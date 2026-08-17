@@ -15,8 +15,8 @@ AS
 BEGIN
     DECLARE @plantilla NVARCHAR(4000);
     DECLARE @resultado NVARCHAR(4000);
-    DECLARE @codigo VARCHAR(100) = TRIM(ISNULL(@p_codigo, ''));
-    DECLARE @tipo VARCHAR(20) = UPPER(TRIM(ISNULL(@p_tipo, '')));
+    DECLARE @codigo VARCHAR(100) = dbo.ufn_obtener_parametro_texto(@p_codigo, 'GENERAL', 'CADENA_VACIA');
+    DECLARE @tipo VARCHAR(20) = UPPER(dbo.ufn_obtener_parametro_texto(@p_tipo, 'GENERAL', 'CADENA_VACIA'));
 
     IF @tipo = 'USUARIO'
     BEGIN
@@ -31,7 +31,10 @@ BEGIN
         WHERE codigo = @codigo AND estaActivo = 1;
     END
 
-    SET @resultado = ISNULL(@plantilla, '');
+    IF @plantilla IS NOT NULL
+        SET @resultado = @plantilla;
+    ELSE
+        SET @resultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
 
     IF @p_entidad IS NOT NULL
     BEGIN
