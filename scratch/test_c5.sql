@@ -38,7 +38,7 @@ BEGIN
 
     -- Primer registro
     EXEC [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC5,
         @primerApellido = 'Cruce',
         @segundoApellido = 'Estudiante',
@@ -58,7 +58,7 @@ BEGIN
 
     -- Segundo registro
     EXEC [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC5,
         @primerApellido = 'Cruce',
         @segundoApellido = 'Estudiante',

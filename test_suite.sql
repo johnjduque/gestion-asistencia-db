@@ -73,22 +73,24 @@ IF NOT EXISTS (SELECT 1 FROM dbo.RazonCausa WHERE codigo = 'J')
     INSERT INTO dbo.RazonCausa (id, nombre, codigo) VALUES (NEWID(), 'Justificado', 'J');
 
 -- 4.1. Asegurar catálogo de Mensaje
-IF OBJECT_ID('dbo.Mensaje', 'U') IS NOT NULL
+IF OBJECT_ID('dbo.CatalogoMensajeUsuario', 'U') IS NOT NULL
 BEGIN
-IF NOT EXISTS (SELECT 1 FROM dbo.Mensaje WHERE codigo = 'ERR_PROGRAMA_GRUPO_NO_ENCONTRADO' AND tipo = 'USUARIO')
-    INSERT INTO dbo.Mensaje (codigo, tipo, contenidoUsuario, contenidoTecnico) VALUES ('ERR_PROGRAMA_GRUPO_NO_ENCONTRADO', 'USUARIO', 'No se encontró un programa académico asociado a este grupo.', 'No se encontró un programa académico asociado a este grupo.');
-IF NOT EXISTS (SELECT 1 FROM dbo.Mensaje WHERE codigo = 'ERR_PROGRAMA_GRUPO_NO_ENCONTRADO' AND tipo = 'TECNICO')
-    INSERT INTO dbo.Mensaje (codigo, tipo, contenidoUsuario, contenidoTecnico) VALUES ('ERR_PROGRAMA_GRUPO_NO_ENCONTRADO', 'TECNICO', 'Error: Trazabilidad rota para {entidad}', 'Error: Trazabilidad rota para {entidad}');
-IF NOT EXISTS (SELECT 1 FROM dbo.Mensaje WHERE codigo = 'ERR_INESPERADO_REGISTRO_ESTUDIANTE' AND tipo = 'USUARIO')
-    INSERT INTO dbo.Mensaje (codigo, tipo, contenidoUsuario, contenidoTecnico) VALUES ('ERR_INESPERADO_REGISTRO_ESTUDIANTE', 'USUARIO', 'Hubo un error inesperado al procesar el registro completo del estudiante.', 'Hubo un error inesperado al procesar el registro completo del estudiante.');
-
--- 4.2. Asegurar catálogo de Parametro
+    IF NOT EXISTS (SELECT 1 FROM dbo.CatalogoMensajeUsuario WHERE codigo = 'ERR_PROGRAMA_GRUPO_NO_ENCONTRADO')
+        INSERT INTO dbo.CatalogoMensajeUsuario (codigo, tipoMensaje, severidad, contenido) VALUES ('ERR_PROGRAMA_GRUPO_NO_ENCONTRADO', 'BUSINESS_ERROR', 'ALTO', 'No se encontró un programa académico asociado a este grupo.');
+    IF NOT EXISTS (SELECT 1 FROM dbo.CatalogoMensajeUsuario WHERE codigo = 'ERR_INESPERADO_REGISTRO_ESTUDIANTE')
+        INSERT INTO dbo.CatalogoMensajeUsuario (codigo, tipoMensaje, severidad, contenido) VALUES ('ERR_INESPERADO_REGISTRO_ESTUDIANTE', 'SYSTEM_ERROR', 'CRITICO', 'Hubo un error inesperado al procesar el registro completo del estudiante.');
+END
+IF OBJECT_ID('dbo.CatalogoMensajeTecnico', 'U') IS NOT NULL
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM dbo.CatalogoMensajeTecnico WHERE codigo = 'ERR_PROGRAMA_GRUPO_NO_ENCONTRADO')
+        INSERT INTO dbo.CatalogoMensajeTecnico (codigo, tipoMensaje, severidad, contenido) VALUES ('ERR_PROGRAMA_GRUPO_NO_ENCONTRADO', 'BUSINESS_ERROR', 'ALTO', 'Error: Trazabilidad rota para {}');
 END
 
-IF OBJECT_ID('dbo.Parametro', 'U') IS NOT NULL
+-- 4.2. Asegurar catálogo de Parametro
+IF OBJECT_ID('dbo.CatalogoParametro', 'U') IS NOT NULL
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM dbo.Parametro WHERE grupo = 'GENERAL' AND clave = 'UUID_DEFECTO')
-        INSERT INTO dbo.Parametro (grupo, clave, valor, descripcion) VALUES ('GENERAL', 'UUID_DEFECTO', '00000000-0000-0000-0000-000000000000', 'UUID comodin por defecto para valores nulos');
+    IF NOT EXISTS (SELECT 1 FROM dbo.CatalogoParametro WHERE grupo = 'GENERAL' AND clave = 'UUID_DEFECTO')
+        INSERT INTO dbo.CatalogoParametro (grupo, clave, valor, tipoDato, valorDefecto) VALUES ('GENERAL', 'UUID_DEFECTO', '00000000-0000-0000-0000-000000000000', 'UUID', '00000000-0000-0000-0000-000000000000');
 END
 
 
@@ -255,7 +257,7 @@ PRINT '--- [CAMINO 1]: IdCorrelacion Ausente / Vacio (00000000-0000-0000-0000-00
 BEGIN TRANSACTION;
 BEGIN
     EXEC [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = 100000001,
         @primerApellido = 'Perez',
         @segundoApellido = 'Gomez',
@@ -276,7 +278,7 @@ BEGIN
     DECLARE @numeroIdC2 INT = 100000002;
 
     EXEC [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC2,
         @primerApellido = 'Lopez',
         @segundoApellido = 'Diaz',
@@ -311,7 +313,7 @@ BEGIN
     VALUES (@idUsuarioC3, @tipoIdIdentificacion, @numeroIdC3, 'ViejoAp', '', 'ViejoNom', '', @correoC3, 0, 1, 'HashBackend_Preexistente_AbCdEf1234567890');
 
     EXEC [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC3,
         @primerApellido = 'NuevoAp',
         @segundoApellido = 'Actualizado',
@@ -343,7 +345,7 @@ BEGIN
     DECLARE @idCorrelacionC4 UNIQUEIDENTIFIER = NEWID();
 
     EXEC [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = NULL,
         @primerApellido = NULL,
         @segundoApellido = NULL,
@@ -379,7 +381,7 @@ BEGIN
     VALUES (NEWID(), @idGrupo2, @idDia, '09:00:00', '11:00:00');
 
     EXEC [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC5,
         @primerApellido = 'Cruce',
         @segundoApellido = 'Estudiante',
@@ -391,7 +393,7 @@ BEGIN
         @idCorrelacion = @idCorrelacionC5;
 
     EXEC [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC5,
         @primerApellido = 'Cruce',
         @segundoApellido = 'Estudiante',
@@ -411,7 +413,7 @@ BEGIN
     DECLARE @idGrupoInexistente UNIQUEIDENTIFIER = '8B8B3878-E6D5-4664-A40E-F768A95A0115';
 
     EXEC [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = 100000006,
         @primerApellido = 'Inexistente',
         @segundoApellido = 'Grupo',
@@ -430,7 +432,7 @@ BEGIN
     DECLARE @idCorrelacionC7 UNIQUEIDENTIFIER = NEWID();
 
     EXEC [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = 100000007,
         @primerApellido = 'Error',
         @segundoApellido = 'Catch',
@@ -849,7 +851,7 @@ BEGIN
     DECLARE @estadoC1 BIT;
 
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = 200000001,
         @primerApellido = 'Perez',
         @segundoApellido = 'Gomez',
@@ -882,7 +884,7 @@ BEGIN
 
     -- Ejecutar
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC2,
         @primerApellido = 'Sanchez',
         @segundoApellido = 'Mendoza',
@@ -930,7 +932,7 @@ BEGIN
 
     -- Ejecutar orquestador con datos actualizados
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC3,
         @primerApellido = 'NuevoAp',
         @segundoApellido = 'Actualizado',
@@ -967,7 +969,7 @@ BEGIN
     DECLARE @idCorrelacionC4 UNIQUEIDENTIFIER = NEWID();
 
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = NULL, -- Causara error de formato / ufn_validar_numero
         @primerApellido = NULL,
         @segundoApellido = NULL,
@@ -1027,7 +1029,7 @@ BEGIN
 
     -- Asignar docente al Grupo 1 exitosamente
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC5,
         @primerApellido = 'Cruce',
         @segundoApellido = 'Docente',
@@ -1040,7 +1042,7 @@ BEGIN
 
     -- Intentar asignar el mismo docente al Grupo 2 (Deberia fallar por cruce)
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC5,
         @primerApellido = 'Cruce',
         @segundoApellido = 'Docente',
@@ -1064,7 +1066,7 @@ BEGIN
     DECLARE @idGrupoInexistente UNIQUEIDENTIFIER = NEWID();
 
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = 200000006,
         @primerApellido = 'Rojas',
         @segundoApellido = '',
@@ -1086,7 +1088,7 @@ BEGIN
     DECLARE @idCorrelacionC7 UNIQUEIDENTIFIER = NEWID();
 
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = 200000007,
         @primerApellido = 'Excepcion',
         @segundoApellido = '',

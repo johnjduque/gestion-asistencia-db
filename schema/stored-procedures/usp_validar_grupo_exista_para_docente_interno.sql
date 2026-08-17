@@ -7,37 +7,51 @@ GO
 
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_grupo_exista_para_docente_interno]
 (
-    @idGrupo UNIQUEIDENTIFIER,
-    @idCorrelacion UNIQUEIDENTIFIER,
+    @idGrupo                 UNIQUEIDENTIFIER,
+    @idCorrelacion           UNIQUEIDENTIFIER,
     @mensajeUsuarioResultado NVARCHAR(4000) OUTPUT,
     @mensajeTecnicoResultado NVARCHAR(4000) OUTPUT,
-    @estadoResultado BIT OUTPUT
+    @estadoResultado         BIT OUTPUT
 )
 AS
+    -- 1. Estandarización e inicialización de variables utilizando funciones de catálogo (Sin ISNULL)
+    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idGrupoDefecto       UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idGrupo, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+
+    DECLARE @idPeriodo            UNIQUEIDENTIFIER;
+    DECLARE @grupoEstaHabilitado  BIT;
+
+    -- Inicialización de respuesta desde parámetros del catálogo
+    SELECT 
+        @mensajeUsuarioResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
+        @mensajeTecnicoResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
+        @estadoResultado = 1;
+
 BEGIN
-    DECLARE @idGrupoDefecto UNIQUEIDENTIFIER = UPPER(LTRIM(RTRIM(ISNULL(@idGrupo,'00000000-0000-0000-0000-000000000000'))));
-    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = UPPER(LTRIM(RTRIM(ISNULL(@idCorrelacion,'00000000-0000-0000-0000-000000000000'))));
-
-    SELECT @mensajeUsuarioResultado = '', @mensajeTecnicoResultado = '', @estadoResultado = 1;
-
     SET NOCOUNT ON;
     BEGIN TRY
-        -- 1. Validar correlacion
+
+        -- PASO 1: Validación del identificador de correlación obligatorio
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- 2. Validar que el ID no sea el vacio
-        IF @estadoResultado = 1 AND @idGrupoDefecto = '00000000-0000-0000-0000-000000000000'
+        -- PASO 2: Validación del GUID por defecto
+        IF @estadoResultado = 1 AND @idGrupoDefecto = TRY_CAST(dbo.ufn_obtener_parametro('GENERAL', 'GUID_DEFECTO_CORRELACION') AS UNIQUEIDENTIFIER)
         BEGIN
-            SELECT @mensajeUsuarioResultado = 'El identificador del grupo no es valido.',
-                   @mensajeTecnicoResultado = CONCAT('ID vacio. ID CORRELACION=[', @idCorrelacionDefecto, ']'),
-                   @estadoResultado = 0;
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'VAL_001',
+                @p_param1 = 'idGrupo',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
         END
 
-        -- 3. Validar ID en tabla
+        -- PASO 3: Validación del formato e id de grupo
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_validar_id_interno 
@@ -47,46 +61,63 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
-        -- 4. Validar Existencia en la Vista uv_grupo
-        DECLARE @idPeriodo UNIQUEIDENTIFIER;
-        DECLARE @grupoEstaHabilitado BIT;
-
+        -- PASO 4: Validación de existencia en la vista uv_grupo
         IF @estadoResultado = 1
         BEGIN
-            SELECT  @idPeriodo = idPeriodoAcademico,
-                    @grupoEstaHabilitado = grupoEstaHablitado
-            FROM    dbo.uv_grupo 
-            WHERE   id = @idGrupoDefecto;
+            SELECT 
+                @idPeriodo = idPeriodoAcademico,
+                @grupoEstaHabilitado = grupoEstaHablitado
+            FROM dbo.uv_grupo 
+            WHERE id = @idGrupoDefecto;
 
             IF @@ROWCOUNT = 0
             BEGIN
-                SELECT  @mensajeUsuarioResultado = CONCAT('No existe un grupo con el identificador [', @idGrupoDefecto, '].'),
-                        @mensajeTecnicoResultado = CONCAT('No se encontro el registro en uv_grupo. ID CORRELACION=[', @idCorrelacionDefecto, ']'),
-                        @estadoResultado = 0;
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'GRUP_001',
+                    @p_param1 = @idGrupoDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
             END
         END
 
-        -- 5. Validar Periodo Academico
+        -- PASO 5: Validación de Periodo Académico válido asignado al grupo
         IF @estadoResultado = 1 AND @idPeriodo IS NULL
         BEGIN
-            SELECT  @mensajeUsuarioResultado = 'El grupo no tiene un periodo academico valido asignado.',
-                    @mensajeTecnicoResultado = CONCAT('El idPeriodoAcademicoGrupo es NULL en uv_grupo. ID CORRELACION=[', @idCorrelacionDefecto, ']'),
-                    @estadoResultado = 0;
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'GRUP_003',
+                @p_param1 = @idGrupoDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
         END
 
-        -- 6. Validar que el grupo este habilitado (fecha actual en el rango del periodo)
+        -- PASO 6: Validación de habilitación del grupo en el periodo vigente
         IF @estadoResultado = 1 AND @grupoEstaHabilitado = 0
         BEGIN
-            SELECT  @mensajeUsuarioResultado = 'El grupo seleccionado no se encuentra habilitado para el periodo academico actual.',
-                    @mensajeTecnicoResultado = CONCAT('El atributo grupoEstaHabilitado es 0. ID CORRELACION=[', @idCorrelacionDefecto, ']'),
-                    @estadoResultado = 0;
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'GRUP_001',
+                @p_param1 = @idGrupoDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
         END
 
     END TRY
     BEGIN CATCH
-        SELECT @mensajeUsuarioResultado = 'Error al validar la existencia del grupo para el docente.',
-               @mensajeTecnicoResultado = CONCAT('Error critico en orquestador [usp_validar_grupo_exista_para_docente_interno]: ', ERROR_MESSAGE(), '. Linea: ', ERROR_LINE()),
-               @estadoResultado = 0;
+        EXEC dbo.usp_obtener_mensaje_catalogo
+            @p_codigo = 'SYS_001',
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
+        SET @estadoResultado = 0;
     END CATCH
 END;
 GO

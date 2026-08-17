@@ -18,7 +18,7 @@ CREATE TABLE [dbo].[Usuario] (
     [correo] nvarchar(100) NOT NULL,
     [correoConfirmado] bit NOT NULL,
     [estado] bit NOT NULL,
-    [password] nvarchar(255) NOT NULL
+    [password] nvarchar(500) NOT NULL -- Ajustado a 500 para permitir hashes de contraseña (BCrypt, Argon2, SHA-512, etc.)
 );
 
 ALTER TABLE [dbo].[Usuario] ADD CONSTRAINT [PK_Usuario] PRIMARY KEY CLUSTERED ([id]);

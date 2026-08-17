@@ -5,95 +5,127 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
-CREATE OR ALTER        PROCEDURE [dbo].[usp_registrar_estudiante_en_grupo_interno]
-    (
-        @estudiante UNIQUEIDENTIFIER,
-        @grupo UNIQUEIDENTIFIER,
-        @idCorrelacion UNIQUEIDENTIFIER,
-        @mensajeUsuarioResultado NVARCHAR(4000) OUTPUT,
-        @mensajeTecnicoResultado NVARCHAR(4000) OUTPUT,
-        @estadoResultado BIT OUTPUT
-    )
+CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_estudiante_en_grupo_interno]
+(
+    @idEstudiante            UNIQUEIDENTIFIER,
+    @idGrupo                 UNIQUEIDENTIFIER,
+    @idCorrelacion           UNIQUEIDENTIFIER,
+    @mensajeUsuarioResultado NVARCHAR(4000) OUTPUT,
+    @mensajeTecnicoResultado NVARCHAR(4000) OUTPUT,
+    @estadoResultado         BIT OUTPUT
+)
 AS
-    -- 1. Estandarizacion de identificadores
-    DECLARE @estudianteDefecto UNIQUEIDENTIFIER = ISNULL(@estudiante,'00000000-0000-0000-0000-000000000000');
-    DECLARE @grupoDefecto UNIQUEIDENTIFIER = ISNULL(@grupo,'00000000-0000-0000-0000-000000000000');
-    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = ISNULL(@idCorrelacion, '00000000-0000-0000-0000-000000000000');
-    
-    -- Variable para almacenar el ID que encontraremos por codigo
-    DECLARE @idEstadoActivo UNIQUEIDENTIFIER;
+    -- 1. Estandarización e inicialización de variables utilizando funciones de catálogo (Sin ISNULL)
+    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idEstudianteDefecto  UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idEstudiante, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idGrupoDefecto       UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idGrupo, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idEstadoActivo       UNIQUEIDENTIFIER;
 
-    -- Inicializacion de respuesta
-    SELECT @mensajeUsuarioResultado = '', @mensajeTecnicoResultado = '', @estadoResultado = 1;
+    -- Inicialización de respuesta desde parámetros del catálogo
+    SELECT 
+        @mensajeUsuarioResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
+        @mensajeTecnicoResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
+        @estadoResultado = 1;
+
 BEGIN
     SET NOCOUNT ON;
-
     BEGIN TRY
-        --------------------------------------------------------------------
-        -- 2. OBTENER ID DEL ESTADO POR SU CoDIGO 'A' (Activo)
-        --------------------------------------------------------------------
-        SELECT @idEstadoActivo = id 
-        FROM uv_estado_estudiante_grupo 
-        WHERE codigo = 'A'; 
 
-        IF @idEstadoActivo IS NULL
+        -- PASO 1: Validación del identificador de correlación obligatorio
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
+            @idCorrelacion = @idCorrelacionDefecto, 
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
+            @estadoResultado = @estadoResultado OUTPUT;
+
+        -- PASO 2: Obtener identificador del Estado Activo ('A') para EstudianteGrupo
+        IF @estadoResultado = 1
         BEGIN
-            SELECT @mensajeUsuarioResultado = 'Error de configuracion del sistema.',
-                   @mensajeTecnicoResultado = 'No se encontro el ID para el codigo de estado [A].',
-                   @estadoResultado = 0;
-            RETURN;
+            SELECT @idEstadoActivo = id 
+            FROM dbo.uv_estado_estudiante_grupo 
+            WHERE codigo = 'A';
+
+            IF @idEstadoActivo IS NULL
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'GEN_001',
+                    @p_param1 = 'Estado Estudiante Grupo (A)',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
         END
 
-        --------------------------------------------------------------------
-        -- 3. CADENA DE VALIDACIONES (Solo si @estadoResultado = 1)
-        --------------------------------------------------------------------
-        
-        -- Validacion de Correlacion
-        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno @idCorrelacion = @idCorrelacionDefecto, @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, @estadoResultado = @estadoResultado OUTPUT;
-
-        -- Validacion de Estudiante
-        IF @estadoResultado = 1 BEGIN
-            EXEC dbo.usp_validar_estudiante_exista_por_id_interno @idEstudiante = @estudianteDefecto, @idCorrelacion = @idCorrelacionDefecto, @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, @estadoResultado = @estadoResultado OUTPUT;
+        -- PASO 3: Validaciones de reglas de negocio en sub-procedimientos
+        IF @estadoResultado = 1 
+        BEGIN
+            EXEC dbo.usp_validar_estudiante_exista_por_id_interno 
+                @idEstudiante = @idEstudianteDefecto, 
+                @idCorrelacion = @idCorrelacionDefecto, 
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
+                @estadoResultado = @estadoResultado OUTPUT;
         END
 
-        -- Validacion de Grupo
-        IF @estadoResultado = 1 BEGIN
-            EXEC dbo.usp_validar_grupo_exista_por_id_interno @idGrupo = @grupoDefecto, @idCorrelacion = @idCorrelacionDefecto, @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, @estadoResultado = @estadoResultado OUTPUT;
-        END
-            
-        -- Validacion de Horario (Cruce)
-        IF @estadoResultado = 1 BEGIN
-            EXEC dbo.usp_validar_cruce_horario_estudiante_interno @idEstudiante = @estudianteDefecto, @idGrupo = @grupoDefecto, @idCorrelacion = @idCorrelacionDefecto, @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, @estadoResultado = @estadoResultado OUTPUT;
-        END
-
-        -- Validacion de Duplicidad
-        IF @estadoResultado = 1 BEGIN
-            EXEC dbo.usp_validar_registro_estudiante_en_grupo_interno @idEstudiante = @estudianteDefecto, @idGrupo = @grupoDefecto, @idCorrelacion = @idCorrelacionDefecto, @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, @estadoResultado = @estadoResultado OUTPUT;
+        IF @estadoResultado = 1 
+        BEGIN
+            EXEC dbo.usp_validar_grupo_exista_por_id_interno 
+                @idGrupo = @idGrupoDefecto, 
+                @idCorrelacion = @idCorrelacionDefecto, 
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
+                @estadoResultado = @estadoResultado OUTPUT;
         END
 
-        --------------------------------------------------------------------
-        -- 4. REGISTRO FINAL (INSERT)
-        --------------------------------------------------------------------
+        IF @estadoResultado = 1 
+        BEGIN
+            EXEC dbo.usp_validar_cruce_horario_estudiante_interno 
+                @idEstudiante = @idEstudianteDefecto, 
+                @idGrupo = @idGrupoDefecto, 
+                @idCorrelacion = @idCorrelacionDefecto, 
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
+
+        IF @estadoResultado = 1 
+        BEGIN
+            EXEC dbo.usp_validar_registro_estudiante_en_grupo_interno 
+                @idEstudiante = @idEstudianteDefecto, 
+                @idGrupo = @idGrupoDefecto, 
+                @idCorrelacion = @idCorrelacionDefecto, 
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
+
+        -- PASO 4: Inserción final del estudiante en el grupo en dbo.EstudianteGrupo
         IF @estadoResultado = 1 
         BEGIN
             INSERT INTO dbo.EstudianteGrupo (id, estado, estudiante, grupo)
-            VALUES (NEWID(), @idEstadoActivo, @estudianteDefecto, @grupoDefecto);
+            VALUES (NEWID(), @idEstadoActivo, @idEstudianteDefecto, @idGrupoDefecto);
 
-            SELECT 
-                @mensajeUsuarioResultado = 'Tu registro se ha realizado exitosamente.',
-                @mensajeTecnicoResultado = [dbo].[ufn_obtener_mensaje_exito](@idCorrelacionDefecto, OBJECT_NAME(@@PROCID), CONCAT('Operacion exitosa completa, Registro completado con estado [A]. Orquestador finalizado para Estudiante: ', @estudianteDefecto, ' en Grupo: ', @grupoDefecto)),
-                @estadoResultado = 1;
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'GEN_004',
+                @p_param1 = 'Estudiante en Grupo',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 1;
         END
 
     END TRY
     BEGIN CATCH
-        SELECT @mensajeUsuarioResultado = 'No se pudo completar el registro.',
-               @mensajeTecnicoResultado = CONCAT('Error critico en orquestador [usp_registrar_estudiante_en_grupo]: ', ERROR_MESSAGE(), '. Linea: ', ERROR_LINE()),
-               @estadoResultado = 0;
-    END CATCH
+        EXEC dbo.usp_obtener_mensaje_catalogo
+            @p_codigo = 'SYS_001',
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-    SELECT  mensajeUsuarioResultado = @mensajeUsuarioResultado,
-            mensajeTecnicoResultado = @mensajeTecnicoResultado,
-            estadoResultado = @estadoResultado
-END
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
+        SET @estadoResultado = 0;
+    END CATCH
+END;
 GO

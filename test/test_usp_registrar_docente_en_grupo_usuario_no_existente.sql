@@ -34,7 +34,7 @@ BEGIN
     DECLARE @estadoC1 BIT;
 
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = 200000001,
         @primerApellido = 'Perez',
         @segundoApellido = 'Gomez',
@@ -67,7 +67,7 @@ BEGIN
 
     -- Ejecutar
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC2,
         @primerApellido = 'Sanchez',
         @segundoApellido = 'Mendoza',
@@ -115,7 +115,7 @@ BEGIN
 
     -- Ejecutar orquestador con datos actualizados
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC3,
         @primerApellido = 'NuevoAp',
         @segundoApellido = 'Actualizado',
@@ -152,7 +152,7 @@ BEGIN
     DECLARE @idCorrelacionC4 UNIQUEIDENTIFIER = NEWID();
 
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = NULL, -- Causara error de formato / ufn_validar_numero
         @primerApellido = NULL,
         @segundoApellido = NULL,
@@ -212,7 +212,7 @@ BEGIN
 
     -- Asignar docente al Grupo 1 exitosamente
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC5,
         @primerApellido = 'Cruce',
         @segundoApellido = 'Docente',
@@ -225,7 +225,7 @@ BEGIN
 
     -- Intentar asignar el mismo docente al Grupo 2 (Deberia fallar por cruce)
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = @numeroIdC5,
         @primerApellido = 'Cruce',
         @segundoApellido = 'Docente',
@@ -249,7 +249,7 @@ BEGIN
     DECLARE @idGrupoInexistente UNIQUEIDENTIFIER = NEWID();
 
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = 200000006,
         @primerApellido = 'Rojas',
         @segundoApellido = '',
@@ -271,7 +271,7 @@ BEGIN
     DECLARE @idCorrelacionC7 UNIQUEIDENTIFIER = NEWID();
 
     EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @tipoIdIdentificacion = @tipoIdIdentificacion,
+        @idTipoIdIdentificacion = @tipoIdIdentificacion,
         @numeroIdentificacion = 200000007,
         @primerApellido = 'Excepcion',
         @segundoApellido = '',

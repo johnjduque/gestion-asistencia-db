@@ -7,65 +7,52 @@ GO
 
 CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_estudiante_en_grupo_usuario_no_existente]
 (
-    @tipoIdIdentificacion UNIQUEIDENTIFIER,
-    @numeroIdentificacion INT,
-    @primerApellido NVARCHAR(255),
-    @segundoApellido NVARCHAR(255),
-    @primerNombre NVARCHAR(255),
-    @segundoNombre NVARCHAR(255),
-    @correo NVARCHAR(255),
-    @password NVARCHAR(255),
-    @idGrupo UNIQUEIDENTIFIER,
-    @idCorrelacion UNIQUEIDENTIFIER
+    @idTipoIdIdentificacion UNIQUEIDENTIFIER,
+    @numeroIdentificacion   INT,
+    @primerApellido         NVARCHAR(255),
+    @segundoApellido        NVARCHAR(255),
+    @primerNombre           NVARCHAR(255),
+    @segundoNombre          NVARCHAR(255),
+    @correo                 NVARCHAR(255),
+    @password               NVARCHAR(500),
+    @idGrupo                UNIQUEIDENTIFIER,
+    @idCorrelacion          UNIQUEIDENTIFIER
 )
 AS
+DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+DECLARE @idGrupoDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idGrupo, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+
+DECLARE @idUsuarioCreado    UNIQUEIDENTIFIER;
+DECLARE @idEstudianteCreado UNIQUEIDENTIFIER;
+DECLARE @idProgramaGrupo    UNIQUEIDENTIFIER;
+
+DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
+DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
+DECLARE @estadoResultado BIT = 1;
+
 BEGIN
     SET NOCOUNT ON;
-
-    -- PASO 0: Limpieza, sanitización de variables y recuperación de parámetros por defecto
-    SET @correo = TRIM(@correo);
-    SET @primerNombre = TRIM(@primerNombre);
-    SET @segundoNombre = TRIM(@segundoNombre);
-    SET @primerApellido = TRIM(@primerApellido);
-    SET @segundoApellido = TRIM(@segundoApellido);
-
-    DECLARE @cadenaVaciaDefecto NVARCHAR(4000) = ISNULL(dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'), '');
-
-    DECLARE @uuidDefecto UNIQUEIDENTIFIER = TRY_CAST(dbo.ufn_obtener_parametro('GENERAL', 'UUID_DEFECTO') AS UNIQUEIDENTIFIER);
-    IF @uuidDefecto IS NULL
-        SET @uuidDefecto = '00000000-0000-0000-0000-000000000000';
-
-    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = ISNULL(@idCorrelacion, @uuidDefecto);
-    DECLARE @idGrupoDefecto UNIQUEIDENTIFIER = ISNULL(@idGrupo, @uuidDefecto);
-
-    DECLARE @idUsuarioCreado UNIQUEIDENTIFIER;
-    DECLARE @idEstudianteCreado UNIQUEIDENTIFIER;
-    DECLARE @idProgramaGrupo UNIQUEIDENTIFIER;
-
-    DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = @cadenaVaciaDefecto;
-    DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = @cadenaVaciaDefecto;
-    DECLARE @estadoResultado BIT = 1;
-
     BEGIN TRY
-        -- Validar presencia de ID de correlación
+
+        -- PASO 1: Validación de presencia del identificador de correlación obligatorio
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
             @idCorrelacion = @idCorrelacionDefecto, 
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- PASO 1: Control de Usuario (Consultar -> Actualizar / Crear)
+        -- PASO 2: Control y gestión del Usuario (Búsqueda por correo/documento -> Actualización si existe o Creación vía sincronización)
         IF @estadoResultado = 1
         BEGIN
             SELECT TOP 1
                 @idUsuarioCreado = id
             FROM [dbo].[uv_usuario]
-            WHERE correo = @correo
-               OR (idTipoIdentificacion = @tipoIdIdentificacion AND numeroIdentificacion = @numeroIdentificacion);
+            WHERE correo = TRIM(@correo)
+               OR (idTipoIdentificacion = @idTipoIdIdentificacion AND numeroIdentificacion = @numeroIdentificacion);
 
             IF @idUsuarioCreado IS NOT NULL
             BEGIN
-                -- Si el usuario ya existe: Validar y Actualizar
+                -- El usuario ya existe en el sistema: Validar estado activo y actualizar datos biográficos
                 EXEC [dbo].[usp_validar_usuario_existe_por_id_interno]
                     @idUsuario = @idUsuarioCreado,
                     @idCorrelacion = @idCorrelacionDefecto,
@@ -76,44 +63,44 @@ BEGIN
                 IF @estadoResultado = 1
                 BEGIN
                     UPDATE u
-                    SET u.tipoIdIdentificacion = @tipoIdIdentificacion,
+                    SET u.tipoIdIdentificacion = @idTipoIdIdentificacion,
                         u.numeroIdentificacion = @numeroIdentificacion,
-                        u.primerApellido = @primerApellido,
-                        u.segundoApellido = @segundoApellido,
-                        u.primerNombre = @primerNombre,
-                        u.segundoNombre = @segundoNombre
+                        u.primerApellido = TRIM(@primerApellido),
+                        u.segundoApellido = TRIM(@segundoApellido),
+                        u.primerNombre = TRIM(@primerNombre),
+                        u.segundoNombre = TRIM(@segundoNombre)
                     FROM [dbo].[Usuario] u
                     WHERE u.id = @idUsuarioCreado;
                 END
             END
             ELSE
             BEGIN
-                -- Si no existe: Crear/Sincronizar usuario
+                -- El usuario no existe: Crear y sincronizar registro de usuario en el sistema
                 EXEC [dbo].[usp_sincronizar_usuario_interno]
-                    @tipoIdIdentificacion = @tipoIdIdentificacion,
-                    @numeroIdentificacion = @numeroIdentificacion,
-                    @primerApellido = @primerApellido,
-                    @segundoApellido = @segundoApellido,
-                    @primerNombre = @primerNombre,
-                    @segundoNombre = @segundoNombre,
-                    @correo = @correo,
-                    @password = @password,
-                    @idCorrelacion = @idCorrelacionDefecto,
+                    @idTipoIdIdentificacion  = @idTipoIdIdentificacion,
+                    @numeroIdentificacion    = @numeroIdentificacion,
+                    @primerApellido          = @primerApellido,
+                    @segundoApellido         = @segundoApellido,
+                    @primerNombre            = @primerNombre,
+                    @segundoNombre           = @segundoNombre,
+                    @correo                  = @correo,
+                    @password                = @password,
+                    @idCorrelacion           = @idCorrelacionDefecto,
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-                    @estadoResultado = @estadoResultado OUTPUT;
+                    @estadoResultado         = @estadoResultado OUTPUT;
 
                 IF @estadoResultado = 1 
                 BEGIN
                     SELECT TOP 1
                         @idUsuarioCreado = id
                     FROM [dbo].[uv_usuario]
-                    WHERE correo = @correo;
+                    WHERE correo = TRIM(@correo);
                 END
             END
         END
-
-        -- PASO 2: Control de Perfil de Estudiante (Consultar -> Crear)
+       
+        -- PASO 3: Control y gestión del perfil del Estudiante (Búsqueda en vista de identidad o Creación de perfil de estudiante)
         IF @estadoResultado = 1
         BEGIN
             SELECT TOP 1
@@ -124,11 +111,11 @@ BEGIN
             IF @idEstudianteCreado IS NULL
             BEGIN
                 EXEC [dbo].[usp_sincronizar_estudiante_interno]
-                    @idUsuario = @idUsuarioCreado,
-                    @idCorrelacion = @idCorrelacionDefecto,
+                    @idUsuario               = @idUsuarioCreado,
+                    @idCorrelacion           = @idCorrelacionDefecto,
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-                    @estadoResultado = @estadoResultado OUTPUT;
+                    @estadoResultado         = @estadoResultado OUTPUT;
 
                 IF @estadoResultado = 1
                 BEGIN
@@ -139,20 +126,20 @@ BEGIN
                 END
             END
         END
-
-        -- PASO 3: Registrar Estudiante en el Grupo
+        
+        -- PASO 4: Inscripción y registro del Estudiante en el Grupo seleccionado
         IF @estadoResultado = 1
         BEGIN
             EXEC [dbo].[usp_registrar_estudiante_en_grupo_interno]
-                @estudiante = @idEstudianteCreado,
-                @grupo = @idGrupoDefecto,
-                @idCorrelacion = @idCorrelacionDefecto,
+                @idEstudiante            = @idEstudianteCreado,
+                @idGrupo                 = @idGrupoDefecto,
+                @idCorrelacion           = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-                @estadoResultado = @estadoResultado OUTPUT;
+                @estadoResultado         = @estadoResultado OUTPUT;
         END
-
-        -- PASO 4: Asignar Estudiante al Programa Académico del Grupo
+        
+        -- PASO 5: Vinculación del Estudiante al Programa Académico del Grupo y validación de trazabilidad institucional
         IF @estadoResultado = 1
         BEGIN
             SELECT TOP 1
@@ -175,32 +162,46 @@ BEGIN
             END
             ELSE
             BEGIN
-                SELECT
-                    @mensajeUsuarioResultado = ISNULL(dbo.ufn_obtener_mensaje('ERR_PROGRAMA_GRUPO_NO_ENCONTRADO', 'USUARIO', 'Programa'), 'No se encontró un programa académico asociado a este grupo.'),
-                    @mensajeTecnicoResultado = ISNULL(dbo.ufn_obtener_mensaje('ERR_PROGRAMA_GRUPO_NO_ENCONTRADO', 'TECNICO', CONCAT('Grupo ID ', @idGrupoDefecto)), CONCAT('Error: Trazabilidad rota para Grupo ID ', @idGrupoDefecto)),
-                    @estadoResultado = 0;
+                -- Inconsistencia de trazabilidad: Grupo sin programa académico asociado. Obtención de mensajes desde catálogo
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'ERR_PROGRAMA_GRUPO_NO_ENCONTRADO',
+                    @p_param1 = @idGrupoDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
             END
         END
-
-        -- PASO 5: Evaluación de Resultado Final
+        
+        -- PASO 6: Evaluación de resultado final y generación de mensaje de éxito desde el Catálogo de Mensajes
         IF @estadoResultado = 1
         BEGIN
-            SELECT
-                @mensajeUsuarioResultado = ISNULL(dbo.ufn_obtener_mensaje('SUC_REGISTRO_ESTUDIANTE_GRUPO', 'USUARIO', 'Estudiante'), 'Se ha registrado el estudiante en el grupo de forma satisfactoria'),
-                @mensajeTecnicoResultado = [dbo].[ufn_obtener_mensaje_exito](@idCorrelacionDefecto, OBJECT_NAME(@@PROCID), CONCAT('Operación exitosa completa. Orquestador finalizado para Estudiante: ', @idEstudianteCreado, ' en Grupo: ', @idGrupoDefecto));
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'SUC_REGISTRO_ESTUDIANTE_GRUPO',
+                @p_param1 = @idEstudianteCreado,
+                @p_param2 = @idGrupoDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
         END
 
     END TRY
     BEGIN CATCH
-        SELECT
-            @mensajeUsuarioResultado = ISNULL(dbo.ufn_obtener_mensaje('ERR_INESPERADO_REGISTRO_ESTUDIANTE', 'USUARIO', 'Estudiante'), 'Hubo un error inesperado al procesar el registro completo del estudiante.'),
-            @mensajeTecnicoResultado = [dbo].[ufn_obtener_detalle_error](@idCorrelacionDefecto),
-            @estadoResultado = 0;
+        -- BLOQUE CATCH: Captura centralizada de excepciones inesperadas y formateo mediante catálogo de mensajes y stack de error
+        EXEC dbo.usp_obtener_mensaje_catalogo
+            @p_codigo = 'ERR_INESPERADO_REGISTRO_ESTUDIANTE',
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+        SET @mensajeTecnicoResultado = [dbo].[ufn_obtener_detalle_error](@idCorrelacionDefecto);
+        SET @estadoResultado = 0;
     END CATCH
 
-    -- Retorno unificado de resultados
+    -- BLOQUE FINAL: Retorno unificado de resultados garantizando el nombre de columna idCorrelacion
     SELECT
-        id = @idCorrelacionDefecto,
+        idCorrelacion = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,
         mensajeTecnicoResultado = @mensajeTecnicoResultado,
         estadoResultado = @estadoResultado;
