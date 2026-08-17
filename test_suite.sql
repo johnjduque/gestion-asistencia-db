@@ -73,18 +73,24 @@ IF NOT EXISTS (SELECT 1 FROM dbo.RazonCausa WHERE codigo = 'J')
     INSERT INTO dbo.RazonCausa (id, nombre, codigo) VALUES (NEWID(), 'Justificado', 'J');
 
 -- 4.1. Asegurar catálogo de Mensaje
-IF NOT EXISTS (SELECT 1 FROM dbo.Mensaje WHERE codigo = 'ERR_PROGRAMA_GRUPO_NO_ENCONTRADO' AND tipo = 'USUARIO')
-    INSERT INTO dbo.Mensaje (codigo, tipo, contenidoUsuario, contenidoTecnico) VALUES ('ERR_PROGRAMA_GRUPO_NO_ENCONTRADO', 'USUARIO', 'No se encontró un programa académico asociado a este grupo.', 'No se encontró un programa académico asociado a este grupo.');
-IF NOT EXISTS (SELECT 1 FROM dbo.Mensaje WHERE codigo = 'ERR_PROGRAMA_GRUPO_NO_ENCONTRADO' AND tipo = 'TECNICO')
-    INSERT INTO dbo.Mensaje (codigo, tipo, contenidoUsuario, contenidoTecnico) VALUES ('ERR_PROGRAMA_GRUPO_NO_ENCONTRADO', 'TECNICO', 'Error: Trazabilidad rota para {entidad}', 'Error: Trazabilidad rota para {entidad}');
-IF NOT EXISTS (SELECT 1 FROM dbo.Mensaje WHERE codigo = 'ERR_INESPERADO_REGISTRO_ESTUDIANTE' AND tipo = 'USUARIO')
-    INSERT INTO dbo.Mensaje (codigo, tipo, contenidoUsuario, contenidoTecnico) VALUES ('ERR_INESPERADO_REGISTRO_ESTUDIANTE', 'USUARIO', 'Hubo un error inesperado al procesar el registro completo del estudiante.', 'Hubo un error inesperado al procesar el registro completo del estudiante.');
+IF OBJECT_ID('dbo.CatalogoMensajeUsuario', 'U') IS NOT NULL
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM dbo.CatalogoMensajeUsuario WHERE codigo = 'ERR_PROGRAMA_GRUPO_NO_ENCONTRADO')
+        INSERT INTO dbo.CatalogoMensajeUsuario (codigo, tipoMensaje, severidad, contenido) VALUES ('ERR_PROGRAMA_GRUPO_NO_ENCONTRADO', 'BUSINESS_ERROR', 'ALTO', 'No se encontró un programa académico asociado a este grupo.');
+    IF NOT EXISTS (SELECT 1 FROM dbo.CatalogoMensajeUsuario WHERE codigo = 'ERR_INESPERADO_REGISTRO_ESTUDIANTE')
+        INSERT INTO dbo.CatalogoMensajeUsuario (codigo, tipoMensaje, severidad, contenido) VALUES ('ERR_INESPERADO_REGISTRO_ESTUDIANTE', 'SYSTEM_ERROR', 'CRITICO', 'Hubo un error inesperado al procesar el registro completo del estudiante.');
+END
+IF OBJECT_ID('dbo.CatalogoMensajeTecnico', 'U') IS NOT NULL
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM dbo.CatalogoMensajeTecnico WHERE codigo = 'ERR_PROGRAMA_GRUPO_NO_ENCONTRADO')
+        INSERT INTO dbo.CatalogoMensajeTecnico (codigo, tipoMensaje, severidad, contenido) VALUES ('ERR_PROGRAMA_GRUPO_NO_ENCONTRADO', 'BUSINESS_ERROR', 'ALTO', 'Error: Trazabilidad rota para {}');
+END
 
 -- 4.2. Asegurar catálogo de Parametro
-IF OBJECT_ID('dbo.Parametro', 'U') IS NOT NULL
+IF OBJECT_ID('dbo.CatalogoParametro', 'U') IS NOT NULL
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM dbo.Parametro WHERE grupo = 'GENERAL' AND clave = 'UUID_DEFECTO')
-        INSERT INTO dbo.Parametro (grupo, clave, valor, descripcion) VALUES ('GENERAL', 'UUID_DEFECTO', '00000000-0000-0000-0000-000000000000', 'UUID comodin por defecto para valores nulos');
+    IF NOT EXISTS (SELECT 1 FROM dbo.CatalogoParametro WHERE grupo = 'GENERAL' AND clave = 'UUID_DEFECTO')
+        INSERT INTO dbo.CatalogoParametro (grupo, clave, valor, tipoDato, valorDefecto) VALUES ('GENERAL', 'UUID_DEFECTO', '00000000-0000-0000-0000-000000000000', 'UUID', '00000000-0000-0000-0000-000000000000');
 END
 
 

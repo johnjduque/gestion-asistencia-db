@@ -5,72 +5,81 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
-CREATE OR ALTER        PROCEDURE [dbo].[usp_validar_estudiante_exista_por_id_interno]  
-(  
-    @idEstudiante UNIQUEIDENTIFIER,  
-    @idCorrelacion UNIQUEIDENTIFIER,  
-    @mensajeUsuarioResultado NVARCHAR(4000) OUTPUT,  
-    @mensajeTecnicoResultado NVARCHAR(4000) OUTPUT,  
-    @estadoResultado BIT OUTPUT  
-)  
+CREATE OR ALTER PROCEDURE [dbo].[usp_validar_estudiante_exista_por_id_interno]
+(
+    @idEstudiante            UNIQUEIDENTIFIER,
+    @idCorrelacion           UNIQUEIDENTIFIER,
+    @mensajeUsuarioResultado NVARCHAR(4000) OUTPUT,
+    @mensajeTecnicoResultado NVARCHAR(4000) OUTPUT,
+    @estadoResultado         BIT OUTPUT
+)
 AS
+    -- 1. Estandarización e inicialización de variables utilizando funciones de catálogo (Sin ISNULL)
+    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idEstudianteDefecto  UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idEstudiante, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
 
-    DECLARE @idEstudianteDefecto UNIQUEIDENTIFIER = UPPER(LTRIM(RTRIM(ISNULL(@idEstudiante,'00000000-0000-0000-0000-000000000000'))));  
-    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = UPPER(LTRIM(RTRIM(ISNULL(@idCorrelacion,'00000000-0000-0000-0000-000000000000'))));  
-  
-    SELECT @mensajeUsuarioResultado = '', @mensajeTecnicoResultado = '', @estadoResultado = 1; 
-    
-BEGIN  
-    SET NOCOUNT ON;  
-    BEGIN TRY  
-        -- 1. Validar correlacion  
-        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno  
-            @idCorrelacion = @idCorrelacionDefecto,  
+    -- Inicialización de respuesta desde parámetros del catálogo
+    SELECT 
+        @mensajeUsuarioResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
+        @mensajeTecnicoResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
+        @estadoResultado = 1;
+
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+
+        -- PASO 1: Validación del identificador de correlación obligatorio
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
+            @idCorrelacion = @idCorrelacionDefecto, 
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
-            @estadoResultado = @estadoResultado OUTPUT;  
+            @estadoResultado = @estadoResultado OUTPUT;
 
-        -- 2. Validar identificador Estudiante no es vacio  
-        IF @estadoResultado = 1  
-        BEGIN  
-            EXEC dbo.usp_validar_id_interno   
-                @id = @idEstudianteDefecto,   
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,   
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,   
-                @estadoResultado = @estadoResultado OUTPUT;  
-  
-            SELECT  @mensajeUsuarioResultado = 'El identificador del estudiante no es valido o esta vacio.',  
-                    @mensajeTecnicoResultado = CONCAT('ID Estudiante vacio o por defecto. ID CORRELACION=[', @idCorrelacionDefecto, ']'),  
-                    @estadoResultado = 0  
-            WHERE   @estadoResultado = 0;  
-        END  
-  
-        --------------------------------------------------------------------  
-        -- 3. Validar Existencia en la tabla/vista base (Cambio a uv_estudiante_identidad)
-        --------------------------------------------------------------------  
-        IF @estadoResultado = 1 AND NOT EXISTS (SELECT 1 FROM uv_estudiante_identidad WHERE id = @idEstudianteDefecto)  
-        BEGIN  
-            SELECT @mensajeUsuarioResultado = CONCAT('No existe un estudiante con el identificador [', @idEstudianteDefecto, '].'),  
-                   @mensajeTecnicoResultado = CONCAT('No existe en uv_estudiante_identidad. ID CORRELACION=[', @idCorrelacionDefecto, ']'),  
-                   @estadoResultado = 0;  
-        END  
-  
-        --------------------------------------------------------------------  
-        -- 4. Validar que esta Activo en la identidad base
-        --------------------------------------------------------------------  
-        IF @estadoResultado = 1 AND EXISTS (SELECT 1 FROM uv_estudiante_identidad WHERE id = @idEstudianteDefecto AND estaActivoUsuario = 0)  
-        BEGIN  
-            SELECT @mensajeUsuarioResultado = 'El estudiante se encuentra inactivo.',  
-                   @mensajeTecnicoResultado = CONCAT('estaActivoUsuario = 0 en uv_estudiante_identidad. ID CORRELACION=[', @idCorrelacionDefecto, ']'),  
-                   @mensajeTecnicoResultado = [dbo].[ufn_obtener_mensaje_exito](@idCorrelacionDefecto, OBJECT_NAME(@@PROCID), CONCAT('estaActivoUsuario = 0 en uv_estudiante_identidad: ', @idEstudianteDefecto)),
-                   @estadoResultado = 0;  
-        END  
-  
-    END TRY  
-    BEGIN CATCH  
-        SELECT @mensajeUsuarioResultado = 'Ocurrio un error inesperado.',   
-               @mensajeTecnicoResultado = CONCAT('Error critico en orquestador [usp_validar_estudiante_exista_por_id_interno]: ', ERROR_MESSAGE(), '. Linea: ', ERROR_LINE()),
-               @estadoResultado = 0;  
-    END CATCH  
-END
+        -- PASO 2: Validación de UUID válido de estudiante
+        IF @estadoResultado = 1
+        BEGIN
+            EXEC dbo.usp_validar_id_interno 
+                @id = @idEstudianteDefecto, 
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
+
+        -- PASO 3: Validación de existencia en la vista base uv_estudiante_identidad
+        IF @estadoResultado = 1 AND NOT EXISTS (SELECT 1 FROM dbo.uv_estudiante_identidad WHERE id = @idEstudianteDefecto)
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'EST_001',
+                @p_param1 = @idEstudianteDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
+        -- PASO 4: Validación de estado activo en la identidad base del usuario
+        IF @estadoResultado = 1 AND EXISTS (SELECT 1 FROM dbo.uv_estudiante_identidad WHERE id = @idEstudianteDefecto AND estaActivoUsuario = 0)
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'USU_002',
+                @p_param1 = @idEstudianteDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
+    END TRY
+    BEGIN CATCH
+        EXEC dbo.usp_obtener_mensaje_catalogo
+            @p_codigo = 'SYS_001',
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
+        SET @estadoResultado = 0;
+    END CATCH
+END;
 GO

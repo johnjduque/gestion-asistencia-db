@@ -7,77 +7,99 @@ GO
 
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_cruce_horario_docente_interno]
 (
-    @idDocente UNIQUEIDENTIFIER,
-    @idGrupo UNIQUEIDENTIFIER,
-    @idCorrelacion UNIQUEIDENTIFIER,
+    @idDocente               UNIQUEIDENTIFIER,
+    @idGrupo                 UNIQUEIDENTIFIER,
+    @idCorrelacion           UNIQUEIDENTIFIER,
     @mensajeUsuarioResultado NVARCHAR(4000) OUTPUT,
     @mensajeTecnicoResultado NVARCHAR(4000) OUTPUT,
-    @estadoResultado BIT OUTPUT
+    @estadoResultado         BIT OUTPUT
 )
 AS
+    -- 1. Estandarización e inicialización de variables utilizando funciones de catálogo (Sin ISNULL)
+    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idDocenteDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idDocente, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idGrupoDefecto       UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idGrupo, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+
+    DECLARE @nombreGrupoConflicto NVARCHAR(200);
+    DECLARE @diaConflicto         NVARCHAR(50);
+
+    -- Inicialización de respuesta desde parámetros del catálogo
+    SELECT 
+        @mensajeUsuarioResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
+        @mensajeTecnicoResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
+        @estadoResultado = 1;
+
 BEGIN
-    DECLARE @idDocenteDefecto UNIQUEIDENTIFIER = UPPER(LTRIM(RTRIM(ISNULL(@idDocente,'00000000-0000-0000-0000-000000000000'))));
-    DECLARE @idGrupoDefecto UNIQUEIDENTIFIER = UPPER(LTRIM(RTRIM(ISNULL(@idGrupo,'00000000-0000-0000-0000-000000000000'))));
-    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = UPPER(LTRIM(RTRIM(ISNULL(@idCorrelacion,'00000000-0000-0000-0000-000000000000'))));
-
-    -- Inicializacion
-    SELECT @mensajeUsuarioResultado = '', @mensajeTecnicoResultado = '', @estadoResultado = 1;
-
     SET NOCOUNT ON;
     BEGIN TRY
 
-        -- 1. Validar correlacion
+        -- PASO 1: Validación del identificador de correlación obligatorio
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- 2. Validaciones previas de existencia
-        IF @estadoResultado = 1 BEGIN
-            EXEC dbo.usp_validar_docente_exista_por_id_interno @idDocente = @idDocenteDefecto, @idCorrelacion = @idCorrelacionDefecto, @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, @estadoResultado = @estadoResultado OUTPUT;
-        END
-
-        IF @estadoResultado = 1 BEGIN
-            EXEC dbo.usp_validar_grupo_exista_para_docente_interno @idGrupo = @idGrupoDefecto, @idCorrelacion = @idCorrelacionDefecto, @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, @estadoResultado = @estadoResultado OUTPUT;
-        END
-
-        --------------------------------------------------------------------
-        -- 3. Deteccion de Cruce de Horario
-        --------------------------------------------------------------------
+        -- PASO 2: Validaciones previas de existencia de docente y grupo
         IF @estadoResultado = 1 
         BEGIN
-            DECLARE @nombreGrupoConflicto NVARCHAR(200);
-            DECLARE @diaConflicto NVARCHAR(50);
+            EXEC dbo.usp_validar_docente_exista_por_id_interno 
+                @idDocente = @idDocenteDefecto, 
+                @idCorrelacion = @idCorrelacionDefecto, 
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
 
-            -- Buscamos si existe un cruce entre el horario del nuevo grupo y los grupos ya asignados al docente
+        IF @estadoResultado = 1 
+        BEGIN
+            EXEC dbo.usp_validar_grupo_exista_para_docente_interno 
+                @idGrupo = @idGrupoDefecto, 
+                @idCorrelacion = @idCorrelacionDefecto, 
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
+
+        -- PASO 3: Detección de colisión / cruce de horario del docente
+        IF @estadoResultado = 1 
+        BEGIN
             SELECT TOP 1 
                 @estadoResultado = 0,
                 @nombreGrupoConflicto = gExistente.nombre,
                 @diaConflicto = hNuevo.nombreDia
-            FROM uv_horario hNuevo
-            INNER JOIN uv_horario hExistente ON hNuevo.idDia = hExistente.idDia 
+            FROM dbo.uv_horario hNuevo
+            INNER JOIN dbo.uv_horario hExistente ON hNuevo.idDia = hExistente.idDia 
                 AND hNuevo.idPeriodoAcademico = hExistente.idPeriodoAcademico
-            INNER JOIN uv_grupo gExistente ON hExistente.idGrupo = gExistente.id
+            INNER JOIN dbo.uv_grupo gExistente ON hExistente.idGrupo = gExistente.id
             WHERE hNuevo.idGrupo = @idGrupoDefecto
                 AND gExistente.idDocente = @idDocenteDefecto
                 AND hNuevo.idGrupo <> hExistente.idGrupo
-                -- Logica de traslape: (InicioA < FinB) AND (FinA > InicioB)
                 AND hNuevo.horaInicio < hExistente.horaFin
                 AND hNuevo.horaFin > hExistente.horaInicio;
 
             IF @estadoResultado = 0
             BEGIN
-                SELECT @mensajeUsuarioResultado = CONCAT('No es posible realizar el registro. Existe un cruce de horario el dia ', @diaConflicto, ' con el grupo: ', @nombreGrupoConflicto, '.'),
-                       @mensajeTecnicoResultado = CONCAT('Cruce detectado en uv_horario para Docente: ', @idDocenteDefecto, ' Conflicto con Grupo: ', @nombreGrupoConflicto);
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'HOR_002',
+                    @p_param1 = @idGrupoDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
             END
         END
 
     END TRY
     BEGIN CATCH
-        SELECT @mensajeUsuarioResultado = 'Error al validar disponibilidad de horario del docente.',
-               @mensajeTecnicoResultado = CONCAT('Error critico en orquestador [usp_validar_cruce_horario_docente_interno]: ', ERROR_MESSAGE(), '. Linea: ', ERROR_LINE()),
-               @estadoResultado = 0;
+        EXEC dbo.usp_obtener_mensaje_catalogo
+            @p_codigo = 'SYS_001',
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
+        SET @estadoResultado = 0;
     END CATCH
 END;
 GO

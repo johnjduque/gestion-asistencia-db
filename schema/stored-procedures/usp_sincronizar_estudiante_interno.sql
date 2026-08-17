@@ -5,65 +5,52 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
-CREATE OR ALTER    PROCEDURE [dbo].[usp_sincronizar_estudiante_interno]
+CREATE OR ALTER PROCEDURE [dbo].[usp_sincronizar_estudiante_interno]
 (
-    @idUsuario UNIQUEIDENTIFIER,
-    @idCorrelacion UNIQUEIDENTIFIER,
+    @idUsuario               UNIQUEIDENTIFIER,
+    @idCorrelacion           UNIQUEIDENTIFIER,
     @mensajeUsuarioResultado NVARCHAR(4000) OUTPUT,
     @mensajeTecnicoResultado NVARCHAR(4000) OUTPUT,
-    @estadoResultado BIT OUTPUT
+    @estadoResultado         BIT OUTPUT
 )
 AS
-BEGIN
-    SET NOCOUNT ON;
+    -- 1. Estandarización e inicialización de variables utilizando funciones de catálogo (Sin ISNULL)
+    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idUsuarioDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuario, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idPerfilBusqueda     UNIQUEIDENTIFIER;
 
-    -- 1. Estandarizacion y cura de variables
-    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER;
-    DECLARE @idUsuarioDefecto UNIQUEIDENTIFIER;
-    DECLARE @idPerfilBusquedad UNIQUEIDENTIFIER;
-
-    -- Asignacion segura con validacion de nulos
-    SET @idCorrelacionDefecto = ISNULL(@idCorrelacion, '00000000-0000-0000-0000-000000000000');
-    SET @idUsuarioDefecto = ISNULL(@idUsuario, '00000000-0000-0000-0000-000000000000');
-
-    -- Inicializacion estricta de respuestas
+    -- Inicialización de respuesta desde parámetros del catálogo
     SELECT 
-        @mensajeUsuarioResultado = '', 
-        @mensajeTecnicoResultado = '', 
+        @mensajeUsuarioResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
+        @mensajeTecnicoResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
         @estadoResultado = 1;
 
+BEGIN
+    SET NOCOUNT ON;
     BEGIN TRY
 
-        --------------------------------------------------------------------
-        -- VALIDACION DE CORRELACIoN
-        --------------------------------------------------------------------
+        -- PASO 1: Validación del identificador de correlación obligatorio
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
             @idCorrelacion = @idCorrelacionDefecto, 
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
             @estadoResultado = @estadoResultado OUTPUT;
-        
-        --------------------------------------------------------------------
-        -- VALIDAR PERFIL (Busca el ID por el codigo 'ES')
-        --------------------------------------------------------------------
+
+        -- PASO 2: Validar existencia de Perfil Estudiante (código 'ES')
         IF @estadoResultado = 1
         BEGIN
-         
             EXEC dbo.usp_validar_perfil_existe_por_codigo_interno 
                 @codigoPerfil = N'ES',
                 @idCorrelacion = @idCorrelacionDefecto, 
-                @idPerfilEncontrado = @idPerfilBusquedad OUTPUT, 
+                @idPerfilEncontrado = @idPerfilBusqueda OUTPUT, 
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
                 @estadoResultado = @estadoResultado OUTPUT;
         END
-       
-        --------------------------------------------------------------------
-        -- VALIDAR USUARIO (Existencia y Estado en el Sistema)
-        --------------------------------------------------------------------
+
+        -- PASO 3: Validar existencia de Usuario
         IF @estadoResultado = 1
         BEGIN
-        
             EXEC dbo.usp_validar_usuario_existe_por_id_interno 
                 @idUsuario = @idUsuarioDefecto, 
                 @idCorrelacion = @idCorrelacionDefecto, 
@@ -72,40 +59,47 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
-        --------------------------------------------------------------------
-        -- VALIDAR UNICIDAD (Que el usuario NO sea ya un estudiante)
-        --------------------------------------------------------------------
+        -- PASO 4: Validar unicidad (que el usuario no esté ya registrado como estudiante)
         IF @estadoResultado = 1
         BEGIN
             IF EXISTS (SELECT 1 FROM dbo.Estudiante WHERE usuario = @idUsuarioDefecto)
             BEGIN
-                SELECT 
-                    @mensajeUsuarioResultado = 'El usuario ya se encuentra registrado como estudiante.',
-                    @mensajeTecnicoResultado = CONCAT('Fallo unicidad: El idUsuario [', CAST(@idUsuarioDefecto AS NVARCHAR(50)), '] ya existe en la tabla dbo.Estudiante. Correlacion: ', CAST(@idCorrelacionDefecto AS NVARCHAR(50))),
-                    @estadoResultado = 0;
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'VAL_006',
+                    @p_param1 = 'Estudiante',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
             END
         END
 
-        --------------------------------------------------------------------
-        -- INSERCIoN FINAL
-        --------------------------------------------------------------------
+        -- PASO 5: Inserción final en dbo.Estudiante
         IF @estadoResultado = 1
         BEGIN
             INSERT INTO dbo.Estudiante (id, usuario)
             VALUES (NEWID(), @idUsuarioDefecto);
 
-            SELECT 
-                @mensajeUsuarioResultado = 'Registro de estudiante completado exitosamente.',
-                @mensajeTecnicoResultado = CONCAT('Insercion exitosa en dbo.Estudiante para idUsuario [', CAST(@idUsuarioDefecto AS NVARCHAR(50)), ']. Correlacion: ', CAST(@idCorrelacionDefecto AS NVARCHAR(50))),
-                @estadoResultado = 1;
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'GEN_004',
+                @p_param1 = 'Estudiante',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 1;
         END
 
     END TRY
     BEGIN CATCH
-        SELECT 
-            @mensajeUsuarioResultado = 'Ocurrio un error al intentar agregar el estudiante.',
-            @mensajeTecnicoResultado = CONCAT('Error critico en [usp_sincronizar_estudiante_interno]: ', ERROR_MESSAGE(), '. Correlacion: ', CAST(@idCorrelacionDefecto AS NVARCHAR(50))),
-            @estadoResultado = 0;
+        EXEC dbo.usp_obtener_mensaje_catalogo
+            @p_codigo = 'SYS_001',
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
+        SET @estadoResultado = 0;
     END CATCH
 END;
 GO

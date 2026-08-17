@@ -5,27 +5,55 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
-CREATE OR ALTER        PROCEDURE [dbo].[usp_validar_id_correlacion_esta_presente_interno]
+CREATE OR ALTER PROCEDURE [dbo].[usp_validar_id_correlacion_esta_presente_interno]
 (
-    @idCorrelacion UNIQUEIDENTIFIER,
+    @idCorrelacion           UNIQUEIDENTIFIER,
     @mensajeUsuarioResultado NVARCHAR(4000) OUTPUT,
     @mensajeTecnicoResultado NVARCHAR(4000) OUTPUT,
-    @estadoResultado BIT OUTPUT
+    @estadoResultado         BIT OUTPUT
 )
 AS
-    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = ISNULL(@idCorrelacion, '00000000-0000-0000-0000-000000000000');
-        -- Inicializacion
-    SELECT @mensajeUsuarioResultado = '', @mensajeTecnicoResultado = '', @estadoResultado = 1
+    -- 1. Estandarización e inicialización de variables utilizando funciones de catálogo (Sin ISNULL)
+    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+
+    -- Inicialización de respuesta desde parámetros del catálogo
+    SELECT 
+        @mensajeUsuarioResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
+        @mensajeTecnicoResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
+        @estadoResultado = 1;
 
 BEGIN
-    
-    EXEC usp_validar_id_interno	@id = @idCorrelacionDefecto, @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, @estadoResultado= @estadoResultado OUTPUT
-    
-    -- Validacion real del parametro
-    IF @estadoResultado = 0 BEGIN
-        SELECT  @mensajeUsuarioResultado = 'El identificador de correlacion no esta presente y es vital para llevar a cabo la transaccion deseada.',
-                @mensajeTecnicoResultado = 'No se tiene el id de correlacion necesario para llevar a cabo la transaccion deseada.',
-                @estadoResultado = 0
-    END
-END
+    SET NOCOUNT ON;
+    BEGIN TRY
+
+        -- PASO 1: Invocación del validador de GUID válido
+        EXEC dbo.usp_validar_id_interno 
+            @id = @idCorrelacionDefecto, 
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
+            @estadoResultado = @estadoResultado OUTPUT;
+
+        -- PASO 2: Evaluación del resultado de presencia de correlación
+        IF @estadoResultado = 0 
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'CORR_001',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
+    END TRY
+    BEGIN CATCH
+        EXEC dbo.usp_obtener_mensaje_catalogo
+            @p_codigo = 'SYS_001',
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
+        SET @estadoResultado = 0;
+    END CATCH
+END;
 GO

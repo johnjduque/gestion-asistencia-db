@@ -7,70 +7,79 @@ GO
 
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_sesion_exista_por_id_interno]
 (
-    @idSesion UNIQUEIDENTIFIER,
-    @idCorrelacion UNIQUEIDENTIFIER,
+    @idSesion                UNIQUEIDENTIFIER,
+    @idCorrelacion           UNIQUEIDENTIFIER,
     @mensajeUsuarioResultado NVARCHAR(4000) OUTPUT,
     @mensajeTecnicoResultado NVARCHAR(4000) OUTPUT,
-    @estadoResultado BIT OUTPUT
+    @estadoResultado         BIT OUTPUT
 )
 AS
-BEGIN
-    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = UPPER(LTRIM(RTRIM(ISNULL(@idCorrelacion, '00000000-0000-0000-0000-000000000000'))));
-    DECLARE @idSesionDefecto UNIQUEIDENTIFIER = ISNULL(@idSesion, '00000000-0000-0000-0000-000000000000');
+    -- 1. Estandarización e inicialización de variables utilizando funciones de catálogo (Sin ISNULL)
+    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idSesionDefecto      UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idSesion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
 
+    DECLARE @existe BIT = 0;
+
+    -- Inicialización de respuesta desde parámetros del catálogo
     SELECT 
-        @mensajeUsuarioResultado = '', 
-        @mensajeTecnicoResultado = '', 
+        @mensajeUsuarioResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
+        @mensajeTecnicoResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
         @estadoResultado = 1;
 
+BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
 
-        -- 1. Validar ID de correlacion
+        -- PASO 1: Validación del identificador de correlación obligatorio
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
-            @idCorrelacion = @idCorrelacionDefecto, @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, @estadoResultado = @estadoResultado OUTPUT;
+            @idCorrelacion = @idCorrelacionDefecto, 
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
+            @estadoResultado = @estadoResultado OUTPUT;
 
-        -- 2. Validacion de GUID vacio
-        IF @estadoResultado = 1 AND @idSesionDefecto = '00000000-0000-0000-0000-000000000000'
+        -- PASO 2: Validación del GUID por defecto
+        IF @estadoResultado = 1 AND @idSesionDefecto = TRY_CAST(dbo.ufn_obtener_parametro('GENERAL', 'GUID_DEFECTO_CORRELACION') AS UNIQUEIDENTIFIER)
         BEGIN
-            SELECT 
-                @mensajeUsuarioResultado = 'El identificador de sesión no es válido.',
-                @mensajeTecnicoResultado = CONCAT('Fallo: @idSesion es el GUID vacío. Correlación: ', @idCorrelacionDefecto),
-                @estadoResultado = 0;
-            RETURN;
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'VAL_001',
+                @p_param1 = 'idSesion',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
         END
 
-        -- 3. Validacion de Existencia en la vista uv_sesion
+        -- PASO 3: Validación de existencia en la vista uv_sesion
         IF @estadoResultado = 1
         BEGIN
-            DECLARE @existe BIT = 0;
-
             SELECT TOP 1 
                 @existe = 1
-            FROM [dbo].[uv_sesion]
+            FROM dbo.uv_sesion
             WHERE id = @idSesionDefecto;
 
             IF @existe = 0
             BEGIN
-                SELECT 
-                    @mensajeUsuarioResultado = 'La sesión de clase especificada no existe en el sistema.',
-                    @mensajeTecnicoResultado = CONCAT('Fallo: ID [', CAST(@idSesionDefecto AS NVARCHAR(50)), '] no encontrado en uv_sesion. Correlación: ', @idCorrelacionDefecto),
-                    @estadoResultado = 0;
-            END
-            ELSE
-            BEGIN
-                SELECT 
-                    @mensajeTecnicoResultado = [dbo].[ufn_obtener_mensaje_exito](@idCorrelacionDefecto, OBJECT_NAME(@@PROCID), CONCAT('Operación exitosa completa. Sesión validada correctamente: ', @idSesionDefecto)),
-                    @estadoResultado = 1;
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'SES_001',
+                    @p_param1 = @idSesionDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
             END
         END
 
     END TRY
     BEGIN CATCH
-        SELECT 
-            @mensajeUsuarioResultado = 'Error al validar la información de la sesión.',
-            @mensajeTecnicoResultado = CONCAT('Error crítico en [usp_validar_sesion_exista_por_id_interno]: ', ERROR_MESSAGE(), '. Línea: ', ERROR_LINE()),
-            @estadoResultado = 0;
+        EXEC dbo.usp_obtener_mensaje_catalogo
+            @p_codigo = 'SYS_001',
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
+        SET @estadoResultado = 0;
     END CATCH
-END
+END;
 GO

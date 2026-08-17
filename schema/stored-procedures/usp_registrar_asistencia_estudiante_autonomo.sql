@@ -7,60 +7,81 @@ GO
 
 CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_asistencia_estudiante_autonomo]
 (
-    @idEstudiante UNIQUEIDENTIFIER,
-    @idSesion UNIQUEIDENTIFIER,
+    @idEstudiante       UNIQUEIDENTIFIER,
+    @idSesion           UNIQUEIDENTIFIER,
     @codigoVerificacion NVARCHAR(50),
-    @idCorrelacion UNIQUEIDENTIFIER
+    @idCorrelacion      UNIQUEIDENTIFIER
 )
 AS
-BEGIN
-    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = ISNULL(@idCorrelacion, '00000000-0000-0000-0000-000000000000');
-    DECLARE @idEstudianteDefecto UNIQUEIDENTIFIER = ISNULL(@idEstudiante, '00000000-0000-0000-0000-000000000000');
-    DECLARE @idSesionDefecto UNIQUEIDENTIFIER = ISNULL(@idSesion, '00000000-0000-0000-0000-000000000000');
-    DECLARE @codigoVerificacionDefecto NVARCHAR(50) = LTRIM(RTRIM(ISNULL(@codigoVerificacion, '')));
+    -- 1. Estandarización e inicialización de variables locales utilizando catálogo de parámetros (Sin ISNULL)
+    DECLARE @idCorrelacionDefecto      UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idEstudianteDefecto       UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idEstudiante, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idSesionDefecto           UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idSesion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @codigoVerificacionDefecto NVARCHAR(50)     = TRIM(@codigoVerificacion);
 
-    DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = '';
-    DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = '';
+    DECLARE @codigoReal NVARCHAR(50);
+
+    -- Inicialización interna de variables de respuesta
+    DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
+    DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado BIT = 1;
 
+BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
-        -- 1. Validar ID de correlacion
-        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
-            @idCorrelacion = @idCorrelacionDefecto, @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, @estadoResultado = @estadoResultado OUTPUT;
 
-        -- 2. Validar existencia de la sesion
+        -- PASO 1: Validación de presencia del identificador de correlación obligatorio
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
+            @idCorrelacion = @idCorrelacionDefecto, 
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
+            @estadoResultado = @estadoResultado OUTPUT;
+
+        -- PASO 2: Validación de existencia de la sesión de clase
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_validar_sesion_exista_por_id_interno
-                @idSesion = @idSesionDefecto, @idCorrelacion = @idCorrelacionDefecto, @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, @estadoResultado = @estadoResultado OUTPUT;
+                @idSesion = @idSesionDefecto, 
+                @idCorrelacion = @idCorrelacionDefecto, 
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
+                @estadoResultado = @estadoResultado OUTPUT;
         END
 
-        -- 3. Validar pertenencia del estudiante al grupo de la sesion
+        -- PASO 3: Validación de pertenencia activa del estudiante al grupo asociado a la sesión
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_validar_estudiante_pertenece_a_grupo_de_sesion_interno
-                @idEstudiante = @idEstudianteDefecto, @idSesion = @idSesionDefecto, @idCorrelacion = @idCorrelacionDefecto, @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, @estadoResultado = @estadoResultado OUTPUT;
+                @idEstudiante = @idEstudianteDefecto, 
+                @idSesion = @idSesionDefecto, 
+                @idCorrelacion = @idCorrelacionDefecto, 
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
+                @estadoResultado = @estadoResultado OUTPUT;
         END
 
-        -- 4. Validar codigo de verificacion dinamico
+        -- PASO 4: Validación del código de verificación dinámico de la sesión de clase
         IF @estadoResultado = 1
         BEGIN
-            DECLARE @codigoReal NVARCHAR(50);
-            SELECT TOP 1 @codigoReal = LTRIM(RTRIM(codigo))
+            SELECT TOP 1 
+                @codigoReal = TRIM(codigo)
             FROM [dbo].[Sesion]
             WHERE id = @idSesionDefecto;
 
-            IF @codigoReal <> @codigoVerificacionDefecto
+            IF @codigoReal IS NULL OR @codigoReal <> @codigoVerificacionDefecto
             BEGIN
-                SELECT 
-                    @mensajeUsuarioResultado = 'El código de verificación ingresado es incorrecto o ha expirado.',
-                    @mensajeTecnicoResultado = CONCAT('Fallo: Código de verificación incorrecto. Esperado [', @codigoReal, '], Recibido [', @codigoVerificacionDefecto, ']. Correlación: ', @idCorrelacionDefecto),
-                    @estadoResultado = 0;
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'VAL_007',
+                    @p_param1 = 'codigoVerificacion',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
             END
         END
 
-        -- 5. Registrar asistencia auto-gestionada (como Asistió 'A')
+        -- PASO 5: Registro de la asistencia auto-gestionada por el estudiante (Estado 'A' - Asistió)
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_sincronizar_asistencia_estudiante_interno
@@ -73,19 +94,35 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
+        -- PASO 6: Evaluación de resultado final y generación de mensaje de éxito desde el Catálogo de Mensajes
+        IF @estadoResultado = 1
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'GEN_004',
+                @p_param1 = 'AsistenciaEstudianteAutonomo',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+        END
+
     END TRY
     BEGIN CATCH
-        SELECT 
-            @mensajeUsuarioResultado = 'Hubo un error inesperado al registrar tu asistencia.',
-            @mensajeTecnicoResultado = [dbo].[ufn_obtener_detalle_error](@idCorrelacionDefecto),
-            @estadoResultado = 0;
+        -- BLOQUE CATCH: Captura centralizada de excepciones inesperadas
+        EXEC dbo.usp_obtener_mensaje_catalogo
+            @p_codigo = 'SYS_001',
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+        SET @mensajeTecnicoResultado = [dbo].[ufn_obtener_detalle_error](@idCorrelacionDefecto);
+        SET @estadoResultado = 0;
     END CATCH
 
-    -- 6. Retornar resultado de la transaccion
+    -- BLOQUE FINAL: Retorno unificado de resultados garantizando el nombre de columna idCorrelacion
     SELECT 
-        id = @idCorrelacionDefecto,
+        idCorrelacion = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,
         mensajeTecnicoResultado = @mensajeTecnicoResultado,
         estadoResultado = @estadoResultado;
-END
+END;
 GO
