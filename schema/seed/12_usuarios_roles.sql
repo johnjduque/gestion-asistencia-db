@@ -11,11 +11,11 @@ SELECT TOP 1 @TipoCC = id FROM [dbo].[TipoIdentificacion] WHERE tipoIdentificaci
 
 MERGE INTO [dbo].[Usuario] AS Target
 USING (VALUES
-    ('E1F2A3B4-0000-0000-0000-000000000001', @TipoCC, 1017000001, 'Gomez', 'Perez', 'Juan', 'Carlos', 'decano.ingenieria@uco.edu.co', 1, 1, '123456'),
-    ('E1F2A3B4-0000-0000-0000-000000000002', @TipoCC, 1017000002, 'Lopez', 'Martinez', 'Andres', 'Felipe', 'coordinador.sistemas@uco.edu.co', 1, 1, '123456'),
-    ('E1F2A3B4-0000-0000-0000-000000000003', @TipoCC, 1017112233, 'Rostagno', 'Valencia', 'Maria', 'Elena', 'maria.rostagno@aurora.edu.pe', 1, 1, '123456'),
-    ('E1F2A3B4-0000-0000-0000-000000000004', @TipoCC, 1017223344, 'Zapata', 'Gomez', 'Carlos', 'Andres', 'carlos.zapata@uco.edu.co', 1, 1, '123456'),
-    ('E1F2A3B4-0000-0000-0000-000000000005', @TipoCC, 1017334455, 'Gomez', 'Rios', 'Ana', 'Sofia', 'ana.gomez@uco.edu.co', 1, 1, '123456')
+    ('E1F2A3B4-0000-0000-0000-000000000001', @TipoCC, 1017000001, 'Gomez', 'Perez', 'Juan', 'Carlos', 'decano.ingenieria@uco.edu.co', 1, 1, 'HashBackend_AbCdEf1234567890'),
+    ('E1F2A3B4-0000-0000-0000-000000000002', @TipoCC, 1017000002, 'Lopez', 'Martinez', 'Andres', 'Felipe', 'coordinador.sistemas@uco.edu.co', 1, 1, 'HashBackend_AbCdEf1234567890'),
+    ('E1F2A3B4-0000-0000-0000-000000000003', @TipoCC, 1017112233, 'Rostagno', 'Valencia', 'Maria', 'Elena', 'maria.rostagno@aurora.edu.pe', 1, 1, 'HashBackend_AbCdEf1234567890'),
+    ('E1F2A3B4-0000-0000-0000-000000000004', @TipoCC, 1017223344, 'Zapata', 'Gomez', 'Carlos', 'Andres', 'carlos.zapata@uco.edu.co', 1, 1, 'HashBackend_AbCdEf1234567890'),
+    ('E1F2A3B4-0000-0000-0000-000000000005', @TipoCC, 1017334455, 'Gomez', 'Rios', 'Ana', 'Sofia', 'ana.gomez@uco.edu.co', 1, 1, 'HashBackend_AbCdEf1234567890')
 ) AS Source (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
 ON (Target.correo = Source.correo)
 WHEN MATCHED THEN
