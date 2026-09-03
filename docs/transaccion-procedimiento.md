@@ -56,7 +56,7 @@ A diferencia de las operaciones CRUD tradicionales que ejecutan mutaciones simpl
 * **[PR-033]** Crear Programa Académico con Coordinador Asignado, Tipo de Programa y Facultad.
 * **[PR-034]** Estructurar Plan de Estudio con Asignación Automática de Semestres Académicos.
 * **[PR-035]** Registrar Asignatura en Plan de Estudio con Clasificación de Área, Componente y Semestre.
-* **[PR-036]** Asignar Prerrequisitos a Asignaturas con Validación Anti-Ciclos y Dependencias Académicas.
+* **[PR-036]** Asociar Asignaturas a Semestres en el Plan de Estudios con Validación de Coherencia Curricular.
 * **[PR-037]** Inactivar Programa Académico con Verificación de Planes de Estudio y Estudiantes Inscritos.
 * **[PR-038]** Crear Periodo Académico con Apertura de Calendario y Rangos de Fechas Validados.
 * **[PR-039]** Actualizar Periodo Académico con Reprogramación de Rangos de Fechas en Sesiones y Grupos.
@@ -120,7 +120,7 @@ A diferencia de las operaciones CRUD tradicionales que ejecutan mutaciones simpl
 
 ### 📦 MÓDULO 4: Matrículas, Enrolamiento de Estudiantes y Estado en Grupos (PR-091 a PR-120)
 * **[PR-091]** Enrolamiento de Estudiante en Programa Académico (Sincronización de Estudiante + Registro en Programa).
-* **[PR-092]** Matrícula Reactiva de Estudiante en Grupo con Validación de Prerrequisitos, Cupos y Cruces Horarios.
+* **[PR-092]** Matrícula Reactiva de Estudiante en Grupo con Validación de Asignaturas y Plan de Estudios, Cupos y Cruces Horarios.
 * **[PR-093]** Matrícula Masiva por Lote de Estudiantes en Lista de Clases.
 * **[PR-094]** Cambio de Estado de Estudiante en Grupo (Activo, Retirado, Cancelado por Ausentismo).
 * **[PR-095]** Cancelación de Matrícula de Estudiante en Grupo por Solicitud Voluntaria.
@@ -734,9 +734,9 @@ A diferencia de las operaciones CRUD tradicionales que ejecutan mutaciones simpl
 
 ---
 
-### [PR-036] - Asignar Prerrequisitos a Asignaturas con Validación Anti-Ciclos y Dependencias Académicas
-- **Historias de Usuario que satisface:** HU025 (Ver prerrequisitos).
-- **Propósito de Negocio:** Asociar una materia prerrequisito a una asignatura de nivel avanzado. La transacción valida atómicamente que no existan ciclos infinitos de prerrequisitos (ej. A depende de B y B depende de A).
+### [PR-036] - Asociar Asignaturas a Semestres en el Plan de Estudios con Validación de Coherencia Curricular
+- **Historias de Usuario que satisface:** HU025 (Consultar asignaturas por semestre en el plan de estudios).
+- **Propósito de Negocio:** Asociar una asignatura a un semestre de un plan de estudios. La transacción valida atómicamente que no existan ciclos infinitos de prerrequisitos (ej. A depende de B y B depende de A).
 - **Entidades del MER Involucradas:** `Asignatura`, `SemestrePlanEstudio`, `PlanEstudio`.
 - **Flujo Paso a Paso (Paso Reactivo Atómico):**
   1. Validar que la asignatura origen y la asignatura requerida pertenezcan al mismo `PlanEstudio`.
@@ -1491,14 +1491,14 @@ A diferencia de las operaciones CRUD tradicionales que ejecutan mutaciones simpl
 
 ---
 
-### [PR-092] - Matrícula Reactiva de Estudiante en Grupo con Validación de Prerrequisitos, Cupos y Cruces Horarios
+### [PR-092] - Matrícula Reactiva de Estudiante en Grupo con Validación de Asignaturas y Plan de Estudios, Cupos y Cruces Horarios
 - **Historias de Usuario que satisface:** HU053 (Inscripción de estudiantes en grupo), HU026, HU034.
 - **Propósito de Negocio:** Inscribir a un estudiante en una asignatura/grupo específica. Valida atómicamente el cupo disponible, la vigencia del grupo, los prerrequisitos de la asignatura y que el alumno no tenga colisión de horario con otras materias matriculadas.
 - **Entidades del MER Involucradas:** `EstudianteGrupo`, `Grupo`, `Estudiante`, `EstadoEstudianteGrupo`, `Horario`, `Asignatura`.
 - **Flujo Paso a Paso (Paso Reactivo Atómico):**
   1. Validar que el `Grupo` esté activo y con `cupoMaximo` disponible.
   2. Validar que el estudiante no esté ya matriculado en el mismo grupo o en otro grupo de la misma asignatura en el mismo periodo.
-  3. Verificar el cumplimiento de prerrequisitos de la `Asignatura` (`PR-036`).
+  3. Verificar el pertenencia de la `Asignatura` al `PlanEstudio` del estudiante.
   4. Verificar ausencia de cruce horario con sus otros grupos matriculados en el periodo.
   5. Obtener el `idEstadoEstudianteGrupo` correspondiente a "MATRICULADO / ACTIVO".
   6. Insertar en `EstudianteGrupo` (`estudiante`, `grupo`, `estadoEstudianteGrupo`, `estado = 1`).

@@ -149,7 +149,7 @@ BEGIN
 
             IF @idDetalleAsistencia IS NULL
             BEGIN
-                SELECT @nuevoCodigo = ISNULL(MAX(codigo), 0) + 1 FROM dbo.DetalleAsistencia;
+                SELECT @nuevoCodigo = dbo.ufn_obtener_parametro_int(MAX(codigo), 'GENERAL', 'ENTERO_CERO') + 1 FROM dbo.DetalleAsistencia;
                 SET @idDetalleAsistencia = NEWID();
 
                 INSERT INTO dbo.DetalleAsistencia (id, codigo, asistencia, asistio, razonCausa, fechaHoraInicio, fechaHoraFin)

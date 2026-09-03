@@ -26,15 +26,19 @@ La documentación se organiza de la siguiente manera:
 
 ## 📋 Entregables e Historias de Usuario
 
-*   [**Listado de Entregas e Historias de Usuario**](6_Entegas.md): Listado completo de todas las historias de usuario del sistema (HU001 a HU167) con enlaces a los detalles de las primeras 5 historias (HU001 a HU005) creadas en su respectiva carpeta.
+*   [**Listado de Entregas e Historias de Usuario**](6_Entregable.md): Listado completo de todas las historias de usuario del sistema (HU001 a HU167) con enlaces a los detalles de las primeras historias.
+*   [**Plan de Trabajo y Roadmap de Historias de Usuario (Markdown)**](Plan_de_Trabajo_Historias_de_Usuario.md): Plan de desarrollo secuencial ordenado de menor a mayor complejidad (HU001 a HU174) desglosado en hitos del 50%, 75% y 100%.
+*   [**Plan de Trabajo en Formato PDF**](Plan_de_Trabajo_Historias_de_Usuario_GestionAsistenciadb.pdf): Documento PDF oficial exportado del Plan de Trabajo para entrega del proyecto.
 *   [**Prioridades e Impacto de Desarrollo**](prioridades-desarrollo.md): Análisis de impacto de negocio y dependencias técnicas para establecer la hoja de ruta de desarrollo de las historias de usuario.
 
 ---
 
-## ⚙️ Procedimientos Almacenados (Orquestadores)
+## ⚙️ Procedimientos Almacenados (Orquestadores e Internos)
 
-Procedimientos almacenados que encapsulan flujos y lógica de negocio específica en la base de datos:
+Especificaciones técnicas y estándares canónicos de los procedimientos almacenados en la base de datos:
 
+*   [**Documentación Técnica de Procedimientos Orquestadores (Públicos)**](../DOCUMENTACION_PROCEDIMIENTOS_ORQUESTADORES.md): Especificación del estándar canónico para procedimientos públicos/orquestadores (contrato de firma limpia, variables locales, flujo reactivo UPSERT, y SELECT final de 4 columnas).
+*   [**Documentación Técnica de Procedimientos Internos (`_interno`)**](../DOCUMENTACION_PROCEDIMIENTOS_INTERNOS.md): Especificación del estándar canónico corporativo para todos los procedimientos almacenados de soporte interno (*_interno).
 *   [**`usp_registrar_estudiante_en_grupo_usuario_no_existente`**](stored-procedures/usp_registrar_estudiante_en_grupo_usuario_no_existente.md): Orquestador principal para registrar o actualizar a un usuario, asegurar su perfil de estudiante y enrolarlo en un grupo.
 *   [**`usp_registrar_docente_en_grupo_usuario_no_existente`**](stored-procedures/usp_registrar_docente_en_grupo_usuario_no_existente.md): Orquestador principal para registrar o actualizar a un usuario, asegurar su perfil de docente y asignarlo a un grupo académico.
 *   [**`usp_registrar_asistencia_estudiante`**](stored-procedures/usp_registrar_asistencia_estudiante.md): Registro o actualización individual de asistencia realizado por docentes o administradores.
