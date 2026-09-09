@@ -16,7 +16,7 @@ SELECT
     CASE WHEN d.nombre LIKE 'Miercol%' THEN N'Miércoles' ELSE d.nombre END AS dia,
     CONVERT(VARCHAR(5), h.horaInicio, 108) AS horaInicio,
     CONVERT(VARCHAR(5), h.horaFin, 108)    AS horaFin,
-    ISNULL(g.aula, N'Aula Principal')       AS aula,
+    N'Aula Principal'                       AS aula,
     (SELECT COUNT(1) FROM [dbo].[EstudianteGrupo] eg WHERE eg.grupo = g.id) AS totalEstudiantes
 FROM [dbo].[Horario] h
 INNER JOIN [dbo].[Grupo] g ON h.grupo = g.id
