@@ -1,4 +1,4 @@
-﻿USE [gestionasistenciadb];
+USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
 GO
@@ -7,100 +7,85 @@ GO
 
 CREATE OR ALTER PROCEDURE [dbo].[usp_actualizar_sesion]
 (
-    @id                      UNIQUEIDENTIFIER,
-    @nombre                  NVARCHAR(50) = NULL,
-    @fechaHoraInicio         DATETIME2 = NULL,
-    @fechaHoraFin            DATETIME2 = NULL,
-    @aula                    NVARCHAR(100) = NULL,
-    @descripcion             NVARCHAR(MAX) = NULL,
-    @idDocente               UNIQUEIDENTIFIER = NULL,
-    @idCorrelacion           UNIQUEIDENTIFIER = NULL,
-    @mensajeUsuarioResultado NVARCHAR(4000) = NULL OUTPUT,
-    @mensajeTecnicoResultado NVARCHAR(4000) = NULL OUTPUT,
-    @estadoResultado         BIT = 1 OUTPUT
+    @idSesion           UNIQUEIDENTIFIER,
+    @nombre             NVARCHAR(50),
+    @fechaHoraInicio    DATETIME2,
+    @fechaHoraFin       DATETIME2,
+    @aula               NVARCHAR(100),
+    @descripcion        NVARCHAR(MAX),
+    @idDocente          UNIQUEIDENTIFIER,
+    @idCorrelacion      UNIQUEIDENTIFIER
 )
 AS
+    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idSesionDefecto      UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idSesion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idDocenteDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idDocente, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+
+    DECLARE @idGrupoSesion UNIQUEIDENTIFIER;
+
+    -- Variables locales de respuesta
+    DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
+    DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
+    DECLARE @estadoResultado         BIT = 1;
+
 BEGIN
     SET NOCOUNT ON;
-    SET @estadoResultado = 1;
-    SET @mensajeUsuarioResultado = '';
-    SET @mensajeTecnicoResultado = '';
-
-    DECLARE @grupoId UNIQUEIDENTIFIER;
-    DECLARE @cerrada BIT;
-
     BEGIN TRY
-        SELECT @grupoId = grupo, @cerrada = cerrada
-        FROM dbo.Sesion
-        WHERE id = @id;
+        -- PASO 1: Validación de correlación
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
+            @idCorrelacion = @idCorrelacionDefecto, 
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
+            @estadoResultado = @estadoResultado OUTPUT;
 
-        IF @grupoId IS NULL
+        -- PASO 2: Validar pertenencia del grupo al docente si se proporciona idDocente
+        IF @estadoResultado = 1 AND @idDocenteDefecto IS NOT NULL
         BEGIN
-            SET @estadoResultado = 0;
-            SET @mensajeUsuarioResultado = 'La sesión de clase especificada no existe.';
-            SET @mensajeTecnicoResultado = 'Sesión no encontrada por id.';
-        END
-
-        -- Validar que la sesión no esté cerrada
-        IF @estadoResultado = 1 AND @cerrada = 1
-        BEGIN
-            SET @estadoResultado = 0;
-            SET @mensajeUsuarioResultado = 'No es posible modificar una sesión que ya ha sido cerrada.';
-            SET @mensajeTecnicoResultado = 'Sesion cerrada=1, inmutable.';
-        END
-
-        -- Validar pertenencia del docente si se suministra
-        IF @estadoResultado = 1 AND @idDocente IS NOT NULL
-        BEGIN
-            IF NOT EXISTS (SELECT 1 FROM dbo.Grupo WHERE id = @grupoId AND docente = @idDocente)
+            SELECT TOP 1 @idGrupoSesion = grupo FROM dbo.Sesion WHERE id = @idSesionDefecto;
+            IF @idGrupoSesion IS NOT NULL
             BEGIN
-                SET @estadoResultado = 0;
-                SET @mensajeUsuarioResultado = 'Acceso denegado: No es el docente titular asignado al grupo de esta sesión.';
-                SET @mensajeTecnicoResultado = 'Violacion de ambito docente.';
+                EXEC dbo.usp_validar_grupo_exista_para_docente_interno
+                    @idGrupo = @idGrupoSesion,
+                    @idDocente = @idDocenteDefecto,
+                    @idCorrelacion = @idCorrelacionDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                    @estadoResultado = @estadoResultado OUTPUT;
             END
         END
 
-        -- Validar coherencia temporal
-        DECLARE @inicio DATETIME2 = ISNULL(@fechaHoraInicio, (SELECT fechaHoraInicio FROM dbo.Sesion WHERE id = @id));
-        DECLARE @fin DATETIME2 = ISNULL(@fechaHoraFin, (SELECT fechaHoraFin FROM dbo.Sesion WHERE id = @id));
-
-        IF @estadoResultado = 1 AND @inicio >= @fin
-        BEGIN
-            SET @estadoResultado = 0;
-            SET @mensajeUsuarioResultado = 'La hora de inicio debe ser anterior a la hora de finalización.';
-            SET @mensajeTecnicoResultado = 'Inconsistencia temporal en fechas de sesión.';
-        END
-
-        -- Actualización
+        -- PASO 3: Invocación al procedimiento interno de actualización
         IF @estadoResultado = 1
         BEGIN
-            UPDATE dbo.Sesion
-            SET nombre = ISNULL(LTRIM(RTRIM(@nombre)), nombre),
-                fechaHoraInicio = @inicio,
-                fechaHoraFin = @fin,
-                aula = ISNULL(@aula, aula),
-                descripcion = ISNULL(@descripcion, descripcion)
-            WHERE id = @id;
-
-            SET @mensajeUsuarioResultado = 'Sesión de clase reprogramada / actualizada exitosamente.';
-            SET @mensajeTecnicoResultado = 'Actualización completada en dbo.Sesion.';
+            EXEC dbo.usp_actualizar_sesion_interno
+                @idSesion = @idSesionDefecto,
+                @nombre = @nombre,
+                @fechaHoraInicio = @fechaHoraInicio,
+                @fechaHoraFin = @fechaHoraFin,
+                @aula = @aula,
+                @descripcion = @descripcion,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
         END
 
     END TRY
     BEGIN CATCH
-        SET @estadoResultado = 0;
-        SET @mensajeUsuarioResultado = 'Error al actualizar los datos de la sesión de clase.';
-        SET @mensajeTecnicoResultado = ERROR_MESSAGE();
-    END CATCH;
+        EXEC dbo.usp_obtener_mensaje_catalogo
+            @p_codigo = 'SYS_001',
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-    SELECT
-        idCorrelacion = @idCorrelacion,
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
+        SET @estadoResultado = 0;
+    END CATCH
+
+    -- BLOQUE FINAL: Retorno unificado de resultados
+    SELECT 
+        idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,
         mensajeTecnicoResultado = @mensajeTecnicoResultado,
-        estadoResultado = @estadoResultado,
-        @id AS idSesion,
-        @estadoResultado AS exitoso,
-        @mensajeUsuarioResultado AS mensajeUsuario,
-        @mensajeTecnicoResultado AS mensajeTecnico;
+        estadoResultado         = @estadoResultado;
 END;
 GO

@@ -1,4 +1,4 @@
-﻿USE [gestionasistenciadb];
+USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
 GO
@@ -7,165 +7,145 @@ GO
 
 CREATE OR ALTER PROCEDURE [dbo].[usp_crear_asignatura]
 (
-    @id                 UNIQUEIDENTIFIER = NULL,
+    @idAsignatura       UNIQUEIDENTIFIER,
     @codigo             NVARCHAR(50),
     @nombre             NVARCHAR(50),
     @creditos           INT,
     @idPlanEstudio      UNIQUEIDENTIFIER,
-    @semestreNumero     INT = 1,
-    @nombreArea         NVARCHAR(100) = NULL,
-    @nombreComponente   NVARCHAR(100) = NULL,
-    @idCorrelacion      UNIQUEIDENTIFIER = NULL,
-    @idAsignaturaResultado   UNIQUEIDENTIFIER = NULL OUTPUT,
-    @mensajeUsuarioResultado NVARCHAR(4000) = NULL OUTPUT,
-    @mensajeTecnicoResultado NVARCHAR(4000) = NULL OUTPUT,
-    @estadoResultado         BIT = 1 OUTPUT
+    @semestreNumero     INT,
+    @nombreArea         NVARCHAR(100),
+    @nombreComponente   NVARCHAR(100),
+    @idCorrelacion      UNIQUEIDENTIFIER
 )
 AS
+    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idAsignaturaDefecto  UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idAsignatura, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idPlanEstudioDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idPlanEstudio, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @codigoDefecto        NVARCHAR(50)     = UPPER(TRIM(@codigo));
+    DECLARE @nombreDefecto        NVARCHAR(50)     = TRIM(@nombre);
+    DECLARE @nombreAreaDefecto    NVARCHAR(100)    = TRIM(@nombreArea);
+    DECLARE @nombreCompDefecto    NVARCHAR(100)    = TRIM(@nombreComponente);
+
+    DECLARE @idAreaResolved         UNIQUEIDENTIFIER;
+    DECLARE @idComponenteResolved   UNIQUEIDENTIFIER;
+    DECLARE @idSemestreResolved     UNIQUEIDENTIFIER;
+    DECLARE @idSpeResolved          UNIQUEIDENTIFIER;
+
+    -- Variables locales de respuesta
+    DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
+    DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
+    DECLARE @estadoResultado         BIT = 1;
+
 BEGIN
     SET NOCOUNT ON;
-    SET @estadoResultado = 1;
-    SET @mensajeUsuarioResultado = '';
-    SET @mensajeTecnicoResultado = '';
-
-    DECLARE @asigId UNIQUEIDENTIFIER = ISNULL(@id, NEWID());
-    DECLARE @idArea UNIQUEIDENTIFIER;
-    DECLARE @idComponente UNIQUEIDENTIFIER;
-    DECLARE @idSemestrePlanEstudio UNIQUEIDENTIFIER;
-    DECLARE @idSemestre UNIQUEIDENTIFIER;
-
     BEGIN TRY
-        -- Validar código obligatorio
-        IF @codigo IS NULL OR LTRIM(RTRIM(@codigo)) = ''
-        BEGIN
-            SET @estadoResultado = 0;
-            SET @mensajeUsuarioResultado = 'El código de la asignatura es obligatorio.';
-            SET @mensajeTecnicoResultado = 'Parametro @codigo es nulo o vacio.';
-        END
+        -- PASO 1: Validación del identificador de correlación
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
+            @idCorrelacion = @idCorrelacionDefecto, 
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
+            @estadoResultado = @estadoResultado OUTPUT;
 
-        -- Validar nombre obligatorio
-        IF @estadoResultado = 1 AND (@nombre IS NULL OR LTRIM(RTRIM(@nombre)) = '')
-        BEGIN
-            SET @estadoResultado = 0;
-            SET @mensajeUsuarioResultado = 'El nombre de la asignatura es obligatorio.';
-            SET @mensajeTecnicoResultado = 'Parametro @nombre es nulo o vacio.';
-        END
-
-        -- Validar créditos positivos
-        IF @estadoResultado = 1 AND (ISNULL(@creditos, 0) <= 0)
-        BEGIN
-            SET @estadoResultado = 0;
-            SET @mensajeUsuarioResultado = 'Los créditos académicos deben ser mayores a cero.';
-            SET @mensajeTecnicoResultado = 'Parametro @creditos debe ser mayor a 0.';
-        END
-
-        -- Validar unicidad del código
-        IF @estadoResultado = 1 AND EXISTS (SELECT 1 FROM dbo.Asignatura WHERE LOWER(codigo) = LOWER(LTRIM(RTRIM(@codigo))))
-        BEGIN
-            SET @estadoResultado = 0;
-            SET @mensajeUsuarioResultado = CONCAT('Ya existe una asignatura registrada con el código ', @codigo, '.');
-            SET @mensajeTecnicoResultado = 'Violacion de unicidad de codigo en dbo.Asignatura.';
-        END
-
-        -- Resolver Área
+        -- PASO 2: Resolver Área
         IF @estadoResultado = 1
         BEGIN
-            IF @nombreArea IS NOT NULL AND LTRIM(RTRIM(@nombreArea)) <> ''
+            IF @nombreAreaDefecto IS NOT NULL AND @nombreAreaDefecto <> ''
             BEGIN
-                SELECT TOP 1 @idArea = id FROM dbo.Area WHERE LOWER(nombre) LIKE '%' + LOWER(LTRIM(RTRIM(@nombreArea))) + '%';
+                SELECT TOP 1 @idAreaResolved = id 
+                FROM dbo.Area 
+                WHERE LOWER(nombre) LIKE '%' + LOWER(@nombreAreaDefecto) + '%'
+                ORDER BY nombre ASC;
             END
 
-            IF @idArea IS NULL
+            IF @idAreaResolved IS NULL
             BEGIN
-                SELECT TOP 1 @idArea = id FROM dbo.Area;
+                SELECT TOP 1 @idAreaResolved = id FROM dbo.Area ORDER BY nombre ASC;
             END
 
-            IF @idArea IS NULL
+            IF @idAreaResolved IS NULL
             BEGIN
-                SET @idArea = NEWID();
-                INSERT INTO dbo.Area (id, nombre) VALUES (@idArea, ISNULL(@nombreArea, 'Ciencias de la Computación'));
-            END
-        END
-
-        -- Resolver Componente
-        IF @estadoResultado = 1
-        BEGIN
-            IF @nombreComponente IS NOT NULL AND LTRIM(RTRIM(@nombreComponente)) <> ''
-            BEGIN
-                SELECT TOP 1 @idComponente = id FROM dbo.Componente WHERE LOWER(nombre) LIKE '%' + LOWER(LTRIM(RTRIM(@nombreComponente))) + '%';
-            END
-
-            IF @idComponente IS NULL
-            BEGIN
-                SELECT TOP 1 @idComponente = id FROM dbo.Componente;
-            END
-
-            IF @idComponente IS NULL
-            BEGIN
-                SET @idComponente = NEWID();
-                INSERT INTO dbo.Componente (id, nombre) VALUES (@idComponente, ISNULL(@nombreComponente, 'especificas'));
+                SET @idAreaResolved = NEWID();
+                INSERT INTO dbo.Area (id, nombre) VALUES (@idAreaResolved, 'Ciencias de la Computación');
             END
         END
 
-        -- Resolver Semestre y SemestrePlanEstudio
+        -- PASO 3: Resolver Componente
         IF @estadoResultado = 1
         BEGIN
-            SELECT TOP 1 @idSemestre = id FROM dbo.Semestre WHERE numero = @semestreNumero;
-            IF @idSemestre IS NULL
+            IF @nombreCompDefecto IS NOT NULL AND @nombreCompDefecto <> ''
             BEGIN
-                SELECT TOP 1 @idSemestre = id FROM dbo.Semestre;
+                SELECT TOP 1 @idComponenteResolved = id 
+                FROM dbo.Componente 
+                WHERE LOWER(nombre) LIKE '%' + LOWER(@nombreCompDefecto) + '%'
+                ORDER BY nombre ASC;
             END
 
-            SELECT TOP 1 @idSemestrePlanEstudio = id 
+            IF @idComponenteResolved IS NULL
+            BEGIN
+                SELECT TOP 1 @idComponenteResolved = id FROM dbo.Componente ORDER BY nombre ASC;
+            END
+
+            IF @idComponenteResolved IS NULL
+            BEGIN
+                SET @idComponenteResolved = NEWID();
+                INSERT INTO dbo.Componente (id, nombre) VALUES (@idComponenteResolved, 'Especificas');
+            END
+        END
+
+        -- PASO 4: Resolver Semestre y SemestrePlanEstudio
+        IF @estadoResultado = 1
+        BEGIN
+            SELECT TOP 1 @idSemestreResolved = id FROM dbo.Semestre WHERE numero = @semestreNumero ORDER BY numero ASC;
+            IF @idSemestreResolved IS NULL
+            BEGIN
+                SELECT TOP 1 @idSemestreResolved = id FROM dbo.Semestre ORDER BY numero ASC;
+            END
+
+            SELECT TOP 1 @idSpeResolved = id 
             FROM dbo.SemestrePlanEstudio 
-            WHERE planEstudio = @idPlanEstudio AND semestre = @idSemestre;
+            WHERE planEstudio = @idPlanEstudioDefecto AND semestre = @idSemestreResolved;
 
-            IF @idSemestrePlanEstudio IS NULL
+            IF @idSpeResolved IS NULL
             BEGIN
-                SET @idSemestrePlanEstudio = NEWID();
+                SET @idSpeResolved = NEWID();
                 INSERT INTO dbo.SemestrePlanEstudio (id, planEstudio, semestre) 
-                VALUES (@idSemestrePlanEstudio, @idPlanEstudio, @idSemestre);
+                VALUES (@idSpeResolved, @idPlanEstudioDefecto, @idSemestreResolved);
             END
         END
 
-        -- Inserción de la Asignatura
+        -- PASO 5: Invocación al procedimiento interno de creación
         IF @estadoResultado = 1
         BEGIN
-            INSERT INTO dbo.Asignatura (
-                id, codigo, nombre, credito, area, componente, semestrePlanEstudio, estado
-            )
-            VALUES (
-                @asigId,
-                UPPER(LTRIM(RTRIM(@codigo))),
-                LTRIM(RTRIM(@nombre)),
-                @creditos,
-                @idArea,
-                @idComponente,
-                @idSemestrePlanEstudio,
-                1
-            );
-
-            SET @idAsignaturaResultado = @asigId;
-            SET @mensajeUsuarioResultado = CONCAT('Asignatura ', @nombre, ' (', @codigo, ') creada exitosamente.');
-            SET @mensajeTecnicoResultado = 'Asignatura insertada con exito en dbo.Asignatura.';
+            EXEC dbo.usp_crear_asignatura_interno
+                @idAsignatura = @idAsignaturaDefecto,
+                @codigo = @codigoDefecto,
+                @nombre = @nombreDefecto,
+                @creditos = @creditos,
+                @idArea = @idAreaResolved,
+                @idComponente = @idComponenteResolved,
+                @idSemestrePlanEstudio = @idSpeResolved,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
         END
 
     END TRY
     BEGIN CATCH
-        SET @estadoResultado = 0;
-        SET @mensajeUsuarioResultado = 'Error al registrar la asignatura en la base de datos.';
-        SET @mensajeTecnicoResultado = ERROR_MESSAGE();
-    END CATCH;
+        EXEC dbo.usp_obtener_mensaje_catalogo
+            @p_codigo = 'SYS_001',
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-    -- Retorno en conjunto de resultados para JDBC
-    SELECT
-        idCorrelacion = @idCorrelacion,
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
+        SET @estadoResultado = 0;
+    END CATCH
+
+    -- BLOQUE FINAL: Retorno unificado de resultados
+    SELECT 
+        idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,
         mensajeTecnicoResultado = @mensajeTecnicoResultado,
-        estadoResultado = @estadoResultado,
-        @asigId AS idAsignatura,
-        @estadoResultado AS exitoso,
-        @mensajeUsuarioResultado AS mensajeUsuario,
-        @mensajeTecnicoResultado AS mensajeTecnico;
+        estadoResultado         = @estadoResultado;
 END;
 GO

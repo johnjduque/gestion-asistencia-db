@@ -1,4 +1,4 @@
-﻿USE [gestionasistenciadb];
+USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
 GO
@@ -7,16 +7,16 @@ GO
 
 CREATE OR ALTER VIEW [dbo].[uv_horario_estudiante] AS
 SELECT 
-    h.id,
-    eg.estudiante AS estudianteId,
-    g.id AS grupoId,
-    a.codigo AS codigoMateria,
-    a.nombre AS nombreMateria,
-    g.nombre AS grupo,
+    h.id                            AS id,
+    eg.estudiante                   AS idEstudiante,
+    g.id                            AS idGrupo,
+    a.codigo                        AS codigoMateria,
+    a.nombre                        AS nombreMateria,
+    g.nombre                        AS grupo,
     CASE WHEN d.nombre LIKE 'Miercol%' THEN N'Miércoles' ELSE d.nombre END AS dia,
     CONVERT(VARCHAR(5), h.horaInicio, 108) AS horaInicio,
-    CONVERT(VARCHAR(5), h.horaFin, 108) AS horaFin,
-    ISNULL(g.aula, 'Aula Principal') AS aula,
+    CONVERT(VARCHAR(5), h.horaFin, 108)    AS horaFin,
+    ISNULL(g.aula, N'Aula Principal')       AS aula,
     CONCAT(u.primerNombre, ' ', ISNULL(u.segundoNombre + ' ', ''), u.primerApellido, ' ', ISNULL(u.segundoApellido, '')) AS docente
 FROM [dbo].[Horario] h
 INNER JOIN [dbo].[Grupo] g ON h.grupo = g.id

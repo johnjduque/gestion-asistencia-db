@@ -1,4 +1,4 @@
-﻿USE [gestionasistenciadb];
+USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
 GO
@@ -7,100 +7,103 @@ GO
 
 CREATE OR ALTER PROCEDURE [dbo].[usp_actualizar_asignatura]
 (
-    @id                 UNIQUEIDENTIFIER,
+    @idAsignatura       UNIQUEIDENTIFIER,
     @codigo             NVARCHAR(50),
     @nombre             NVARCHAR(50),
     @creditos           INT,
-    @idPlanEstudio      UNIQUEIDENTIFIER = NULL,
-    @semestreNumero     INT = NULL,
-    @nombreArea         NVARCHAR(100) = NULL,
-    @nombreComponente   NVARCHAR(100) = NULL,
-    @idCorrelacion      UNIQUEIDENTIFIER = NULL,
-    @mensajeUsuarioResultado NVARCHAR(4000) = NULL OUTPUT,
-    @mensajeTecnicoResultado NVARCHAR(4000) = NULL OUTPUT,
-    @estadoResultado         BIT = 1 OUTPUT
+    @idPlanEstudio      UNIQUEIDENTIFIER,
+    @semestreNumero     INT,
+    @nombreArea         NVARCHAR(100),
+    @nombreComponente   NVARCHAR(100),
+    @idCorrelacion      UNIQUEIDENTIFIER
 )
 AS
+    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idAsignaturaDefecto  UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idAsignatura, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idPlanEstudioDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idPlanEstudio, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @codigoDefecto        NVARCHAR(50)     = UPPER(TRIM(@codigo));
+    DECLARE @nombreDefecto        NVARCHAR(50)     = TRIM(@nombre);
+    DECLARE @nombreAreaDefecto    NVARCHAR(100)    = TRIM(@nombreArea);
+
+    DECLARE @idAreaResolved       UNIQUEIDENTIFIER;
+    DECLARE @idSemestreResolved   UNIQUEIDENTIFIER;
+    DECLARE @idSpeResolved        UNIQUEIDENTIFIER;
+
+    -- Variables locales de respuesta
+    DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
+    DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
+    DECLARE @estadoResultado         BIT = 1;
+
 BEGIN
     SET NOCOUNT ON;
-    SET @estadoResultado = 1;
-    SET @mensajeUsuarioResultado = '';
-    SET @mensajeTecnicoResultado = '';
-
     BEGIN TRY
-        IF NOT EXISTS (SELECT 1 FROM dbo.Asignatura WHERE id = @id)
+        -- PASO 1: Validación de correlación
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
+            @idCorrelacion = @idCorrelacionDefecto, 
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
+            @estadoResultado = @estadoResultado OUTPUT;
+
+        -- PASO 2: Resolver Área si se especifica
+        IF @estadoResultado = 1 AND @nombreAreaDefecto IS NOT NULL AND @nombreAreaDefecto <> ''
         BEGIN
-            SET @estadoResultado = 0;
-            SET @mensajeUsuarioResultado = 'La asignatura especificada no existe.';
-            SET @mensajeTecnicoResultado = 'Asignatura no encontrada por id.';
+            SELECT TOP 1 @idAreaResolved = id 
+            FROM dbo.Area 
+            WHERE LOWER(nombre) LIKE '%' + LOWER(@nombreAreaDefecto) + '%'
+            ORDER BY nombre ASC;
         END
 
-        -- Validar si el nuevo código entra en conflicto con otra asignatura
-        IF @estadoResultado = 1 AND EXISTS (SELECT 1 FROM dbo.Asignatura WHERE LOWER(codigo) = LOWER(LTRIM(RTRIM(@codigo))) AND id <> @id)
+        -- PASO 3: Resolver SemestrePlanEstudio si se especifica plan y semestre
+        IF @estadoResultado = 1 AND @idPlanEstudioDefecto IS NOT NULL AND @semestreNumero IS NOT NULL
         BEGIN
-            SET @estadoResultado = 0;
-            SET @mensajeUsuarioResultado = CONCAT('El código ', @codigo, ' ya está en uso por otra asignatura.');
-            SET @mensajeTecnicoResultado = 'Conflicto de codigo en dbo.Asignatura.';
+            SELECT TOP 1 @idSemestreResolved = id FROM dbo.Semestre WHERE numero = @semestreNumero ORDER BY numero ASC;
+            IF @idSemestreResolved IS NOT NULL
+            BEGIN
+                SELECT TOP 1 @idSpeResolved = id 
+                FROM dbo.SemestrePlanEstudio 
+                WHERE planEstudio = @idPlanEstudioDefecto AND semestre = @idSemestreResolved;
+
+                IF @idSpeResolved IS NULL
+                BEGIN
+                    SET @idSpeResolved = NEWID();
+                    INSERT INTO dbo.SemestrePlanEstudio (id, planEstudio, semestre) 
+                    VALUES (@idSpeResolved, @idPlanEstudioDefecto, @idSemestreResolved);
+                END
+            END
         END
 
+        -- PASO 4: Invocación al procedimiento interno de actualización
         IF @estadoResultado = 1
         BEGIN
-            -- Resolver SemestrePlanEstudio si se pasa semestre y plan
-            IF @idPlanEstudio IS NOT NULL AND @semestreNumero IS NOT NULL
-            BEGIN
-                DECLARE @idSemestre UNIQUEIDENTIFIER;
-                DECLARE @idSpe UNIQUEIDENTIFIER;
-
-                SELECT TOP 1 @idSemestre = id FROM dbo.Semestre WHERE numero = @semestreNumero;
-                IF @idSemestre IS NULL SELECT TOP 1 @idSemestre = id FROM dbo.Semestre;
-
-                SELECT TOP 1 @idSpe = id FROM dbo.SemestrePlanEstudio WHERE planEstudio = @idPlanEstudio AND semestre = @idSemestre;
-                IF @idSpe IS NULL
-                BEGIN
-                    SET @idSpe = NEWID();
-                    INSERT INTO dbo.SemestrePlanEstudio (id, planEstudio, semestre) VALUES (@idSpe, @idPlanEstudio, @idSemestre);
-                END
-
-                UPDATE dbo.Asignatura SET semestrePlanEstudio = @idSpe WHERE id = @id;
-            END
-
-            -- Resolver Área si se especifica
-            IF @nombreArea IS NOT NULL AND LTRIM(RTRIM(@nombreArea)) <> ''
-            BEGIN
-                DECLARE @idArea UNIQUEIDENTIFIER;
-                SELECT TOP 1 @idArea = id FROM dbo.Area WHERE LOWER(nombre) LIKE '%' + LOWER(LTRIM(RTRIM(@nombreArea))) + '%';
-                IF @idArea IS NOT NULL
-                BEGIN
-                    UPDATE dbo.Asignatura SET area = @idArea WHERE id = @id;
-                END
-            END
-
-            -- Actualizar campos básicos
-            UPDATE dbo.Asignatura
-            SET codigo = UPPER(LTRIM(RTRIM(@codigo))),
-                nombre = LTRIM(RTRIM(@nombre)),
-                credito = ISNULL(@creditos, credito)
-            WHERE id = @id;
-
-            SET @mensajeUsuarioResultado = CONCAT('Asignatura ', @nombre, ' actualizada exitosamente.');
-            SET @mensajeTecnicoResultado = 'Actualizacion exitosa en dbo.Asignatura.';
+            EXEC dbo.usp_actualizar_asignatura_interno
+                @idAsignatura = @idAsignaturaDefecto,
+                @codigo = @codigoDefecto,
+                @nombre = @nombreDefecto,
+                @creditos = @creditos,
+                @idArea = @idAreaResolved,
+                @idSemestrePlanEstudio = @idSpeResolved,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
         END
 
     END TRY
     BEGIN CATCH
-        SET @estadoResultado = 0;
-        SET @mensajeUsuarioResultado = 'Error al actualizar los datos de la asignatura.';
-        SET @mensajeTecnicoResultado = ERROR_MESSAGE();
-    END CATCH;
+        EXEC dbo.usp_obtener_mensaje_catalogo
+            @p_codigo = 'SYS_001',
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-    SELECT
-        idCorrelacion = @idCorrelacion,
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
+        SET @estadoResultado = 0;
+    END CATCH
+
+    -- BLOQUE FINAL: Retorno unificado de resultados
+    SELECT 
+        idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,
         mensajeTecnicoResultado = @mensajeTecnicoResultado,
-        estadoResultado = @estadoResultado,
-        @id AS idAsignatura,
-        @estadoResultado AS exitoso,
-        @mensajeUsuarioResultado AS mensajeUsuario,
-        @mensajeTecnicoResultado AS mensajeTecnico;
+        estadoResultado         = @estadoResultado;
 END;
 GO

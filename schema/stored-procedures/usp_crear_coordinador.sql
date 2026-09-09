@@ -7,118 +7,75 @@ GO
 
 CREATE OR ALTER PROCEDURE [dbo].[usp_crear_coordinador]
 (
-    @id                      UNIQUEIDENTIFIER = NULL,
+    @idCoordinador           UNIQUEIDENTIFIER,
     @numeroIdentificacion    INT,
     @primerNombre            NVARCHAR(50),
-    @segundoNombre           NVARCHAR(50) = NULL,
+    @segundoNombre           NVARCHAR(50),
     @primerApellido          NVARCHAR(50),
-    @segundoApellido         NVARCHAR(50) = NULL,
+    @segundoApellido         NVARCHAR(50),
     @correo                  NVARCHAR(100),
     @idPrograma              UNIQUEIDENTIFIER,
-    @idFacultad              UNIQUEIDENTIFIER = NULL,
-    @password                NVARCHAR(500) = NULL,
-    @idCorrelacion           UNIQUEIDENTIFIER = NULL,
-    @idCoordinadorResultado  UNIQUEIDENTIFIER = NULL OUTPUT,
-    @mensajeUsuarioResultado NVARCHAR(4000) = NULL OUTPUT,
-    @mensajeTecnicoResultado NVARCHAR(4000) = NULL OUTPUT,
-    @estadoResultado         BIT = 1 OUTPUT
+    @idFacultad              UNIQUEIDENTIFIER,
+    @password                NVARCHAR(500),
+    @idCorrelacion           UNIQUEIDENTIFIER
 )
 AS
+    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idCoordinadorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCoordinador, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idProgramaDefecto    UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idPrograma, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idFacultadDefecto    UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idFacultad, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+
+    -- Variables locales de respuesta
+    DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
+    DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
+    DECLARE @estadoResultado         BIT = 1;
+
 BEGIN
     SET NOCOUNT ON;
-    SET @estadoResultado = 1;
-    SET @mensajeUsuarioResultado = '';
-    SET @mensajeTecnicoResultado = '';
-
-    DECLARE @coordId UNIQUEIDENTIFIER = ISNULL(@id, NEWID());
-    DECLARE @usuarioId UNIQUEIDENTIFIER = NEWID();
-    DECLARE @tipoId UNIQUEIDENTIFIER;
-
     BEGIN TRY
-        -- 1. Validar programa académico
-        IF NOT EXISTS (SELECT 1 FROM dbo.Programa WHERE id = @idPrograma)
-        BEGIN
-            SET @estadoResultado = 0;
-            SET @mensajeUsuarioResultado = 'El programa académico especificado no existe.';
-            SET @mensajeTecnicoResultado = 'FK @idPrograma no encontrada en dbo.Programa.';
-        END
+        -- PASO 1: Validación de correlación
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
+            @idCorrelacion = @idCorrelacionDefecto, 
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
+            @estadoResultado = @estadoResultado OUTPUT;
 
-        -- 2. Validar pertenencia a la facultad si se envía @idFacultad (validación de ámbito de decano)
-        IF @estadoResultado = 1 AND @idFacultad IS NOT NULL
-        BEGIN
-            IF NOT EXISTS (SELECT 1 FROM dbo.Programa WHERE id = @idPrograma AND facultad = @idFacultad)
-            BEGIN
-                SET @estadoResultado = 0;
-                SET @mensajeUsuarioResultado = 'Acceso denegado: El programa académico no pertenece a su facultad.';
-                SET @mensajeTecnicoResultado = 'Violación de ámbito de Decanatura.';
-            END
-        END
-
-        -- 3. Validar unicidad de identificación y correo
-        IF @estadoResultado = 1 AND EXISTS (SELECT 1 FROM dbo.Usuario WHERE numeroIdentificacion = @numeroIdentificacion)
-        BEGIN
-            SET @estadoResultado = 0;
-            SET @mensajeUsuarioResultado = CONCAT('Ya existe un usuario registrado con el documento ', @numeroIdentificacion, '.');
-            SET @mensajeTecnicoResultado = 'Unicidad violada en dbo.Usuario.numeroIdentificacion.';
-        END
-
-        IF @estadoResultado = 1 AND EXISTS (SELECT 1 FROM dbo.Usuario WHERE LOWER(correo) = LOWER(LTRIM(RTRIM(@correo))))
-        BEGIN
-            SET @estadoResultado = 0;
-            SET @mensajeUsuarioResultado = CONCAT('El correo electrónico ', @correo, ' ya está registrado en el sistema.');
-            SET @mensajeTecnicoResultado = 'Unicidad violada en dbo.Usuario.correo.';
-        END
-
-        -- Inserción
+        -- PASO 2: Invocación al procedimiento interno
         IF @estadoResultado = 1
         BEGIN
-            SELECT TOP 1 @tipoId = id FROM dbo.TipoIdentificacion WHERE tipoIdentificacion = 'CC';
-            IF @tipoId IS NULL SELECT TOP 1 @tipoId = id FROM dbo.TipoIdentificacion;
-
-            -- Inserción en dbo.Usuario con hash activo
-            DECLARE @passCoordinador NVARCHAR(500) = ISNULL(NULLIF(TRIM(@password), ''), '{bcrypt}$2a$10$uNkTXVK.dj59Y3JfLR3I1usSJO1OGyHvEghbMXCAH.E.kXVapPDcO');
-
-            INSERT INTO dbo.Usuario (
-                id, tipoIdIdentificacion, numeroIdentificacion,
-                primerApellido, segundoApellido, primerNombre, segundoNombre,
-                correo, correoConfirmado, estado, password
-            )
-            VALUES (
-                @usuarioId, @tipoId, @numeroIdentificacion,
-                LTRIM(RTRIM(@primerApellido)), ISNULL(LTRIM(RTRIM(@segundoApellido)), ''),
-                LTRIM(RTRIM(@primerNombre)), ISNULL(LTRIM(RTRIM(@segundoNombre)), ''),
-                LOWER(LTRIM(RTRIM(@correo))), 1, 1, @passCoordinador
-            );
-
-            -- Inserción en dbo.Coordinador
-            INSERT INTO dbo.Coordinador (id, usuario)
-            VALUES (@coordId, @usuarioId);
-
-            -- Asignación de coordinador en dbo.Programa
-            UPDATE dbo.Programa
-            SET coordinador = @coordId
-            WHERE id = @idPrograma;
-
-            SET @idCoordinadorResultado = @coordId;
-            SET @mensajeUsuarioResultado = CONCAT('Coordinador ', @primerNombre, ' ', @primerApellido, ' registrado y asignado exitosamente al programa.');
-            SET @mensajeTecnicoResultado = 'Coordinador registrado en dbo.Coordinador y asignado en dbo.Programa.';
+            EXEC dbo.usp_crear_coordinador_interno
+                @idCoordinador = @idCoordinadorDefecto,
+                @numeroIdentificacion = @numeroIdentificacion,
+                @primerNombre = @primerNombre,
+                @segundoNombre = @segundoNombre,
+                @primerApellido = @primerApellido,
+                @segundoApellido = @segundoApellido,
+                @correo = @correo,
+                @idPrograma = @idProgramaDefecto,
+                @idFacultad = @idFacultadDefecto,
+                @password = @password,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
         END
 
     END TRY
     BEGIN CATCH
-        SET @estadoResultado = 0;
-        SET @mensajeUsuarioResultado = 'Error al registrar al coordinador en la base de datos.';
-        SET @mensajeTecnicoResultado = ERROR_MESSAGE();
-    END CATCH;
+        EXEC dbo.usp_obtener_mensaje_catalogo
+            @p_codigo = 'SYS_001',
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-    SELECT
-        idCorrelacion = @idCorrelacion,
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
+        SET @estadoResultado = 0;
+    END CATCH
+
+    -- BLOQUE FINAL: Retorno unificado de resultados
+    SELECT 
+        idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,
         mensajeTecnicoResultado = @mensajeTecnicoResultado,
-        estadoResultado = @estadoResultado,
-        @coordId AS idCoordinador,
-        @estadoResultado AS exitoso,
-        @mensajeUsuarioResultado AS mensajeUsuario,
-        @mensajeTecnicoResultado AS mensajeTecnico;
+        estadoResultado         = @estadoResultado;
 END;
 GO

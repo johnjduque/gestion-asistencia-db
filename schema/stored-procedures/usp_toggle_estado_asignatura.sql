@@ -1,4 +1,4 @@
-﻿USE [gestionasistenciadb];
+USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
 GO
@@ -7,56 +7,55 @@ GO
 
 CREATE OR ALTER PROCEDURE [dbo].[usp_toggle_estado_asignatura]
 (
-    @id                 UNIQUEIDENTIFIER,
-    @idCorrelacion      UNIQUEIDENTIFIER = NULL,
-    @nuevoEstado        BIT = NULL OUTPUT,
-    @mensajeUsuarioResultado NVARCHAR(4000) = NULL OUTPUT,
-    @mensajeTecnicoResultado NVARCHAR(4000) = NULL OUTPUT,
-    @estadoResultado         BIT = 1 OUTPUT
+    @idAsignatura   UNIQUEIDENTIFIER,
+    @idCorrelacion  UNIQUEIDENTIFIER
 )
 AS
+    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idAsignaturaDefecto  UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idAsignatura, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+
+    -- Variables locales de respuesta
+    DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
+    DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
+    DECLARE @estadoResultado         BIT = 1;
+
 BEGIN
     SET NOCOUNT ON;
-    SET @estadoResultado = 1;
-    SET @mensajeUsuarioResultado = '';
-    SET @mensajeTecnicoResultado = '';
-
     BEGIN TRY
-        IF NOT EXISTS (SELECT 1 FROM dbo.Asignatura WHERE id = @id)
-        BEGIN
-            SET @estadoResultado = 0;
-            SET @mensajeUsuarioResultado = 'La asignatura especificada no existe.';
-            SET @mensajeTecnicoResultado = 'Asignatura no encontrada por id.';
-        END
+        -- PASO 1: Validación de correlación
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
+            @idCorrelacion = @idCorrelacionDefecto, 
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
+            @estadoResultado = @estadoResultado OUTPUT;
 
+        -- PASO 2: Invocación al procedimiento interno
         IF @estadoResultado = 1
         BEGIN
-            UPDATE dbo.Asignatura
-            SET estado = CASE WHEN estado = 1 THEN 0 ELSE 1 END
-            WHERE id = @id;
-
-            SELECT @nuevoEstado = estado FROM dbo.Asignatura WHERE id = @id;
-
-            SET @mensajeUsuarioResultado = CONCAT('Estado de la asignatura actualizado a ', CASE WHEN @nuevoEstado = 1 THEN 'ACTIVO' ELSE 'INACTIVO' END, '.');
-            SET @mensajeTecnicoResultado = 'Cambio de estado completado en dbo.Asignatura.';
+            EXEC dbo.usp_toggle_estado_asignatura_interno
+                @idAsignatura = @idAsignaturaDefecto,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
         END
 
     END TRY
     BEGIN CATCH
-        SET @estadoResultado = 0;
-        SET @mensajeUsuarioResultado = 'Error al cambiar el estado de la asignatura.';
-        SET @mensajeTecnicoResultado = ERROR_MESSAGE();
-    END CATCH;
+        EXEC dbo.usp_obtener_mensaje_catalogo
+            @p_codigo = 'SYS_001',
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-    SELECT
-        idCorrelacion = @idCorrelacion,
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
+        SET @estadoResultado = 0;
+    END CATCH
+
+    -- BLOQUE FINAL: Retorno unificado de resultados
+    SELECT 
+        idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,
         mensajeTecnicoResultado = @mensajeTecnicoResultado,
-        estadoResultado = @estadoResultado,
-        @id AS idAsignatura,
-        @nuevoEstado AS estadoActualizado,
-        @estadoResultado AS exitoso,
-        @mensajeUsuarioResultado AS mensajeUsuario,
-        @mensajeTecnicoResultado AS mensajeTecnico;
+        estadoResultado         = @estadoResultado;
 END;
 GO

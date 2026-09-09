@@ -1,4 +1,4 @@
-﻿USE [gestionasistenciadb];
+USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
 GO
@@ -7,120 +7,82 @@ GO
 
 CREATE OR ALTER PROCEDURE [dbo].[usp_crear_grupo]
 (
-    @id                      UNIQUEIDENTIFIER = NULL,
+    @idGrupo                 UNIQUEIDENTIFIER,
     @idAsignatura            UNIQUEIDENTIFIER,
-    @idPeriodoAcademico      UNIQUEIDENTIFIER = NULL,
+    @idPeriodoAcademico      UNIQUEIDENTIFIER,
     @codigo                  INT,
     @nombre                  NVARCHAR(50),
     @idDocente               UNIQUEIDENTIFIER,
-    @cupoMaximo              INT = 35,
-    @aula                    NVARCHAR(100) = NULL,
-    @idCorrelacion           UNIQUEIDENTIFIER = NULL,
-    @idGrupoResultado        UNIQUEIDENTIFIER = NULL OUTPUT,
-    @mensajeUsuarioResultado NVARCHAR(4000) = NULL OUTPUT,
-    @mensajeTecnicoResultado NVARCHAR(4000) = NULL OUTPUT,
-    @estadoResultado         BIT = 1 OUTPUT
+    @aula                    NVARCHAR(100),
+    @idCorrelacion           UNIQUEIDENTIFIER
 )
 AS
+    DECLARE @idCorrelacionDefecto      UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idGrupoDefecto            UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idGrupo, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idAsignaturaDefecto       UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idAsignatura, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idPeriodoAcademicoDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idPeriodoAcademico, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idDocenteDefecto          UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idDocente, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @nombreDefecto             NVARCHAR(50)     = TRIM(@nombre);
+    DECLARE @aulaDefecto               NVARCHAR(100)    = TRIM(@aula);
+
+    DECLARE @idPeriodoResolved         UNIQUEIDENTIFIER = @idPeriodoAcademicoDefecto;
+
+    -- Variables locales de respuesta
+    DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
+    DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
+    DECLARE @estadoResultado         BIT = 1;
+
 BEGIN
     SET NOCOUNT ON;
-    SET @estadoResultado = 1;
-    SET @mensajeUsuarioResultado = '';
-    SET @mensajeTecnicoResultado = '';
-
-    DECLARE @grupoId UNIQUEIDENTIFIER = ISNULL(@id, NEWID());
-    DECLARE @periodoId UNIQUEIDENTIFIER = @idPeriodoAcademico;
-
     BEGIN TRY
-        -- 1. Validar asignatura
-        IF NOT EXISTS (SELECT 1 FROM dbo.Asignatura WHERE id = @idAsignatura)
+        -- PASO 1: Validación de correlación
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
+            @idCorrelacion = @idCorrelacionDefecto, 
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
+            @estadoResultado = @estadoResultado OUTPUT;
+
+        -- PASO 2: Resolver período académico si viene nulo/guid defecto
+        IF @estadoResultado = 1 AND (@idPeriodoResolved IS NULL OR NOT EXISTS (SELECT 1 FROM dbo.PeriodoAcademico WHERE id = @idPeriodoResolved))
         BEGIN
-            SET @estadoResultado = 0;
-            SET @mensajeUsuarioResultado = 'La asignatura especificada no existe en el catálogo.';
-            SET @mensajeTecnicoResultado = 'FK @idAsignatura no encontrada en dbo.Asignatura.';
+            SELECT TOP 1 @idPeriodoResolved = id 
+            FROM dbo.PeriodoAcademico 
+            ORDER BY anio DESC, codigo DESC;
         END
 
-        -- 2. Validar período académico (si es nulo, tomar el más reciente o activo)
-        IF @estadoResultado = 1 AND @periodoId IS NULL
-        BEGIN
-            SELECT TOP 1 @periodoId = id FROM dbo.PeriodoAcademico ORDER BY fechaInicio DESC;
-            IF @periodoId IS NULL
-            BEGIN
-                SET @estadoResultado = 0;
-                SET @mensajeUsuarioResultado = 'No hay períodos académicos activos registrados.';
-                SET @mensajeTecnicoResultado = 'No se encontró registro en dbo.PeriodoAcademico.';
-            END
-        END
-        ELSE IF @estadoResultado = 1 AND NOT EXISTS (SELECT 1 FROM dbo.PeriodoAcademico WHERE id = @periodoId)
-        BEGIN
-            SET @estadoResultado = 0;
-            SET @mensajeUsuarioResultado = 'El período académico especificado no existe.';
-            SET @mensajeTecnicoResultado = 'FK @idPeriodoAcademico no encontrada.';
-        END
-
-        -- 3. Validar docente
-        IF @estadoResultado = 1 AND NOT EXISTS (SELECT 1 FROM dbo.Docente WHERE id = @idDocente)
-        BEGIN
-            SET @estadoResultado = 0;
-            SET @mensajeUsuarioResultado = 'El docente asignado no existe.';
-            SET @mensajeTecnicoResultado = 'FK @idDocente no encontrada en dbo.Docente.';
-        END
-
-        -- 4. Validar cupo
-        IF @estadoResultado = 1 AND ISNULL(@cupoMaximo, 0) <= 0
-        BEGIN
-            SET @estadoResultado = 0;
-            SET @mensajeUsuarioResultado = 'El cupo máximo del grupo debe ser mayor a cero.';
-            SET @mensajeTecnicoResultado = 'Cupo inválido.';
-        END
-
-        -- 5. Validar unicidad del código de grupo para la asignatura en el período
-        IF @estadoResultado = 1 AND EXISTS (
-            SELECT 1 FROM dbo.Grupo
-            WHERE asignatura = @idAsignatura AND periodoAcademico = @periodoId AND codigo = @codigo
-        )
-        BEGIN
-            SET @estadoResultado = 0;
-            SET @mensajeUsuarioResultado = CONCAT('Ya existe un grupo con el código ', @codigo, ' para esta asignatura en el período.');
-            SET @mensajeTecnicoResultado = 'Conflicto de unicidad en dbo.Grupo.';
-        END
-
-        -- Inserción
+        -- PASO 3: Invocación al procedimiento interno
         IF @estadoResultado = 1
         BEGIN
-            INSERT INTO dbo.Grupo (
-                id, asignatura, periodoAcademico, codigo, nombre,
-                cantidadEstudiantes, cantidadEstudiantesFinalizaron,
-                cantidadEstudiantesCancelaronVoluntadPropia,
-                cantidadEstudiantesCancelaronAutomaticamente,
-                docente, aula
-            )
-            VALUES (
-                @grupoId, @idAsignatura, @periodoId, @codigo, LTRIM(RTRIM(@nombre)),
-                @cupoMaximo, 0, 0, 0,
-                @idDocente, ISNULL(@aula, 'Aula Por Asignar')
-            );
-
-            SET @idGrupoResultado = @grupoId;
-            SET @mensajeUsuarioResultado = CONCAT('Grupo ', @nombre, ' creado exitosamente.');
-            SET @mensajeTecnicoResultado = 'Inserción completada en dbo.Grupo.';
+            EXEC dbo.usp_crear_grupo_interno
+                @idGrupo = @idGrupoDefecto,
+                @idAsignatura = @idAsignaturaDefecto,
+                @idPeriodoAcademico = @idPeriodoResolved,
+                @codigo = @codigo,
+                @nombre = @nombreDefecto,
+                @idDocente = @idDocenteDefecto,
+                @aula = @aulaDefecto,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
         END
 
     END TRY
     BEGIN CATCH
-        SET @estadoResultado = 0;
-        SET @mensajeUsuarioResultado = 'Error al registrar el grupo académico en la base de datos.';
-        SET @mensajeTecnicoResultado = ERROR_MESSAGE();
-    END CATCH;
+        EXEC dbo.usp_obtener_mensaje_catalogo
+            @p_codigo = 'SYS_001',
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-    SELECT
-        idCorrelacion = @idCorrelacion,
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
+        SET @estadoResultado = 0;
+    END CATCH
+
+    -- BLOQUE FINAL: Retorno unificado de resultados
+    SELECT 
+        idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,
         mensajeTecnicoResultado = @mensajeTecnicoResultado,
-        estadoResultado = @estadoResultado,
-        @grupoId AS idGrupo,
-        @estadoResultado AS exitoso,
-        @mensajeUsuarioResultado AS mensajeUsuario,
-        @mensajeTecnicoResultado AS mensajeTecnico;
+        estadoResultado         = @estadoResultado;
 END;
 GO
