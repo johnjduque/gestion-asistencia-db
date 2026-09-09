@@ -26,10 +26,10 @@ AS
     DECLARE @nombreAreaDefecto    NVARCHAR(100)    = TRIM(@nombreArea);
     DECLARE @nombreCompDefecto    NVARCHAR(100)    = TRIM(@nombreComponente);
 
-    DECLARE @idAreaResolved         UNIQUEIDENTIFIER;
-    DECLARE @idComponenteResolved   UNIQUEIDENTIFIER;
-    DECLARE @idSemestreResolved     UNIQUEIDENTIFIER;
-    DECLARE @idSpeResolved          UNIQUEIDENTIFIER;
+    DECLARE @idAreaResolved       UNIQUEIDENTIFIER;
+    DECLARE @idComponenteResolved UNIQUEIDENTIFIER;
+    DECLARE @idSemestreResolved   UNIQUEIDENTIFIER;
+    DECLARE @idSpeResolved        UNIQUEIDENTIFIER;
 
     -- Variables locales de respuesta
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -46,64 +46,67 @@ BEGIN
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- PASO 2: Resolver Área
+        -- PASO 2: Validación de parámetros obligatorios
+        IF @estadoResultado = 1 AND (@codigoDefecto IS NULL OR @codigoDefecto = '' OR @nombreDefecto IS NULL OR @nombreDefecto = '')
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'VAL_001',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Codigo y Nombre son obligatorios. Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
+        -- PASO 3: Validación de unicidad de código consultando uv_asignatura
         IF @estadoResultado = 1
         BEGIN
+            IF EXISTS (SELECT 1 FROM [dbo].[uv_asignatura] WHERE UPPER(TRIM(codigoAsignatura)) = @codigoDefecto)
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'VAL_006',
+                    @p_param1 = 'Asignatura',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+        END
+
+        -- PASO 4: Resolución reactiva de Área, Componente y SemestrePlanEstudio desde vistas
+        IF @estadoResultado = 1
+        BEGIN
+            -- Resolver Área
             IF @nombreAreaDefecto IS NOT NULL AND @nombreAreaDefecto <> ''
             BEGIN
-                SELECT TOP 1 @idAreaResolved = id 
-                FROM dbo.Area 
-                WHERE LOWER(nombre) LIKE '%' + LOWER(@nombreAreaDefecto) + '%'
-                ORDER BY nombre ASC;
+                SELECT TOP 1 @idAreaResolved = id FROM [dbo].[uv_area] WHERE LOWER(nombre) LIKE '%' + LOWER(@nombreAreaDefecto) + '%';
             END
-
             IF @idAreaResolved IS NULL
             BEGIN
-                SELECT TOP 1 @idAreaResolved = id FROM dbo.Area ORDER BY nombre ASC;
+                SELECT TOP 1 @idAreaResolved = id FROM [dbo].[uv_area];
             END
 
-            IF @idAreaResolved IS NULL
-            BEGIN
-                SET @idAreaResolved = NEWID();
-                INSERT INTO dbo.Area (id, nombre) VALUES (@idAreaResolved, 'Ciencias de la Computación');
-            END
-        END
-
-        -- PASO 3: Resolver Componente
-        IF @estadoResultado = 1
-        BEGIN
+            -- Resolver Componente
             IF @nombreCompDefecto IS NOT NULL AND @nombreCompDefecto <> ''
             BEGIN
-                SELECT TOP 1 @idComponenteResolved = id 
-                FROM dbo.Componente 
-                WHERE LOWER(nombre) LIKE '%' + LOWER(@nombreCompDefecto) + '%'
-                ORDER BY nombre ASC;
+                SELECT TOP 1 @idComponenteResolved = id FROM [dbo].[uv_componente] WHERE LOWER(nombre) LIKE '%' + LOWER(@nombreCompDefecto) + '%';
             END
-
             IF @idComponenteResolved IS NULL
             BEGIN
-                SELECT TOP 1 @idComponenteResolved = id FROM dbo.Componente ORDER BY nombre ASC;
+                SELECT TOP 1 @idComponenteResolved = id FROM [dbo].[uv_componente];
             END
 
-            IF @idComponenteResolved IS NULL
-            BEGIN
-                SET @idComponenteResolved = NEWID();
-                INSERT INTO dbo.Componente (id, nombre) VALUES (@idComponenteResolved, 'Especificas');
-            END
-        END
-
-        -- PASO 4: Resolver Semestre y SemestrePlanEstudio
-        IF @estadoResultado = 1
-        BEGIN
-            SELECT TOP 1 @idSemestreResolved = id FROM dbo.Semestre WHERE numero = @semestreNumero ORDER BY numero ASC;
+            -- Resolver Semestre y SemestrePlanEstudio
+            SELECT TOP 1 @idSemestreResolved = id FROM [dbo].[uv_semestre] WHERE numero = @semestreNumero;
             IF @idSemestreResolved IS NULL
             BEGIN
-                SELECT TOP 1 @idSemestreResolved = id FROM dbo.Semestre ORDER BY numero ASC;
+                SELECT TOP 1 @idSemestreResolved = id FROM [dbo].[uv_semestre];
             END
 
             SELECT TOP 1 @idSpeResolved = id 
-            FROM dbo.SemestrePlanEstudio 
-            WHERE planEstudio = @idPlanEstudioDefecto AND semestre = @idSemestreResolved;
+            FROM [dbo].[uv_semestre_plan_estudio] 
+            WHERE idPlanEstudio = @idPlanEstudioDefecto AND idSemestre = @idSemestreResolved;
 
             IF @idSpeResolved IS NULL
             BEGIN
@@ -113,21 +116,30 @@ BEGIN
             END
         END
 
-        -- PASO 5: Invocación al procedimiento interno de creación
+        -- PASO 5: Inserción de Asignatura y generación de mensaje de éxito desde catálogo
         IF @estadoResultado = 1
         BEGIN
-            EXEC dbo.usp_crear_asignatura_interno
-                @idAsignatura = @idAsignaturaDefecto,
-                @codigo = @codigoDefecto,
-                @nombre = @nombreDefecto,
-                @creditos = @creditos,
-                @idArea = @idAreaResolved,
-                @idComponente = @idComponenteResolved,
-                @idSemestrePlanEstudio = @idSpeResolved,
-                @idCorrelacion = @idCorrelacionDefecto,
+            INSERT INTO dbo.Asignatura (
+                id, codigo, nombre, credito, area, componente, semestrePlanEstudio, estado
+            )
+            VALUES (
+                @idAsignaturaDefecto,
+                @codigoDefecto,
+                @nombreDefecto,
+                CASE WHEN @creditos IS NOT NULL AND @creditos > 0 THEN @creditos ELSE 3 END,
+                @idAreaResolved,
+                @idComponenteResolved,
+                @idSpeResolved,
+                1
+            );
+
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'GEN_004',
+                @p_param1 = 'Asignatura',
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-                @estadoResultado = @estadoResultado OUTPUT;
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
         END
 
     END TRY

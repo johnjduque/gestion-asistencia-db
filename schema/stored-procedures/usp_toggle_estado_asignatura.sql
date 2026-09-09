@@ -22,22 +22,43 @@ AS
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
-        -- PASO 1: Validación de correlación
+        -- PASO 1: Validación del identificador de correlación
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
             @idCorrelacion = @idCorrelacionDefecto, 
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- PASO 2: Invocación al procedimiento interno
+        -- PASO 2: Validar existencia de la Asignatura en uv_asignatura
         IF @estadoResultado = 1
         BEGIN
-            EXEC dbo.usp_toggle_estado_asignatura_interno
-                @idAsignatura = @idAsignaturaDefecto,
-                @idCorrelacion = @idCorrelacionDefecto,
+            IF NOT EXISTS (SELECT 1 FROM [dbo].[uv_asignatura] WHERE id = @idAsignaturaDefecto)
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'VAL_002',
+                    @p_param1 = 'Asignatura',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+        END
+
+        -- PASO 3: Alternar estado atómicamente
+        IF @estadoResultado = 1
+        BEGIN
+            UPDATE dbo.Asignatura
+            SET estado = CASE WHEN estado = 1 THEN 0 ELSE 1 END
+            WHERE id = @idAsignaturaDefecto;
+
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'GEN_004',
+                @p_param1 = 'EstadoAsignatura',
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-                @estadoResultado = @estadoResultado OUTPUT;
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
         END
 
     END TRY

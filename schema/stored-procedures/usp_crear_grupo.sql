@@ -42,29 +42,103 @@ BEGIN
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- PASO 2: Resolver período académico si viene nulo/guid defecto
-        IF @estadoResultado = 1 AND (@idPeriodoResolved IS NULL OR NOT EXISTS (SELECT 1 FROM dbo.PeriodoAcademico WHERE id = @idPeriodoResolved))
-        BEGIN
-            SELECT TOP 1 @idPeriodoResolved = id 
-            FROM dbo.PeriodoAcademico 
-            ORDER BY anio DESC, codigo DESC;
-        END
-
-        -- PASO 3: Invocación al procedimiento interno
+        -- PASO 2: Validar asignatura en uv_asignatura
         IF @estadoResultado = 1
         BEGIN
-            EXEC dbo.usp_crear_grupo_interno
-                @idGrupo = @idGrupoDefecto,
-                @idAsignatura = @idAsignaturaDefecto,
-                @idPeriodoAcademico = @idPeriodoResolved,
-                @codigo = @codigo,
-                @nombre = @nombreDefecto,
+            IF NOT EXISTS (SELECT 1 FROM [dbo].[uv_asignatura] WHERE id = @idAsignaturaDefecto)
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'VAL_002',
+                    @p_param1 = 'Asignatura',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+        END
+
+        -- PASO 3: Resolver período académico si viene nulo/guid defecto
+        IF @estadoResultado = 1
+        BEGIN
+            IF @idPeriodoResolved IS NULL OR NOT EXISTS (SELECT 1 FROM [dbo].[uv_periodo_academico] WHERE id = @idPeriodoResolved)
+            BEGIN
+                SELECT TOP 1 @idPeriodoResolved = id 
+                FROM [dbo].[uv_periodo_academico] 
+                ORDER BY anio DESC;
+            END
+
+            IF @idPeriodoResolved IS NULL OR NOT EXISTS (SELECT 1 FROM [dbo].[uv_periodo_academico] WHERE id = @idPeriodoResolved)
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'VAL_002',
+                    @p_param1 = 'PeriodoAcademico',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+        END
+
+        -- PASO 4: Validar docente mediante procedimiento interno estandarizado
+        IF @estadoResultado = 1
+        BEGIN
+            EXEC dbo.usp_validar_docente_exista_por_id_interno
                 @idDocente = @idDocenteDefecto,
-                @aula = @aulaDefecto,
                 @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
+        END
+
+        -- PASO 5: Validar unicidad de código de grupo en el período consultando uv_grupo
+        IF @estadoResultado = 1
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM [dbo].[uv_grupo]
+                WHERE idAsignatura = @idAsignaturaDefecto AND idPeriodoAcademico = @idPeriodoResolved AND codigo = @codigo
+            )
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'VAL_006',
+                    @p_param1 = 'Grupo',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+        END
+
+        -- PASO 6: Inserción directa de Grupo con contador cantidadEstudiantes = 0
+        IF @estadoResultado = 1
+        BEGIN
+            INSERT INTO dbo.Grupo (
+                id, asignatura, periodoAcademico, codigo, nombre,
+                cantidadEstudiantes, cantidadEstudiantesFinalizaron,
+                cantidadEstudiantesCancelaronVoluntadPropia,
+                cantidadEstudiantesCancelaronAutomaticamente,
+                docente, aula
+            )
+            VALUES (
+                @idGrupoDefecto,
+                @idAsignaturaDefecto,
+                @idPeriodoResolved,
+                @codigo,
+                CASE WHEN @nombreDefecto IS NOT NULL AND @nombreDefecto <> '' THEN @nombreDefecto ELSE CONCAT('Grupo ', @codigo) END,
+                0, 0, 0, 0,
+                @idDocenteDefecto,
+                CASE WHEN @aulaDefecto IS NOT NULL AND @aulaDefecto <> '' THEN @aulaDefecto ELSE 'Aula Por Asignar' END
+            );
+
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'GEN_004',
+                @p_param1 = 'Grupo',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
         END
 
     END TRY

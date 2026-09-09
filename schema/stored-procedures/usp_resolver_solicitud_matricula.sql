@@ -14,9 +14,16 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_resolver_solicitud_matricula]
     @idCorrelacion          UNIQUEIDENTIFIER
 )
 AS
-    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @idSolicitudDefecto   UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idSolicitud, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @idCoordinadorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCoordinador, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idCorrelacionDefecto  UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idSolicitudDefecto    UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idSolicitud, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idCoordinadorDefecto  UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCoordinador, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @accionDefecto         NVARCHAR(20)     = UPPER(TRIM(@accion));
+    DECLARE @respuestaDefecto      NVARCHAR(MAX)    = TRIM(@respuestaCoordinador);
+
+    DECLARE @idProgramaCoordinador UNIQUEIDENTIFIER;
+    DECLARE @idProgramaGrupo       UNIQUEIDENTIFIER;
+    DECLARE @idEstudiante          UNIQUEIDENTIFIER;
+    DECLARE @idGrupo               UNIQUEIDENTIFIER;
 
     -- Variables locales de respuesta
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -33,22 +40,89 @@ BEGIN
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- PASO 2: Invocación al procedimiento interno de resolución
+        -- PASO 2: Recuperar programa del coordinador y datos del grupo/solicitud desde vistas
         IF @estadoResultado = 1
         BEGIN
-            EXEC dbo.usp_resolver_solicitud_matricula_interno
-                @idSolicitud = @idSolicitudDefecto,
-                @idCoordinador = @idCoordinadorDefecto,
-                @accion = @accion,
-                @respuestaCoordinador = @respuestaCoordinador,
-                @idCorrelacion = @idCorrelacionDefecto,
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-                @estadoResultado = @estadoResultado OUTPUT;
+            SELECT TOP 1 @idProgramaCoordinador = p.id
+            FROM dbo.Programa p
+            WHERE p.coordinador = @idCoordinadorDefecto;
+
+            SELECT TOP 1
+                @idEstudiante = sm.estudiante,
+                @idGrupo = sm.grupo,
+                @idProgramaGrupo = pe.programa
+            FROM dbo.SolicitudMatricula sm
+            INNER JOIN dbo.Grupo g ON sm.grupo = g.id
+            INNER JOIN dbo.Asignatura a ON g.asignatura = a.id
+            INNER JOIN dbo.SemestrePlanEstudio spe ON a.semestrePlanEstudio = spe.id
+            INNER JOIN dbo.PlanEstudio pe ON spe.planEstudio = pe.id
+            WHERE sm.id = @idSolicitudDefecto;
+
+            IF @idEstudiante IS NULL
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'VAL_002',
+                    @p_param1 = 'SolicitudMatricula',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+            ELSE IF @idProgramaCoordinador IS NOT NULL AND @idProgramaGrupo IS NOT NULL AND @idProgramaCoordinador <> @idProgramaGrupo
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'VAL_007',
+                    @p_param1 = 'CoordinadorAmbitoMatricula',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+        END
+
+        -- PASO 3: Actualización de solicitud y delegación reactiva a usp_registrar_estudiante_en_grupo_interno
+        IF @estadoResultado = 1
+        BEGIN
+            BEGIN TRANSACTION;
+
+            UPDATE dbo.SolicitudMatricula
+            SET estado = @accionDefecto,
+                respuestaCoordinador = CASE WHEN @respuestaDefecto IS NOT NULL THEN @respuestaDefecto ELSE '' END,
+                fechaRespuesta = CAST(CURRENT_TIMESTAMP AS DATE)
+            WHERE id = @idSolicitudDefecto;
+
+            COMMIT TRANSACTION;
+
+            IF @accionDefecto = 'APROBADA'
+            BEGIN
+                EXEC dbo.usp_registrar_estudiante_en_grupo_interno
+                    @idEstudiante = @idEstudiante,
+                    @idGrupo = @idGrupo,
+                    @idCorrelacion = @idCorrelacionDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                    @estadoResultado = @estadoResultado OUTPUT;
+            END
+
+            IF @estadoResultado = 1
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'GEN_004',
+                    @p_param1 = 'SolicitudMatricula',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            END
         END
 
     END TRY
     BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,

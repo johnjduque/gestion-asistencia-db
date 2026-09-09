@@ -20,8 +20,12 @@ AS
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idSesionDefecto      UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idSesion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idDocenteDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idDocente, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @nombreDefecto        NVARCHAR(50)     = TRIM(@nombre);
+    DECLARE @aulaDefecto          NVARCHAR(100)    = TRIM(@aula);
+    DECLARE @descripcionDefecto   NVARCHAR(MAX)    = TRIM(@descripcion);
 
     DECLARE @idGrupoSesion UNIQUEIDENTIFIER;
+    DECLARE @cerrada       BIT;
 
     -- Variables locales de respuesta
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -38,36 +42,69 @@ BEGIN
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- PASO 2: Validar pertenencia del grupo al docente si se proporciona idDocente
-        IF @estadoResultado = 1 AND @idDocenteDefecto IS NOT NULL
+        -- PASO 2: Validar existencia de la sesión consultando uv_sesion y su inmutabilidad si está cerrada
+        IF @estadoResultado = 1
         BEGIN
-            SELECT TOP 1 @idGrupoSesion = grupo FROM dbo.Sesion WHERE id = @idSesionDefecto;
-            IF @idGrupoSesion IS NOT NULL
+            SELECT TOP 1 
+                @idGrupoSesion = idGrupo,
+                @cerrada = cerrada
+            FROM [dbo].[uv_sesion] 
+            WHERE id = @idSesionDefecto;
+
+            IF @idGrupoSesion IS NULL
             BEGIN
-                EXEC dbo.usp_validar_grupo_exista_para_docente_interno
-                    @idGrupo = @idGrupoSesion,
-                    @idDocente = @idDocenteDefecto,
-                    @idCorrelacion = @idCorrelacionDefecto,
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'VAL_002',
+                    @p_param1 = 'Sesion',
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-                    @estadoResultado = @estadoResultado OUTPUT;
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+            ELSE IF @cerrada = 1
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'VAL_007',
+                    @p_param1 = 'SesionCerradaInmutable',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
             END
         END
 
-        -- PASO 3: Invocación al procedimiento interno de actualización
-        IF @estadoResultado = 1
+        -- PASO 3: Validar pertenencia del grupo al docente titular si se envía idDocente
+        IF @estadoResultado = 1 AND @idDocenteDefecto IS NOT NULL
         BEGIN
-            EXEC dbo.usp_actualizar_sesion_interno
-                @idSesion = @idSesionDefecto,
-                @nombre = @nombre,
-                @fechaHoraInicio = @fechaHoraInicio,
-                @fechaHoraFin = @fechaHoraFin,
-                @aula = @aula,
-                @descripcion = @descripcion,
+            EXEC dbo.usp_validar_grupo_exista_para_docente_interno
+                @idGrupo = @idGrupoSesion,
+                @idDocente = @idDocenteDefecto,
                 @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
+        END
+
+        -- PASO 4: Actualización atómica de la Sesión
+        IF @estadoResultado = 1
+        BEGIN
+            UPDATE dbo.Sesion
+            SET nombre = CASE WHEN @nombreDefecto IS NOT NULL AND @nombreDefecto <> '' THEN @nombreDefecto ELSE nombre END,
+                fechaHoraInicio = CASE WHEN @fechaHoraInicio IS NOT NULL THEN @fechaHoraInicio ELSE fechaHoraInicio END,
+                fechaHoraFin = CASE WHEN @fechaHoraFin IS NOT NULL THEN @fechaHoraFin ELSE fechaHoraFin END,
+                aula = CASE WHEN @aulaDefecto IS NOT NULL AND @aulaDefecto <> '' THEN @aulaDefecto ELSE aula END,
+                descripcion = CASE WHEN @descripcionDefecto IS NOT NULL AND @descripcionDefecto <> '' THEN @descripcionDefecto ELSE descripcion END
+            WHERE id = @idSesionDefecto;
+
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'GEN_004',
+                @p_param1 = 'Sesion',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
         END
 
     END TRY
