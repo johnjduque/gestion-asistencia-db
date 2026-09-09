@@ -46,17 +46,19 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
-        -- 3. FLUJO REACTIVO (UPSERT): Consultar existencia por ID o código en uv_plan_estudio
+        -- 3. FLUJO REACTIVO (UPSERT): Consultar existencia por ID o inp en uv_plan_estudio
         IF @estadoResultado = 1
         BEGIN
-            IF EXISTS (SELECT 1 FROM dbo.uv_plan_estudio pe WHERE pe.id = @idPlanEstudioDefecto OR pe.codigoPlanEstudio = @codigoDefecto)
+            DECLARE @inpInt INT = TRY_CAST(@codigoDefecto AS INT);
+            IF @inpInt IS NULL SET @inpInt = 1;
+
+            IF EXISTS (SELECT 1 FROM dbo.uv_plan_estudio pe WHERE pe.id = @idPlanEstudioDefecto OR pe.inp = @inpInt)
             BEGIN
                 -- SI EXISTE: Actualizar PlanEstudio
                 UPDATE [dbo].[PlanEstudio]
                 SET [programa] = @idProgramaDefecto,
-                    [codigo]   = @codigoDefecto,
-                    [nombre]   = @nombreDefecto
-                WHERE [id] = @idPlanEstudioDefecto OR [codigo] = @codigoDefecto;
+                    [inp]      = @inpInt
+                WHERE [id] = @idPlanEstudioDefecto OR [inp] = @inpInt;
 
                 EXEC dbo.usp_obtener_mensaje_catalogo
                     @p_codigo = 'SUC_ACTUALIZACION_PLAN_ESTUDIO',
@@ -68,8 +70,8 @@ BEGIN
                 -- SI NO EXISTE: Crear nuevo PlanEstudio
                 DECLARE @nuevoId UNIQUEIDENTIFIER = NEWID();
 
-                INSERT INTO [dbo].[PlanEstudio] ([id], [programa], [codigo], [nombre], [estado])
-                VALUES (@nuevoId, @idProgramaDefecto, @codigoDefecto, @nombreDefecto, 1);
+                INSERT INTO [dbo].[PlanEstudio] ([id], [programa], [inp], [estado])
+                VALUES (@nuevoId, @idProgramaDefecto, @inpInt, 1);
 
                 EXEC dbo.usp_obtener_mensaje_catalogo
                     @p_codigo = 'SUC_REGISTRO_PLAN_ESTUDIO',

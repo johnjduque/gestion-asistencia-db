@@ -78,16 +78,19 @@ BEGIN
         -- 5. FLUJO REACTIVO (UPSERT): Consultar existencia en uv_grupo
         IF @estadoResultado = 1
         BEGIN
-            IF EXISTS (SELECT 1 FROM dbo.uv_grupo g WHERE g.id = @idGrupoDefecto OR (g.codigoGrupo = @codigoDefecto AND g.idPeriodoAcademico = @idPeriodoAcademicoDefecto))
+            DECLARE @codigoInt INT = TRY_CAST(@codigoDefecto AS INT);
+            IF @codigoInt IS NULL SET @codigoInt = 1;
+
+            IF EXISTS (SELECT 1 FROM dbo.uv_grupo g WHERE g.id = @idGrupoDefecto OR (g.codigo = CAST(@codigoInt AS VARCHAR(20)) AND g.idPeriodoAcademico = @idPeriodoAcademicoDefecto))
             BEGIN
                 UPDATE [dbo].[Grupo]
-                SET [asignatura]       = @idAsignaturaDefecto,
-                    [periodoAcademico] = @idPeriodoAcademicoDefecto,
-                    [docente]          = CASE WHEN @idDocenteDefecto = CAST('00000000-0000-0000-0000-000000000000' AS UNIQUEIDENTIFIER) THEN [docente] ELSE @idDocenteDefecto END,
-                    [nombre]           = @nombreDefecto,
-                    [codigo]           = @codigoDefecto,
-                    [cupo]             = @cupoDefecto
-                WHERE [id] = @idGrupoDefecto OR ([codigo] = @codigoDefecto AND [periodoAcademico] = @idPeriodoAcademicoDefecto);
+                SET [asignatura]          = @idAsignaturaDefecto,
+                    [periodoAcademico]    = @idPeriodoAcademicoDefecto,
+                    [docente]             = CASE WHEN @idDocenteDefecto = CAST('00000000-0000-0000-0000-000000000000' AS UNIQUEIDENTIFIER) THEN [docente] ELSE @idDocenteDefecto END,
+                    [nombre]              = @nombreDefecto,
+                    [codigo]              = @codigoInt,
+                    [cantidadEstudiantes] = @cupoDefecto
+                WHERE [id] = @idGrupoDefecto OR ([codigo] = @codigoInt AND [periodoAcademico] = @idPeriodoAcademicoDefecto);
 
                 EXEC dbo.usp_obtener_mensaje_catalogo
                     @p_codigo = 'SUC_ACTUALIZACION_GRUPO',
@@ -98,8 +101,16 @@ BEGIN
             BEGIN
                 DECLARE @nuevoId UNIQUEIDENTIFIER = NEWID();
 
-                INSERT INTO [dbo].[Grupo] ([id], [asignatura], [periodoAcademico], [docente], [nombre], [codigo], [cupo], [estado])
-                VALUES (@nuevoId, @idAsignaturaDefecto, @idPeriodoAcademicoDefecto, @idDocenteDefecto, @nombreDefecto, @codigoDefecto, @cupoDefecto, 1);
+                INSERT INTO [dbo].[Grupo] (
+                    [id], [asignatura], [periodoAcademico], [codigo], [nombre],
+                    [cantidadEstudiantes], [cantidadEstudiantesFinalizaron],
+                    [cantidadEstudiantesCancelaronVoluntadPropia], [cantidadEstudiantesCancelaronAutomaticamente],
+                    [docente]
+                )
+                VALUES (
+                    @nuevoId, @idAsignaturaDefecto, @idPeriodoAcademicoDefecto, @codigoInt, @nombreDefecto,
+                    @cupoDefecto, 0, 0, 0, @idDocenteDefecto
+                );
 
                 EXEC dbo.usp_obtener_mensaje_catalogo
                     @p_codigo = 'SUC_REGISTRO_GRUPO',

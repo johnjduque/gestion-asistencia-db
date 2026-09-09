@@ -16,7 +16,7 @@ BEGIN
     DECLARE @nombreEstado NVARCHAR(100) = N'NO INSCRITO';
 
     SELECT TOP 1 
-        @nombreEstado = eg.nombreEstadoEstudianteGrupo
+        @nombreEstado = eg.nombreEstadoEstudiante
     FROM dbo.uv_estudiante_grupo eg
     WHERE eg.idEstudiante = @idEstudiante
       AND eg.idGrupo = @idGrupo;

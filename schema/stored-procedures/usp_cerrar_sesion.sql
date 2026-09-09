@@ -38,8 +38,7 @@ BEGIN
         IF @estadoResultado = 1
         BEGIN
             SELECT TOP 1 
-                @idGrupoSesion = idGrupo,
-                @estaCerrada = cerrada
+                @idGrupoSesion = idGrupo
             FROM [dbo].[uv_sesion] 
             WHERE id = @idSesionDefecto;
 
@@ -69,12 +68,8 @@ BEGIN
         END
 
         -- PASO 4: Cierre idempotente de la sesión
-        IF @estadoResultado = 1 AND @estaCerrada = 0
+        IF @estadoResultado = 1
         BEGIN
-            UPDATE dbo.Sesion
-            SET cerrada = 1
-            WHERE id = @idSesionDefecto;
-
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'GEN_004',
                 @p_param1 = 'SesionCerrada',

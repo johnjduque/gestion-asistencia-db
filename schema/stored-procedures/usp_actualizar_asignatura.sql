@@ -57,7 +57,7 @@ BEGIN
         -- PASO 3: Validar unicidad del código si cambia
         IF @estadoResultado = 1 AND @codigoDefecto IS NOT NULL AND @codigoDefecto <> ''
         BEGIN
-            IF EXISTS (SELECT 1 FROM [dbo].[uv_asignatura] WHERE UPPER(TRIM(codigoAsignatura)) = @codigoDefecto AND id <> @idAsignaturaDefecto)
+            IF EXISTS (SELECT 1 FROM [dbo].[uv_asignatura] WHERE UPPER(TRIM(codigo)) = @codigoDefecto AND id <> @idAsignaturaDefecto)
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
                     @p_codigo = 'VAL_006',

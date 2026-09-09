@@ -61,7 +61,7 @@ BEGIN
         -- PASO 3: Validación de unicidad de código consultando uv_asignatura
         IF @estadoResultado = 1
         BEGIN
-            IF EXISTS (SELECT 1 FROM [dbo].[uv_asignatura] WHERE UPPER(TRIM(codigoAsignatura)) = @codigoDefecto)
+            IF EXISTS (SELECT 1 FROM [dbo].[uv_asignatura] WHERE UPPER(TRIM(codigo)) = @codigoDefecto)
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
                     @p_codigo = 'VAL_006',

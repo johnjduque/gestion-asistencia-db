@@ -51,13 +51,21 @@ BEGIN
         -- 3. FLUJO REACTIVO (UPSERT): Consultar existencia en uv_asignatura
         IF @estadoResultado = 1
         BEGIN
-            IF EXISTS (SELECT 1 FROM dbo.uv_asignatura a WHERE a.id = @idAsignaturaDefecto OR a.codigoAsignatura = @codigoDefecto)
+            DECLARE @idAreaDefecto UNIQUEIDENTIFIER;
+            SELECT TOP 1 @idAreaDefecto = id FROM dbo.Area ORDER BY id ASC;
+
+            DECLARE @idComponenteDefecto UNIQUEIDENTIFIER;
+            SELECT TOP 1 @idComponenteDefecto = id FROM dbo.Componente ORDER BY id ASC;
+
+            DECLARE @idSpeDefecto UNIQUEIDENTIFIER;
+            SELECT TOP 1 @idSpeDefecto = id FROM dbo.SemestrePlanEstudio ORDER BY id ASC;
+
+            IF EXISTS (SELECT 1 FROM dbo.uv_asignatura a WHERE a.id = @idAsignaturaDefecto OR a.codigo = @codigoDefecto)
             BEGIN
                 UPDATE [dbo].[Asignatura]
-                SET [nombre]         = @nombreDefecto,
-                    [codigo]         = @codigoDefecto,
-                    [creditos]       = @creditosDefecto,
-                    [horasSemanales] = @horasSemanalesDefecto
+                SET [nombre]  = @nombreDefecto,
+                    [codigo]  = @codigoDefecto,
+                    [credito] = @creditosDefecto
                 WHERE [id] = @idAsignaturaDefecto OR [codigo] = @codigoDefecto;
 
                 EXEC dbo.usp_obtener_mensaje_catalogo
@@ -69,8 +77,8 @@ BEGIN
             BEGIN
                 DECLARE @nuevoId UNIQUEIDENTIFIER = NEWID();
 
-                INSERT INTO [dbo].[Asignatura] ([id], [nombre], [codigo], [creditos], [horasSemanales], [estado])
-                VALUES (@nuevoId, @nombreDefecto, @codigoDefecto, @creditosDefecto, @horasSemanalesDefecto, 1);
+                INSERT INTO [dbo].[Asignatura] ([id], [codigo], [nombre], [credito], [area], [componente], [semestrePlanEstudio], [estado])
+                VALUES (@nuevoId, @codigoDefecto, @nombreDefecto, @creditosDefecto, @idAreaDefecto, @idComponenteDefecto, @idSpeDefecto, 1);
 
                 EXEC dbo.usp_obtener_mensaje_catalogo
                     @p_codigo = 'SUC_REGISTRO_ASIGNATURA',

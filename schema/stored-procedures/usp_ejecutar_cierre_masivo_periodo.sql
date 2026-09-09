@@ -77,15 +77,7 @@ BEGIN
 
             BEGIN TRANSACTION;
 
-            -- 1. Cerrar sesiones abiertas del período
-            UPDATE s
-            SET s.cerrada = 1
-            FROM dbo.Sesion s
-            INNER JOIN dbo.Grupo g ON s.grupo = g.id
-            WHERE g.periodoAcademico = @idPeriodoTarget
-              AND s.cerrada = 0;
-
-            -- 2. Conteo de estudiantes procesados
+            -- 1. Conteo de estudiantes procesados
             SELECT @totalEstudiantes = COUNT(eg.id)
             FROM dbo.EstudianteGrupo eg
             INNER JOIN dbo.Grupo g ON eg.grupo = g.id

@@ -110,8 +110,7 @@ BEGIN
 
             INSERT INTO dbo.SolicitudRevisionAsistencia (
                 id, nombre, asistencia, fecha, estado,
-                justificacionSolicitud, justificacionRespuesta,
-                categoria, soporteAdjuntoNombre, soporteAdjuntoUrl, fechaRespuesta
+                justificacionSolicitud, justificacionRespuesta
             )
             VALUES (
                 @nuevaSolicitudId,
@@ -120,11 +119,7 @@ BEGIN
                 CAST(CURRENT_TIMESTAMP AS DATE),
                 @idEstadoPendiente,
                 CASE WHEN @justificacionDefecto IS NOT NULL AND @justificacionDefecto <> '' THEN @justificacionDefecto ELSE 'Solicitud de revisión de asistencia radicada por estudiante.' END,
-                '',
-                CASE WHEN @categoriaDefecto IS NOT NULL AND @categoriaDefecto <> '' THEN @categoriaDefecto ELSE 'Médico / Salud' END,
-                @soporteNombreDefecto,
-                @soporteUrlDefecto,
-                NULL
+                ''
             );
 
             COMMIT TRANSACTION;

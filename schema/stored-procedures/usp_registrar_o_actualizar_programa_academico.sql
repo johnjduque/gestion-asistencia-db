@@ -63,7 +63,7 @@ BEGIN
         -- 4. Validar existencia del Coordinador asignado vía Vista uv_usuario
         IF @estadoResultado = 1 AND @idCoordinadorDefecto IS NOT NULL AND @idCoordinadorDefecto <> CAST('00000000-0000-0000-0000-000000000000' AS UNIQUEIDENTIFIER)
         BEGIN
-            IF NOT EXISTS (SELECT 1 FROM dbo.uv_usuario u WHERE u.id = @idCoordinadorDefecto AND u.estado = 1)
+            IF NOT EXISTS (SELECT 1 FROM dbo.uv_usuario u WHERE u.id = @idCoordinadorDefecto AND u.estaActivoUsuario = 1)
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
                     @p_codigo = 'VAL_001',

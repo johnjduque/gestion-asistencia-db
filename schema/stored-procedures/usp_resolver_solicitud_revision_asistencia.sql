@@ -94,16 +94,13 @@ BEGIN
 
             UPDATE dbo.SolicitudRevisionAsistencia
             SET estado = @idEstadoNuevo,
-                justificacionRespuesta = CASE WHEN @respuestaDefecto IS NOT NULL THEN @respuestaDefecto ELSE '' END,
-                fechaRespuesta = CAST(CURRENT_TIMESTAMP AS DATE)
+                justificacionRespuesta = CASE WHEN @respuestaDefecto IS NOT NULL THEN @respuestaDefecto ELSE '' END
             WHERE id = @idSolicitudDefecto;
 
             IF @accionDefecto = 'APROBADA'
             BEGIN
                 UPDATE dbo.DetalleAsistencia
-                SET asistio = 1,
-                    estado = 'JUSTIFICADA',
-                    observacion = CONCAT(CASE WHEN observacion IS NOT NULL AND observacion <> '' THEN observacion + ' | ' ELSE '' END, 'Justificación aprobada: ', CASE WHEN @respuestaDefecto IS NOT NULL THEN @respuestaDefecto ELSE '' END)
+                SET asistio = 1
                 WHERE asistencia = @idAsistencia;
             END
 

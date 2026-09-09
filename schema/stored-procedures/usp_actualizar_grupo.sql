@@ -98,8 +98,7 @@ BEGIN
             UPDATE dbo.Grupo
             SET codigo = CASE WHEN @codigo IS NOT NULL AND @codigo > 0 THEN @codigo ELSE codigo END,
                 nombre = CASE WHEN @nombreDefecto IS NOT NULL AND @nombreDefecto <> '' THEN @nombreDefecto ELSE nombre END,
-                docente = CASE WHEN @idDocenteDefecto IS NOT NULL THEN @idDocenteDefecto ELSE docente END,
-                aula = CASE WHEN @aulaDefecto IS NOT NULL AND @aulaDefecto <> '' THEN @aulaDefecto ELSE aula END
+                docente = CASE WHEN @idDocenteDefecto IS NOT NULL THEN @idDocenteDefecto ELSE docente END
             WHERE id = @idGrupoDefecto;
 
             EXEC dbo.usp_obtener_mensaje_catalogo

@@ -42,12 +42,11 @@ BEGIN
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- PASO 2: Validar existencia de la sesión consultando uv_sesion y su inmutabilidad si está cerrada
+        -- PASO 2: Validar existencia de la sesión consultando uv_sesion
         IF @estadoResultado = 1
         BEGIN
             SELECT TOP 1 
-                @idGrupoSesion = idGrupo,
-                @cerrada = cerrada
+                @idGrupoSesion = idGrupo
             FROM [dbo].[uv_sesion] 
             WHERE id = @idSesionDefecto;
 
@@ -56,17 +55,6 @@ BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
                     @p_codigo = 'VAL_002',
                     @p_param1 = 'Sesion',
-                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-
-                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-                SET @estadoResultado = 0;
-            END
-            ELSE IF @cerrada = 1
-            BEGIN
-                EXEC dbo.usp_obtener_mensaje_catalogo
-                    @p_codigo = 'VAL_007',
-                    @p_param1 = 'SesionCerradaInmutable',
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
@@ -93,9 +81,7 @@ BEGIN
             UPDATE dbo.Sesion
             SET nombre = CASE WHEN @nombreDefecto IS NOT NULL AND @nombreDefecto <> '' THEN @nombreDefecto ELSE nombre END,
                 fechaHoraInicio = CASE WHEN @fechaHoraInicio IS NOT NULL THEN @fechaHoraInicio ELSE fechaHoraInicio END,
-                fechaHoraFin = CASE WHEN @fechaHoraFin IS NOT NULL THEN @fechaHoraFin ELSE fechaHoraFin END,
-                aula = CASE WHEN @aulaDefecto IS NOT NULL AND @aulaDefecto <> '' THEN @aulaDefecto ELSE aula END,
-                descripcion = CASE WHEN @descripcionDefecto IS NOT NULL AND @descripcionDefecto <> '' THEN @descripcionDefecto ELSE descripcion END
+                fechaHoraFin = CASE WHEN @fechaHoraFin IS NOT NULL THEN @fechaHoraFin ELSE fechaHoraFin END
             WHERE id = @idSesionDefecto;
 
             EXEC dbo.usp_obtener_mensaje_catalogo

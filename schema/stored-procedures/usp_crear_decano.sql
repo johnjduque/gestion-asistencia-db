@@ -48,9 +48,9 @@ BEGIN
         BEGIN
             SELECT TOP 1 @idFacultadDefecto = id
             FROM [dbo].[uv_facultad]
-            WHERE LOWER(nombre) = LOWER(@nombreFacultadDef)
-               OR LOWER(nombre) LIKE LOWER(CONCAT('%', @nombreFacultadDef, '%'))
-            ORDER BY nombre ASC;
+            WHERE LOWER(nombreFacultad) = LOWER(@nombreFacultadDef)
+               OR LOWER(nombreFacultad) LIKE LOWER(CONCAT('%', @nombreFacultadDef, '%'))
+            ORDER BY nombreFacultad ASC;
         END
 
         -- PASO 3: GESTIÓN REACTIVA DE USUARIO (Consulta en uv_usuario y delegación a usp_sincronizar_usuario_interno)
@@ -58,7 +58,7 @@ BEGIN
         BEGIN
             SELECT TOP 1 @idUsuarioCreado = id
             FROM [dbo].[uv_usuario]
-            WHERE correo = LOWER(TRIM(@correo)) OR numeroIdentificacion = @numeroIdentificacion;
+            WHERE correo = LOWER(TRIM(@correo)) OR numeroIdentificacion = CAST(@numeroIdentificacion AS VARCHAR(20));
 
             IF @idUsuarioCreado IS NULL
             BEGIN
