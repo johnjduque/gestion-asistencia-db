@@ -61,13 +61,10 @@ BEGIN
             END
         END
 
-        -- PASO 4: Eliminación atómica transaccional de prerrequisitos y asignatura
+        -- PASO 4: Eliminación atómica transaccional de Asignatura
         IF @estadoResultado = 1
         BEGIN
             BEGIN TRANSACTION;
-
-            DELETE FROM dbo.PrerrequisitoAsignatura 
-            WHERE asignatura = @idAsignaturaDefecto OR asignaturaRequisito = @idAsignaturaDefecto;
 
             DELETE FROM dbo.Asignatura 
             WHERE id = @idAsignaturaDefecto;

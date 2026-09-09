@@ -91,20 +91,21 @@ BEGIN
             INNER JOIN dbo.Grupo g ON eg.grupo = g.id
             WHERE g.periodoAcademico = @idPeriodoTarget;
 
-            -- 3. Actualizar estudiantes con fallas críticas (>=3) a Cancelado por Inasistencia
+            -- 3. Actualizar estudiantes con fallas críticas (>= 3 inasistencias en DetalleAsistencia) a Cancelado por Inasistencia
             ;WITH InasistenciasPorEstudiante AS (
                 SELECT 
-                    a.estudiante,
-                    s.grupo,
-                    COUNT(a.id) AS totalFallas
-                FROM dbo.Asistencia a
+                    eg.estudiante,
+                    eg.grupo,
+                    COUNT(da.id) AS totalFallas
+                FROM dbo.DetalleAsistencia da
+                INNER JOIN dbo.Asistencia a ON da.asistencia = a.id
+                INNER JOIN dbo.EstudianteGrupo eg ON a.estudianteGrupo = eg.id
                 INNER JOIN dbo.Sesion s ON a.sesion = s.id
                 INNER JOIN dbo.Grupo g ON s.grupo = g.id
-                INNER JOIN dbo.EstadoAsistencia ea ON a.estado = ea.id
                 WHERE g.periodoAcademico = @idPeriodoTarget
-                  AND ea.codigo IN ('IN', 'F')
-                GROUP BY a.estudiante, s.grupo
-                HAVING COUNT(a.id) >= 3
+                  AND da.asistio = 0
+                GROUP BY eg.estudiante, eg.grupo
+                HAVING COUNT(da.id) >= 3
             )
             UPDATE eg
             SET eg.estado = @idEstadoCanceladoInasistencia

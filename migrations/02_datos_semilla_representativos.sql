@@ -183,21 +183,24 @@ BEGIN
     );
 END
 
--- 7. Insertar Solicitud de Matrícula de prueba para Mateo Ríos
-IF NOT EXISTS (SELECT 1 FROM dbo.SolicitudMatricula WHERE id = '90123456-0000-0000-0000-000000000021')
+-- 7. Insertar Solicitud de Matrícula de prueba para Mateo Ríos (si la tabla estuviese disponible)
+IF OBJECT_ID('dbo.SolicitudMatricula', 'U') IS NOT NULL
 BEGIN
-    INSERT INTO dbo.SolicitudMatricula (
-        id, estudiante, grupo, fechaSolicitud, motivo, estado, respuestaCoordinador, fechaRespuesta
-    ) VALUES (
-        '90123456-0000-0000-0000-000000000021',
-        'F1A2B3C4-0000-0000-0000-000000000008', -- Mateo Rios
-        @idGrupoArq,
-        '2026-09-02',
-        'Solicitud de inscripción por cupo extemporáneo para culminación de créditos.',
-        'PENDIENTE',
-        '',
-        NULL
-    );
+    IF NOT EXISTS (SELECT 1 FROM dbo.SolicitudMatricula WHERE id = '90123456-0000-0000-0000-000000000021')
+    BEGIN
+        INSERT INTO dbo.SolicitudMatricula (
+            id, estudiante, grupo, fechaSolicitud, motivo, estado, respuestaCoordinador, fechaRespuesta
+        ) VALUES (
+            '90123456-0000-0000-0000-000000000021',
+            'F1A2B3C4-0000-0000-0000-000000000008', -- Mateo Rios
+            @idGrupoArq,
+            '2026-09-02',
+            'Solicitud de inscripción por cupo extemporáneo para culminación de créditos.',
+            'PENDIENTE',
+            '',
+            NULL
+        );
+    END
 END
 
 PRINT 'Datos semilla representativos insertados exitosamente.';
