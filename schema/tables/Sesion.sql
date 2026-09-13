@@ -15,7 +15,10 @@ CREATE TABLE [dbo].[Sesion] (
     [numeroSemana] int NOT NULL,
     [grupo] uniqueidentifier NOT NULL,
     [fechaHoraInicio] datetime2 NOT NULL,
-    [fechaHoraFin] datetime2 NOT NULL
+    [fechaHoraFin] datetime2 NOT NULL,
+    [descripcion] nvarchar(max) NULL,
+    [aula] nvarchar(100) NULL,
+    [tipo] nvarchar(50) NULL
 );
 
 ALTER TABLE [dbo].[Sesion] ADD CONSTRAINT [PK__Sesion__3213E83F33E5FFCB] PRIMARY KEY CLUSTERED ([id]);

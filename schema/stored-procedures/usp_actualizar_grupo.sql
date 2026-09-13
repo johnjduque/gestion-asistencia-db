@@ -20,10 +20,11 @@ AS
     DECLARE @idGrupoDefecto       UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idGrupo, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idDocenteDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idDocente, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @nombreDefecto        NVARCHAR(50)     = TRIM(@nombre);
-    DECLARE @aulaDefecto          NVARCHAR(100)    = TRIM(@aula);
+    DECLARE @aulaDefecto          NVARCHAR(100)    = NULLIF(TRIM(@aula), '');
 
     DECLARE @idAsigCurrent        UNIQUEIDENTIFIER;
     DECLARE @idPeriodoCurrent     UNIQUEIDENTIFIER;
+    DECLARE @estudiantesActivos   INT;
 
     -- Variables locales de respuesta
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -62,8 +63,9 @@ BEGIN
             END
         END
 
-        -- PASO 3: Validar docente si se modifica
-        IF @estadoResultado = 1 AND @idDocenteDefecto IS NOT NULL
+        -- PASO 3: Validar docente si se modifica (se usa el parámetro crudo: @idDocenteDefecto
+        -- resuelve a un GUID centinela vía ufn_obtener_parametro_guid incluso cuando no se envía)
+        IF @estadoResultado = 1 AND @idDocente IS NOT NULL
         BEGIN
             EXEC dbo.usp_validar_docente_exista_por_id_interno
                 @idDocente = @idDocenteDefecto,
@@ -92,13 +94,37 @@ BEGIN
             END
         END
 
-        -- PASO 5: Actualización del Grupo
+        -- PASO 5: Validar que el nuevo cupo máximo no sea inferior a la ocupación actual del grupo
+        IF @estadoResultado = 1 AND @cupoMaximo IS NOT NULL AND @cupoMaximo > 0
+        BEGIN
+            SELECT @estudiantesActivos = cantidadActivos
+            FROM [dbo].[uv_estadistica_grupo]
+            WHERE id = @idGrupoDefecto;
+
+            IF @estudiantesActivos IS NOT NULL AND @cupoMaximo < @estudiantesActivos
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'ERR_CUPO_INFERIOR_OCUPACION',
+                    @p_param1 = @idGrupoDefecto,
+                    @p_param2 = @cupoMaximo,
+                    @p_param3 = @estudiantesActivos,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+        END
+
+        -- PASO 6: Actualización del Grupo
         IF @estadoResultado = 1
         BEGIN
             UPDATE dbo.Grupo
             SET codigo = CASE WHEN @codigo IS NOT NULL AND @codigo > 0 THEN @codigo ELSE codigo END,
                 nombre = CASE WHEN @nombreDefecto IS NOT NULL AND @nombreDefecto <> '' THEN @nombreDefecto ELSE nombre END,
-                docente = CASE WHEN @idDocenteDefecto IS NOT NULL THEN @idDocenteDefecto ELSE docente END
+                docente = CASE WHEN @idDocente IS NOT NULL THEN @idDocenteDefecto ELSE docente END,
+                cantidadEstudiantes = CASE WHEN @cupoMaximo IS NOT NULL AND @cupoMaximo > 0 THEN @cupoMaximo ELSE cantidadEstudiantes END,
+                aula = CASE WHEN @aulaDefecto IS NOT NULL THEN @aulaDefecto ELSE aula END
             WHERE id = @idGrupoDefecto;
 
             EXEC dbo.usp_obtener_mensaje_catalogo

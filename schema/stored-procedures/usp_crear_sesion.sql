@@ -22,9 +22,9 @@ AS
     DECLARE @idGrupoDefecto       UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idGrupo, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idDocenteDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idDocente, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @nombreDefecto        NVARCHAR(50)     = TRIM(@nombre);
-    DECLARE @descripcionDefecto   NVARCHAR(250)    = TRIM(@descripcion);
-    DECLARE @aulaDefecto          NVARCHAR(50)     = TRIM(@aula);
-    DECLARE @tipoDefecto          NVARCHAR(50)     = TRIM(@tipo);
+    DECLARE @descripcionDefecto   NVARCHAR(250)    = NULLIF(TRIM(@descripcion), '');
+    DECLARE @aulaDefecto          NVARCHAR(50)     = NULLIF(TRIM(@aula), '');
+    DECLARE @tipoDefecto          NVARCHAR(50)     = NULLIF(TRIM(@tipo), '');
 
     DECLARE @idNuevoSesion   UNIQUEIDENTIFIER = NEWID();
     DECLARE @numeroSiguiente INT = 1;
@@ -68,7 +68,7 @@ BEGIN
 
             INSERT INTO dbo.Sesion (
                 id, nombre, numero, codigo, numeroSemana, grupo,
-                fechaHoraInicio, fechaHoraFin
+                fechaHoraInicio, fechaHoraFin, descripcion, aula, tipo
             )
             VALUES (
                 @idNuevoSesion,
@@ -78,7 +78,10 @@ BEGIN
                 @numeroSiguiente,
                 @idGrupoDefecto,
                 CASE WHEN @fechaHoraInicio IS NOT NULL THEN @fechaHoraInicio ELSE CURRENT_TIMESTAMP END,
-                CASE WHEN @fechaHoraFin IS NOT NULL THEN @fechaHoraFin ELSE DATEADD(HOUR, 2, CURRENT_TIMESTAMP) END
+                CASE WHEN @fechaHoraFin IS NOT NULL THEN @fechaHoraFin ELSE DATEADD(HOUR, 2, CURRENT_TIMESTAMP) END,
+                @descripcionDefecto,
+                @aulaDefecto,
+                @tipoDefecto
             );
 
             EXEC dbo.usp_obtener_mensaje_catalogo

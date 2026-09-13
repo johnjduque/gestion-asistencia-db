@@ -23,9 +23,10 @@ AS
     DECLARE @idPeriodoAcademicoDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idPeriodoAcademico, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idDocenteDefecto          UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idDocente, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @nombreDefecto             NVARCHAR(50)     = TRIM(@nombre);
-    DECLARE @aulaDefecto               NVARCHAR(100)    = TRIM(@aula);
+    DECLARE @aulaDefecto               NVARCHAR(100)    = NULLIF(TRIM(@aula), '');
 
     DECLARE @idPeriodoResolved         UNIQUEIDENTIFIER = @idPeriodoAcademicoDefecto;
+    DECLARE @capacidadMaximaDefecto    INT;
 
     -- Variables locales de respuesta
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -111,7 +112,25 @@ BEGIN
             END
         END
 
-        -- PASO 6: Inserción directa de Grupo con contador cantidadEstudiantes = 0
+        -- PASO 6: Resolver capacidad máxima por defecto desde el catálogo de parámetros (GRUPO/CAPACIDAD_MAXIMA_DEFECTO)
+        IF @estadoResultado = 1
+        BEGIN
+            SET @capacidadMaximaDefecto = dbo.ufn_obtener_parametro_int(NULL, 'GRUPO', 'CAPACIDAD_MAXIMA_DEFECTO');
+
+            IF @capacidadMaximaDefecto IS NULL OR @capacidadMaximaDefecto <= 0
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'ERR_CAPACIDAD_GRUPO_INVALIDA',
+                    @p_param1 = @capacidadMaximaDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+        END
+
+        -- PASO 7: Inserción directa de Grupo con capacidad máxima proveniente del catálogo y aula normalizada
         IF @estadoResultado = 1
         BEGIN
             INSERT INTO dbo.Grupo (
@@ -119,7 +138,7 @@ BEGIN
                 cantidadEstudiantes, cantidadEstudiantesFinalizaron,
                 cantidadEstudiantesCancelaronVoluntadPropia,
                 cantidadEstudiantesCancelaronAutomaticamente,
-                docente
+                docente, aula
             )
             VALUES (
                 @idGrupoDefecto,
@@ -127,8 +146,9 @@ BEGIN
                 @idPeriodoResolved,
                 @codigo,
                 CASE WHEN @nombreDefecto IS NOT NULL AND @nombreDefecto <> '' THEN @nombreDefecto ELSE CONCAT('Grupo ', @codigo) END,
-                0, 0, 0, 0,
-                @idDocenteDefecto
+                @capacidadMaximaDefecto, 0, 0, 0,
+                @idDocenteDefecto,
+                @aulaDefecto
             );
 
             EXEC dbo.usp_obtener_mensaje_catalogo

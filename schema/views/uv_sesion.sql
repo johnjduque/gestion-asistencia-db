@@ -16,7 +16,10 @@ SELECT		id = se.id,
 			codigoGrupo = g.codigo,
 			nombreGrupo = g.nombre,
 			fechaHoraInicio = se.fechaHoraInicio,
-			fechaHoraFin = se.fechaHoraFin
+			fechaHoraFin = se.fechaHoraFin,
+			descripcion = se.descripcion,
+			aula = se.aula,
+			tipo = se.tipo
 
 FROM		Sesion se
 INNER JOIN	uv_grupo g

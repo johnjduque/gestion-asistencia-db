@@ -79,7 +79,7 @@ BEGIN
             IF @@ROWCOUNT = 0
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
-                    @p_codigo = 'GRUP_001',
+                    @p_codigo = 'ERR_GRUPO_NO_EXISTE',
                     @p_param1 = @idGrupoDefecto,
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
@@ -106,7 +106,7 @@ BEGIN
         IF @estadoResultado = 1 AND @grupoEstaHabilitado = 0
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
-                @p_codigo = 'GRUP_001',
+                @p_codigo = 'ERR_GRUPO_NO_HABILITADO',
                 @p_param1 = @idGrupoDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
@@ -118,7 +118,7 @@ BEGIN
         IF @estadoResultado = 1 AND @cuposRestantes <= 0
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
-                @p_codigo = 'GRUP_002',
+                @p_codigo = 'ERR_CUPO_SUPERADO',
                 @p_param1 = @idGrupoDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;

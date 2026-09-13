@@ -32,7 +32,10 @@ SELECT		id = g.id,
 			
 			-- ESTADO DE HABILITACI?N
 			grupoEstaHablitado = IIF(GETDATE() BETWEEN pa.fechaInicio AND pa.fechaFin, 1, 0),
-			grupoEstaHablitadoTexto = IIF(GETDATE() BETWEEN pa.fechaInicio AND pa.fechaFin, 'SI', 'NO')
+			grupoEstaHablitadoTexto = IIF(GETDATE() BETWEEN pa.fechaInicio AND pa.fechaFin, 'SI', 'NO'),
+
+			-- ESPACIO FISICO
+			aula = g.aula
 
 FROM		Grupo g
 INNER JOIN	uv_periodo_academico pa 

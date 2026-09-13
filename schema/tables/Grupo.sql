@@ -17,7 +17,8 @@ CREATE TABLE [dbo].[Grupo] (
     [cantidadEstudiantesFinalizaron] int NOT NULL,
     [cantidadEstudiantesCancelaronVoluntadPropia] int NOT NULL,
     [cantidadEstudiantesCancelaronAutomaticamente] int NOT NULL,
-    [docente] uniqueidentifier NOT NULL
+    [docente] uniqueidentifier NOT NULL,
+    [aula] nvarchar(100) NULL
 );
 
 ALTER TABLE [dbo].[Grupo] ADD CONSTRAINT [PK__Grupo__3213E83FFA8811CC] PRIMARY KEY CLUSTERED ([id]);

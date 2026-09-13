@@ -33,6 +33,11 @@ AS
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado         BIT = 1;
 
+    -- Control de ownership transaccional (ver docs/procedimiento-transacciones)
+    DECLARE @conteoTransaccionesInicial INT = 0;
+    DECLARE @transaccionPropia          BIT = 0;
+    DECLARE @savepointCreado            BIT = 0;
+
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
@@ -56,6 +61,19 @@ BEGIN
         -- PASO 3: GESTIÓN REACTIVA DE USUARIO (Consulta en uv_usuario y delegación a usp_sincronizar_usuario_interno)
         IF @estadoResultado = 1
         BEGIN
+            SET @conteoTransaccionesInicial = @@TRANCOUNT;
+
+            IF @conteoTransaccionesInicial = 0
+            BEGIN
+                BEGIN TRANSACTION;
+                SET @transaccionPropia = 1;
+            END
+            ELSE
+            BEGIN
+                SAVE TRANSACTION usp_crear_decano;
+                SET @savepointCreado = 1;
+            END
+
             SELECT TOP 1 @idUsuarioCreado = id
             FROM [dbo].[uv_usuario]
             WHERE correo = LOWER(TRIM(@correo)) OR numeroIdentificacion = CAST(@numeroIdentificacion AS VARCHAR(20));
@@ -91,8 +109,6 @@ BEGIN
         -- PASO 4: Asignación reactiva de rol Decano y adscripción a la Facultad
         IF @estadoResultado = 1
         BEGIN
-            BEGIN TRANSACTION;
-
             IF NOT EXISTS (SELECT 1 FROM dbo.Decano WHERE usuario = @idUsuarioCreado)
             BEGIN
                 INSERT INTO dbo.Decano (id, usuario)
@@ -110,8 +126,6 @@ BEGIN
                 WHERE id = @idFacultadDefecto;
             END
 
-            COMMIT TRANSACTION;
-
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'GEN_004',
                 @p_param1 = 'Decano',
@@ -121,10 +135,47 @@ BEGIN
             SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
         END
 
+        -- PASO 5: Finalización de la transacción respetando ownership (ver docs/procedimiento-transacciones)
+        IF @transaccionPropia = 1
+        BEGIN
+            IF XACT_STATE() = 1
+            BEGIN
+                IF @estadoResultado = 1
+                    COMMIT TRANSACTION;
+                ELSE
+                    ROLLBACK TRANSACTION;
+            END
+            ELSE IF XACT_STATE() = -1
+            BEGIN
+                ROLLBACK TRANSACTION;
+            END
+        END
+        ELSE IF @savepointCreado = 1
+        BEGIN
+            IF XACT_STATE() = 1 AND @estadoResultado = 0
+                ROLLBACK TRANSACTION usp_crear_decano;
+            -- XACT_STATE() = -1 con transacción externa: no es propietaria, no se toca (ver PASO 10 del contrato)
+        END
+
     END TRY
     BEGIN CATCH
-        IF @@TRANCOUNT > 0
-            ROLLBACK TRANSACTION;
+        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+
+        IF @transaccionPropia = 1
+        BEGIN
+            IF @estadoTransaccionCatch <> 0
+                ROLLBACK TRANSACTION;
+        END
+        ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
+            ROLLBACK TRANSACTION usp_crear_decano;
+        END
+
+        -- Transacción externa quedó doomed y no nos pertenece: propagar la excepción original al propietario
+        IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
+            THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',

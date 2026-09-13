@@ -146,6 +146,7 @@ erDiagram
         UUID docente FK
         NVARCHAR nombre
         INT cupoMaximo
+        NVARCHAR aula
         BIT estado
     }
 
@@ -189,6 +190,9 @@ erDiagram
         UUID grupo FK
         DATETIME fechaHoraInicio
         DATETIME fechaHoraFin
+        NVARCHAR descripcion
+        NVARCHAR aula
+        NVARCHAR tipo
         BIT estado
     }
 

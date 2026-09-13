@@ -31,6 +31,11 @@ AS
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado BIT = 1;
 
+    -- Control de ownership transaccional (ver docs/procedimiento-transacciones)
+    DECLARE @conteoTransaccionesInicial INT = 0;
+    DECLARE @transaccionPropia          BIT = 0;
+    DECLARE @savepointCreado            BIT = 0;
+
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
@@ -45,6 +50,19 @@ BEGIN
         -- PASO 2: Control y gestión del Usuario (Búsqueda por correo/documento -> Actualización si existe o Creación vía sincronización)
         IF @estadoResultado = 1
         BEGIN
+            SET @conteoTransaccionesInicial = @@TRANCOUNT;
+
+            IF @conteoTransaccionesInicial = 0
+            BEGIN
+                BEGIN TRANSACTION;
+                SET @transaccionPropia = 1;
+            END
+            ELSE
+            BEGIN
+                SAVE TRANSACTION sp_reg_doc_grupo;
+                SET @savepointCreado = 1;
+            END
+
             SELECT TOP 1
                 @idUsuarioCreado = id
             FROM [dbo].[uv_usuario]
@@ -140,7 +158,8 @@ BEGIN
                 @estadoResultado         = @estadoResultado OUTPUT;
         END
         
-        -- PASO 5: Evaluación de resultado final y generación de mensaje de éxito desde el Catálogo de Mensajes
+        -- PASO 5: Preparación del resultado de éxito antes de finalizar la transacción propia.
+        -- Después del COMMIT no debe ejecutarse lógica que pueda convertir un éxito persistido en error.
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -152,9 +171,49 @@ BEGIN
             SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
         END
 
+        -- PASO 6: Finalización de la transacción respetando ownership (ver docs/procedimiento-transacciones)
+        IF @transaccionPropia = 1
+        BEGIN
+            IF XACT_STATE() = 1
+            BEGIN
+                IF @estadoResultado = 1
+                    COMMIT TRANSACTION;
+                ELSE
+                    ROLLBACK TRANSACTION;
+            END
+            ELSE IF XACT_STATE() = -1
+            BEGIN
+                ROLLBACK TRANSACTION;
+            END
+        END
+        ELSE IF @savepointCreado = 1
+        BEGIN
+            IF XACT_STATE() = 1 AND @estadoResultado = 0
+                ROLLBACK TRANSACTION sp_reg_doc_grupo;
+            -- XACT_STATE() = -1 con transacción externa: no es propietaria, no se toca (ver PASO 10 del contrato)
+        END
+
     END TRY
     BEGIN CATCH
         -- BLOQUE CATCH: Captura centralizada de excepciones inesperadas y formateo mediante catálogo de mensajes y stack de error
+        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+
+        IF @transaccionPropia = 1
+        BEGIN
+            IF @estadoTransaccionCatch <> 0
+                ROLLBACK TRANSACTION;
+        END
+        ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
+            ROLLBACK TRANSACTION sp_reg_doc_grupo;
+        END
+
+        -- Transacción externa quedó doomed y no nos pertenece: propagar la excepción original al propietario
+        IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
+            THROW;
+        END
+
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo                = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,

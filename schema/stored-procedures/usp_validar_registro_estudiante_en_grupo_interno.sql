@@ -65,7 +65,7 @@ BEGIN
             IF EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo WHERE idGrupo = @idGrupoDefecto AND idEstudiante = @idEstudianteDefecto)
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
-                    @p_codigo = 'EST_002',
+                    @p_codigo = 'ERR_MATRICULA_DUPLICADA',
                     @p_param1 = @idEstudianteDefecto,
                     @p_param2 = @idGrupoDefecto,
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,

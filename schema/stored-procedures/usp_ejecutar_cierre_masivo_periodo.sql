@@ -139,16 +139,16 @@ BEGIN
                 NEWID(),
                 SYSDATETIMEOFFSET(),
                 CASE WHEN @idActorDefecto IS NOT NULL AND @idActorDefecto <> '' THEN @idActorDefecto ELSE 'ADMIN_SISTEMA' END,
-                'ADMIN',
+                CASE WHEN @idActorDefecto IS NOT NULL AND @idActorDefecto <> '' THEN 'USER' ELSE 'SYSTEM' END,
                 'CIERRE_MASIVO_PERIODO',
                 'PeriodoAcademico',
                 CAST(@idPeriodoTarget AS NVARCHAR(50)),
-                'EXITOSO',
+                'SUCCESS',
                 @idCorrelacionDefecto,
                 'POST',
                 '/api/v1/admin/cierre-masivo',
                 200,
-                CONCAT('Cierre masivo completado. Procesados: ', @totalEstudiantes, ', Reprobados por fallas: ', @totalReprobados)
+                CONCAT('{"procesados":', @totalEstudiantes, ',"reprobadosPorFallas":', @totalReprobados, '}')
             );
 
             COMMIT TRANSACTION;

@@ -24,6 +24,8 @@ AS
     DECLARE @idCoordinadorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCoordinador, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idProgramaDefecto    UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idPrograma, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
 
+    DECLARE @idFacultadDefecto    UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idFacultad, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+
     DECLARE @idUsuarioCreado UNIQUEIDENTIFIER;
     DECLARE @idTipoIdCC      UNIQUEIDENTIFIER;
 
@@ -31,6 +33,11 @@ AS
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado         BIT = 1;
+
+    -- Control de ownership transaccional (ver docs/procedimiento-transacciones)
+    DECLARE @conteoTransaccionesInicial INT = 0;
+    DECLARE @transaccionPropia          BIT = 0;
+    DECLARE @savepointCreado            BIT = 0;
 
 BEGIN
     SET NOCOUNT ON;
@@ -48,8 +55,44 @@ BEGIN
             IF NOT EXISTS (SELECT 1 FROM [dbo].[uv_programa] WHERE id = @idProgramaDefecto)
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
-                    @p_codigo = 'VAL_002',
+                    @p_codigo = 'PROG_001',
                     @p_param1 = 'Programa',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+        END
+
+        -- PASO 2B: Validar existencia de la facultad indicada consultando uv_facultad
+        IF @estadoResultado = 1
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM [dbo].[uv_facultad] WHERE id = @idFacultadDefecto)
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'GEN_001',
+                    @p_param1 = 'Facultad',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+        END
+
+        -- PASO 2C: Validar que el Programa pertenezca a la Facultad indicada (uv_programa.idFacultad)
+        IF @estadoResultado = 1
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM [dbo].[uv_programa]
+                WHERE id = @idProgramaDefecto AND idFacultad = @idFacultadDefecto
+            )
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'ERR_PROGRAMA_FACULTAD_INCONSISTENTE',
+                    @p_param1 = @idProgramaDefecto,
+                    @p_param2 = @idFacultadDefecto,
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
@@ -61,6 +104,19 @@ BEGIN
         -- PASO 3: GESTIÓN REACTIVA DE USUARIO (Consulta en uv_usuario y delegación a usp_sincronizar_usuario_interno)
         IF @estadoResultado = 1
         BEGIN
+            SET @conteoTransaccionesInicial = @@TRANCOUNT;
+
+            IF @conteoTransaccionesInicial = 0
+            BEGIN
+                BEGIN TRANSACTION;
+                SET @transaccionPropia = 1;
+            END
+            ELSE
+            BEGIN
+                SAVE TRANSACTION usp_crear_coordinador;
+                SET @savepointCreado = 1;
+            END
+
             SELECT TOP 1 @idUsuarioCreado = id
             FROM [dbo].[uv_usuario]
             WHERE correo = LOWER(TRIM(@correo)) OR numeroIdentificacion = @numeroIdentificacion;
@@ -96,8 +152,6 @@ BEGIN
         -- PASO 4: Asignación reactiva de rol Coordinador y adscripción al Programa
         IF @estadoResultado = 1
         BEGIN
-            BEGIN TRANSACTION;
-
             IF NOT EXISTS (SELECT 1 FROM dbo.Coordinador WHERE usuario = @idUsuarioCreado)
             BEGIN
                 INSERT INTO dbo.Coordinador (id, usuario)
@@ -112,8 +166,6 @@ BEGIN
             SET coordinador = @idCoordinadorDefecto
             WHERE id = @idProgramaDefecto;
 
-            COMMIT TRANSACTION;
-
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'GEN_004',
                 @p_param1 = 'Coordinador',
@@ -123,10 +175,47 @@ BEGIN
             SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
         END
 
+        -- PASO 5: Finalización de la transacción respetando ownership (ver docs/procedimiento-transacciones)
+        IF @transaccionPropia = 1
+        BEGIN
+            IF XACT_STATE() = 1
+            BEGIN
+                IF @estadoResultado = 1
+                    COMMIT TRANSACTION;
+                ELSE
+                    ROLLBACK TRANSACTION;
+            END
+            ELSE IF XACT_STATE() = -1
+            BEGIN
+                ROLLBACK TRANSACTION;
+            END
+        END
+        ELSE IF @savepointCreado = 1
+        BEGIN
+            IF XACT_STATE() = 1 AND @estadoResultado = 0
+                ROLLBACK TRANSACTION usp_crear_coordinador;
+            -- XACT_STATE() = -1 con transacción externa: no es propietaria, no se toca (ver PASO 10 del contrato)
+        END
+
     END TRY
     BEGIN CATCH
-        IF @@TRANCOUNT > 0
-            ROLLBACK TRANSACTION;
+        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+
+        IF @transaccionPropia = 1
+        BEGIN
+            IF @estadoTransaccionCatch <> 0
+                ROLLBACK TRANSACTION;
+        END
+        ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
+            ROLLBACK TRANSACTION usp_crear_coordinador;
+        END
+
+        -- Transacción externa quedó doomed y no nos pertenece: propagar la excepción original al propietario
+        IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
+            THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',

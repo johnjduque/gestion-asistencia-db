@@ -21,11 +21,10 @@ AS
     DECLARE @idSesionDefecto      UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idSesion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idDocenteDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idDocente, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @nombreDefecto        NVARCHAR(50)     = TRIM(@nombre);
-    DECLARE @aulaDefecto          NVARCHAR(100)    = TRIM(@aula);
-    DECLARE @descripcionDefecto   NVARCHAR(MAX)    = TRIM(@descripcion);
+    DECLARE @aulaDefecto          NVARCHAR(100)    = NULLIF(TRIM(@aula), '');
+    DECLARE @descripcionDefecto   NVARCHAR(MAX)    = NULLIF(TRIM(@descripcion), '');
 
     DECLARE @idGrupoSesion UNIQUEIDENTIFIER;
-    DECLARE @cerrada       BIT;
 
     -- Variables locales de respuesta
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -63,8 +62,9 @@ BEGIN
             END
         END
 
-        -- PASO 3: Validar pertenencia del grupo al docente titular si se envía idDocente
-        IF @estadoResultado = 1 AND @idDocenteDefecto IS NOT NULL
+        -- PASO 3: Validar pertenencia del grupo al docente titular si se envía idDocente (se usa el
+        -- parámetro crudo: @idDocenteDefecto resuelve a un GUID centinela incluso cuando no se envía)
+        IF @estadoResultado = 1 AND @idDocente IS NOT NULL
         BEGIN
             EXEC dbo.usp_validar_grupo_exista_para_docente_interno
                 @idGrupo = @idGrupoSesion,
@@ -81,7 +81,9 @@ BEGIN
             UPDATE dbo.Sesion
             SET nombre = CASE WHEN @nombreDefecto IS NOT NULL AND @nombreDefecto <> '' THEN @nombreDefecto ELSE nombre END,
                 fechaHoraInicio = CASE WHEN @fechaHoraInicio IS NOT NULL THEN @fechaHoraInicio ELSE fechaHoraInicio END,
-                fechaHoraFin = CASE WHEN @fechaHoraFin IS NOT NULL THEN @fechaHoraFin ELSE fechaHoraFin END
+                fechaHoraFin = CASE WHEN @fechaHoraFin IS NOT NULL THEN @fechaHoraFin ELSE fechaHoraFin END,
+                aula = CASE WHEN @aulaDefecto IS NOT NULL THEN @aulaDefecto ELSE aula END,
+                descripcion = CASE WHEN @descripcionDefecto IS NOT NULL THEN @descripcionDefecto ELSE descripcion END
             WHERE id = @idSesionDefecto;
 
             EXEC dbo.usp_obtener_mensaje_catalogo

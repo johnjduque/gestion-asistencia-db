@@ -15,10 +15,6 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_resolver_solicitud_matricula]
 )
 AS
     DECLARE @idCorrelacionDefecto  UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @idSolicitudDefecto    UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idSolicitud, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @idCoordinadorDefecto  UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCoordinador, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @accionDefecto         NVARCHAR(20)     = UPPER(TRIM(@accion));
-    DECLARE @respuestaDefecto      NVARCHAR(MAX)    = TRIM(@respuestaCoordinador);
 
     -- Variables locales de respuesta
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -35,32 +31,19 @@ BEGIN
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- PASO 2: Validación de disponibilidad de la tabla SolicitudMatricula en el esquema
-        IF @estadoResultado = 1
-        BEGIN
-            IF OBJECT_ID('dbo.SolicitudMatricula', 'U') IS NULL
-            BEGIN
-                EXEC dbo.usp_obtener_mensaje_catalogo
-                    @p_codigo = 'VAL_002',
-                    @p_param1 = 'SolicitudMatricula',
-                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-
-                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Tabla SolicitudMatricula no presente en esquema actual. Correlacion: ', @idCorrelacionDefecto);
-                SET @estadoResultado = 0;
-            END
-        END
-
-        -- PASO 3: Procesamiento seguro si la entidad estuviese disponible
+        -- PASO 2: Capability explícitamente no implementada en el esquema actual.
+        -- SolicitudMatricula no está modelada en schema/tables ni existe lógica de negocio
+        -- real para resolverla; se retorna siempre un error controlado en lugar de simular
+        -- un éxito ficticio (ver DOCUMENTACION_PROCEDIMIENTOS_ORQUESTADORES.md).
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
-                @p_codigo = 'GEN_004',
-                @p_param1 = 'SolicitudMatricula',
+                @p_codigo = 'ERR_SOLICITUD_MATRICULA_NO_IMPLEMENTADA',
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
             SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
         END
 
     END TRY
