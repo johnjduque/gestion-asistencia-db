@@ -11,7 +11,8 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_validar_grupo_exista_para_docente_interno]
     @idCorrelacion           UNIQUEIDENTIFIER,
     @mensajeUsuarioResultado NVARCHAR(4000) OUTPUT,
     @mensajeTecnicoResultado NVARCHAR(4000) OUTPUT,
-    @estadoResultado         BIT OUTPUT
+    @estadoResultado         BIT OUTPUT,
+    @idDocente               UNIQUEIDENTIFIER = NULL
 )
 AS
     -- 1. Estandarización e inicialización de variables utilizando funciones de catálogo (Sin ISNULL)
@@ -20,6 +21,7 @@ AS
 
     DECLARE @idPeriodo            UNIQUEIDENTIFIER;
     DECLARE @grupoEstaHabilitado  BIT;
+    DECLARE @idDocenteTitular     UNIQUEIDENTIFIER;
 
     -- Inicialización de respuesta desde parámetros del catálogo
     SELECT 
@@ -64,10 +66,11 @@ BEGIN
         -- PASO 4: Validación de existencia en la vista uv_grupo
         IF @estadoResultado = 1
         BEGIN
-            SELECT 
+            SELECT
                 @idPeriodo = idPeriodoAcademico,
-                @grupoEstaHabilitado = grupoEstaHablitado
-            FROM dbo.uv_grupo 
+                @grupoEstaHabilitado = grupoEstaHablitado,
+                @idDocenteTitular = idDocente
+            FROM dbo.uv_grupo
             WHERE id = @idGrupoDefecto;
 
             IF @@ROWCOUNT = 0
@@ -102,6 +105,20 @@ BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'GRUP_001',
                 @p_param1 = @idGrupoDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
+        -- PASO 7: Validación de titularidad del docente sobre el grupo (solo si @idDocente fue suministrado)
+        IF @estadoResultado = 1 AND @idDocente IS NOT NULL AND @idDocenteTitular <> dbo.ufn_obtener_parametro_guid(@idDocente, 'GENERAL', 'GUID_DEFECTO_CORRELACION')
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'ERR_DOCENTE_NO_TITULAR_GRUPO',
+                @p_param1 = @idDocente,
+                @p_param2 = @idGrupoDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 

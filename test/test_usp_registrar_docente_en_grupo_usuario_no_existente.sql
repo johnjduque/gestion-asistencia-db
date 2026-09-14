@@ -1,285 +1,104 @@
 USE [gestionasistenciadb];
 GO
+SET NOCOUNT ON;
+SET XACT_ABORT OFF;
+
+DECLARE @tipoId UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_tipo_identificacion WHERE tipoIdentificacion = 'CC');
+DECLARE @grupo UNIQUEIDENTIFIER, @originalTeacher UNIQUEIDENTIFIER;
+SELECT TOP 1 @grupo = id, @originalTeacher = idDocente
+FROM dbo.uv_grupo WHERE grupoEstaHablitado = 1 ORDER BY cuposDisponibles DESC;
+IF @tipoId IS NULL OR @grupo IS NULL OR @originalTeacher IS NULL
+    THROW 51610, 'TEST FAILED: TEACHER_SUCCESS fixture missing.', 1;
+
+DECLARE @correo NVARCHAR(255) = CONCAT(N'qa.teacher.', REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), N'@test.local');
+DECLARE @numero INT = 1500000000 + ABS(CHECKSUM(NEWID()) % 400000000);
+DECLARE @corr UNIQUEIDENTIFIER = NEWID();
+DECLARE @usuario UNIQUEIDENTIFIER, @teacher UNIQUEIDENTIFIER;
+CREATE TABLE #teacherResult (
+    idCorrelacion UNIQUEIDENTIFIER NULL,
+    mensajeUsuarioResultado NVARCHAR(MAX) NULL,
+    mensajeTecnicoResultado NVARCHAR(MAX) NULL,
+    estadoResultado INT NOT NULL
+);
+
+BEGIN TRY
+    INSERT INTO #teacherResult
+    EXEC dbo.usp_registrar_docente_en_grupo_usuario_no_existente
+        @idTipoIdIdentificacion = @tipoId, @numeroIdentificacion = @numero,
+        @primerApellido = N'Quality', @segundoApellido = N'Gate',
+        @primerNombre = N'Docente', @segundoNombre = N'Success',
+        @correo = @correo, @password = N'HashBackend_QaTeacher1234567890',
+        @idGrupo = @grupo, @idCorrelacion = @corr;
+
+    DECLARE @expectedUser NVARCHAR(4000), @expectedTech NVARCHAR(4000);
+    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_004', @p_param1 = 'DocenteGrupo',
+        @mensajeUsuarioResultado = @expectedUser OUTPUT, @mensajeTecnicoResultado = @expectedTech OUTPUT;
+    IF (SELECT COUNT(*) FROM #teacherResult WHERE idCorrelacion = @corr AND estadoResultado = 1
+        AND mensajeUsuarioResultado = @expectedUser
+        AND mensajeTecnicoResultado = CONCAT(@expectedTech, ' Correlacion: ', @corr)) <> 1
+        THROW 51611, 'TEST FAILED: TEACHER_SUCCESS wrong canonical result.', 1;
+
+    SELECT @usuario = id FROM dbo.Usuario WHERE correo = @correo;
+    SELECT @teacher = id FROM dbo.Docente WHERE usuario = @usuario;
+    IF @usuario IS NULL OR @teacher IS NULL
+        THROW 51612, 'TEST FAILED: TEACHER_SUCCESS did not persist Usuario/Docente.', 1;
+    IF NOT EXISTS (SELECT 1 FROM dbo.uv_grupo WHERE id = @grupo AND idDocente = @teacher)
+        THROW 51613, 'TEST FAILED: TEACHER_SUCCESS did not assign Docente to Grupo.', 1;
+
+    UPDATE dbo.Grupo SET docente = @originalTeacher WHERE id = @grupo AND docente = @teacher;
+    DELETE FROM dbo.Docente WHERE id = @teacher AND usuario = @usuario;
+    DELETE FROM dbo.Usuario WHERE id = @usuario AND correo = @correo;
+    IF EXISTS (SELECT 1 FROM dbo.Usuario WHERE id = @usuario)
+        THROW 51614, 'TEST FAILED: TEACHER_SUCCESS cleanup leaked Usuario.', 1;
+END TRY
+BEGIN CATCH
+    IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+    IF @usuario IS NULL SELECT @usuario = id FROM dbo.Usuario WHERE correo = @correo;
+    IF @teacher IS NULL SELECT @teacher = id FROM dbo.Docente WHERE usuario = @usuario;
+    IF @teacher IS NOT NULL BEGIN
+        UPDATE dbo.Grupo SET docente = @originalTeacher WHERE id = @grupo AND docente = @teacher;
+        DELETE FROM dbo.Docente WHERE id = @teacher AND usuario = @usuario;
+    END
+    IF @usuario IS NOT NULL DELETE FROM dbo.Usuario WHERE id = @usuario AND correo = @correo;
+    THROW;
+END CATCH;
+PRINT 'TEST_PASS:TEACHER_SUCCESS';
+GO
 
 SET NOCOUNT ON;
-
-PRINT '======================================================================';
-PRINT '  SUITE DE PRUEBAS COMPLETAS: usp_registrar_docente_en_grupo_usuario_no_existente';
-PRINT '======================================================================';
-
--- Obtener datos validos preexistentes para pruebas
-DECLARE @tipoIdIdentificacion UNIQUEIDENTIFIER;
-SELECT TOP 1 @tipoIdIdentificacion = id FROM [dbo].[TipoIdentificacion];
-
-DECLARE @idGrupoValido UNIQUEIDENTIFIER;
-SELECT TOP 1 @idGrupoValido = id FROM [dbo].[Grupo];
-
-DECLARE @idPeriodoValido UNIQUEIDENTIFIER;
-SELECT @idPeriodoValido = periodoAcademico FROM [dbo].[Grupo] WHERE id = @idGrupoValido;
-
-IF @tipoIdIdentificacion IS NULL OR @idGrupoValido IS NULL OR @idPeriodoValido IS NULL
-BEGIN
-    PRINT 'ERROR CRITICO: No se encontraron registros base en TipoIdentificacion, Grupo o PeriodoAcademico. Deteniendo pruebas.';
-    RETURN;
-END
-
-----------------------------------------------------------------------
--- CAMINO 1: Validacion de ID Correlacion Ausente/Vacio
-----------------------------------------------------------------------
-PRINT '';
-PRINT '--- [CAMINO 1]: IdCorrelacion Ausente / Vacio (00000000-0000-0000-0000-000000000000) ---';
-BEGIN
-    DECLARE @mensajeUsuarioC1 NVARCHAR(4000);
-    DECLARE @mensajeTecnicoC1 NVARCHAR(4000);
-    DECLARE @estadoC1 BIT;
-
-    EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @idTipoIdIdentificacion = @tipoIdIdentificacion,
-        @numeroIdentificacion = 200000001,
-        @primerApellido = 'Perez',
-        @segundoApellido = 'Gomez',
-        @primerNombre = 'Juan',
-        @segundoNombre = 'Carlos',
-        @correo = 'juan.docente.c1@test.com',
-        @password = 'HashBackend_Dump_AbCdEf1234567890',
-        @idGrupo = @idGrupoValido,
-        @idCorrelacion = '00000000-0000-0000-0000-000000000000'; -- Invalido
-
-    -- Nota: Al llamarse desde SSMS o script de prueba, el orquestador retorna un Result Set.
-END;
-
-----------------------------------------------------------------------
--- CAMINO 2: Happy Path (Usuario Nuevo + Docente Nuevo + Registro Exitoso)
-----------------------------------------------------------------------
-PRINT '';
-PRINT '--- [CAMINO 2]: Happy Path (Usuario Nuevo -> Docente Nuevo -> Asignacion Exitosa) ---';
-BEGIN TRANSACTION;
-BEGIN
-    -- Forzar vigencia del periodo academico para pasar la validacion
-    UPDATE dbo.PeriodoAcademico 
-    SET fechaInicio = DATEADD(month, -1, GETDATE()), 
-        fechaFin = DATEADD(month, 3, GETDATE()) 
-    WHERE id = @idPeriodoValido;
-
-    DECLARE @idCorrelacionC2 UNIQUEIDENTIFIER = NEWID();
-    DECLARE @correoC2 NVARCHAR(255) = 'docente.happy.c2@test.com';
-    DECLARE @numeroIdC2 INT = 200000002;
-
-    -- Ejecutar
-    EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @idTipoIdIdentificacion = @tipoIdIdentificacion,
-        @numeroIdentificacion = @numeroIdC2,
-        @primerApellido = 'Sanchez',
-        @segundoApellido = 'Mendoza',
-        @primerNombre = 'Luis',
-        @segundoNombre = 'Alberto',
-        @correo = @correoC2,
-        @password = 'HashBackend_Dump_AbCdEf1234567890',
-        @idGrupo = @idGrupoValido,
-        @idCorrelacion = @idCorrelacionC2;
-
-    -- Verificacion de Insercion
-    IF EXISTS (
-        SELECT 1 FROM dbo.Usuario u
-        INNER JOIN dbo.Docente d ON u.id = d.usuario
-        INNER JOIN dbo.Grupo g ON d.id = g.docente
-        WHERE u.correo = @correoC2 AND g.id = @idGrupoValido
-    )
-        PRINT '>> RESULTADO: PASO (Docente creado y asignado al grupo exitosamente)';
-    ELSE
-        PRINT '>> RESULTADO: FALLO (No se encontro la asociacion completa)';
-END;
-ROLLBACK TRANSACTION;
-
-----------------------------------------------------------------------
--- CAMINO 3: Usuario Preexistente (Sin Perfil Docente) -> Actualiza y Asigna
-----------------------------------------------------------------------
-PRINT '';
-PRINT '--- [CAMINO 3]: Usuario Preexistente -> Actualiza Nombres, Crea Perfil y Asigna ---';
-BEGIN TRANSACTION;
-BEGIN
-    -- Forzar vigencia del periodo academico para pasar la validacion
-    UPDATE dbo.PeriodoAcademico 
-    SET fechaInicio = DATEADD(month, -1, GETDATE()), 
-        fechaFin = DATEADD(month, 3, GETDATE()) 
-    WHERE id = @idPeriodoValido;
-
-    DECLARE @idCorrelacionC3 UNIQUEIDENTIFIER = NEWID();
-    DECLARE @correoC3 NVARCHAR(255) = 'usuario.preexistente.c3@test.com';
-    DECLARE @numeroIdC3 INT = 200000003;
-    DECLARE @idUsuarioC3 UNIQUEIDENTIFIER = NEWID();
-
-    -- Crear usuario base sin perfil de docente
-    INSERT INTO [dbo].[Usuario] (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@idUsuarioC3, @tipoIdIdentificacion, @numeroIdC3, 'AntiguoAp', '', 'AntiguoNom', '', @correoC3, 0, 1, 'ClaveVieja123*');
-
-    -- Ejecutar orquestador con datos actualizados
-    EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @idTipoIdIdentificacion = @tipoIdIdentificacion,
-        @numeroIdentificacion = @numeroIdC3,
-        @primerApellido = 'NuevoAp',
-        @segundoApellido = 'Actualizado',
-        @primerNombre = 'NuevoNom',
-        @segundoNombre = '',
-        @correo = @correoC3,
-        @password = 'HashBackend_Dump_AbCdEf1234567890',
-        @idGrupo = @idGrupoValido,
-        @idCorrelacion = @idCorrelacionC3;
-
-    -- Verificacion
-    IF EXISTS (
-        SELECT 1 FROM dbo.Usuario u
-        INNER JOIN dbo.Docente d ON u.id = d.usuario
-        INNER JOIN dbo.Grupo g ON d.id = g.docente
-        WHERE u.correo = @correoC3 
-          AND u.primerNombre = 'NUEVONOM' 
-          AND u.primerApellido = 'NUEVOAP'
-          AND g.id = @idGrupoValido
-    )
-        PRINT '>> RESULTADO: PASO (Usuario preexistente actualizado, perfil docente creado y asignado)';
-    ELSE
-        PRINT '>> RESULTADO: FALLO (La actualizacion o asignacion no se realizo correctamente)';
-END;
-ROLLBACK TRANSACTION;
-
-----------------------------------------------------------------------
--- CAMINO 4: Fallo por Sincronizacion de Usuario (Campos Obligatorios NULL)
-----------------------------------------------------------------------
-PRINT '';
-PRINT '--- [CAMINO 4]: Fallo en Sincronizar Usuario (Campos Nulos / Invalidos) ---';
-BEGIN TRANSACTION;
-BEGIN
-    DECLARE @idCorrelacionC4 UNIQUEIDENTIFIER = NEWID();
-
-    EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @idTipoIdIdentificacion = @tipoIdIdentificacion,
-        @numeroIdentificacion = NULL, -- Causara error de formato / ufn_validar_numero
-        @primerApellido = NULL,
-        @segundoApellido = NULL,
-        @primerNombre = NULL,
-        @segundoNombre = NULL,
-        @correo = NULL,
-        @password = NULL,
-        @idGrupo = @idGrupoValido,
-        @idCorrelacion = @idCorrelacionC4;
-END;
-ROLLBACK TRANSACTION;
-
-----------------------------------------------------------------------
--- CAMINO 5: Fallo por Cruce de Horario del Docente
-----------------------------------------------------------------------
-PRINT '';
-PRINT '--- [CAMINO 5]: Fallo por Cruce de Horario (Docente con clases coincidentes) ---';
-BEGIN TRANSACTION;
-BEGIN
-    -- Forzar vigencia del periodo academico para pasar la validacion
-    UPDATE dbo.PeriodoAcademico 
-    SET fechaInicio = DATEADD(month, -1, GETDATE()), 
-        fechaFin = DATEADD(month, 3, GETDATE()) 
-    WHERE id = @idPeriodoValido;
-
-    DECLARE @idCorrelacionC5 UNIQUEIDENTIFIER = NEWID();
-    DECLARE @correoC5 NVARCHAR(255) = 'docente.cruce.c5@test.com';
-    DECLARE @numeroIdC5 INT = 200000005;
-
-    -- Obtener periodo academico del grupo valido
-    DECLARE @idPeriodo UNIQUEIDENTIFIER;
-    SELECT @idPeriodo = periodoAcademico FROM dbo.Grupo WHERE id = @idGrupoValido;
-
-    -- Crear un segundo grupo de prueba en el mismo periodo
-    DECLARE @idGrupo2 UNIQUEIDENTIFIER = NEWID();
-    DECLARE @idAsignatura UNIQUEIDENTIFIER;
-    SELECT TOP 1 @idAsignatura = id FROM dbo.Asignatura;
-    DECLARE @idDocenteValido UNIQUEIDENTIFIER;
-    SELECT TOP 1 @idDocenteValido = id FROM dbo.Docente;
-    IF @idDocenteValido IS NULL SET @idDocenteValido = '00000000-0000-0000-0000-000000000000';
-
-    INSERT INTO dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron, cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)
-    VALUES (@idGrupo2, @idAsignatura, @idPeriodo, 99991, 'Grupo Test Cruce 2', 30, 0, 0, 0, @idDocenteValido);
-
-    -- Crear un dia comun para los horarios
-    DECLARE @idDia UNIQUEIDENTIFIER;
-    SELECT TOP 1 @idDia = id FROM dbo.Dia;
-
-    -- Agregar horarios cruzados
-    -- Grupo 1 (Grupo Valido): 08:00 a 10:00
-    INSERT INTO dbo.Horario (id, grupo, dia, horaInicio, horaFin)
-    VALUES (NEWID(), @idGrupoValido, @idDia, '08:00:00', '10:00:00');
-
-    -- Grupo 2: 09:00 a 11:00 (Traslape de 9:00 a 10:00)
-    INSERT INTO dbo.Horario (id, grupo, dia, horaInicio, horaFin)
-    VALUES (NEWID(), @idGrupo2, @idDia, '09:00:00', '11:00:00');
-
-    -- Asignar docente al Grupo 1 exitosamente
-    EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @idTipoIdIdentificacion = @tipoIdIdentificacion,
-        @numeroIdentificacion = @numeroIdC5,
-        @primerApellido = 'Cruce',
-        @segundoApellido = 'Docente',
-        @primerNombre = 'Profesor',
-        @segundoNombre = '',
-        @correo = @correoC5,
-        @password = 'HashBackend_Dump_AbCdEf1234567890',
-        @idGrupo = @idGrupoValido,
-        @idCorrelacion = @idCorrelacionC5;
-
-    -- Intentar asignar el mismo docente al Grupo 2 (Deberia fallar por cruce)
-    EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @idTipoIdIdentificacion = @tipoIdIdentificacion,
-        @numeroIdentificacion = @numeroIdC5,
-        @primerApellido = 'Cruce',
-        @segundoApellido = 'Docente',
-        @primerNombre = 'Profesor',
-        @segundoNombre = '',
-        @correo = @correoC5,
-        @password = 'HashBackend_Dump_AbCdEf1234567890',
-        @idGrupo = @idGrupo2,
-        @idCorrelacion = @idCorrelacionC5;
-END;
-ROLLBACK TRANSACTION;
-
-----------------------------------------------------------------------
--- CAMINO 6: Fallo por Grupo Inexistente
-----------------------------------------------------------------------
-PRINT '';
-PRINT '--- [CAMINO 6]: Fallo por Grupo Inexistente (Grupo ID no registrado) ---';
-BEGIN TRANSACTION;
-BEGIN
-    DECLARE @idCorrelacionC6 UNIQUEIDENTIFIER = NEWID();
-    DECLARE @idGrupoInexistente UNIQUEIDENTIFIER = NEWID();
-
-    EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @idTipoIdIdentificacion = @tipoIdIdentificacion,
-        @numeroIdentificacion = 200000006,
-        @primerApellido = 'Rojas',
-        @segundoApellido = '',
-        @primerNombre = 'Laura',
-        @segundoNombre = '',
-        @correo = 'laura.rojas.c6@test.com',
-        @password = 'HashBackend_Dump_AbCdEf1234567890',
-        @idGrupo = @idGrupoInexistente,
-        @idCorrelacion = @idCorrelacionC6;
-END;
-ROLLBACK TRANSACTION;
-
-----------------------------------------------------------------------
--- CAMINO 7: Captura de Excepcion en Bloque CATCH (Error Critico)
-----------------------------------------------------------------------
-PRINT '';
-PRINT '--- [CAMINO 7]: Captura de error en CATCH (idGrupo = NULL) ---';
-BEGIN
-    DECLARE @idCorrelacionC7 UNIQUEIDENTIFIER = NEWID();
-
-    EXEC [dbo].[usp_registrar_docente_en_grupo_usuario_no_existente]
-        @idTipoIdIdentificacion = @tipoIdIdentificacion,
-        @numeroIdentificacion = 200000007,
-        @primerApellido = 'Excepcion',
-        @segundoApellido = '',
-        @primerNombre = 'Test',
-        @segundoNombre = '',
-        @correo = 'test.catch.c7@test.com',
-        @password = 'HashBackend_Dump_AbCdEf1234567890',
-        @idGrupo = NULL, -- Causara error en la insercion/validacion interna al no admitir nulo
-        @idCorrelacion = @idCorrelacionC7;
-END;
+SET XACT_ABORT OFF;
+DECLARE @tipoId UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_tipo_identificacion WHERE tipoIdentificacion = 'CC');
+DECLARE @missingGroup UNIQUEIDENTIFIER = NEWID(), @corr UNIQUEIDENTIFIER = NEWID();
+DECLARE @correo NVARCHAR(255) = CONCAT(N'qa.teacher.missing.', REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), N'@test.local');
+DECLARE @numero INT = 1500000000 + ABS(CHECKSUM(NEWID()) % 400000000);
+DECLARE @userMsg NVARCHAR(4000), @techMsg NVARCHAR(4000);
+DECLARE @usersBefore INT = (SELECT COUNT(*) FROM dbo.Usuario);
+DECLARE @teachersBefore INT = (SELECT COUNT(*) FROM dbo.Docente);
+DECLARE @groupsBefore INT = (SELECT COUNT(*) FROM dbo.Grupo);
+EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GRUP_001',
+    @p_param1 = @missingGroup, @mensajeUsuarioResultado = @userMsg OUTPUT,
+    @mensajeTecnicoResultado = @techMsg OUTPUT;
+PRINT CONCAT('TEST_EXPECTED_USER:TEACHER_GROUP_NOT_FOUND|', @userMsg);
+PRINT CONCAT('TEST_EXPECTED_TECH:TEACHER_GROUP_NOT_FOUND|', @techMsg, ' Correlacion: ', @corr);
+PRINT 'TEST_RESULT_BEGIN:TEACHER_GROUP_NOT_FOUND';
+EXEC dbo.usp_registrar_docente_en_grupo_usuario_no_existente
+    @idTipoIdIdentificacion = @tipoId, @numeroIdentificacion = @numero,
+    @primerApellido = N'Quality', @segundoApellido = N'Gate',
+    @primerNombre = N'Docente', @segundoNombre = N'Missing',
+    @correo = @correo, @password = N'HashBackend_QaTeacher1234567890',
+    @idGrupo = @missingGroup, @idCorrelacion = @corr;
+PRINT 'TEST_RESULT_END:TEACHER_GROUP_NOT_FOUND';
+IF EXISTS (SELECT 1 FROM dbo.Usuario WHERE correo = @correo)
+    THROW 51615, 'TEST FAILED: TEACHER_GROUP_NOT_FOUND left partial Usuario.', 1;
+IF EXISTS (SELECT 1 FROM dbo.Docente d JOIN dbo.Usuario u ON u.id = d.usuario WHERE u.numeroIdentificacion = @numero)
+    THROW 51616, 'TEST FAILED: TEACHER_GROUP_NOT_FOUND left partial Docente.', 1;
+IF EXISTS (SELECT 1 FROM dbo.Grupo WHERE id = @missingGroup)
+    THROW 51617, 'TEST FAILED: TEACHER_GROUP_NOT_FOUND changed a group.', 1;
+IF @usersBefore <> (SELECT COUNT(*) FROM dbo.Usuario) OR
+   @teachersBefore <> (SELECT COUNT(*) FROM dbo.Docente) OR
+   @groupsBefore <> (SELECT COUNT(*) FROM dbo.Grupo)
+    THROW 51619, 'TEST FAILED: TEACHER_GROUP_NOT_FOUND changed related row counts.', 1;
+PRINT 'TEST_STATE_PASS:TEACHER_GROUP_NOT_FOUND';
+IF @@TRANCOUNT <> 0 THROW 51618, 'TEST FAILED: teacher tests left transaction open.', 1;
+PRINT 'TEST END: test_usp_registrar_docente_en_grupo_usuario_no_existente';
 GO

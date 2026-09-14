@@ -5,10 +5,9 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
-CREATE OR ALTER PROCEDURE [dbo].[usp_validar_registro_estudiante_en_grupo_interno]
+CREATE OR ALTER PROCEDURE [dbo].[usp_validar_cupo_disponible_grupo_interno]
 (
     @idGrupo                 UNIQUEIDENTIFIER,
-    @idEstudiante            UNIQUEIDENTIFIER,
     @idCorrelacion           UNIQUEIDENTIFIER,
     @mensajeUsuarioResultado NVARCHAR(4000) OUTPUT,
     @mensajeTecnicoResultado NVARCHAR(4000) OUTPUT,
@@ -18,7 +17,8 @@ AS
     -- 1. Estandarización e inicialización de variables utilizando funciones de catálogo (Sin ISNULL)
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idGrupoDefecto       UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idGrupo, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @idEstudianteDefecto  UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idEstudiante, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @cantidadEstudiantes  INT = 0;
+    DECLARE @cupoMaximo           INT = 0;
 
     -- Inicialización de respuesta desde parámetros del catálogo
     SELECT 
@@ -37,37 +37,31 @@ BEGIN
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- PASO 2: Validación previa de existencia del estudiante
-        IF @estadoResultado = 1 
-        BEGIN
-            EXEC dbo.usp_validar_estudiante_exista_por_id_interno 
-                @idEstudiante = @idEstudianteDefecto, 
-                @idCorrelacion = @idCorrelacionDefecto, 
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
-                @estadoResultado = @estadoResultado OUTPUT;
-        END
-
-        -- PASO 3: Validación previa de existencia del grupo
-        IF @estadoResultado = 1 
-        BEGIN
-            EXEC dbo.usp_validar_grupo_exista_por_id_interno 
-                @idGrupo = @idGrupoDefecto, 
-                @idCorrelacion = @idCorrelacionDefecto, 
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
-                @estadoResultado = @estadoResultado OUTPUT;
-        END
-
-        -- PASO 4: Validación de duplicidad en la vinculación previa Estudiante-Grupo
+        -- PASO 2: Validación de existencia del grupo
         IF @estadoResultado = 1
         BEGIN
-            IF EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo WHERE idGrupo = @idGrupoDefecto AND idEstudiante = @idEstudianteDefecto)
+            EXEC dbo.usp_validar_grupo_exista_por_id_interno
+                @idGrupo = @idGrupoDefecto,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
+
+        -- PASO 3: Validación de cupo límite frente a estudiantes inscritos
+        IF @estadoResultado = 1
+        BEGIN
+            SELECT TOP 1 
+                @cantidadEstudiantes = estudiantesActivos,
+                @cupoMaximo = capacidadMaximaPermitida
+            FROM dbo.uv_grupo
+            WHERE id = @idGrupoDefecto;
+
+            IF @cantidadEstudiantes >= @cupoMaximo AND @cupoMaximo > 0
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
-                    @p_codigo = 'ERR_MATRICULA_DUPLICADA',
-                    @p_param1 = @idEstudianteDefecto,
-                    @p_param2 = @idGrupoDefecto,
+                    @p_codigo = 'VAL_003',
+                    @p_param1 = 'Cupo Maximo Grupo Excedido',
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 

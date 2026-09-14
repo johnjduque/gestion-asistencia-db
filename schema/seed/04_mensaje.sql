@@ -45,14 +45,18 @@ USING (VALUES
 
     ('DOC_001', 'BUSINESS_ERROR', 'MEDIO', 'El docente especificado no existe o se encuentra inactivo.'),
     ('ERR_DOCENTE_NO_EXISTE', 'BUSINESS_ERROR', 'MEDIO', 'El docente especificado no existe o esta inactivo.'),
+    ('ERR_DOCENTE_NO_TITULAR_GRUPO', 'BUSINESS_ERROR', 'ALTO', 'El docente indicado no es el titular del grupo seleccionado.'),
 
     ('PROG_001', 'BUSINESS_ERROR', 'ALTO', 'El programa académico especificado no existe en el sistema.'),
     ('ERR_PROGRAMA_GRUPO_NO_ENCONTRADO', 'BUSINESS_ERROR', 'ALTO', 'No se encontro un programa academico asociado a este grupo.'),
 
     ('GRUP_001', 'BUSINESS_ERROR', 'MEDIO', 'El grupo seleccionado no existe o no se encuentra habilitado.'),
     ('ERR_GRUPO_NO_EXISTE', 'BUSINESS_ERROR', 'MEDIO', 'El grupo seleccionado no existe o no esta habilitado.'),
+    ('ERR_GRUPO_NO_HABILITADO', 'BUSINESS_ERROR', 'MEDIO', 'El grupo seleccionado no se encuentra habilitado para matricula.'),
     ('GRUP_002', 'BUSINESS_ERROR', 'ALTO', 'El grupo ha alcanzado o superado la capacidad máxima de estudiantes permitida.'),
     ('ERR_CUPO_SUPERADO', 'BUSINESS_ERROR', 'ALTO', 'El grupo ha superado la capacidad maxima de estudiantes permitida.'),
+    ('ERR_CAPACIDAD_GRUPO_INVALIDA', 'SYSTEM_ERROR', 'CRITICO', 'No fue posible determinar una capacidad máxima válida para el grupo.'),
+    ('ERR_CUPO_INFERIOR_OCUPACION', 'BUSINESS_ERROR', 'ALTO', 'La capacidad del grupo no puede ser menor al número actual de estudiantes activos.'),
     ('GRUP_003', 'BUSINESS_ERROR', 'ALTO', 'No se encontró un programa académico asociado a este grupo.'),
 
     ('HOR_001', 'BUSINESS_ERROR', 'ALTO', 'No es posible realizar el registro. Existe un cruce de horario con otra asignatura.'),
@@ -66,6 +70,10 @@ USING (VALUES
     ('ERR_TOKEN_VERIFICACION_INVALIDO', 'BUSINESS_ERROR', 'MEDIO', 'El codigo de verificacion de asistencia es incorrecto o ha expirado.'),
 
     ('INST_001', 'BUSINESS_ERROR', 'CRITICO', 'El estudiante, programa y facultad deben pertenecer a la misma institución.'),
+    ('ERR_PROGRAMA_FACULTAD_INCONSISTENTE', 'BUSINESS_ERROR', 'CRITICO', 'El programa académico indicado no pertenece a la facultad especificada.'),
+
+    -- Capacidades no implementadas
+    ('ERR_SOLICITUD_MATRICULA_NO_IMPLEMENTADA', 'BUSINESS_ERROR', 'MEDIO', 'La gestión de solicitudes de matrícula aún no se encuentra disponible.'),
 
     -- Errores de Sistema
     ('SYS_001', 'SYSTEM_ERROR', 'CRITICO', 'Ocurrió un error inesperado al procesar la solicitud.'),
@@ -131,14 +139,18 @@ USING (VALUES
 
     ('DOC_001', 'BUSINESS_ERROR', 'MEDIO', 'Error de búsqueda: Docente no encontrado o deshabilitado en uv_docente: {}.'),
     ('ERR_DOCENTE_NO_EXISTE', 'BUSINESS_ERROR', 'MEDIO', 'Error: No se encontro el ID de Docente especificado: {}.'),
+    ('ERR_DOCENTE_NO_TITULAR_GRUPO', 'BUSINESS_ERROR', 'ALTO', 'Docente {} no es titular del Grupo {} (uv_grupo.idDocente).'),
 
     ('PROG_001', 'BUSINESS_ERROR', 'ALTO', 'Error de búsqueda: No se encontró el programa en uv_programa: {}.'),
     ('ERR_PROGRAMA_GRUPO_NO_ENCONTRADO', 'BUSINESS_ERROR', 'ALTO', 'Error: Trazabilidad rota para Grupo ID {}.'),
 
     ('GRUP_001', 'BUSINESS_ERROR', 'MEDIO', 'Error de búsqueda: Grupo inexistente o deshabilitado en uv_grupo: {}.'),
     ('ERR_GRUPO_NO_EXISTE', 'BUSINESS_ERROR', 'MEDIO', 'Error: No existe un grupo habilitado con el identificador: {}.'),
+    ('ERR_GRUPO_NO_HABILITADO', 'BUSINESS_ERROR', 'MEDIO', 'Grupo existente, pero fuera de ventana habilitada para matricula: {}.'),
     ('GRUP_002', 'BUSINESS_ERROR', 'ALTO', 'Límite alcanzado: Capacidad máxima superada para el grupo seleccionado: {}.'),
     ('ERR_CUPO_SUPERADO', 'BUSINESS_ERROR', 'ALTO', 'Cupo lleno. Maximo de estudiantes alcanzado para Grupo: {}.'),
+    ('ERR_CAPACIDAD_GRUPO_INVALIDA', 'SYSTEM_ERROR', 'CRITICO', 'El parametro GRUPO/CAPACIDAD_MAXIMA_DEFECTO es nulo, cero o negativo: {}.'),
+    ('ERR_CUPO_INFERIOR_OCUPACION', 'BUSINESS_ERROR', 'ALTO', 'Grupo {}: capacidad solicitada {} es menor a los estudiantes activos {}.'),
     ('GRUP_003', 'BUSINESS_ERROR', 'ALTO', 'Inconsistencia de trazabilidad: Grupo {} sin programa académico vinculado.'),
 
     ('HOR_001', 'BUSINESS_ERROR', 'ALTO', 'Colisión horaria: Se detectó una superposición de horario para el estudiante en la misma franja: {}.'),
@@ -152,6 +164,10 @@ USING (VALUES
     ('ERR_TOKEN_VERIFICACION_INVALIDO', 'BUSINESS_ERROR', 'MEDIO', 'Fallo: Codigo de verificacion incorrecto o expirado para Sesion: {}.'),
 
     ('INST_001', 'BUSINESS_ERROR', 'CRITICO', 'Inconsistencia institucional: Los identificadores de institución no coinciden entre la facultad, programa y estudiante: {}.'),
+    ('ERR_PROGRAMA_FACULTAD_INCONSISTENTE', 'BUSINESS_ERROR', 'CRITICO', 'Programa {} no pertenece a la Facultad {} indicada en uv_programa.idFacultad.'),
+
+    -- Capacidades no implementadas
+    ('ERR_SOLICITUD_MATRICULA_NO_IMPLEMENTADA', 'BUSINESS_ERROR', 'MEDIO', 'Capability SolicitudMatricula is not implemented in the current schema.'),
 
     -- Errores de Sistema
     ('SYS_001', 'SYSTEM_ERROR', 'CRITICO', 'Excepción de sistema no controlada capturada en bloque CATCH: {}.'),

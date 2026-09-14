@@ -5,7 +5,7 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
-CREATE OR ALTER  VIEW [dbo].[uv_sesion]
+CREATE OR ALTER VIEW [dbo].[uv_sesion]
 AS
 SELECT		id = se.id,
 			nombre = se.nombre,

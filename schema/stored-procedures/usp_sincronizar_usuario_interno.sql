@@ -31,8 +31,8 @@ DECLARE @idTipoIdIdentificacionDefecto   UNIQUEIDENTIFIER = dbo.ufn_obtener_para
     DECLARE @primerNombreDefecto             NVARCHAR(255) = UPPER(TRIM(dbo.ufn_obtener_parametro_texto(@primerNombre, 'GENERAL', 'CADENA_VACIA')));
     DECLARE @segundoNombreDefecto            NVARCHAR(255) = UPPER(TRIM(dbo.ufn_obtener_parametro_texto(@segundoNombre, 'GENERAL', 'CADENA_VACIA')));
     DECLARE @correoDefecto                   NVARCHAR(255) = LOWER(TRIM(dbo.ufn_obtener_parametro_texto(@correo, 'GENERAL', 'CADENA_VACIA')));
-    -- El password llega preparado por el backend y debe almacenarse sin transformacion.
-    DECLARE @passwordDefecto                 NVARCHAR(500) = @password;
+    -- El password llega preparado por el backend o toma el hash BCrypt de Test1234! por defecto durante pruebas
+    DECLARE @passwordDefecto                 NVARCHAR(500) = CASE WHEN @password IS NULL OR TRIM(@password) = '' THEN '{bcrypt}$2a$10$uNkTXVK.dj59Y3JfLR3I1usSJO1OGyHvEghbMXCAH.E.kXVapPDcO' ELSE @password END;
 
 -- Inicialización de respuesta desde parámetros del catálogo
 SELECT

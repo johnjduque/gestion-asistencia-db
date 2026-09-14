@@ -99,14 +99,14 @@ Esta documentación especifica la arquitectura, reglas de negocio, contrato de f
 ---
 
 ### 4. `dbo.usp_registrar_o_actualizar_grupo`
-- **Propósito**: Administra los grupos de cursos de asignaturas por período académico (UPSERT).
+- **Propósito**: Administra los grupos de cursos de asignaturas por período académico (UPSERT legacy). Para consumidores externos nuevos, los contratos públicos vigentes son `dbo.usp_crear_grupo` y `dbo.usp_actualizar_grupo`, donde `@codigo` es `INT`.
 - **Parámetros de Entrada**:
   - `@idGrupo UNIQUEIDENTIFIER`
   - `@idAsignatura UNIQUEIDENTIFIER`
   - `@idPeriodoAcademico UNIQUEIDENTIFIER`
   - `@idDocente UNIQUEIDENTIFIER`
   - `@nombre NVARCHAR(50)`
-  - `@codigo NVARCHAR(50)`
+  - `@codigo NVARCHAR(50)` en este orquestador legacy; se normaliza internamente a `INT` para `dbo.Grupo.codigo`. En `dbo.usp_crear_grupo` y `dbo.usp_actualizar_grupo`, `@codigo` es `INT`.
   - `@cupo INT`
   - `@idCorrelacion UNIQUEIDENTIFIER`
 - **Conjunto de Resultados Retornado**: `idCorrelacion`, `mensajeUsuarioResultado`, `mensajeTecnicoResultado`, `estadoResultado`.

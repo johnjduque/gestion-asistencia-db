@@ -5,10 +5,10 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
-CREATE OR ALTER PROCEDURE [dbo].[usp_validar_registro_estudiante_en_grupo_interno]
+CREATE OR ALTER PROCEDURE [dbo].[usp_validar_permiso_rbac_usuario_interno]
 (
-    @idGrupo                 UNIQUEIDENTIFIER,
-    @idEstudiante            UNIQUEIDENTIFIER,
+    @idUsuario               UNIQUEIDENTIFIER,
+    @codigoPerfilRequerido   NVARCHAR(50),
     @idCorrelacion           UNIQUEIDENTIFIER,
     @mensajeUsuarioResultado NVARCHAR(4000) OUTPUT,
     @mensajeTecnicoResultado NVARCHAR(4000) OUTPUT,
@@ -17,8 +17,8 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_validar_registro_estudiante_en_grupo_intern
 AS
     -- 1. Estandarización e inicialización de variables utilizando funciones de catálogo (Sin ISNULL)
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @idGrupoDefecto       UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idGrupo, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @idEstudianteDefecto  UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idEstudiante, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idUsuarioDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuario, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @codigoPerfilDefecto  NVARCHAR(50)     = TRIM(dbo.ufn_obtener_parametro_texto(@codigoPerfilRequerido, 'GENERAL', 'CADENA_VACIA'));
 
     -- Inicialización de respuesta desde parámetros del catálogo
     SELECT 
@@ -37,37 +37,30 @@ BEGIN
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- PASO 2: Validación previa de existencia del estudiante
-        IF @estadoResultado = 1 
-        BEGIN
-            EXEC dbo.usp_validar_estudiante_exista_por_id_interno 
-                @idEstudiante = @idEstudianteDefecto, 
-                @idCorrelacion = @idCorrelacionDefecto, 
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
-                @estadoResultado = @estadoResultado OUTPUT;
-        END
-
-        -- PASO 3: Validación previa de existencia del grupo
-        IF @estadoResultado = 1 
-        BEGIN
-            EXEC dbo.usp_validar_grupo_exista_por_id_interno 
-                @idGrupo = @idGrupoDefecto, 
-                @idCorrelacion = @idCorrelacionDefecto, 
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
-                @estadoResultado = @estadoResultado OUTPUT;
-        END
-
-        -- PASO 4: Validación de duplicidad en la vinculación previa Estudiante-Grupo
+        -- PASO 2: Validación de existencia de usuario activo
         IF @estadoResultado = 1
         BEGIN
-            IF EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo WHERE idGrupo = @idGrupoDefecto AND idEstudiante = @idEstudianteDefecto)
+            EXEC dbo.usp_validar_usuario_existe_por_id_interno
+                @idUsuario = @idUsuarioDefecto,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
+
+        -- PASO 3: Validación del perfil / rol activo asignado en uv_usuario_perfil
+        IF @estadoResultado = 1 AND (@codigoPerfilDefecto IS NOT NULL AND @codigoPerfilDefecto <> '')
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 
+                FROM dbo.uv_usuario_perfil up
+                WHERE up.idUsuario = @idUsuarioDefecto
+                  AND (up.codigoPerfil = @codigoPerfilDefecto OR UPPER(up.nombrePerfil) LIKE CONCAT('%', UPPER(@codigoPerfilDefecto), '%'))
+            )
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
-                    @p_codigo = 'ERR_MATRICULA_DUPLICADA',
-                    @p_param1 = @idEstudianteDefecto,
-                    @p_param2 = @idGrupoDefecto,
+                    @p_codigo = 'VAL_003',
+                    @p_param1 = @codigoPerfilDefecto,
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 

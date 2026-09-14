@@ -14,6 +14,69 @@ A diferencia de las operaciones CRUD tradicionales que ejecutan mutaciones simpl
 
 ---
 
+## 🔒 Contrato de Ownership Transaccional en Procedimientos Anidados
+
+Todo orquestador que realiza escrituras (`INSERT`/`UPDATE`/`DELETE`) dentro de su propio `BEGIN TRY` puede ser invocado de dos formas distintas: como punto de entrada aislado (sin transacción activa del llamador) o como paso intermedio de una transacción más amplia iniciada por otro procedimiento o por el backend (p. ej. `Spring TransactionOperations` con `BEGIN TRANSACTION` externo). El procedimiento **nunca sabe a priori** en cuál de los dos escenarios se ejecuta, por lo que debe determinarlo en tiempo de ejecución y comportarse en consecuencia.
+
+### Regla de Ownership
+
+| Escenario | `@@TRANCOUNT` al entrar | Rol del SP | Qué puede hacer |
+|---|---|---|---|
+| Punto de entrada aislado | `0` | **Propietario** (`@transaccionPropia = 1`) | `BEGIN TRANSACTION` propio; puede hacer `COMMIT TRANSACTION` o `ROLLBACK TRANSACTION` total |
+| Paso dentro de transacción externa | `> 0` | **Invitado** (`@savepointCreado = 1`) | `SAVE TRANSACTION <nombre>`; solo puede hacer `ROLLBACK TRANSACTION <nombre>` (rollback parcial al savepoint). **Nunca** `COMMIT` ni `ROLLBACK TRANSACTION` total |
+
+Una transacción externa pertenece a su creador (el caller). El SP invitado solo es dueño de su propio savepoint, nunca de la transacción completa.
+
+### Patrón obligatorio
+
+```sql
+DECLARE @conteoTransaccionesInicial INT = 0;
+DECLARE @transaccionPropia          BIT = 0;
+DECLARE @savepointCreado            BIT = 0;
+...
+SET @conteoTransaccionesInicial = @@TRANCOUNT;
+IF @conteoTransaccionesInicial = 0
+BEGIN
+    BEGIN TRANSACTION;
+    SET @transaccionPropia = 1;
+END
+ELSE
+BEGIN
+    SAVE TRANSACTION nombre_savepoint;
+    SET @savepointCreado = 1;
+END
+```
+
+### Finalización según resultado de negocio (bloque posterior al TRY, sin excepción)
+
+* `estadoResultado = 1` (éxito) y `@transaccionPropia = 1` → `COMMIT TRANSACTION`.
+* `estadoResultado = 1` (éxito) y `@savepointCreado = 1` (invitado) → no se hace `COMMIT` ni `ROLLBACK`; el control regresa al caller, quien decide.
+* `estadoResultado = 0` (business failure) y `XACT_STATE() = 1` → rollback de **solo lo que el SP posee**: `ROLLBACK TRANSACTION` completo si es propietario, o `ROLLBACK TRANSACTION nombre_savepoint` si es invitado. Los errores de negocio esperados (`ERR_MATRICULA_DUPLICADA`, `ERR_GRUPO_NO_EXISTE`, `ERR_GRUPO_NO_HABILITADO`, `ERR_CUPO_SUPERADO`, etc.) deben mantener `XACT_STATE() = 1`, nunca dejar la transacción doomed.
+* `XACT_STATE() = -1` (transacción doomed) y `@transaccionPropia = 1` → `ROLLBACK TRANSACTION` total (es su propia transacción, doomed; debe limpiarla).
+* `XACT_STATE() = -1` (transacción doomed) y el SP es **invitado** → **prohibido** hacer `ROLLBACK` (total o a savepoint) o `COMMIT`. La transacción externa ya está condenada y su dueño (el caller) debe decidir el rollback. El SP no debe tocarla.
+
+### Bloque `CATCH`
+
+1. Capturar `XACT_STATE()` en una variable al inicio del `CATCH` (antes de cualquier operación transaccional).
+2. Resolver ownership (`@transaccionPropia` / `@savepointCreado`, ya establecidos en el `TRY`).
+3. Rollback solo de lo que el SP posee (misma matriz de la sección anterior).
+4. Preservar la causa raíz del error (`ERROR_NUMBER()`, `ERROR_MESSAGE()`, etc., vía `ufn_obtener_detalle_error`) **antes** de decidir si se propaga.
+5. Para errores controlables (de negocio) devolver el catálogo de mensajes (`estadoResultado = 0` + `mensajeUsuarioResultado`/`mensajeTecnicoResultado`).
+6. Si la transacción externa quedó doomed y el SP es invitado (`@transaccionPropia = 0 AND XACT_STATE() = -1`): `THROW;` para propagar la excepción original al propietario de la transacción, sin ocultarla detrás de un `SUCCESS` o de un mensaje de negocio genérico.
+
+### Procedimientos que implementan este contrato
+
+* `dbo.usp_registrar_estudiante_en_grupo_usuario_no_existente`
+* `dbo.usp_registrar_docente_en_grupo_usuario_no_existente`
+* `dbo.usp_crear_coordinador`
+* `dbo.usp_crear_decano`
+
+Ver `test/test_transaction_ownership.sql` para la suite que demuestra que un business failure dentro de estos orquestadores nunca destruye una transacción externa (`@@TRANCOUNT` del caller permanece intacto y no quedan escrituras parciales visibles tras el rollback al savepoint).
+
+No se agregó `SET XACT_ABORT ON` a estos procedimientos: el patrón de ownership por sí solo resuelve el problema sin alterar la semántica de errores ya establecida en el resto del código base.
+
+---
+
 ## 🗺️ ÍNDICE GENERAL GLOBAL DE PROCEDIMIENTOS REACTIVOS COMPUESTOS (PR-001 A PR-180)
 
 ### 📦 MÓDULO 1: Gestión de Usuarios, Identidades y Seguridad Institucional (PR-001 a PR-030)
