@@ -13,16 +13,18 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_radicar_solicitud_revision_asistencia]
     @justificacion      NVARCHAR(MAX),
     @soporteNombre      NVARCHAR(250),
     @soporteUrl         NVARCHAR(500),
-    @idCorrelacion      UNIQUEIDENTIFIER
+    @idCorrelacion      UNIQUEIDENTIFIER,
+    @idUsuarioEjecutor  UNIQUEIDENTIFIER = NULL
 )
 AS
-    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @idEstudianteDefecto  UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idEstudiante, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @idSesionDefecto      UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idSesion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @categoriaDefecto     NVARCHAR(50)     = TRIM(@categoria);
-    DECLARE @justificacionDefecto NVARCHAR(MAX)    = TRIM(@justificacion);
-    DECLARE @soporteNombreDefecto NVARCHAR(250)    = TRIM(@soporteNombre);
-    DECLARE @soporteUrlDefecto    NVARCHAR(500)    = TRIM(@soporteUrl);
+    DECLARE @idCorrelacionDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idEstudianteDefecto      UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idEstudiante, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idSesionDefecto          UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idSesion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idUsuarioEjecutorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @categoriaDefecto         NVARCHAR(50)     = TRIM(@categoria);
+    DECLARE @justificacionDefecto     NVARCHAR(MAX)    = TRIM(@justificacion);
+    DECLARE @soporteNombreDefecto     NVARCHAR(250)    = TRIM(@soporteNombre);
+    DECLARE @soporteUrlDefecto        NVARCHAR(500)    = TRIM(@soporteUrl);
 
     DECLARE @idAsistencia         UNIQUEIDENTIFIER;
     DECLARE @idEstudianteGrupo    UNIQUEIDENTIFIER;
@@ -44,6 +46,18 @@ BEGIN
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
             @estadoResultado = @estadoResultado OUTPUT;
+
+        -- PASO 1.5: Validación de perfil RBAC del usuario ejecutor si es suministrado
+        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NOT NULL
+        BEGIN
+            EXEC dbo.usp_validar_permiso_rbac_usuario_interno
+                @idUsuario = @idUsuarioEjecutorDefecto,
+                @codigoPerfilRequerido = 'ESTUDIANTE',
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
 
         -- PASO 2: Validar existencia del estudiante
         IF @estadoResultado = 1

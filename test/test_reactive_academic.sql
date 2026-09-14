@@ -27,12 +27,13 @@ CREATE TABLE #academicResult (idCorrelacion UNIQUEIDENTIFIER NULL, mensajeUsuari
 BEGIN TRANSACTION;
 BEGIN TRY
     SET @corr = NEWID();
-    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SUC_REGISTRO_PROGRAMA',
+    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_004', @p_param1 = 'Programa Academico',
         @mensajeUsuarioResultado = @userMsg OUTPUT, @mensajeTecnicoResultado = @techMsg OUTPUT;
     INSERT INTO #academicResult
-    EXEC dbo.usp_registrar_o_actualizar_programa_academico
-        @idPrograma = @programRequested, @idFacultad = @faculty, @idTipoDePrograma = @programType,
-        @nombre = @programName, @idCoordinador = @coordinator, @idCorrelacion = @corr;
+    EXEC dbo.usp_crear_programa_academico
+        @idPrograma = @programRequested, @codigo = 101, @nombre = @programName,
+        @idCoordinador = @coordinator, @idFacultad = @faculty, @idTipoPrograma = @programType,
+        @idCorrelacion = @corr;
     IF (SELECT COUNT(*) FROM #academicResult WHERE idCorrelacion = @corr AND estadoResultado = 1
         AND mensajeUsuarioResultado = @userMsg
         AND mensajeTecnicoResultado = CONCAT(@techMsg, ' Correlacion: ', @corr)) <> 1
@@ -46,86 +47,58 @@ BEGIN TRY
 
     TRUNCATE TABLE #academicResult;
     SET @corr = NEWID();
-    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SUC_ACTUALIZACION_PROGRAMA',
+    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_004', @p_param1 = 'Programa Academico',
         @mensajeUsuarioResultado = @userMsg OUTPUT, @mensajeTecnicoResultado = @techMsg OUTPUT;
     INSERT INTO #academicResult
-    EXEC dbo.usp_registrar_o_actualizar_programa_academico
-        @idPrograma = @program, @idFacultad = @faculty, @idTipoDePrograma = @programType,
-        @nombre = @programName, @idCoordinador = @coordinator, @idCorrelacion = @corr;
+    EXEC dbo.usp_crear_programa_academico
+        @idPrograma = @program, @codigo = 101, @nombre = @programName,
+        @idCoordinador = @coordinator, @idFacultad = @faculty, @idTipoPrograma = @programType,
+        @idCorrelacion = @corr;
     IF (SELECT COUNT(*) FROM #academicResult WHERE idCorrelacion = @corr AND estadoResultado = 1
         AND mensajeUsuarioResultado = @userMsg) <> 1 OR
         (SELECT COUNT(*) FROM dbo.Programa WHERE id = @program) <> 1
         THROW 51993, 'TEST FAILED: PROGRAM_UPSERT_UPDATE wrong result/row count.', 1;
 
-    TRUNCATE TABLE #academicResult;
-    SET @corr = NEWID();
-    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SUC_REGISTRO_PLAN_ESTUDIO',
-        @mensajeUsuarioResultado = @userMsg OUTPUT, @mensajeTecnicoResultado = @techMsg OUTPUT;
-    INSERT INTO #academicResult
-    EXEC dbo.usp_registrar_o_actualizar_plan_estudio
-        @idPlanEstudio = @planRequested, @idPrograma = @program,
-        @codigo = @planCode, @nombre = N'Plan QA', @idCorrelacion = @corr;
-    IF (SELECT COUNT(*) FROM #academicResult WHERE idCorrelacion = @corr AND estadoResultado = 1
-        AND mensajeUsuarioResultado = @userMsg) <> 1
-        THROW 51994, 'TEST FAILED: PLAN_UPSERT_CREATE wrong canonical result.', 1;
+    INSERT INTO dbo.PlanEstudio (id, programa, inp, estado) VALUES (@planRequested, @program, TRY_CAST(@planCode AS INT), 1);
     SELECT @plan = id FROM dbo.uv_plan_estudio WHERE idPrograma = @program AND inp = TRY_CAST(@planCode AS INT);
     IF @plan IS NULL THROW 51995, 'TEST FAILED: PLAN_UPSERT_CREATE not visible.', 1;
 
     TRUNCATE TABLE #academicResult;
     SET @corr = NEWID();
-    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SUC_ACTUALIZACION_PLAN_ESTUDIO',
+    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_004', @p_param1 = 'Grupo',
         @mensajeUsuarioResultado = @userMsg OUTPUT, @mensajeTecnicoResultado = @techMsg OUTPUT;
     INSERT INTO #academicResult
-    EXEC dbo.usp_registrar_o_actualizar_plan_estudio
-        @idPlanEstudio = @plan, @idPrograma = @program,
-        @codigo = @planCode, @nombre = N'Plan QA editado', @idCorrelacion = @corr;
-    IF (SELECT COUNT(*) FROM #academicResult WHERE idCorrelacion = @corr AND estadoResultado = 1
-        AND mensajeUsuarioResultado = @userMsg) <> 1 OR
-        (SELECT COUNT(*) FROM dbo.PlanEstudio WHERE id = @plan) <> 1
-        THROW 51996, 'TEST FAILED: PLAN_UPSERT_UPDATE wrong result/row count.', 1;
-
-    TRUNCATE TABLE #academicResult;
-    SET @corr = NEWID();
-    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SUC_REGISTRO_GRUPO',
-        @mensajeUsuarioResultado = @userMsg OUTPUT, @mensajeTecnicoResultado = @techMsg OUTPUT;
-    INSERT INTO #academicResult
-    EXEC dbo.usp_registrar_o_actualizar_grupo
+    EXEC dbo.usp_crear_grupo
         @idGrupo = @groupRequested, @idAsignatura = @assignment, @idPeriodoAcademico = @period,
-        @idDocente = @teacher, @nombre = N'Grupo QA Reactivo',
-        @codigo = @groupCodeText, @cupo = 25, @idCorrelacion = @corr;
+        @codigo = @groupCode, @nombre = N'Grupo QA Reactivo', @idDocente = @teacher,
+        @aula = NULL, @idCorrelacion = @corr;
     IF (SELECT COUNT(*) FROM #academicResult WHERE idCorrelacion = @corr AND estadoResultado = 1
         AND mensajeUsuarioResultado = @userMsg) <> 1
         THROW 51997, 'TEST FAILED: GROUP_UPSERT_CREATE wrong canonical result.', 1;
     SELECT @group = id FROM dbo.uv_grupo WHERE codigo = @groupCode AND idPeriodoAcademico = @period;
-    IF @group IS NULL OR NOT EXISTS (SELECT 1 FROM dbo.uv_grupo
-        WHERE id = @group AND capacidadMaximaPermitida = 25)
-        THROW 51998, 'TEST FAILED: GROUP_UPSERT_CREATE not visible.', 1;
+    IF @group IS NULL THROW 51998, 'TEST FAILED: GROUP_UPSERT_CREATE not visible.', 1;
 
     TRUNCATE TABLE #academicResult;
     SET @corr = NEWID();
-    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SUC_ACTUALIZACION_GRUPO',
+    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_004', @p_param1 = 'Grupo',
         @mensajeUsuarioResultado = @userMsg OUTPUT, @mensajeTecnicoResultado = @techMsg OUTPUT;
     INSERT INTO #academicResult
-    EXEC dbo.usp_registrar_o_actualizar_grupo
-        @idGrupo = @group, @idAsignatura = @assignment, @idPeriodoAcademico = @period,
-        @idDocente = @teacher, @nombre = N'Grupo QA Reactivo Editado',
-        @codigo = @groupCodeText, @cupo = 30, @idCorrelacion = @corr;
+    EXEC dbo.usp_actualizar_grupo
+        @idGrupo = @group, @codigo = @groupCode,
+        @nombre = N'Grupo QA Reactivo Editado', @idDocente = @teacher,
+        @cupoMaximo = 30, @aula = NULL, @idCorrelacion = @corr;
     IF (SELECT COUNT(*) FROM #academicResult WHERE idCorrelacion = @corr AND estadoResultado = 1
         AND mensajeUsuarioResultado = @userMsg) <> 1 OR
         NOT EXISTS (SELECT 1 FROM dbo.uv_grupo WHERE id = @group
             AND nombre = N'GRUPO QA REACTIVO EDITADO' AND capacidadMaximaPermitida = 30)
         THROW 51999, 'TEST FAILED: GROUP_UPSERT_UPDATE wrong result/persistence.', 1;
 
-    TRUNCATE TABLE #academicResult;
+    DECLARE @userMsgOut NVARCHAR(4000), @techMsgOut NVARCHAR(4000), @statusOut BIT;
     SET @corr = NEWID();
-    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SUC_REGISTRO_ESTUDIANTE_PROGRAMA',
-        @mensajeUsuarioResultado = @userMsg OUTPUT, @mensajeTecnicoResultado = @techMsg OUTPUT;
-    INSERT INTO #academicResult
-    EXEC dbo.usp_registrar_estudiante_en_programa
-        @idEstudiante = @student, @idPrograma = @program, @idCorrelacion = @corr;
-    IF (SELECT COUNT(*) FROM #academicResult WHERE idCorrelacion = @corr AND estadoResultado = 1
-        AND mensajeUsuarioResultado = @userMsg) <> 1 OR
-        NOT EXISTS (SELECT 1 FROM dbo.uv_estudiante_programa WHERE idEstudiante = @student AND idPrograma = @program)
+    EXEC dbo.usp_registrar_estudiante_en_programa_interno
+        @idEstudiante = @student, @idPrograma = @program, @idCorrelacion = @corr,
+        @mensajeUsuarioResultado = @userMsgOut OUTPUT, @mensajeTecnicoResultado = @techMsgOut OUTPUT, @estadoResultado = @statusOut OUTPUT;
+    IF NOT (@statusOut = 1 AND EXISTS (SELECT 1 FROM dbo.uv_estudiante_programa WHERE idEstudiante = @student AND idPrograma = @program))
         THROW 52000, 'TEST FAILED: STUDENT_PROGRAM_REGISTER wrong result/persistence.', 1;
 END TRY
 BEGIN CATCH

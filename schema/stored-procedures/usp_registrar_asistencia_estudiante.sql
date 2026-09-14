@@ -10,7 +10,8 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_asistencia_estudiante]
     @idEstudianteGrupo  UNIQUEIDENTIFIER,
     @idGrupoSesion      UNIQUEIDENTIFIER,
     @idEstadoAsistencia UNIQUEIDENTIFIER,
-    @idCorrelacion      UNIQUEIDENTIFIER
+    @idCorrelacion      UNIQUEIDENTIFIER,
+    @idUsuarioEjecutor  UNIQUEIDENTIFIER = NULL
 )
 AS
     -- 1. Estandarización e inicialización de variables locales utilizando catálogo de parámetros (Sin ISNULL)
@@ -18,6 +19,7 @@ AS
     DECLARE @idEstudianteGrupoDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idEstudianteGrupo, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idGrupoSesionDefecto      UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idGrupoSesion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idEstadoAsistenciaDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idEstadoAsistencia, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idUsuarioEjecutorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
 
     DECLARE @idEstudiante UNIQUEIDENTIFIER;
     DECLARE @codigoEstado NVARCHAR(5);
@@ -33,10 +35,22 @@ BEGIN
 
         -- PASO 1: Validación de presencia del identificador de correlación obligatorio
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
-            @idCorrelacion = @idCorrelacionDefecto, 
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
+            @idCorrelacion = @idCorrelacionDefecto,
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
+
+        -- PASO 1.5: Validación de perfil RBAC del usuario ejecutor si es suministrado
+        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NOT NULL
+        BEGIN
+            EXEC dbo.usp_validar_permiso_rbac_usuario_interno
+                @idUsuario = @idUsuarioEjecutorDefecto,
+                @codigoPerfilRequerido = 'ESTUDIANTE',
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
 
         -- PASO 2: Validación de la matrícula activa del estudiante (EstudianteGrupo)
         IF @estadoResultado = 1

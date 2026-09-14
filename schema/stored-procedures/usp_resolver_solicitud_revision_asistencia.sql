@@ -11,14 +11,16 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_resolver_solicitud_revision_asistencia]
     @idDocente          UNIQUEIDENTIFIER,
     @accion             NVARCHAR(20),
     @respuestaDocente   NVARCHAR(MAX),
-    @idCorrelacion      UNIQUEIDENTIFIER
+    @idCorrelacion      UNIQUEIDENTIFIER,
+    @idUsuarioEjecutor  UNIQUEIDENTIFIER = NULL
 )
 AS
-    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @idSolicitudDefecto   UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idSolicitud, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @idDocenteDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idDocente, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @accionDefecto        NVARCHAR(20)     = UPPER(TRIM(@accion));
-    DECLARE @respuestaDefecto     NVARCHAR(MAX)    = TRIM(@respuestaDocente);
+    DECLARE @idCorrelacionDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idSolicitudDefecto       UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idSolicitud, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idDocenteDefecto         UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idDocente, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idUsuarioEjecutorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @accionDefecto            NVARCHAR(20)     = UPPER(TRIM(@accion));
+    DECLARE @respuestaDefecto         NVARCHAR(MAX)    = TRIM(@respuestaDocente);
 
     DECLARE @docenteTitularGrupo UNIQUEIDENTIFIER;
     DECLARE @idAsistencia        UNIQUEIDENTIFIER;
@@ -39,6 +41,18 @@ BEGIN
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
             @estadoResultado = @estadoResultado OUTPUT;
+
+        -- PASO 1.5: Validación de perfil RBAC del usuario ejecutor si es suministrado
+        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NOT NULL
+        BEGIN
+            EXEC dbo.usp_validar_permiso_rbac_usuario_interno
+                @idUsuario = @idUsuarioEjecutorDefecto,
+                @codigoPerfilRequerido = 'DOCENTE',
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
 
         -- PASO 2: Validación de existencia de la solicitud y recuperación de docente titular
         IF @estadoResultado = 1

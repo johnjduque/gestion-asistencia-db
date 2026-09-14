@@ -15,16 +15,18 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_crear_asignatura]
     @semestreNumero     INT,
     @nombreArea         NVARCHAR(100),
     @nombreComponente   NVARCHAR(100),
-    @idCorrelacion      UNIQUEIDENTIFIER
+    @idCorrelacion      UNIQUEIDENTIFIER,
+    @idUsuarioEjecutor  UNIQUEIDENTIFIER = NULL
 )
 AS
-    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @idAsignaturaDefecto  UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idAsignatura, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @idPlanEstudioDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idPlanEstudio, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @codigoDefecto        NVARCHAR(50)     = UPPER(TRIM(@codigo));
-    DECLARE @nombreDefecto        NVARCHAR(50)     = TRIM(@nombre);
-    DECLARE @nombreAreaDefecto    NVARCHAR(100)    = TRIM(@nombreArea);
-    DECLARE @nombreCompDefecto    NVARCHAR(100)    = TRIM(@nombreComponente);
+    DECLARE @idCorrelacionDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idAsignaturaDefecto      UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idAsignatura, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idPlanEstudioDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idPlanEstudio, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idUsuarioEjecutorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @codigoDefecto            NVARCHAR(50)     = UPPER(TRIM(@codigo));
+    DECLARE @nombreDefecto            NVARCHAR(50)     = TRIM(@nombre);
+    DECLARE @nombreAreaDefecto        NVARCHAR(100)    = TRIM(@nombreArea);
+    DECLARE @nombreCompDefecto        NVARCHAR(100)    = TRIM(@nombreComponente);
 
     DECLARE @idAreaResolved       UNIQUEIDENTIFIER;
     DECLARE @idComponenteResolved UNIQUEIDENTIFIER;
@@ -45,6 +47,18 @@ BEGIN
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
             @estadoResultado = @estadoResultado OUTPUT;
+
+        -- PASO 1.5: Validación de perfil RBAC del usuario ejecutor si es suministrado
+        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NOT NULL
+        BEGIN
+            EXEC dbo.usp_validar_permiso_rbac_usuario_interno
+                @idUsuario = @idUsuarioEjecutorDefecto,
+                @codigoPerfilRequerido = 'COORDINADOR',
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
 
         -- PASO 2: Validación de parámetros obligatorios
         IF @estadoResultado = 1 AND (@codigoDefecto IS NULL OR @codigoDefecto = '' OR @nombreDefecto IS NULL OR @nombreDefecto = '')

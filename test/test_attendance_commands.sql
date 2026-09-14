@@ -9,7 +9,7 @@ FROM dbo.uv_estudiante_grupo eg
 JOIN dbo.uv_grupo g ON g.id = eg.idGrupo
 WHERE eg.codigoEstadoEstudiante = 'A' AND g.grupoEstaHablitado = 1
 ORDER BY eg.id;
-DECLARE @reason UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.RazonCausa WHERE codigo = 'A');
+DECLARE @reason UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.RazonCausa WHERE codigo IN ('AN', 'A'));
 IF @group IS NULL OR @student IS NULL OR @enrollment IS NULL OR @reason IS NULL
     THROW 51800, 'TEST FAILED: ATTENDANCE fixture missing.', 1;
 

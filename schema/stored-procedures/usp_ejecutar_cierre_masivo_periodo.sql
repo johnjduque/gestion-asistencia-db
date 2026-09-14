@@ -9,12 +9,14 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_ejecutar_cierre_masivo_periodo]
 (
     @codigoPeriodo          NVARCHAR(50),
     @idActor                NVARCHAR(100),
-    @idCorrelacion          UNIQUEIDENTIFIER
+    @idCorrelacion          UNIQUEIDENTIFIER,
+    @idUsuarioEjecutor       UNIQUEIDENTIFIER = NULL
 )
 AS
-    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @codigoPeriodoDefecto NVARCHAR(50)     = TRIM(@codigoPeriodo);
-    DECLARE @idActorDefecto       NVARCHAR(100)    = TRIM(@idActor);
+    DECLARE @idCorrelacionDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idUsuarioEjecutorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @codigoPeriodoDefecto     NVARCHAR(50)     = TRIM(@codigoPeriodo);
+    DECLARE @idActorDefecto           NVARCHAR(100)    = TRIM(@idActor);
 
     DECLARE @idPeriodoTarget               UNIQUEIDENTIFIER;
     DECLARE @idEstadoFinalizado            UNIQUEIDENTIFIER;
@@ -36,6 +38,18 @@ BEGIN
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
             @estadoResultado = @estadoResultado OUTPUT;
+
+        -- PASO 1.5: Validación de perfil RBAC del usuario ejecutor si es suministrado
+        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NOT NULL
+        BEGIN
+            EXEC dbo.usp_validar_permiso_rbac_usuario_interno
+                @idUsuario = @idUsuarioEjecutorDefecto,
+                @codigoPerfilRequerido = 'ADMINISTRADOR',
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
 
         -- PASO 2: Buscar período académico objetivo consultando uv_periodo_academico
         IF @estadoResultado = 1

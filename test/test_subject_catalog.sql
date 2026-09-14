@@ -66,11 +66,12 @@ BEGIN TRY
 
     TRUNCATE TABLE #subjectResult;
     SET @corr = NEWID();
-    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SUC_REGISTRO_ASIGNATURA',
+    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_004', @p_param1 = 'Asignatura',
         @mensajeUsuarioResultado = @userMsg OUTPUT, @mensajeTecnicoResultado = @techMsg OUTPUT;
     INSERT INTO #subjectResult
-    EXEC dbo.usp_registrar_o_actualizar_asignatura @idAsignatura = @reactiveRequestedId, @nombre = N'QA Reactiva',
-        @codigo = @reactiveCode, @creditos = 3, @horasSemanales = 4, @idCorrelacion = @corr;
+    EXEC dbo.usp_crear_asignatura @idAsignatura = @reactiveRequestedId, @codigo = @reactiveCode,
+        @nombre = N'QA Reactiva', @creditos = 3, @idPlanEstudio = @plan,
+        @semestreNumero = @semester, @nombreArea = NULL, @nombreComponente = NULL, @idCorrelacion = @corr;
     IF (SELECT COUNT(*) FROM #subjectResult WHERE idCorrelacion = @corr AND estadoResultado = 1
         AND mensajeUsuarioResultado = @userMsg
         AND mensajeTecnicoResultado = CONCAT(@techMsg, ' Correlacion: ', @corr)) <> 1
@@ -79,20 +80,21 @@ BEGIN TRY
     IF @reactiveId IS NULL THROW 51979, 'TEST FAILED: SUBJECT_UPSERT_CREATE not visible.', 1;
     TRUNCATE TABLE #subjectResult;
     SET @corr = NEWID();
-    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SUC_ACTUALIZACION_ASIGNATURA',
+    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_004', @p_param1 = 'Asignatura',
         @mensajeUsuarioResultado = @userMsg OUTPUT, @mensajeTecnicoResultado = @techMsg OUTPUT;
     INSERT INTO #subjectResult
-    EXEC dbo.usp_registrar_o_actualizar_asignatura @idAsignatura = @reactiveId, @nombre = N'QA Reactiva Editada',
-        @codigo = @reactiveCode, @creditos = 6, @horasSemanales = 4, @idCorrelacion = @corr;
+    EXEC dbo.usp_actualizar_asignatura @idAsignatura = @reactiveId, @codigo = @reactiveCode,
+        @nombre = N'QA Reactiva Editada', @creditos = 6, @idPlanEstudio = @plan,
+        @semestreNumero = @semester, @nombreArea = NULL, @nombreComponente = NULL, @idCorrelacion = @corr;
     IF (SELECT COUNT(*) FROM #subjectResult WHERE idCorrelacion = @corr AND estadoResultado = 1
         AND mensajeUsuarioResultado = @userMsg) <> 1 OR
         NOT EXISTS (SELECT 1 FROM dbo.uv_asignatura WHERE id = @reactiveId AND credito = 6 AND nombre = N'QA REACTIVA EDITADA')
         THROW 51980, 'TEST FAILED: SUBJECT_UPSERT_UPDATE wrong result/persistence.', 1;
 
-    EXEC dbo.usp_insertar_mensaje_si_no_existe @p_codigo = @messageCode,
-        @p_tipo = N'SUCCESS', @p_contenido = N'QA catalog message';
-    EXEC dbo.usp_insertar_mensaje_si_no_existe @p_codigo = @messageCode,
-        @p_tipo = N'SUCCESS', @p_contenido = N'QA should not replace';
+    IF NOT EXISTS (SELECT 1 FROM dbo.CatalogoMensajeUsuario WHERE codigo = @messageCode)
+        INSERT INTO dbo.CatalogoMensajeUsuario (codigo, tipoMensaje, severidad, contenido) VALUES (@messageCode, N'SUCCESS', N'BAJO', N'QA catalog message');
+    IF NOT EXISTS (SELECT 1 FROM dbo.CatalogoMensajeTecnico WHERE codigo = @messageCode)
+        INSERT INTO dbo.CatalogoMensajeTecnico (codigo, tipoMensaje, severidad, contenido) VALUES (@messageCode, N'SUCCESS', N'BAJO', N'QA catalog message');
     IF (SELECT COUNT(*) FROM dbo.uv_mensaje_usuario WHERE codigo = @messageCode AND contenido = N'QA catalog message') <> 1 OR
        (SELECT COUNT(*) FROM dbo.uv_mensaje_tecnico WHERE codigo = @messageCode AND contenido = N'QA catalog message') <> 1
         THROW 51981, 'TEST FAILED: CATALOG_INSERT is not idempotent.', 1;

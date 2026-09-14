@@ -11,10 +11,12 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_resolver_solicitud_matricula]
     @idCoordinador          UNIQUEIDENTIFIER,
     @accion                 NVARCHAR(20),
     @respuestaCoordinador   NVARCHAR(MAX),
-    @idCorrelacion          UNIQUEIDENTIFIER
+    @idCorrelacion          UNIQUEIDENTIFIER,
+    @idUsuarioEjecutor      UNIQUEIDENTIFIER = NULL
 )
 AS
-    DECLARE @idCorrelacionDefecto  UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idCorrelacionDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idUsuarioEjecutorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
 
     -- Variables locales de respuesta
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -30,6 +32,17 @@ BEGIN
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
             @estadoResultado = @estadoResultado OUTPUT;
+
+        -- PASO 1.5: Validación del usuario ejecutor si es suministrado
+        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NOT NULL
+        BEGIN
+            EXEC dbo.usp_validar_usuario_existe_por_id_interno
+                @idUsuario = @idUsuarioEjecutorDefecto,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
 
         -- PASO 2: Capability explícitamente no implementada en el esquema actual.
         -- SolicitudMatricula no está modelada en schema/tables ni existe lógica de negocio

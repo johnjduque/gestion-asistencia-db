@@ -11,18 +11,20 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_actualizar_sesion]
     @nombre             NVARCHAR(50),
     @fechaHoraInicio    DATETIME2,
     @fechaHoraFin       DATETIME2,
-    @aula               NVARCHAR(100),
-    @descripcion        NVARCHAR(MAX),
-    @idDocente          UNIQUEIDENTIFIER,
-    @idCorrelacion      UNIQUEIDENTIFIER
+    @aula               NVARCHAR(100) = NULL,
+    @descripcion        NVARCHAR(MAX) = NULL,
+    @idDocente          UNIQUEIDENTIFIER = NULL,
+    @idCorrelacion      UNIQUEIDENTIFIER,
+    @idUsuarioEjecutor  UNIQUEIDENTIFIER = NULL
 )
 AS
-    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @idSesionDefecto      UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idSesion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @idDocenteDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idDocente, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @nombreDefecto        NVARCHAR(50)     = TRIM(@nombre);
-    DECLARE @aulaDefecto          NVARCHAR(100)    = NULLIF(TRIM(@aula), '');
-    DECLARE @descripcionDefecto   NVARCHAR(MAX)    = NULLIF(TRIM(@descripcion), '');
+    DECLARE @idCorrelacionDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idSesionDefecto          UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idSesion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idDocenteDefecto         UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idDocente, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idUsuarioEjecutorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @nombreDefecto            NVARCHAR(50)     = TRIM(@nombre);
+    DECLARE @aulaDefecto              NVARCHAR(100)    = NULLIF(TRIM(@aula), '');
+    DECLARE @descripcionDefecto       NVARCHAR(MAX)    = NULLIF(TRIM(@descripcion), '');
 
     DECLARE @idGrupoSesion UNIQUEIDENTIFIER;
 
@@ -40,6 +42,30 @@ BEGIN
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
             @estadoResultado = @estadoResultado OUTPUT;
+
+        -- PASO 1.5: Validación de perfil RBAC y titularidad del Docente sobre la Sesión
+        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NOT NULL
+        BEGIN
+            EXEC dbo.usp_validar_permiso_rbac_usuario_interno
+                @idUsuario = @idUsuarioEjecutorDefecto,
+                @codigoPerfilRequerido = 'DOCENTE',
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+
+            IF @estadoResultado = 1 AND @idSesionDefecto IS NOT NULL
+            BEGIN
+                EXEC dbo.usp_validar_titularidad_jerarquica_interno
+                    @idUsuario = @idUsuarioEjecutorDefecto,
+                    @idEntidadPadre = @idSesionDefecto,
+                    @tipoEntidadPadre = 'SESION',
+                    @idCorrelacion = @idCorrelacionDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                    @estadoResultado = @estadoResultado OUTPUT;
+            END
+        END
 
         -- PASO 2: Validar existencia de la sesión consultando uv_sesion
         IF @estadoResultado = 1

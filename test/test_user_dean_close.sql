@@ -7,22 +7,21 @@ DECLARE @type UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_tipo_identificacio
 DECLARE @email NVARCHAR(255) = CONCAT(N'qa.sync.', REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), N'@test.local');
 DECLARE @number INT = 1100000000 + ABS(CHECKSUM(NEWID()) % 300000000);
 DECLARE @corr UNIQUEIDENTIFIER = NEWID(), @userMsg NVARCHAR(4000), @techMsg NVARCHAR(4000);
+DECLARE @userMsgOut NVARCHAR(4000), @techMsgOut NVARCHAR(4000), @statusOut BIT;
 DECLARE @user UNIQUEIDENTIFIER;
 IF @type IS NULL THROW 51920, 'TEST FAILED: USER_SYNC fixture missing.', 1;
-CREATE TABLE #userResult (idCorrelacion UNIQUEIDENTIFIER NULL, mensajeUsuarioResultado NVARCHAR(MAX),
-    mensajeTecnicoResultado NVARCHAR(MAX), estadoResultado INT NOT NULL);
 BEGIN TRANSACTION;
 BEGIN TRY
-    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SUC_SINCRONIZACION_USUARIO',
+    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_004', @p_param1 = 'Usuario',
         @mensajeUsuarioResultado = @userMsg OUTPUT, @mensajeTecnicoResultado = @techMsg OUTPUT;
-    INSERT INTO #userResult
-    EXEC dbo.usp_sincronizar_usuario @idTipoIdIdentificacion = @type, @numeroIdentificacion = @number,
+    EXEC dbo.usp_sincronizar_usuario_interno @idTipoIdIdentificacion = @type, @numeroIdentificacion = @number,
         @primerApellido = N'Quality', @segundoApellido = N'Gate', @primerNombre = N'Usuario',
         @segundoNombre = N'Sync', @correo = @email, @password = N'HashBackend_QaSync1234567890',
-        @idCorrelacion = @corr;
-    IF (SELECT COUNT(*) FROM #userResult WHERE idCorrelacion = @corr AND estadoResultado = 1
-        AND mensajeUsuarioResultado = @userMsg
-        AND mensajeTecnicoResultado = CONCAT(@techMsg, ' Correlacion: ', @corr)) <> 1
+        @idCorrelacion = @corr,
+        @mensajeUsuarioResultado = @userMsgOut OUTPUT,
+        @mensajeTecnicoResultado = @techMsgOut OUTPUT,
+        @estadoResultado = @statusOut OUTPUT;
+    IF NOT (@statusOut = 1 AND @userMsgOut = @userMsg AND @techMsgOut = CONCAT(@techMsg, ' Correlacion: ', @corr))
         THROW 51921, 'TEST FAILED: USER_SYNC_SUCCESS wrong canonical result.', 1;
     SELECT @user = id FROM dbo.uv_usuario WHERE correo = @email;
     IF @user IS NULL OR NOT EXISTS (SELECT 1 FROM dbo.uv_usuario_autenticacion
@@ -30,20 +29,19 @@ BEGIN TRY
         AND estaActivoUsuario = 1)
         THROW 51922, 'TEST FAILED: USER_SYNC_SUCCESS not visible in identity/auth views.', 1;
 
-    TRUNCATE TABLE #userResult;
     SET @corr = NEWID();
     DECLARE @badEmail NVARCHAR(255) = CONCAT(N'not-an-email-', REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''));
     DECLARE @badNumber INT = @number + 1;
     EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'VAL_005',
         @mensajeUsuarioResultado = @userMsg OUTPUT, @mensajeTecnicoResultado = @techMsg OUTPUT;
-    INSERT INTO #userResult
-    EXEC dbo.usp_sincronizar_usuario @idTipoIdIdentificacion = @type, @numeroIdentificacion = @badNumber,
+    EXEC dbo.usp_sincronizar_usuario_interno @idTipoIdIdentificacion = @type, @numeroIdentificacion = @badNumber,
         @primerApellido = N'Quality', @segundoApellido = N'Gate', @primerNombre = N'Usuario',
         @segundoNombre = N'Invalid', @correo = @badEmail, @password = N'HashBackend_QaSync1234567890',
-        @idCorrelacion = @corr;
-    IF (SELECT COUNT(*) FROM #userResult WHERE idCorrelacion = @corr AND estadoResultado = 0
-        AND mensajeUsuarioResultado = @userMsg
-        AND mensajeTecnicoResultado = CONCAT(@techMsg, ' Correlacion: ', @corr)) <> 1
+        @idCorrelacion = @corr,
+        @mensajeUsuarioResultado = @userMsgOut OUTPUT,
+        @mensajeTecnicoResultado = @techMsgOut OUTPUT,
+        @estadoResultado = @statusOut OUTPUT;
+    IF NOT (@statusOut = 0 AND @userMsgOut = @userMsg AND @techMsgOut = CONCAT(@techMsg, ' Correlacion: ', @corr))
         THROW 51923, 'TEST FAILED: USER_SYNC_INVALID wrong canonical result.', 1;
     IF EXISTS (SELECT 1 FROM dbo.Usuario WHERE correo = @badEmail)
         THROW 51924, 'TEST FAILED: USER_SYNC_INVALID wrote user.', 1;

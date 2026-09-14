@@ -10,21 +10,23 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_crear_sesion]
     @idGrupo            UNIQUEIDENTIFIER,
     @idDocente          UNIQUEIDENTIFIER,
     @nombre             NVARCHAR(50),
-    @descripcion        NVARCHAR(250),
+    @descripcion        NVARCHAR(250) = NULL,
     @fechaHoraInicio    DATETIME2,
     @fechaHoraFin       DATETIME2,
-    @aula               NVARCHAR(50),
-    @tipo               NVARCHAR(50),
-    @idCorrelacion      UNIQUEIDENTIFIER
+    @aula               NVARCHAR(50) = NULL,
+    @tipo               NVARCHAR(50) = NULL,
+    @idCorrelacion      UNIQUEIDENTIFIER,
+    @idUsuarioEjecutor  UNIQUEIDENTIFIER = NULL
 )
 AS
-    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @idGrupoDefecto       UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idGrupo, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @idDocenteDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idDocente, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @nombreDefecto        NVARCHAR(50)     = TRIM(@nombre);
-    DECLARE @descripcionDefecto   NVARCHAR(250)    = NULLIF(TRIM(@descripcion), '');
-    DECLARE @aulaDefecto          NVARCHAR(50)     = NULLIF(TRIM(@aula), '');
-    DECLARE @tipoDefecto          NVARCHAR(50)     = NULLIF(TRIM(@tipo), '');
+    DECLARE @idCorrelacionDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idGrupoDefecto           UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idGrupo, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idDocenteDefecto         UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idDocente, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idUsuarioEjecutorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @nombreDefecto            NVARCHAR(50)     = TRIM(@nombre);
+    DECLARE @descripcionDefecto       NVARCHAR(250)    = NULLIF(TRIM(@descripcion), '');
+    DECLARE @aulaDefecto              NVARCHAR(50)     = NULLIF(TRIM(@aula), '');
+    DECLARE @tipoDefecto              NVARCHAR(50)     = NULLIF(TRIM(@tipo), '');
 
     DECLARE @idNuevoSesion   UNIQUEIDENTIFIER = NEWID();
     DECLARE @numeroSiguiente INT = 1;
@@ -38,12 +40,36 @@ AS
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
-        -- PASO 1: Validación de presencia del identificador de correlación
+        -- PASO 1: Validación de correlación
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
             @idCorrelacion = @idCorrelacionDefecto, 
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
             @estadoResultado = @estadoResultado OUTPUT;
+
+        -- PASO 1.5: Validación de perfil RBAC y titularidad del Docente sobre el Grupo
+        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NOT NULL
+        BEGIN
+            EXEC dbo.usp_validar_permiso_rbac_usuario_interno
+                @idUsuario = @idUsuarioEjecutorDefecto,
+                @codigoPerfilRequerido = 'DOCENTE',
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+
+            IF @estadoResultado = 1 AND @idGrupoDefecto IS NOT NULL
+            BEGIN
+                EXEC dbo.usp_validar_titularidad_jerarquica_interno
+                    @idUsuario = @idUsuarioEjecutorDefecto,
+                    @idEntidadPadre = @idGrupoDefecto,
+                    @tipoEntidadPadre = 'GRUPO',
+                    @idCorrelacion = @idCorrelacionDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                    @estadoResultado = @estadoResultado OUTPUT;
+            END
+        END
 
         -- PASO 2: Validación de pertenencia del grupo al docente titular mediante procedimiento interno
         IF @estadoResultado = 1

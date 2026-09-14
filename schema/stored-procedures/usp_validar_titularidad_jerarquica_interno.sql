@@ -93,6 +93,42 @@ BEGIN
                     SET @estadoResultado = 0;
                 END
             END
+            ELSE IF @tipoEntidadPadreDefecto = 'INSTITUCION'
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM dbo.Administrador 
+                    WHERE institucion = @idEntidadPadreDefecto AND usuario = @idUsuarioDefecto
+                )
+                BEGIN
+                    EXEC dbo.usp_obtener_mensaje_catalogo
+                        @p_codigo = 'VAL_003',
+                        @p_param1 = 'Titularidad Institución',
+                        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                    SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                    SET @estadoResultado = 0;
+                END
+            END
+            ELSE IF @tipoEntidadPadreDefecto = 'SESION'
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 
+                    FROM dbo.uv_sesion s
+                    INNER JOIN dbo.uv_grupo g ON s.idGrupo = g.id
+                    WHERE s.id = @idEntidadPadreDefecto AND g.idDocente = @idUsuarioDefecto
+                )
+                BEGIN
+                    EXEC dbo.usp_obtener_mensaje_catalogo
+                        @p_codigo = 'VAL_003',
+                        @p_param1 = 'Titularidad Sesión',
+                        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                    SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                    SET @estadoResultado = 0;
+                END
+            END
         END
 
     END TRY

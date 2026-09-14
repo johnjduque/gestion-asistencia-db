@@ -22,8 +22,8 @@ CREATE TABLE #studentResult (
 
 BEGIN TRY
     INSERT INTO #studentResult
-    EXEC dbo.usp_registrar_estudiante_en_grupo_usuario_no_existente
-        @idTipoIdIdentificacion = @tipoId, @numeroIdentificacion = @numero,
+    EXEC dbo.usp_registrar_estudiante_en_grupo
+        @numeroIdentificacion = @numero,
         @primerApellido = N'Quality', @segundoApellido = N'Gate',
         @primerNombre = N'Estudiante', @segundoNombre = N'Success',
         @correo = @correo, @password = N'HashBackend_QaStudent1234567890',
@@ -35,8 +35,8 @@ BEGIN TRY
     IF @usuario IS NULL OR @estudiante IS NULL
         THROW 51102, 'TEST FAILED: STUDENT_SUCCESS did not persist Usuario/Estudiante.', 1;
     EXEC dbo.usp_obtener_mensaje_catalogo
-        @p_codigo = 'SUC_REGISTRO_ESTUDIANTE_GRUPO',
-        @p_param1 = @estudiante, @p_param2 = @grupo,
+        @p_codigo = 'GEN_004',
+        @p_param1 = 'Estudiante en Grupo',
         @mensajeUsuarioResultado = @expectedUser OUTPUT,
         @mensajeTecnicoResultado = @expectedTech OUTPUT;
     IF (SELECT COUNT(*) FROM #studentResult WHERE estadoResultado = 1 AND idCorrelacion = @corr
@@ -61,8 +61,8 @@ BEGIN TRY
     PRINT CONCAT('TEST_EXPECTED_USER:STUDENT_DUPLICATE|', @dupUser);
     PRINT CONCAT('TEST_EXPECTED_TECH:STUDENT_DUPLICATE|', @dupTech, ' Correlacion: ', @dupCorr);
     PRINT 'TEST_RESULT_BEGIN:STUDENT_DUPLICATE';
-    EXEC dbo.usp_registrar_estudiante_en_grupo_usuario_no_existente
-        @idTipoIdIdentificacion = @tipoId, @numeroIdentificacion = @numero,
+    EXEC dbo.usp_registrar_estudiante_en_grupo
+        @numeroIdentificacion = @numero,
         @primerApellido = N'Duplicado', @segundoApellido = N'Gate',
         @primerNombre = N'Estudiante', @segundoNombre = N'QA',
         @correo = @correo, @password = N'HashBackend_QaStudent1234567890',
@@ -118,8 +118,8 @@ EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'ERR_GRUPO_NO_EXISTE',
 PRINT CONCAT('TEST_EXPECTED_USER:STUDENT_GROUP_NOT_FOUND|', @userMsg);
 PRINT CONCAT('TEST_EXPECTED_TECH:STUDENT_GROUP_NOT_FOUND|', @techMsg, ' Correlacion: ', @corr);
 PRINT 'TEST_RESULT_BEGIN:STUDENT_GROUP_NOT_FOUND';
-EXEC dbo.usp_registrar_estudiante_en_grupo_usuario_no_existente
-    @idTipoIdIdentificacion = @tipoId, @numeroIdentificacion = @numero,
+EXEC dbo.usp_registrar_estudiante_en_grupo
+    @numeroIdentificacion = @numero,
     @primerApellido = N'Quality', @segundoApellido = N'Gate',
     @primerNombre = N'Estudiante', @segundoNombre = N'Missing',
     @correo = @correo, @password = N'HashBackend_QaStudent1234567890',
@@ -168,8 +168,8 @@ BEGIN TRY
     PRINT CONCAT('TEST_EXPECTED_USER:STUDENT_GROUP_DISABLED|', @userMsg);
     PRINT CONCAT('TEST_EXPECTED_TECH:STUDENT_GROUP_DISABLED|', @techMsg, ' Correlacion: ', @corr);
     PRINT 'TEST_RESULT_BEGIN:STUDENT_GROUP_DISABLED';
-    EXEC dbo.usp_registrar_estudiante_en_grupo_usuario_no_existente
-        @idTipoIdIdentificacion = @tipoId, @numeroIdentificacion = @numero,
+    EXEC dbo.usp_registrar_estudiante_en_grupo
+        @numeroIdentificacion = @numero,
         @primerApellido = N'Quality', @segundoApellido = N'Gate',
         @primerNombre = N'Estudiante', @segundoNombre = N'Closed',
         @correo = @correo, @password = N'HashBackend_QaStudent1234567890',
@@ -212,9 +212,9 @@ BEGIN TRANSACTION;
 BEGIN TRY
     INSERT dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes,
         cantidadEstudiantesFinalizaron, cantidadEstudiantesCancelaronVoluntadPropia,
-        cantidadEstudiantesCancelaronAutomaticamente, docente, aula)
+        cantidadEstudiantesCancelaronAutomaticamente, docente)
     VALUES (@fullGroup, @assignment, @period, 300000 + ABS(CHECKSUM(NEWID()) % 100000),
-        N'Grupo QA Sin Cupo', 1, 0, 0, 0, @teacher, N'Aula QA');
+        N'Grupo QA Sin Cupo', 1, 0, 0, 0, @teacher);
     INSERT dbo.EstudianteGrupo (id, estado, estudiante, grupo)
     VALUES (NEWID(), @activeState, @existingStudent, @fullGroup);
     EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'ERR_CUPO_SUPERADO',
@@ -227,8 +227,8 @@ BEGIN TRY
     PRINT CONCAT('TEST_EXPECTED_USER:STUDENT_CAPACITY_EXCEEDED|', @userMsg);
     PRINT CONCAT('TEST_EXPECTED_TECH:STUDENT_CAPACITY_EXCEEDED|', @techMsg, ' Correlacion: ', @corr);
     PRINT 'TEST_RESULT_BEGIN:STUDENT_CAPACITY_EXCEEDED';
-    EXEC dbo.usp_registrar_estudiante_en_grupo_usuario_no_existente
-        @idTipoIdIdentificacion = @tipoId, @numeroIdentificacion = @numero,
+    EXEC dbo.usp_registrar_estudiante_en_grupo
+        @numeroIdentificacion = @numero,
         @primerApellido = N'Quality', @segundoApellido = N'Gate',
         @primerNombre = N'Estudiante', @segundoNombre = N'Full',
         @correo = @correo, @password = N'HashBackend_QaStudent1234567890',
@@ -251,5 +251,5 @@ BEGIN CATCH
 END CATCH;
 ROLLBACK TRANSACTION;
 IF @@TRANCOUNT <> 0 THROW 51116, 'TEST FAILED: student test left an open transaction.', 1;
-PRINT 'TEST END: test_usp_registrar_estudiante_en_grupo_usuario_no_existente';
+PRINT 'TEST END: test_usp_registrar_estudiante_en_grupo';
 GO

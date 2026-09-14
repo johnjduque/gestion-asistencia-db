@@ -104,6 +104,20 @@ BEGIN
         -- PASO 4: Inserción final del estudiante en el grupo en dbo.EstudianteGrupo
         IF @estadoResultado = 1 
         BEGIN
+            DECLARE @idProgramaGrupo UNIQUEIDENTIFIER;
+            SELECT TOP 1 @idProgramaGrupo = pe.programa 
+            FROM dbo.Grupo g 
+            INNER JOIN dbo.Asignatura a ON g.asignatura = a.id
+            INNER JOIN dbo.SemestrePlanEstudio sp ON a.semestrePlanEstudio = sp.id
+            INNER JOIN dbo.PlanEstudio pe ON sp.planEstudio = pe.id
+            WHERE g.id = @idGrupoDefecto;
+
+            IF @idProgramaGrupo IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.EstudiantePrograma WHERE estudiante = @idEstudianteDefecto AND programa = @idProgramaGrupo)
+            BEGIN
+                INSERT INTO dbo.EstudiantePrograma (id, estudiante, programa)
+                VALUES (NEWID(), @idEstudianteDefecto, @idProgramaGrupo);
+            END
+
             INSERT INTO dbo.EstudianteGrupo (id, estado, estudiante, grupo)
             VALUES (NEWID(), @idEstadoActivo, @idEstudianteDefecto, @idGrupoDefecto);
 

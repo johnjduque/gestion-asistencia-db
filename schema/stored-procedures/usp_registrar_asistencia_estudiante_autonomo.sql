@@ -10,13 +10,15 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_asistencia_estudiante_autonomo]
     @idEstudiante       UNIQUEIDENTIFIER,
     @idSesion           UNIQUEIDENTIFIER,
     @codigoVerificacion NVARCHAR(50),
-    @idCorrelacion      UNIQUEIDENTIFIER
+    @idCorrelacion      UNIQUEIDENTIFIER,
+    @idUsuarioEjecutor  UNIQUEIDENTIFIER = NULL
 )
 AS
     -- 1. Estandarización e inicialización de variables locales utilizando catálogo de parámetros (Sin ISNULL)
     DECLARE @idCorrelacionDefecto      UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idEstudianteDefecto       UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idEstudiante, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idSesionDefecto           UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idSesion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idUsuarioEjecutorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @codigoVerificacionDefecto NVARCHAR(50)     = TRIM(dbo.ufn_obtener_parametro_texto(@codigoVerificacion, 'GENERAL', 'CADENA_VACIA'));
 
     DECLARE @codigoReal NVARCHAR(50);
@@ -32,10 +34,22 @@ BEGIN
 
         -- PASO 1: Validación de presencia del identificador de correlación obligatorio
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
-            @idCorrelacion = @idCorrelacionDefecto, 
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
+            @idCorrelacion = @idCorrelacionDefecto,
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
+
+        -- PASO 1.5: Validación de perfil RBAC del usuario ejecutor si es suministrado
+        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NOT NULL
+        BEGIN
+            EXEC dbo.usp_validar_permiso_rbac_usuario_interno
+                @idUsuario = @idUsuarioEjecutorDefecto,
+                @codigoPerfilRequerido = 'ESTUDIANTE',
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
 
         -- PASO 2: Validación de existencia de la sesión de clase
         IF @estadoResultado = 1

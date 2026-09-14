@@ -7,13 +7,15 @@ GO
 
 CREATE OR ALTER PROCEDURE [dbo].[usp_generar_sesiones_grupo]
 (
-    @idGrupo       UNIQUEIDENTIFIER,
-    @idCorrelacion UNIQUEIDENTIFIER
+    @idGrupo           UNIQUEIDENTIFIER,
+    @idCorrelacion     UNIQUEIDENTIFIER,
+    @idUsuarioEjecutor UNIQUEIDENTIFIER = NULL
 )
 AS
     -- 1. Estandarización e inicialización de variables locales utilizando catálogo de parámetros (Sin ISNULL)
-    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @idGrupoDefecto       UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idGrupo, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idCorrelacionDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idGrupoDefecto           UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idGrupo, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idUsuarioEjecutorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
 
     DECLARE @idPeriodo            UNIQUEIDENTIFIER;
     DECLARE @fechaInicio          DATE;
@@ -52,7 +54,7 @@ AS
     -- Inicialización interna de variables de respuesta
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
-    DECLARE @estadoResultado BIT = 1;
+    DECLARE @estadoResultado         BIT = 1;
 
 BEGIN
     SET NOCOUNT ON;
@@ -64,6 +66,17 @@ BEGIN
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
             @estadoResultado = @estadoResultado OUTPUT;
+
+        -- PASO 1.5: Validación del usuario ejecutor si es suministrado
+        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NOT NULL
+        BEGIN
+            EXEC dbo.usp_validar_usuario_existe_por_id_interno
+                @idUsuario = @idUsuarioEjecutorDefecto,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
 
         -- PASO 2: Validación de existencia del grupo académico
         IF @estadoResultado = 1

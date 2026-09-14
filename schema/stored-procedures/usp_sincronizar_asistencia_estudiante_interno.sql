@@ -107,7 +107,9 @@ BEGIN
         BEGIN
             SELECT TOP 1 @idRazonCausa = id 
             FROM dbo.RazonCausa 
-            WHERE codigo = @codigoEstadoDefecto;
+            WHERE codigo = @codigoEstadoDefecto
+               OR (@codigoEstadoDefecto = 'A' AND codigo = 'AN')
+               OR (@codigoEstadoDefecto = 'F' AND codigo = 'SJC');
 
             IF @idRazonCausa IS NULL
             BEGIN
@@ -125,7 +127,7 @@ BEGIN
                 VALUES (@idRazonCausa, @nombreEstado, @codigoEstadoDefecto);
             END
 
-            SET @asistio = CASE WHEN @codigoEstadoDefecto IN ('A', 'T') THEN 1 ELSE 0 END;
+            SET @asistio = CASE WHEN @codigoEstadoDefecto IN ('A', 'T', 'AN') THEN 1 ELSE 0 END;
         END
 
         -- PASO 6: Sincronización de cabecera y detalle de asistencia

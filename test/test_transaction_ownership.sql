@@ -20,8 +20,7 @@ BEGIN TRY
     DECLARE @correoEst NVARCHAR(255) = N'ownership.estudiante@test.local';
     DECLARE @corrEst UNIQUEIDENTIFIER = NEWID();
 
-    EXEC dbo.usp_registrar_estudiante_en_grupo_usuario_no_existente
-        @idTipoIdIdentificacion = @tipoId,
+    EXEC dbo.usp_registrar_estudiante_en_grupo
         @numeroIdentificacion = 935000001,
         @primerApellido = N'Ownership',
         @segundoApellido = N'Estudiante',
@@ -49,8 +48,7 @@ BEGIN TRY
     DECLARE @correoDoc NVARCHAR(255) = N'ownership.docente@test.local';
     DECLARE @corrDoc UNIQUEIDENTIFIER = NEWID();
 
-    EXEC dbo.usp_registrar_docente_en_grupo_usuario_no_existente
-        @idTipoIdIdentificacion = @tipoId,
+    EXEC dbo.usp_registrar_docente_en_grupo
         @numeroIdentificacion = 935000002,
         @primerApellido = N'Ownership',
         @segundoApellido = N'Docente',
@@ -58,7 +56,7 @@ BEGIN TRY
         @segundoNombre = N'Test',
         @correo = @correoDoc,
         @password = N'HashBackend_QaOwnership1234567890',
-        @idGrupo = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+        @idGrupo = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
         @idCorrelacion = @corrDoc;
 
     IF @@TRANCOUNT <> @beforeDoc THROW 51505, 'TEST FAILED: docente hizo rollback/commit total de transaccion externa.', 1;

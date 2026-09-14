@@ -23,15 +23,15 @@ CREATE TABLE #teacherResult (
 
 BEGIN TRY
     INSERT INTO #teacherResult
-    EXEC dbo.usp_registrar_docente_en_grupo_usuario_no_existente
-        @idTipoIdIdentificacion = @tipoId, @numeroIdentificacion = @numero,
+    EXEC dbo.usp_registrar_docente_en_grupo
+        @numeroIdentificacion = @numero,
         @primerApellido = N'Quality', @segundoApellido = N'Gate',
         @primerNombre = N'Docente', @segundoNombre = N'Success',
         @correo = @correo, @password = N'HashBackend_QaTeacher1234567890',
         @idGrupo = @grupo, @idCorrelacion = @corr;
 
     DECLARE @expectedUser NVARCHAR(4000), @expectedTech NVARCHAR(4000);
-    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_004', @p_param1 = 'DocenteGrupo',
+    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_005', @p_param1 = 'Docente en Grupo',
         @mensajeUsuarioResultado = @expectedUser OUTPUT, @mensajeTecnicoResultado = @expectedTech OUTPUT;
     IF (SELECT COUNT(*) FROM #teacherResult WHERE idCorrelacion = @corr AND estadoResultado = 1
         AND mensajeUsuarioResultado = @expectedUser
@@ -75,14 +75,14 @@ DECLARE @userMsg NVARCHAR(4000), @techMsg NVARCHAR(4000);
 DECLARE @usersBefore INT = (SELECT COUNT(*) FROM dbo.Usuario);
 DECLARE @teachersBefore INT = (SELECT COUNT(*) FROM dbo.Docente);
 DECLARE @groupsBefore INT = (SELECT COUNT(*) FROM dbo.Grupo);
-EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GRUP_001',
+EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'ERR_GRUPO_NO_EXISTE',
     @p_param1 = @missingGroup, @mensajeUsuarioResultado = @userMsg OUTPUT,
     @mensajeTecnicoResultado = @techMsg OUTPUT;
 PRINT CONCAT('TEST_EXPECTED_USER:TEACHER_GROUP_NOT_FOUND|', @userMsg);
 PRINT CONCAT('TEST_EXPECTED_TECH:TEACHER_GROUP_NOT_FOUND|', @techMsg, ' Correlacion: ', @corr);
 PRINT 'TEST_RESULT_BEGIN:TEACHER_GROUP_NOT_FOUND';
-EXEC dbo.usp_registrar_docente_en_grupo_usuario_no_existente
-    @idTipoIdIdentificacion = @tipoId, @numeroIdentificacion = @numero,
+EXEC dbo.usp_registrar_docente_en_grupo
+    @numeroIdentificacion = @numero,
     @primerApellido = N'Quality', @segundoApellido = N'Gate',
     @primerNombre = N'Docente', @segundoNombre = N'Missing',
     @correo = @correo, @password = N'HashBackend_QaTeacher1234567890',
@@ -100,5 +100,5 @@ IF @usersBefore <> (SELECT COUNT(*) FROM dbo.Usuario) OR
     THROW 51619, 'TEST FAILED: TEACHER_GROUP_NOT_FOUND changed related row counts.', 1;
 PRINT 'TEST_STATE_PASS:TEACHER_GROUP_NOT_FOUND';
 IF @@TRANCOUNT <> 0 THROW 51618, 'TEST FAILED: teacher tests left transaction open.', 1;
-PRINT 'TEST END: test_usp_registrar_docente_en_grupo_usuario_no_existente';
+PRINT 'TEST END: test_usp_registrar_docente_en_grupo';
 GO
