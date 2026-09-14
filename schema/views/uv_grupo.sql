@@ -5,7 +5,7 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
-CREATE OR ALTER    VIEW [dbo].[uv_grupo]
+CREATE OR ALTER VIEW [dbo].[uv_grupo]
 AS
 SELECT		id = g.id,
 			idPeriodoAcademico = pa.id,
@@ -20,22 +20,19 @@ SELECT		id = g.id,
 			codigo = g.codigo,
 			nombre = g.nombre,
 			
-			-- CAPACIDAD Y ESTAD?STICAS
+			-- CAPACIDAD Y ESTADÍSTICAS
 			capacidadMaximaPermitida = g.cantidadEstudiantes, 
 			estudiantesActivos = eg.cantidadActivos,
 			estudiantesFinalizados = eg.cantidadFinalizados,
 			estudiantesCanceladosVoluntad = eg.cantidadCanceladoPorVoluntadPropia,
 			estudiantesCanceladosInasistencia = eg.cantidadCanceladoPorInasistencia,
 			
-			-- C?LCULO DE DISPONIBILIDAD
+			-- CÁLCULO DE DISPONIBILIDAD
 			cuposDisponibles = (g.cantidadEstudiantes - eg.cantidadActivos),
 			
-			-- ESTADO DE HABILITACI?N
+			-- ESTADO DE HABILITACIÓN
 			grupoEstaHablitado = IIF(GETDATE() BETWEEN pa.fechaInicio AND pa.fechaFin, 1, 0),
-			grupoEstaHablitadoTexto = IIF(GETDATE() BETWEEN pa.fechaInicio AND pa.fechaFin, 'SI', 'NO'),
-
-			-- ESPACIO FISICO
-			aula = g.aula
+			grupoEstaHablitadoTexto = IIF(GETDATE() BETWEEN pa.fechaInicio AND pa.fechaFin, 'SI', 'NO')
 
 FROM		Grupo g
 INNER JOIN	uv_periodo_academico pa 

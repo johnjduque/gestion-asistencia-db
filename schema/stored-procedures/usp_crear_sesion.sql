@@ -68,7 +68,7 @@ BEGIN
 
             INSERT INTO dbo.Sesion (
                 id, nombre, numero, codigo, numeroSemana, grupo,
-                fechaHoraInicio, fechaHoraFin, descripcion, aula, tipo
+                fechaHoraInicio, fechaHoraFin
             )
             VALUES (
                 @idNuevoSesion,
@@ -78,10 +78,7 @@ BEGIN
                 @numeroSiguiente,
                 @idGrupoDefecto,
                 CASE WHEN @fechaHoraInicio IS NOT NULL THEN @fechaHoraInicio ELSE CURRENT_TIMESTAMP END,
-                CASE WHEN @fechaHoraFin IS NOT NULL THEN @fechaHoraFin ELSE DATEADD(HOUR, 2, CURRENT_TIMESTAMP) END,
-                @descripcionDefecto,
-                @aulaDefecto,
-                @tipoDefecto
+                CASE WHEN @fechaHoraFin IS NOT NULL THEN @fechaHoraFin ELSE DATEADD(HOUR, 2, CURRENT_TIMESTAMP) END
             );
 
             EXEC dbo.usp_obtener_mensaje_catalogo

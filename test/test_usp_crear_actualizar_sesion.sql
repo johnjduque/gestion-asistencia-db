@@ -43,11 +43,8 @@ BEGIN TRY
         @idGrupo = @idGrupoValido,
         @idDocente = @idDocenteTitular,
         @nombre = N'Sesion Suite QA',
-        @descripcion = N'Clase magistral de repaso',
         @fechaHoraInicio = NULL,
         @fechaHoraFin = NULL,
-        @aula = N'Lab 301',
-        @tipo = N'TEORICA',
         @idCorrelacion = @corrCrear;
 
     IF NOT EXISTS (SELECT 1 FROM #sesionResultado WHERE estadoResultado = 1)
@@ -59,11 +56,8 @@ BEGIN TRY
 
     IF @idSesionCreada IS NULL THROW 51303, 'TEST FAILED: no se encontro sesion creada por uv_sesion.', 1;
 
-    IF NOT EXISTS (SELECT 1 FROM dbo.Sesion WHERE id = @idSesionCreada AND descripcion = N'Clase magistral de repaso' AND aula = N'Lab 301' AND tipo = N'TEORICA')
-        THROW 51304, 'TEST FAILED: dbo.Sesion no persistio descripcion/aula/tipo.', 1;
-
-    IF NOT EXISTS (SELECT 1 FROM dbo.uv_sesion WHERE id = @idSesionCreada AND descripcion = N'Clase magistral de repaso' AND aula = N'Lab 301' AND tipo = N'TEORICA')
-        THROW 51305, 'TEST FAILED: uv_sesion no expone descripcion/aula/tipo.', 1;
+    IF NOT EXISTS (SELECT 1 FROM dbo.Sesion WHERE id = @idSesionCreada AND nombre = N'Sesion Suite QA')
+        THROW 51304, 'TEST FAILED: dbo.Sesion no persistio nombre.', 1;
 
     DECLARE @otroDocente UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_docente WHERE id <> @idDocenteTitular);
     IF @otroDocente IS NULL
@@ -94,11 +88,8 @@ BEGIN TRY
         @idGrupo = @idGrupoValido,
         @idDocente = @otroDocente,
         @nombre = N'Sesion Intrusa',
-        @descripcion = NULL,
         @fechaHoraInicio = NULL,
         @fechaHoraFin = NULL,
-        @aula = NULL,
-        @tipo = NULL,
         @idCorrelacion = @corrIntrusa;
 
     IF NOT EXISTS (SELECT 1 FROM #sesionResultado WHERE estadoResultado = 0)
@@ -111,34 +102,17 @@ BEGIN TRY
     INSERT INTO #sesionResultado
     EXEC dbo.usp_actualizar_sesion
         @idSesion = @idSesionCreada,
-        @nombre = NULL,
+        @nombre = N'Sesion Renombrada',
         @fechaHoraInicio = NULL,
         @fechaHoraFin = NULL,
-        @aula = N'Lab 405',
-        @descripcion = N'Descripcion actualizada',
         @idDocente = NULL,
-        @idCorrelacion = @corrActualizar;
+        @idCorrelacion = @corrRenombrar;
 
     IF NOT EXISTS (SELECT 1 FROM #sesionResultado WHERE estadoResultado = 1)
         THROW 51309, 'TEST FAILED: usp_actualizar_sesion no retorno SUCCESS.', 1;
 
-    IF NOT EXISTS (SELECT 1 FROM dbo.Sesion WHERE id = @idSesionCreada AND aula = N'Lab 405' AND descripcion = N'Descripcion actualizada' AND tipo = N'TEORICA')
-        THROW 51310, 'TEST FAILED: actualizar sesion no persistio aula/descripcion o perdio tipo.', 1;
-
-    TRUNCATE TABLE #sesionResultado;
-    INSERT INTO #sesionResultado
-    EXEC dbo.usp_actualizar_sesion
-        @idSesion = @idSesionCreada,
-        @nombre = N'Sesion Renombrada',
-        @fechaHoraInicio = NULL,
-        @fechaHoraFin = NULL,
-        @aula = NULL,
-        @descripcion = NULL,
-        @idDocente = NULL,
-        @idCorrelacion = @corrRenombrar;
-
-    IF NOT EXISTS (SELECT 1 FROM dbo.Sesion WHERE id = @idSesionCreada AND aula = N'Lab 405' AND descripcion = N'Descripcion actualizada' AND nombre = N'Sesion Renombrada')
-        THROW 51311, 'TEST FAILED: actualizar sesion con NULL no conservo aula/descripcion.', 1;
+    IF NOT EXISTS (SELECT 1 FROM dbo.Sesion WHERE id = @idSesionCreada AND nombre = N'Sesion Renombrada')
+        THROW 51311, 'TEST FAILED: actualizar sesion no conservo nombre.', 1;
 
     DROP TABLE #sesionResultado;
 END TRY
@@ -155,7 +129,7 @@ IF EXISTS (SELECT 1 FROM dbo.Usuario WHERE correo = N'sesion.otrodocente.qa@test
     THROW 51313, 'TEST FAILED: sesion dejo docente temporal permanente.', 1;
 
 IF @@TRANCOUNT <> 0 THROW 51314, 'TEST FAILED: sesion dejo transacciones abiertas.', 1;
-PRINT 'TEST PASS: sesion create/update/descripcion/aula/tipo/uv_sesion.';
+PRINT 'TEST PASS: sesion create/update/uv_sesion.';
 PRINT 'TEST_PASS:SESSION_CREATE';
 PRINT 'TEST_PASS:SESSION_UPDATE';
 PRINT 'TEST_PASS:SESSION_NON_OWNER';

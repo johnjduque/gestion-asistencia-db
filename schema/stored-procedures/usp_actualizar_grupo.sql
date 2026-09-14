@@ -123,8 +123,7 @@ BEGIN
             SET codigo = CASE WHEN @codigo IS NOT NULL AND @codigo > 0 THEN @codigo ELSE codigo END,
                 nombre = CASE WHEN @nombreDefecto IS NOT NULL AND @nombreDefecto <> '' THEN @nombreDefecto ELSE nombre END,
                 docente = CASE WHEN @idDocente IS NOT NULL THEN @idDocenteDefecto ELSE docente END,
-                cantidadEstudiantes = CASE WHEN @cupoMaximo IS NOT NULL AND @cupoMaximo > 0 THEN @cupoMaximo ELSE cantidadEstudiantes END,
-                aula = CASE WHEN @aulaDefecto IS NOT NULL THEN @aulaDefecto ELSE aula END
+                cantidadEstudiantes = CASE WHEN @cupoMaximo IS NOT NULL AND @cupoMaximo > 0 THEN @cupoMaximo ELSE cantidadEstudiantes END
             WHERE id = @idGrupoDefecto;
 
             EXEC dbo.usp_obtener_mensaje_catalogo

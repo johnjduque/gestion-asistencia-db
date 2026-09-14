@@ -155,9 +155,9 @@ BEGIN TRY
     VALUES (@period, @institution, N'Periodo QA Cerrado', 200000 + ABS(CHECKSUM(NEWID()) % 100000), '2000-01-01', '2000-01-31', 2000);
     INSERT dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes,
         cantidadEstudiantesFinalizaron, cantidadEstudiantesCancelaronVoluntadPropia,
-        cantidadEstudiantesCancelaronAutomaticamente, docente, aula)
+        cantidadEstudiantesCancelaronAutomaticamente, docente)
     VALUES (@closedGroup, @assignment, @period, 200000 + ABS(CHECKSUM(NEWID()) % 100000),
-        N'Grupo QA Cerrado', 10, 0, 0, 0, @teacher, N'Aula QA');
+        N'Grupo QA Cerrado', 10, 0, 0, 0, @teacher);
     EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'ERR_GRUPO_NO_HABILITADO',
         @p_param1 = @closedGroup, @mensajeUsuarioResultado = @userMsg OUTPUT,
         @mensajeTecnicoResultado = @techMsg OUTPUT;

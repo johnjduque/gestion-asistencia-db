@@ -5,7 +5,7 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
-CREATE OR ALTER  VIEW [dbo].[uv_sesion]
+CREATE OR ALTER VIEW [dbo].[uv_sesion]
 AS
 SELECT		id = se.id,
 			nombre = se.nombre,
@@ -16,10 +16,7 @@ SELECT		id = se.id,
 			codigoGrupo = g.codigo,
 			nombreGrupo = g.nombre,
 			fechaHoraInicio = se.fechaHoraInicio,
-			fechaHoraFin = se.fechaHoraFin,
-			descripcion = se.descripcion,
-			aula = se.aula,
-			tipo = se.tipo
+			fechaHoraFin = se.fechaHoraFin
 
 FROM		Sesion se
 INNER JOIN	uv_grupo g

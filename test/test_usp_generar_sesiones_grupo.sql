@@ -25,9 +25,9 @@ BEGIN TRY
         400000 + ABS(CHECKSUM(NEWID()) % 100000), @firstDay, DATEADD(DAY, 7, @firstDay), YEAR(@firstDay));
     INSERT dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes,
         cantidadEstudiantesFinalizaron, cantidadEstudiantesCancelaronVoluntadPropia,
-        cantidadEstudiantesCancelaronAutomaticamente, docente, aula)
+        cantidadEstudiantesCancelaronAutomaticamente, docente)
     VALUES (@group, @assignment, @period, 400000 + ABS(CHECKSUM(NEWID()) % 100000),
-        N'Grupo QA Generacion', 20, 0, 0, 0, @teacher, N'Lab QA');
+        N'Grupo QA Generacion', 20, 0, 0, 0, @teacher);
     INSERT dbo.Horario (id, grupo, dia, horaInicio, horaFin)
     SELECT NEWID(), @group, id, '08:00', '09:00' FROM dbo.uv_dia;
     IF (SELECT COUNT(*) FROM dbo.Horario WHERE grupo = @group) <> 7

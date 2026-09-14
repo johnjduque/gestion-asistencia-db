@@ -40,7 +40,6 @@ BEGIN TRY
         @codigo = @codigoGrupo,
         @nombre = N'Grupo Capacidad Defecto',
         @idDocente = @idDocente,
-        @aula = N'Bloque A - 101',
         @idCorrelacion = @c1;
 
     IF NOT EXISTS (SELECT 1 FROM #grupoResultado WHERE estadoResultado = 1)
@@ -48,12 +47,6 @@ BEGIN TRY
 
     IF NOT EXISTS (SELECT 1 FROM dbo.Grupo WHERE id = @idGrupo1 AND cantidadEstudiantes = @capacidadDefecto AND cantidadEstudiantes > 0)
         THROW 51205, 'TEST FAILED: crear grupo no persistio capacidad por defecto valida.', 1;
-
-    IF NOT EXISTS (SELECT 1 FROM dbo.Grupo WHERE id = @idGrupo1 AND aula = N'Bloque A - 101')
-        THROW 51206, 'TEST FAILED: crear grupo no persistio aula.', 1;
-
-    IF NOT EXISTS (SELECT 1 FROM dbo.uv_grupo WHERE id = @idGrupo1 AND capacidadMaximaPermitida = @capacidadDefecto AND aula = N'Bloque A - 101')
-        THROW 51207, 'TEST FAILED: uv_grupo no expone capacidad/aula esperadas.', 1;
 
     TRUNCATE TABLE #grupoResultado;
     INSERT INTO #grupoResultado
@@ -63,14 +56,13 @@ BEGIN TRY
         @nombre = NULL,
         @idDocente = NULL,
         @cupoMaximo = 60,
-        @aula = N'Bloque A - 102',
         @idCorrelacion = @c2;
 
     IF NOT EXISTS (SELECT 1 FROM #grupoResultado WHERE estadoResultado = 1)
         THROW 51208, 'TEST FAILED: usp_actualizar_grupo no retorno SUCCESS.', 1;
 
-    IF NOT EXISTS (SELECT 1 FROM dbo.Grupo WHERE id = @idGrupo1 AND cantidadEstudiantes = 60 AND aula = N'Bloque A - 102')
-        THROW 51209, 'TEST FAILED: actualizar grupo no persistio cupo/aula.', 1;
+    IF NOT EXISTS (SELECT 1 FROM dbo.Grupo WHERE id = @idGrupo1 AND cantidadEstudiantes = 60)
+        THROW 51209, 'TEST FAILED: actualizar grupo no persistio cupo.', 1;
 
     DECLARE @estadoActivo UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.EstadoEstudianteGrupo WHERE codigo = 'A');
     DECLARE @estudiante1 UNIQUEIDENTIFIER = (SELECT id FROM (SELECT id, ROW_NUMBER() OVER (ORDER BY id) AS rn FROM dbo.Estudiante) e WHERE rn = 1);
@@ -93,7 +85,6 @@ BEGIN TRY
         @nombre = NULL,
         @idDocente = NULL,
         @cupoMaximo = 1,
-        @aula = NULL,
         @idCorrelacion = @c3;
 
     IF NOT EXISTS (SELECT 1 FROM #grupoResultado WHERE estadoResultado = 0 AND mensajeUsuarioResultado = (SELECT contenido FROM dbo.uv_mensaje_usuario WHERE codigo = 'ERR_CUPO_INFERIOR_OCUPACION'))
@@ -110,11 +101,10 @@ BEGIN TRY
         @nombre = N'Grupo Renombrado',
         @idDocente = NULL,
         @cupoMaximo = NULL,
-        @aula = NULL,
         @idCorrelacion = @c4;
 
-    IF NOT EXISTS (SELECT 1 FROM dbo.Grupo WHERE id = @idGrupo1 AND cantidadEstudiantes = 60 AND aula = N'Bloque A - 102' AND nombre = N'Grupo Renombrado')
-        THROW 51214, 'TEST FAILED: actualizar grupo con NULL no conservo cupo/aula.', 1;
+    IF NOT EXISTS (SELECT 1 FROM dbo.Grupo WHERE id = @idGrupo1 AND cantidadEstudiantes = 60 AND nombre = N'Grupo Renombrado')
+        THROW 51214, 'TEST FAILED: actualizar grupo con NULL no conservo cupo.', 1;
 
     DROP TABLE #grupoResultado;
 END TRY
@@ -128,7 +118,7 @@ IF EXISTS (SELECT 1 FROM dbo.Grupo WHERE id = @idGrupo1)
     THROW 51215, 'TEST FAILED: grupo dejo datos permanentes.', 1;
 
 IF @@TRANCOUNT <> 0 THROW 51216, 'TEST FAILED: grupo dejo transacciones abiertas.', 1;
-PRINT 'TEST PASS: grupo create/update/cupo/aula/uv_grupo.';
+PRINT 'TEST PASS: grupo create/update/cupo/uv_grupo.';
 PRINT 'TEST_PASS:GROUP_CREATE';
 PRINT 'TEST_PASS:GROUP_UPDATE';
 PRINT 'TEST_PASS:GROUP_CAPACITY_REJECT';

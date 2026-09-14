@@ -138,7 +138,7 @@ BEGIN
                 cantidadEstudiantes, cantidadEstudiantesFinalizaron,
                 cantidadEstudiantesCancelaronVoluntadPropia,
                 cantidadEstudiantesCancelaronAutomaticamente,
-                docente, aula
+                docente
             )
             VALUES (
                 @idGrupoDefecto,
@@ -147,8 +147,7 @@ BEGIN
                 @codigo,
                 CASE WHEN @nombreDefecto IS NOT NULL AND @nombreDefecto <> '' THEN @nombreDefecto ELSE CONCAT('Grupo ', @codigo) END,
                 @capacidadMaximaDefecto, 0, 0, 0,
-                @idDocenteDefecto,
-                @aulaDefecto
+                @idDocenteDefecto
             );
 
             EXEC dbo.usp_obtener_mensaje_catalogo

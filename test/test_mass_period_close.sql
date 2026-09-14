@@ -29,9 +29,9 @@ BEGIN TRY
         DATEADD(DAY, -20, CAST(GETDATE() AS DATE)), DATEADD(DAY, -1, CAST(GETDATE() AS DATE)), YEAR(GETDATE()));
     INSERT dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes,
         cantidadEstudiantesFinalizaron, cantidadEstudiantesCancelaronVoluntadPropia,
-        cantidadEstudiantesCancelaronAutomaticamente, docente, aula)
-    VALUES (@group, @assignment, @period, 600000 + ABS(CHECKSUM(NEWID()) % 100000),
-        N'Grupo QA Cierre', 20, 0, 0, 0, @teacher, N'QA');
+        cantidadEstudiantesCancelaronAutomaticamente, docente)
+    VALUES (@group, @assignment, @period, 300000 + ABS(CHECKSUM(NEWID()) % 100000),
+        N'Grupo QA Masivo', 30, 0, 0, 0, @teacher);
     INSERT dbo.EstudianteGrupo (id, estado, estudiante, grupo)
     VALUES (@enrollment, @active, @studentAbsent, @group),
         (NEWID(), @active, @studentPresent, @group);

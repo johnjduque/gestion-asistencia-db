@@ -81,9 +81,7 @@ BEGIN
             UPDATE dbo.Sesion
             SET nombre = CASE WHEN @nombreDefecto IS NOT NULL AND @nombreDefecto <> '' THEN @nombreDefecto ELSE nombre END,
                 fechaHoraInicio = CASE WHEN @fechaHoraInicio IS NOT NULL THEN @fechaHoraInicio ELSE fechaHoraInicio END,
-                fechaHoraFin = CASE WHEN @fechaHoraFin IS NOT NULL THEN @fechaHoraFin ELSE fechaHoraFin END,
-                aula = CASE WHEN @aulaDefecto IS NOT NULL THEN @aulaDefecto ELSE aula END,
-                descripcion = CASE WHEN @descripcionDefecto IS NOT NULL THEN @descripcionDefecto ELSE descripcion END
+                fechaHoraFin = CASE WHEN @fechaHoraFin IS NOT NULL THEN @fechaHoraFin ELSE fechaHoraFin END
             WHERE id = @idSesionDefecto;
 
             EXEC dbo.usp_obtener_mensaje_catalogo
