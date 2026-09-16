@@ -1,0 +1,54 @@
+name: DB Quality Gate CI/CD
+
+on:
+  push:
+    branches: [ develop, main ]
+  pull_request:
+    branches: [ develop, main ]
+
+jobs:
+  db-quality-gate:
+    name: Database Deployment & Quality Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Start MSSQL Docker Container
+        run: |
+          docker run -d --name sqlserver \
+            -e "ACCEPT_EULA=Y" \
+            -e "MSSQL_SA_PASSWORD=Rionegro2233+" \
+            -p 1433:1433 \
+            mcr.microsoft.com/mssql/server:2022-latest
+
+      - name: Wait for MSSQL Engine Readiness
+        shell: pwsh
+        run: |
+          $maxAttempts = 30
+          $attempt = 0
+          $ready = $false
+          while (-not $ready -and $attempt -lt $maxAttempts) {
+              $attempt++
+              Write-Host "Waiting for MSSQL Server engine... (Attempt $attempt/$maxAttempts)"
+              Start-Sleep -Seconds 2
+              $check = docker exec sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "Rionegro2233+" -C -Q "SELECT 1;" 2>&1
+              if ($LASTEXITCODE -eq 0) {
+                  $ready = $true
+                  Write-Host "MSSQL Server Engine is READY!" -ForegroundColor Green
+              }
+          }
+          if (-not $ready) {
+              throw "MSSQL Server failed to start within time limit."
+          }
+
+      - name: Deploy Database Schema (deploy_schema.ps1)
+        shell: pwsh
+        run: |
+          ./deploy_schema.ps1 -ContainerName "sqlserver" -Password "Rionegro2233+"
+
+      - name: Execute DB Quality Gate (test_summary.ps1)
+        shell: pwsh
+        run: |
+          ./test_summary.ps1 -ContainerName "sqlserver" -Password "Rionegro2233+"

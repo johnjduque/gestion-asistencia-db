@@ -1,5 +1,7 @@
 # Gestión de Asistencias - Base de Datos (gestionasistenciadb) 🗄️
 
+![DB Quality Gate CI/CD](https://github.com/johnjduque/gestion-asistencia-db/actions/workflows/ci.yml/badge.svg?branch=develop)
+
 Este repositorio contiene el diseño lógico, la estructura y los objetos programables de la base de datos para el **Sistema de Gestión de Asistencias**. El entorno de desarrollo está completamente dockerizado para garantizar que todos los miembros del equipo trabajen sobre la misma versión del motor de bases de datos de forma idéntica.
 
 ---
