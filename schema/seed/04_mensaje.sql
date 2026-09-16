@@ -69,6 +69,9 @@ USING (VALUES
     ('SES_002', 'BUSINESS_ERROR', 'MEDIO', 'El código de verificación de asistencia es incorrecto o ha expirado.'),
     ('ERR_TOKEN_VERIFICACION_INVALIDO', 'BUSINESS_ERROR', 'MEDIO', 'El codigo de verificacion de asistencia es incorrecto o ha expirado.'),
 
+    ('RC_001', 'BUSINESS_ERROR', 'ALTO', 'El código de estado de asistencia "{}" no corresponde a una razón de causa registrada en el catálogo.'),
+    ('ERR_RAZON_CAUSA_NO_EXISTE', 'BUSINESS_ERROR', 'ALTO', 'El codigo de asistencia "{}" no existe en el catalogo de razones de causa.'),
+
     ('INST_001', 'BUSINESS_ERROR', 'CRITICO', 'El estudiante, programa y facultad deben pertenecer a la misma institución.'),
     ('ERR_PROGRAMA_FACULTAD_INCONSISTENTE', 'BUSINESS_ERROR', 'CRITICO', 'El programa académico indicado no pertenece a la facultad especificada.'),
 
@@ -162,6 +165,9 @@ USING (VALUES
     ('ERR_SESION_NO_EXISTE', 'BUSINESS_ERROR', 'MEDIO', 'Error: No se encontro una sesion activa para el ID especificado: {}.'),
     ('SES_002', 'BUSINESS_ERROR', 'MEDIO', 'Validación fallida: Token QR o código de verificación no coincide o venció para Sesión: {}.'),
     ('ERR_TOKEN_VERIFICACION_INVALIDO', 'BUSINESS_ERROR', 'MEDIO', 'Fallo: Codigo de verificacion incorrecto o expirado para Sesion: {}.'),
+
+    ('RC_001', 'BUSINESS_ERROR', 'ALTO', 'Error de catálogo: RazonCausa.codigo = [{}] no existe. No se permite creación dinámica de estados en dbo.RazonCausa.'),
+    ('ERR_RAZON_CAUSA_NO_EXISTE', 'BUSINESS_ERROR', 'ALTO', 'Codigo de asistencia no encontrado en dbo.RazonCausa: [{}]. Catalogo controlado, sin insercion dinamica.'),
 
     ('INST_001', 'BUSINESS_ERROR', 'CRITICO', 'Inconsistencia institucional: Los identificadores de institución no coinciden entre la facultad, programa y estudiante: {}.'),
     ('ERR_PROGRAMA_FACULTAD_INCONSISTENTE', 'BUSINESS_ERROR', 'CRITICO', 'Programa {} no pertenece a la Facultad {} indicada en uv_programa.idFacultad.'),

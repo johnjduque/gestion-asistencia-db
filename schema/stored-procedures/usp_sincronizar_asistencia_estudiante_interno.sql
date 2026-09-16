@@ -27,7 +27,6 @@ AS
     DECLARE @fechaFinSesion          DATETIME2;
     DECLARE @idEstudianteGrupo        UNIQUEIDENTIFIER;
     DECLARE @idRazonCausa            UNIQUEIDENTIFIER;
-    DECLARE @nombreEstado            NVARCHAR(50);
     DECLARE @asistio                 BIT;
     DECLARE @idAsistencia            UNIQUEIDENTIFIER;
     DECLARE @idDetalleAsistencia     UNIQUEIDENTIFIER;
@@ -113,21 +112,19 @@ BEGIN
 
             IF @idRazonCausa IS NULL
             BEGIN
-                SET @idRazonCausa = NEWID();
-                SET @nombreEstado = 
-                    CASE @codigoEstadoDefecto
-                        WHEN 'A' THEN 'Asistió'
-                        WHEN 'F' THEN 'Faltó'
-                        WHEN 'T' THEN 'Tarde'
-                        WHEN 'J' THEN 'Justificado'
-                        ELSE 'Otro/Desconocido'
-                    END;
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'RC_001',
+                    @p_param1 = @codigoEstadoDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-                INSERT INTO dbo.RazonCausa (id, nombre, codigo)
-                VALUES (@idRazonCausa, @nombreEstado, @codigoEstadoDefecto);
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
             END
-
-            SET @asistio = CASE WHEN @codigoEstadoDefecto IN ('A', 'T', 'AN') THEN 1 ELSE 0 END;
+            ELSE
+            BEGIN
+                SET @asistio = CASE WHEN @codigoEstadoDefecto IN ('A', 'T', 'AN') THEN 1 ELSE 0 END;
+            END
         END
 
         -- PASO 6: Sincronización de cabecera y detalle de asistencia

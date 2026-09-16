@@ -22,6 +22,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_attendance_review.sql
 :r /tmp/test/test_usp_crear_coordinador.sql
 :r /tmp/test/test_usp_resolver_solicitud_matricula.sql
+:r /tmp/test/test_titularidad_jerarquica.sql
+:r /tmp/test/test_asistencia_catalogo_roundtrip.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN

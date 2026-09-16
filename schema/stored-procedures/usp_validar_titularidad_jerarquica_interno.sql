@@ -45,8 +45,10 @@ BEGIN
             IF @tipoEntidadPadreDefecto = 'GRUPO'
             BEGIN
                 IF NOT EXISTS (
-                    SELECT 1 FROM dbo.uv_grupo 
-                    WHERE id = @idEntidadPadreDefecto AND idDocente = @idUsuarioDefecto
+                    SELECT 1
+                    FROM dbo.uv_grupo g
+                    INNER JOIN dbo.uv_docente_identidad di ON di.id = g.idDocente
+                    WHERE g.id = @idEntidadPadreDefecto AND di.idUsuario = @idUsuarioDefecto
                 )
                 BEGIN
                     EXEC dbo.usp_obtener_mensaje_catalogo
@@ -62,8 +64,10 @@ BEGIN
             ELSE IF @tipoEntidadPadreDefecto = 'PROGRAMA'
             BEGIN
                 IF NOT EXISTS (
-                    SELECT 1 FROM dbo.uv_programa 
-                    WHERE id = @idEntidadPadreDefecto AND idCoordinador = @idUsuarioDefecto
+                    SELECT 1
+                    FROM dbo.uv_programa pr
+                    INNER JOIN dbo.uv_coordinador_identidad ci ON ci.id = pr.idCoordinador
+                    WHERE pr.id = @idEntidadPadreDefecto AND ci.idUsuario = @idUsuarioDefecto
                 )
                 BEGIN
                     EXEC dbo.usp_obtener_mensaje_catalogo
@@ -79,8 +83,10 @@ BEGIN
             ELSE IF @tipoEntidadPadreDefecto = 'FACULTAD'
             BEGIN
                 IF NOT EXISTS (
-                    SELECT 1 FROM dbo.uv_facultad 
-                    WHERE id = @idEntidadPadreDefecto AND idDecano = @idUsuarioDefecto
+                    SELECT 1
+                    FROM dbo.uv_facultad f
+                    INNER JOIN dbo.uv_decano_identidad di ON di.id = f.idDecano
+                    WHERE f.id = @idEntidadPadreDefecto AND di.idUsuario = @idUsuarioDefecto
                 )
                 BEGIN
                     EXEC dbo.usp_obtener_mensaje_catalogo
@@ -113,10 +119,11 @@ BEGIN
             ELSE IF @tipoEntidadPadreDefecto = 'SESION'
             BEGIN
                 IF NOT EXISTS (
-                    SELECT 1 
+                    SELECT 1
                     FROM dbo.uv_sesion s
                     INNER JOIN dbo.uv_grupo g ON s.idGrupo = g.id
-                    WHERE s.id = @idEntidadPadreDefecto AND g.idDocente = @idUsuarioDefecto
+                    INNER JOIN dbo.uv_docente_identidad di ON di.id = g.idDocente
+                    WHERE s.id = @idEntidadPadreDefecto AND di.idUsuario = @idUsuarioDefecto
                 )
                 BEGIN
                     EXEC dbo.usp_obtener_mensaje_catalogo

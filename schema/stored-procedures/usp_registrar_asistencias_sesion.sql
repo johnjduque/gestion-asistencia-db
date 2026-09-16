@@ -81,7 +81,7 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
-        -- PASO 3: Carga, desglose iterativo y sincronización de asistencias recibidas en formato JSON
+        -- PASO 3: Carga y desglose del lote de asistencias recibido en formato JSON
         IF @estadoResultado = 1
         BEGIN
             INSERT INTO @EstudiantesATrabajar (idEstudiante, estado)
@@ -93,19 +93,24 @@ BEGIN
             );
 
             SELECT @totalEstudiantes = COUNT(1) FROM @EstudiantesATrabajar;
+        END
+
+        -- PASO 4: Validación íntegra y previa de TODO el lote (pertenencia activa al grupo de la
+        -- sesión + código de estado controlado en el catálogo RazonCausa) SIN escritura alguna.
+        -- Esto garantiza atomicidad (0 cambios parciales ante un elemento inválido) sin depender de
+        -- ROLLBACK TRANSACTION, el cual SQL Server no permite ejecutar dentro de un procedimiento
+        -- invocado mediante INSERT...EXEC.
+        IF @estadoResultado = 1
+        BEGIN
             SET @iterador = 1;
-
-            BEGIN TRANSACTION;
-
             WHILE @iterador <= @totalEstudiantes AND @estadoResultado = 1
             BEGIN
-                SELECT 
+                SELECT
                     @idEstudianteActual = idEstudiante,
                     @estadoActual       = estado
                 FROM @EstudiantesATrabajar
                 WHERE secuencia = @iterador;
 
-                -- Validación de pertenencia activa del estudiante al grupo de la sesión
                 EXEC dbo.usp_validar_estudiante_pertenece_a_grupo_de_sesion_interno
                     @idEstudiante = @idEstudianteActual,
                     @idSesion = @idSesionDefecto,
@@ -114,18 +119,49 @@ BEGIN
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                     @estadoResultado = @estadoResultado OUTPUT;
 
-                -- Sincronización de asistencia individual por estudiante
-                IF @estadoResultado = 1
+                IF @estadoResultado = 1 AND NOT EXISTS (
+                    SELECT 1 FROM dbo.RazonCausa
+                    WHERE codigo = @estadoActual
+                       OR (@estadoActual = 'A' AND codigo = 'AN')
+                       OR (@estadoActual = 'F' AND codigo = 'SJC')
+                )
                 BEGIN
-                    EXEC dbo.usp_sincronizar_asistencia_estudiante_interno
-                        @idEstudiante = @idEstudianteActual,
-                        @idSesion = @idSesionDefecto,
-                        @codigoEstado = @estadoActual,
-                        @idCorrelacion = @idCorrelacionDefecto,
+                    EXEC dbo.usp_obtener_mensaje_catalogo
+                        @p_codigo = 'RC_001',
+                        @p_param1 = @estadoActual,
                         @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-                        @estadoResultado = @estadoResultado OUTPUT;
+                        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                    SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                    SET @estadoResultado = 0;
                 END
+
+                SET @iterador = @iterador + 1;
+            END
+        END
+
+        -- PASO 5: Persistencia atómica del lote, solo si el PASO 4 validó el lote completo
+        IF @estadoResultado = 1 AND @totalEstudiantes > 0
+        BEGIN
+            SET @iterador = 1;
+            BEGIN TRANSACTION;
+
+            WHILE @iterador <= @totalEstudiantes AND @estadoResultado = 1
+            BEGIN
+                SELECT
+                    @idEstudianteActual = idEstudiante,
+                    @estadoActual       = estado
+                FROM @EstudiantesATrabajar
+                WHERE secuencia = @iterador;
+
+                EXEC dbo.usp_sincronizar_asistencia_estudiante_interno
+                    @idEstudiante = @idEstudianteActual,
+                    @idSesion = @idSesionDefecto,
+                    @codigoEstado = @estadoActual,
+                    @idCorrelacion = @idCorrelacionDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                    @estadoResultado = @estadoResultado OUTPUT;
 
                 SET @iterador = @iterador + 1;
             END
