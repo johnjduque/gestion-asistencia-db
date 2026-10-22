@@ -19,6 +19,9 @@ SELECT		pr.id,
 			idCoordinador = ci.id,
 			nombreCoordinador = ci.nombreCompleto,
 			
+			idTipoPrograma = tp.id,
+			nombreTipoPrograma = tp.nombre,
+			
 			estaActivoPrograma = pr.estado,
 			estaActivoTextoPrograma = IIF(pr.estado = 1, 'SI', 'NO')
 
@@ -27,4 +30,6 @@ INNER JOIN	uv_facultad f
 ON			pr.facultad = f.id
 LEFT JOIN	uv_coordinador_identidad ci 
 ON			pr.coordinador = ci.id
+LEFT JOIN	uv_tipo_programa tp
+ON			pr.tipoDePrograma = tp.id
 GO

@@ -16,6 +16,8 @@ SELECT  p.id,
         p.nombreInstitucion,
         p.idCoordinador,
         p.nombreCoordinador,
+        p.idTipoPrograma,
+        p.nombreTipoPrograma,
         p.estaActivoPrograma,
         p.estaActivoTextoPrograma
 FROM    dbo.uv_programa p
