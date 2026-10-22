@@ -5,9 +5,21 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
-CREATE OR ALTER  VIEW [dbo].[uv_area]
+-- =============================================================================
+-- Vista: [dbo].[uv_area]
+-- Descripción: Consulta canónica de áreas de conocimiento con total de asignaturas adscritas.
+-- =============================================================================
+CREATE OR ALTER VIEW [dbo].[uv_area]
 AS
-SELECT  id,
-		nombre
-FROM	Area
+SELECT  
+    a.id,
+    a.codigo,
+    a.nombre,
+    totalAsignaturas = COUNT(asg.id)
+FROM dbo.Area a
+LEFT JOIN dbo.Asignatura asg ON asg.area = a.id
+GROUP BY 
+    a.id,
+    a.codigo,
+    a.nombre;
 GO

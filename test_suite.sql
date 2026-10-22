@@ -10,6 +10,7 @@ PRINT '======================================================================';
 :r /tmp/test/test_public_objects.sql
 :r /tmp/test/test_contract_closure.sql
 :r /tmp/test/test_usp_crear_facultad.sql
+:r /tmp/test/test_usp_crear_actualizar_area.sql
 :r /tmp/test/test_user_dean_close.sql
 :r /tmp/test/test_subject_catalog.sql
 :r /tmp/test/test_reactive_academic.sql
@@ -32,6 +33,7 @@ PRINT '======================================================================';
 :r /tmp/test/test_attendance_review.sql
 :r /tmp/test/test_lb004d_support_binding.sql
 :r /tmp/test/test_usp_crear_coordinador.sql
+:r /tmp/test/test_usp_crear_programa_academico.sql
 :r /tmp/test/test_usp_resolver_solicitud_matricula.sql
 :r /tmp/test/test_golden_path_immutability.sql
 :r /tmp/test/test_utc_d06_readonly_contract.sql
@@ -39,6 +41,7 @@ PRINT '======================================================================';
 :r /tmp/test/test_authorized_views_rbac.sql
 :r /tmp/test/test_usp_consultar_grupos_paginado.sql
 :r /tmp/test/test_uv_estudiante_programa_no_duplicates.sql
+:r /tmp/test/test_usp_crear_docente.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN
