@@ -283,3 +283,13 @@ Work item: `docs/work-items/HU053-HU054-HU055-solicitudes-ingreso-grupo/` (tabla
 | `dbo.usp_consultar_destinatarios_solicitud_ingreso_grupo` | Lectura: ESTUDIANTE y DOCENTE para los avisos | estudiante propietario o docente titular | `VAL_001` (THROW) |
 
 Permiso aditivo: `schema/security/rol_asistencias_runtime_hu053_hu055.sql`. Semillas: `22_estados_solicitud_ingreso_grupo.sql`, `23_mensajes_solicitud_ingreso_grupo.sql`. Prueba: `test/test_solicitud_ingreso_grupo.sql` (S-01..S-12).
+
+## Addendum HU006 — perfil del usuario autenticado (2026-10-27)
+
+Work item: `docs/work-items/HU006-perfil-usuario/` (contrato HTTP en el work item homónimo del backend). Solo lectura; sin tablas nuevas.
+
+| SP | Caso de uso | Ámbito | Códigos |
+|---|---|---|---|
+| `dbo.usp_consultar_perfil_usuario` | Lectura: datos personales (de `uv_usuario`, sin contraseña) y una fila por vínculo: ESTUDIANTE→programa, DOCENTE→programa (tipo de vinculación), COORDINADOR→programa, DECANO→facultad, ADMINISTRADOR→institución; sin vínculos devuelve 1 fila con el vínculo en NULL | solo el usuario ejecutor (no recibe otro id) | `VAL_001` (THROW) |
+
+Permiso aditivo: `schema/security/rol_asistencias_runtime_hu006.sql`. Prueba: `test/test_usp_consultar_perfil_usuario.sql` (P-01..P-03).

@@ -462,7 +462,7 @@
 | `uv_horario_estudiante` | Consultar horario del estudiante | `GET /api/v1/estudiante/horarios` | `ESTUDIANTE` |
 | `uv_solicitud_revision_asistencia` | Listar reclamos (histórico; hoy el estudiante usa `usp_consultar_solicitudes_revision_estudiante` y el docente `usp_consultar_solicitudes_revision_docente`) | `GET /api/v1/estudiante/reclamos`, `GET /api/v1/docente/reclamos` | `ESTUDIANTE`, `DOCENTE` |
 | `uv_tipo_identificacion` | Listar tipos de identificación | `GET /api/v1/tipos-identificacion` | `TODOS` |
-| `uv_usuario_perfil` | Consultar perfil del usuario autenticado | `GET /api/v1/usuarios/perfil` | `TODOS` (autenticado) |
+| `usp_consultar_perfil_usuario` (HU006; antes previsto como `uv_usuario_perfil`) | Consultar perfil del usuario autenticado con sus vínculos | `GET /api/v1/usuarios/perfil` | `TODOS` (autenticado) |
 
 ---
 
