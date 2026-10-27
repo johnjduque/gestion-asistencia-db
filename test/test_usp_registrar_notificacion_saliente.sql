@@ -183,7 +183,7 @@ BEGIN TRY
     PRINT '-> DB-N06: asunto y mensaje fuera de limite';
     SET @c = NEWID();
     DECLARE @asuntoLargo NVARCHAR(400) = REPLICATE(N'A', 201);
-    DECLARE @mensajeLargo NVARCHAR(MAX) = REPLICATE(N'M', 4001);
+    DECLARE @mensajeLargo NVARCHAR(MAX) = REPLICATE(CONVERT(NVARCHAR(MAX), N'M'), 4001);
 
     INSERT INTO #r EXEC dbo.usp_registrar_notificacion_saliente
         @tipo = N'RETIRO_ESTUDIANTE_GRUPO',

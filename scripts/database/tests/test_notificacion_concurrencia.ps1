@@ -96,7 +96,7 @@ EXEC dbo.usp_reservar_notificaciones_salientes
             param($cn, $pw, $db, $rf)
             $out = docker exec $cn /opt/mssql-tools18/bin/sqlcmd -S localhost -d $db -U sa -P $pw -C -b -h -1 -W -s '|' -i $rf 2>&1
             $code = $LASTEXITCODE
-            docker exec $cn rm -f $rf | Out-Null
+            docker exec -u 0 $cn rm -f $rf | Out-Null
             if ($code -ne 0) { throw "Worker fallo: $($out -join '; ')" }
             return @($out | ForEach-Object { "$_".Trim() } | Where-Object { $_ })
         }
