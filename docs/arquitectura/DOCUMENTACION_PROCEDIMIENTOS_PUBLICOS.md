@@ -268,3 +268,41 @@ Work item: `docs/work-items/HU051-retirar-estudiante-grupo/` (contrato HTTP en e
 | `dbo.usp_consultar_destinatarios_retiro_estudiante_grupo` | Lectura: ESTUDIANTE, DOCENTE y COORDINADOR del programa con nombre, correo y contexto del grupo para el aviso | docente titular (otro ejecutor ⇒ 0 filas) | `VAL_001` (THROW) |
 
 Permiso aditivo: `schema/security/rol_asistencias_runtime_hu051.sql`. Mensajes: `schema/seed/21_mensajes_retiro_estudiante_grupo.sql`. Prueba: `test/test_usp_retirar_estudiante_grupo.sql` (R-01..R-09). Sin cambios de tablas ni de objetos congelados.
+
+## Addendum HU053/HU054/HU055 — solicitudes de ingreso a un grupo (2026-10-27)
+
+Work item: `docs/work-items/HU053-HU054-HU055-solicitudes-ingreso-grupo/` (tabla nueva `SolicitudIngresoGrupo` aprobada por John; análisis de impacto en el PLAN).
+
+| SP | Caso de uso | Ámbito | Códigos |
+|---|---|---|---|
+| `dbo.usp_registrar_solicitud_ingreso_grupo` | Comando: el estudiante solicita el ingreso (P) | estudiante ejecutor (`Estudiante.usuario`) | `GEN_002`, `SIG_001..SIG_006` |
+| `dbo.usp_resolver_solicitud_ingreso_grupo` | Comando + `codigoEstadoResultante`: ACEPTAR (con cupo A y matrícula vía `usp_registrar_estudiante_en_grupo_interno`; sin cupo E) o RECHAZAR con motivo (R); bloqueo `UPDLOCK, HOLDLOCK` del grupo | docente titular | `SIG_003`, `SIG_004`, `SIG_007..SIG_014` |
+| `dbo.usp_retirar_solicitud_ingreso_grupo` | Comando: el estudiante retira su solicitud abierta (X) | estudiante propietario | `SIG_007`, `SIG_008`, `SIG_015` |
+| `dbo.usp_consultar_solicitudes_ingreso_grupo_docente` | Lectura paginada: bandeja del grupo en orden de llegada con `posicionEspera` y cupo | docente titular | `VAL_001` (THROW) |
+| `dbo.usp_consultar_solicitudes_ingreso_estudiante` | Lectura paginada: mis solicitudes | estudiante | `VAL_001` (THROW) |
+| `dbo.usp_consultar_destinatarios_solicitud_ingreso_grupo` | Lectura: ESTUDIANTE y DOCENTE para los avisos | estudiante propietario o docente titular | `VAL_001` (THROW) |
+
+Permiso aditivo: `schema/security/rol_asistencias_runtime_hu053_hu055.sql`. Semillas: `22_estados_solicitud_ingreso_grupo.sql`, `23_mensajes_solicitud_ingreso_grupo.sql`. Prueba: `test/test_solicitud_ingreso_grupo.sql` (S-01..S-12).
+
+## Addendum HU094/HU095 — ficha del docente y consolidado del directorio docente del coordinador (2026-10-27)
+
+Work item: `docs/work-items/HU094-HU095-directorio-docentes-coordinador/` (contrato HTTP en el work item homónimo del backend). Solo lectura; sin cambios de tablas.
+
+| SP | Caso de uso | Ámbito | Códigos |
+|---|---|---|---|
+| `dbo.usp_consultar_historial_grupos_docente_programa` | Lectura paginada (HU094): grupos del docente en el programa del coordinador, todos los períodos (filtro opcional), con `estadoPeriodo` VIGENTE/FINALIZADO/PROXIMO (fecha local) y columnas `resumen*` de todo el historial + `totalRegistros` | programa del coordinador ejecutor (`usp_resolver_programa_coordinador_interno`); el docente debe tener vínculo (activo o inactivo) con ese programa | `VAL_001`, `KPI_001`, `GEN_001` (THROW) |
+| `dbo.usp_consultar_resumen_docentes_programa` | Lectura (HU095): vínculos activos e inactivos por tipo de vinculación (criterio `uv_docente_programa.estaActivoDocentePrograma`), incluidos los tipos activos sin docentes | programa del coordinador ejecutor | `VAL_001`, `KPI_001` (THROW) |
+
+Permiso aditivo: `schema/security/rol_asistencias_runtime_hu094_hu095.sql`. Pruebas: `test/test_usp_consultar_historial_grupos_docente_programa.sql` (H-01..H-06) y `test/test_usp_consultar_resumen_docentes_programa.sql` (R-01..R-03).
+
+## Addendum HU008 — oferta de grupos del estudiante y regla de inscripción en el programa (2026-10-27)
+
+Work item: `docs/work-items/HU008-oferta-grupos-estudiante/` (contrato HTTP en el work item homónimo del backend). Sin tablas nuevas.
+
+| Objeto | Cambio | Ámbito | Códigos |
+|---|---|---|---|
+| `dbo.usp_consultar_oferta_grupos_estudiante` | Lectura paginada nueva: grupos ESP de los programas del estudiante y, si `OFERTA.INCLUIR_TRANSVERSALES = 1`, BAS/INS de su institución, en períodos vigentes/próximos; docente, horario, cupos, `matriculado`, solicitud abierta y `codigoComponente` | estudiante ejecutor (`Estudiante.usuario`; otro rol = 0 filas) | `VAL_001` (THROW) |
+| `dbo.usp_registrar_estudiante_en_grupo_interno` / `_autonomo` | Regla de John: solo una asignatura **ESP** crea `EstudiantePrograma`; BAS/INS matriculan sin inscribir en el programa (JOIN a `Componente` con `codigo = 'ESP'`) | sin cambio | sin cambio |
+| `CatalogoParametro` `OFERTA.INCLUIR_TRANSVERSALES` | Parámetro nuevo (1 por defecto). `UPDATE ... SET valor = '0'` oculta las transversales de la oferta (solo enlace del docente) | — | — |
+
+Permiso aditivo: `schema/security/rol_asistencias_runtime_hu008.sql`. Seed: `24_parametro_oferta_grupos.sql`. Pruebas: `test/test_usp_consultar_oferta_grupos_estudiante.sql` (O-01..O-05) y `test/test_hu008_regla_inscripcion_programa.sql` (RI-01..RI-03).
