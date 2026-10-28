@@ -306,3 +306,7 @@ Work item: `docs/work-items/HU008-oferta-grupos-estudiante/` (contrato HTTP en e
 | `CatalogoParametro` `OFERTA.INCLUIR_TRANSVERSALES` | Parámetro nuevo (1 por defecto). `UPDATE ... SET valor = '0'` oculta las transversales de la oferta (solo enlace del docente) | — | — |
 
 Permiso aditivo: `schema/security/rol_asistencias_runtime_hu008.sql`. Seed: `24_parametro_oferta_grupos.sql`. Pruebas: `test/test_usp_consultar_oferta_grupos_estudiante.sql` (O-01..O-05) y `test/test_hu008_regla_inscripcion_programa.sql` (RI-01..RI-03).
+
+## Addendum INT-HU-01 — reactivación de la matrícula retirada al aceptar una solicitud de ingreso (2026-10-28)
+
+`dbo.usp_resolver_solicitud_ingreso_grupo`, ACEPTAR con cupo: si el estudiante tiene una matrícula `I` (retirado, HU051) en el grupo, se reactiva (`I` → `A`), se enlaza en la solicitud y responde `SIG_011` (antes: 409 por duplicado desde la matrícula interna). Sin cambios de firma, resultset ni mensajes. Work item: `docs/work-items/INT-HU-01-reactivar-matricula-retirada/`. Prueba: `test/test_int_hu01_reactivar_matricula_retirada.sql` (RM-01..RM-03).

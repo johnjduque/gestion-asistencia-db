@@ -14,6 +14,8 @@ GO
 --   - RECHAZAR: motivo obligatorio (1..500) => R (SIG_014).
 --   - ACEPTAR: bajo UPDLOCK, HOLDLOCK de la fila del grupo se recalcula el cupo (capacidad - matriculas activas):
 --       con cupo  => matricula con usp_registrar_estudiante_en_grupo_interno y la solicitud pasa a A (SIG_011);
+--                    si el estudiante fue retirado del grupo (matricula 'I', HU051), se REACTIVA esa matricula
+--                    (I -> A) en lugar de crear otra (INT-HU-01, opcion a de John 2026-10-28);
 --       sin cupo  => P pasa a E, lista de espera (SIG_012); una E que sigue sin cupo => SIG_013.
 --     El docente puede aceptar a CUALQUIER solicitud en espera (decision de John); el orden de llegada solo se muestra.
 -- Codigos: GEN_002, SIG_009 accion invalida, SIG_010 motivo, SIG_007 inexistente o no titular, SIG_008 ya resuelta,
@@ -153,6 +155,42 @@ BEGIN
                         SET @codigoEstadoResultante = 'E';
                         SET @codigoExito = 'SIG_012';
                     END
+                END
+                ELSE IF EXISTS (
+                    SELECT 1 FROM dbo.EstudianteGrupo eg INNER JOIN dbo.EstadoEstudianteGrupo est ON est.id = eg.estado
+                    WHERE eg.grupo = @idGrupo AND eg.estudiante = @idEstudiante AND est.codigo = 'I')
+                BEGIN
+                    -- INT-HU-01 (decision de John 2026-10-28, opcion a): el estudiante fue retirado del grupo (HU051,
+                    -- matricula 'I') y vuelve a solicitar el ingreso. Se REACTIVA su matricula (I -> A) en lugar de
+                    -- crear otra (la validacion de duplicado del interno la rechazaria con 409). El cupo ya se verifico
+                    -- arriba bajo UPDLOCK; las asistencias historicas de la matricula se conservan.
+                    SELECT TOP 1 @idEstudianteGrupo = eg.id
+                    FROM dbo.EstudianteGrupo eg WITH (UPDLOCK, HOLDLOCK)
+                    INNER JOIN dbo.EstadoEstudianteGrupo est ON est.id = eg.estado
+                    WHERE eg.grupo = @idGrupo AND eg.estudiante = @idEstudiante AND est.codigo = 'I'
+                    ORDER BY eg.id;
+
+                    UPDATE dbo.EstudianteGrupo
+                    SET estado = (SELECT id FROM dbo.EstadoEstudianteGrupo WHERE codigo = 'A')
+                    WHERE id = @idEstudianteGrupo;
+
+                    -- Regla HU008: solo una asignatura ESPECIFICA inscribe al estudiante en el programa.
+                    INSERT INTO dbo.EstudiantePrograma (id, estudiante, programa)
+                    SELECT NEWID(), @idEstudiante, pe.programa
+                    FROM dbo.Grupo g
+                    INNER JOIN dbo.Asignatura a ON a.id = g.asignatura
+                    INNER JOIN dbo.Componente comp ON comp.id = a.componente AND comp.codigo = 'ESP'
+                    INNER JOIN dbo.SemestrePlanEstudio spe ON spe.id = a.semestrePlanEstudio
+                    INNER JOIN dbo.PlanEstudio pe ON pe.id = spe.planEstudio
+                    WHERE g.id = @idGrupo
+                      AND NOT EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep WHERE ep.estudiante = @idEstudiante AND ep.programa = pe.programa);
+
+                    UPDATE dbo.SolicitudIngresoGrupo
+                    SET estado = @estadoAceptada, docenteResolutor = @idDocente,
+                        fechaResolucionUtc = SYSUTCDATETIME(), estudianteGrupo = @idEstudianteGrupo
+                    WHERE id = @idSolicitudDefecto;
+                    SET @codigoEstadoResultante = 'A';
+                    SET @codigoExito = 'SIG_011';
                 END
                 ELSE
                 BEGIN
