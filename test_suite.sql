@@ -38,6 +38,7 @@ PRINT '======================================================================';
 :r /tmp/test/test_usp_retirar_estudiante_grupo.sql
 :r /tmp/test/test_solicitud_ingreso_grupo.sql
 :r /tmp/test/test_usp_consultar_perfil_usuario.sql
+:r /tmp/test/test_runtime_grants_backend_inventory.sql
 :r /tmp/test/test_usp_consultar_historial_grupos_docente_programa.sql
 :r /tmp/test/test_usp_consultar_resumen_docentes_programa.sql
 :r /tmp/test/test_usp_consultar_oferta_grupos_estudiante.sql
