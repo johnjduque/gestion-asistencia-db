@@ -462,7 +462,7 @@
 | `uv_horario_estudiante` | Consultar horario del estudiante | `GET /api/v1/estudiante/horarios` | `ESTUDIANTE` |
 | `uv_solicitud_revision_asistencia` | Listar reclamos (histórico; hoy el estudiante usa `usp_consultar_solicitudes_revision_estudiante` y el docente `usp_consultar_solicitudes_revision_docente`) | `GET /api/v1/estudiante/reclamos`, `GET /api/v1/docente/reclamos` | `ESTUDIANTE`, `DOCENTE` |
 | `uv_tipo_identificacion` | Listar tipos de identificación | `GET /api/v1/tipos-identificacion` | `TODOS` |
-| `uv_usuario_perfil` | Consultar perfil del usuario autenticado | `GET /api/v1/usuarios/perfil` | `TODOS` (autenticado) |
+| `usp_consultar_perfil_usuario` (HU006; antes previsto como `uv_usuario_perfil`) | Consultar perfil del usuario autenticado con sus vínculos | `GET /api/v1/usuarios/perfil` | `TODOS` (autenticado) |
 
 ---
 
@@ -524,4 +524,4 @@
 | `GET /api/v1/coordinador/docentes/{idDocente}/ficha` | `usp_consultar_docentes_programa` (cabecera, `@idDocente`) + `usp_consultar_historial_grupos_docente_programa` | HU094 |
 | `GET /api/v1/coordinador/docentes/resumen` | `usp_consultar_resumen_docentes_programa` | HU095 |
 
-Firma de entrada/salida y códigos: `DOCUMENTACION_PROCEDIMIENTOS_PUBLICOS.md` (addendums 2026-10-25, HU010/HU011, HU051, HU053-HU055, HU008 y HU094/HU095) y el `CONTRACT.md` de cada work item del backend.
+Firma de entrada/salida y códigos: `DOCUMENTACION_PROCEDIMIENTOS_PUBLICOS.md` (addendums 2026-10-25, HU010/HU011, HU051, HU053-HU055, HU008, HU094/HU095 y HU006) y el `CONTRACT.md` de cada work item del backend.
