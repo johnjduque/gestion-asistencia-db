@@ -51,3 +51,7 @@ last-reviewed: 2026-10-27
 ## Cambio posterior por HU008 (2026-10-27)
 
 Regla de John: el estudiante solo queda inscrito en un programa (`EstudiantePrograma`) cuando ingresa a un grupo de asignatura **específica (ESP)**; al aceptar una solicitud en una asignatura transversal (**BAS** o **INS**) se matricula en el grupo pero **no** se inscribe en el programa. Cambio de 1 línea en `usp_registrar_estudiante_en_grupo_interno` (y `_autonomo`), con regresión RI-01..RI-03 en `test/test_hu008_regla_inscripcion_programa.sql`; S-01..S-12 siguen en verde. Detalle e impacto: work item `HU008-oferta-grupos-estudiante`.
+
+## Cambio posterior: INT-HU-01 (2026-10-28)
+
+Decisión de John (opción a): si un estudiante retirado del grupo (HU051, matrícula `I`) vuelve a solicitar el ingreso y el docente lo acepta (HU055), `usp_resolver_solicitud_ingreso_grupo` **reactiva** esa matrícula (`I` → `A`) en lugar de fallar con 409 por duplicado. Cupo y regla ESP de HU008 respetados; una matrícula activa sigue bloqueando (`SIG_004`). Prueba: `test/test_int_hu01_reactivar_matricula_retirada.sql` (RM-01..RM-03). Detalle: `docs/work-items/INT-HU-01-reactivar-matricula-retirada/`.
