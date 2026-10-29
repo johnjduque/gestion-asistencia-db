@@ -44,7 +44,7 @@ Todo script de prueba en `test/test_<nombre_procedimiento>.sql` debe evaluar de 
 Todo script de prueba de vistas en `test/` debe validar:
 
 * **Contexto nulo (`SESSION_CONTEXT` nulo)**:
-  - Verificar que sin usuario ejecutor en la sesión, la vista retorne la totalidad de los registros por defecto (`full visibility`).
+  - Verificar que sin usuario ejecutor en la sesión, la vista `uv_auth_*` **no retorne filas** (fail-closed; ver `vista-consulta-con-validaciones` §3). Las vistas base `uv_*` sí retornan todas las filas.
 
 * **Aislamiento por Rol y Dominio**:
   - Simular sesión de `ADMINISTRADOR` (`AD`) y verificar que solo retorne datos de su Institución.
@@ -92,3 +92,13 @@ Todo script de prueba de funciones en `test/` debe evaluar:
    powershell -ExecutionPolicy Bypass -File .\test_summary.ps1
    ```
    **Criterio de Éxito:** La salida debe ser obligatoriamente `DB GATE PASS` con código de retorno `0`.
+
+---
+
+## Organización de las pruebas (REC4, 2026-10-29)
+
+- **Archivos agrupados por HU o flujo.** Se aceptan archivos como `test_hu121_hu122_esquema_coordinador.sql` o `test_attendance_review.sql` en lugar de un `test_<objeto>.sql` por objeto, siempre que:
+  1. cubran los caminos exigidos de cada objeto que tocan;
+  2. estén registrados en `test_suite.sql`. Una prueba sin registrar no la ejecuta el gate (ver work item MAINT-PRUEBAS-HUERFANAS);
+  3. emitan un `PRINT 'TEST_PASS:<ID>'` por escenario. **Es obligatorio**: sin él, el gate no cuenta el escenario.
+- **Pruebas de falla a mitad de transacción.** Si el SP debe ser dueño de su transacción, las fixtures se confirman y se limpian en todos los caminos. La falla se inyecta con una restricción temporal limitada a las filas de la prueba, y el SP se invoca con `EXEC` directo (no `INSERT-EXEC`, que no admite ROLLBACK). Referencia: `test/test_rec3_falla_intermedia_transaccion.sql`.
