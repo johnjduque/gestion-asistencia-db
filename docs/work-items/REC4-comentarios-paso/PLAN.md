@@ -27,6 +27,31 @@ John decidió (2026-10-29) organizarlos **solo** en los SP no congelados y **sin
   - los SP congelados (manifiestos `docs/contracts/*.sha256`);
   - los manifiestos, las pruebas y `schema/` fuera de los 52 archivos.
 
+## Excepción por SonarCloud (PR #66, 2026-10-29)
+
+**Qué pasó:** el Quality Gate del PR rechazó un **8.8 % de duplicación en código nuevo** (26 líneas de 296; el límite es 3 %).
+
+**Causa:** en 8 SP ya había bloques casi idénticos entre sí desde antes de este cambio, por ejemplo:
+- `usp_actualizar_programa_academico` y `usp_cambiar_estado_programa_academico`;
+- `usp_crear_area` y `usp_crear_tipo_programa`;
+- los dos de destinatarios.
+
+Sonar no los contaba porque eran código viejo. Al insertar un comentario dentro de esos bloques, esas líneas pasaron a ser "nuevas" y se contaron como duplicación nueva.
+
+**Decisión de John (opción A):** esos 8 SP vuelven a su estado de `develop`, sin comentarios PASO. No se cambió la configuración compartida de Sonar.
+
+**SP excluidos:**
+- `usp_actualizar_programa_academico`
+- `usp_cambiar_estado_programa_academico`
+- `usp_crear_area`
+- `usp_crear_tipo_programa`
+- `usp_consultar_detalle_solicitud_revision_docente`
+- `usp_consultar_solicitudes_revision_estudiante`
+- `usp_consultar_destinatarios_retiro_estudiante_grupo`
+- `usp_consultar_destinatarios_solicitud_ingreso_grupo`
+
+**Alcance final:** **44 SP con 246 comentarios PASO.** Esos 8 SP se pueden ajustar más adelante si se elimina la duplicación de fondo, por ejemplo con un interno compartido como en REC2.
+
 ## Verificación de que el cambio es solo de comentarios
 
 1. **Script generador:** al quitar las líneas `-- PASO n:` insertadas y revertir el prefijo de los 11 comentarios convertidos, se obtiene el archivo original línea por línea. Resultado: 52/52 OK.

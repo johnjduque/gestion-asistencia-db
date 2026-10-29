@@ -39,6 +39,18 @@ Ninguno está congelado. Todos tienen prueba: 22 con prueba directa y los 2 inte
 | Comentarios `-- PASO n` | — | 23 de 24 | Se agregaron en la rama `chore/REC4-comentarios-paso`. El interno que falta no lo exige el skill de internos. |
 | `ISNULL`/`COALESCE` | 3 usos | Sin cambio | Todos están en agregaciones (`MAX` y totales), y el skill actualizado los permite. |
 
+**Excepción por SonarCloud (PR #67, decisión de John, opción A, 2026-10-29):**
+- El Quality Gate rechazó un **8.1 % de duplicación en código nuevo** (44 de 541 líneas).
+- Causa: bloques que ya estaban duplicados entre SP desde antes. Al moverlos o comentarlos, Sonar los contó como nuevos. Pasa en los dos paginados de facultad, cuyos `DECLARE` subidos a la cabecera son idénticos, y en los 8 SP excluidos en #66.
+- Vuelven a su estado de `develop`, sin el ajuste de estilo, 5 SP de John:
+  - `usp_consultar_estudiantes_facultad_paginado`
+  - `usp_consultar_sesiones_facultad_paginado`
+  - `usp_consultar_destinatarios_retiro_estudiante_grupo`
+  - `usp_consultar_destinatarios_solicitud_ingreso_grupo`
+  - `usp_consultar_solicitudes_revision_estudiante`
+- **Alcance final: 19 de los 24 SP de John con el estilo aplicado.**
+- No se cambió la configuración compartida de Sonar.
+
 **Fuera de alcance**, por decisión pendiente y riesgo medio-alto: cambiar las lecturas directas de tablas (sin bloqueo) por vistas `uv_*`. Son 151 lecturas en 23 SP y no es un cambio de estilo: exige reescribir y revalidar las consultas.
 
 No cambian:
