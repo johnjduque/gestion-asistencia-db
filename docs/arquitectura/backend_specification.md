@@ -384,7 +384,7 @@ El sistema de datos y la seguridad backend operan bajo una estructura estricta d
 - **Rol Requerido:** `COORDINADOR`
 - **Cadena Jerárquica Nodo Padre-Raíz:** `Facultad -> Programa -> Coordinador -> PlanEstudio / Asignatura -> Grupo -> Docente`
 - **Perfil Aprobador Superior:** COORDINADOR (Aprueba la asignación de Docentes a Grupos y valida la malla curricular)
-- **Intención de Negocio:** Asociar una asignatura a un semestre de un plan de estudios. La transacción valida atómicamente que no existan ciclos infinitos de prerrequisitos (ej. A depende de B y B depende de A).
+- **Intención de Negocio:** Asociar una asignatura a un semestre de un plan de estudios.
 - **Entidades MER:** ``Asignatura`, `SemestrePlanEstudio`, `PlanEstudio`.`
 - **Lógica de Validación Específica Línea por Línea:**
   1. **Validación de Correlación:** Verificar la presencia del GUID de trazabilidad `idCorrelacion` (`usp_validar_id_correlacion_esta_presente_interno`).
@@ -669,7 +669,7 @@ El sistema de datos y la seguridad backend operan bajo una estructura estricta d
 - **Rol Requerido:** `COORDINADOR`
 - **Cadena Jerárquica Nodo Padre-Raíz:** `Facultad -> Programa -> Coordinador -> PlanEstudio / Asignatura -> Grupo -> Docente`
 - **Perfil Aprobador Superior:** COORDINADOR (Aprueba la asignación de Docentes a Grupos y valida la malla curricular)
-- **Intención de Negocio:** Inscribir a un estudiante en una asignatura/grupo específica. Valida atómicamente el cupo disponible, la vigencia del grupo, los prerrequisitos de la asignatura y que el alumno no tenga colisión de horario con otras materias matriculadas.
+- **Intención de Negocio:** Inscribir a un estudiante en una asignatura/grupo específica. Valida atómicamente el cupo disponible, la vigencia del grupo y que el alumno no tenga colisión de horario con otras materias matriculadas.
 - **Entidades MER:** ``EstudianteGrupo`, `Grupo`, `Estudiante`, `EstadoEstudianteGrupo`, `Horario`, `Asignatura`.`
 - **Lógica de Validación Específica Línea por Línea:**
   1. **Validación de Correlación:** Verificar la presencia del GUID de trazabilidad `idCorrelacion` (`usp_validar_id_correlacion_esta_presente_interno`).
@@ -2706,7 +2706,7 @@ El sistema de datos y la seguridad backend operan bajo una estructura estricta d
 - **Perfil Aprobador Superior:** COORDINADOR (Aprueba la asignación de Docentes a Grupos y valida la malla curricular)
 - **Cadena Jerárquica Nodo Padre-Raíz:** `Facultad -> Programa -> Coordinador -> PlanEstudio / Asignatura -> Grupo -> Docente`
 - **Objeto BD:** `dbo.usp_registrar_o_actualizar_asignatura`
-- **Propósito:** Asociar una asignatura a un semestre de un plan de estudios. La transacción valida atómicamente que no existan ciclos infinitos de prerrequisitos (ej. A depende de B y B depende de A).
+- **Propósito:** Asociar una asignatura a un semestre de un plan de estudios.
 
 #### 1. Contrato de Entrada (Request)
 ```json
@@ -3621,7 +3621,7 @@ El sistema de datos y la seguridad backend operan bajo una estructura estricta d
 - **Perfil Aprobador Superior:** COORDINADOR (Aprueba la asignación de Docentes a Grupos y valida la malla curricular)
 - **Cadena Jerárquica Nodo Padre-Raíz:** `Facultad -> Programa -> Coordinador -> PlanEstudio / Asignatura -> Grupo -> Docente`
 - **Objeto BD:** `dbo.usp_registrar_estudiante_en_grupo_usuario_no_existente`
-- **Propósito:** Inscribir a un estudiante en una asignatura/grupo específica. Valida atómicamente el cupo disponible, la vigencia del grupo, los prerrequisitos de la asignatura y que el alumno no tenga colisión de horario con otras materias matriculadas.
+- **Propósito:** Inscribir a un estudiante en una asignatura/grupo específica. Valida atómicamente el cupo disponible, la vigencia del grupo y que el alumno no tenga colisión de horario con otras materias matriculadas.
 
 #### 1. Contrato de Entrada (Request)
 ```json
