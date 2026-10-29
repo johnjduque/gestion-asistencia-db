@@ -78,6 +78,7 @@ El backend ya validaba en el caso de uso que la asignatura fuera del programa de
   - `TOTAL_EXECUTED=368`, `FAILED=0`, `CRITICAL_MISSING=0`, `DB GATE PASS`;
   - `TEST_PASS:REC2_RA01..RA04` y `SUBJECT_*` (5) en verde;
   - la prueba de contrato `PUBLIC_SECURITY_EXECUTOR_REQUIRED` sigue pasando.
+  - re-ejecutada tras integrar `origin/develop` (#60, pruebas de coordinador e identidad externa): `TOTAL_EXECUTED=382`, `FAILED=0`, `DB GATE PASS`.
 - **Backend:** ver `docs/work-items/REC2-rbac-asignatura/CLOSURE.md` del repositorio backend (`mvn verify`).
 
 ## Rollback
