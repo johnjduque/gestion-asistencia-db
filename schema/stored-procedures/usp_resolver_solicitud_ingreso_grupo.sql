@@ -171,10 +171,8 @@ BEGIN
                     END
                 END
                 ELSE IF EXISTS (
-                BEGIN
                     SELECT 1 FROM dbo.EstudianteGrupo eg INNER JOIN dbo.EstadoEstudianteGrupo est ON est.id = eg.estado
                     WHERE eg.grupo = @idGrupo AND eg.estudiante = @idEstudiante AND est.codigo = 'I')
-                END
                 BEGIN
                     -- INT-HU-01 (decision de John 2026-10-28, opcion a): el estudiante fue retirado del grupo (HU051,
                     -- matricula 'I') y vuelve a solicitar el ingreso. Se REACTIVA su matricula (I -> A) en lugar de
