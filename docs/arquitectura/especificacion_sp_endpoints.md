@@ -405,8 +405,8 @@
 | `Grupo` | Crear grupo académico | `usp_crear_grupo` | `POST /api/v1/grupos` | `DOCENTE`, `COORDINADOR` | Valida existencia de asignatura. Resuelve periodo académico. Valida docente activo. Valida unicidad de código de grupo en asignatura/periodo. Inserta `Grupo` con contadores en 0. Invoca: `usp_validar_docente_exista_por_id_interno`. |
 | `Grupo` | Actualizar datos operativos del grupo | `usp_actualizar_grupo` | `PUT /api/v1/grupos/{id}` | `DOCENTE` (titular), `COORDINADOR` | Valida existencia del grupo. Valida docente si se modifica. Valida unicidad de código (excluyendo el propio grupo). Actualiza nombre, código y docente de forma granular (solo campos proporcionados). |
 | `Asignatura` | Crear nueva asignatura en plan | `usp_crear_asignatura` | `POST /api/v1/coordinador/planes-estudio/{id}/asignaturas` | `COORDINADOR` (del programa) | Crea una asignatura vinculada a un `SemestrePlanEstudio`, resolviendo `Area` y `Componente` por nombre o ID. |
-| `Asignatura` | Actualizar datos de asignatura | `usp_actualizar_asignatura` | `PUT /api/v1/coordinador/planes-estudio/{planId}/asignaturas/{asigId}` | `COORDINADOR` (del programa) | Actualiza código, nombre, créditos, área y componente de una asignatura existente. |
-| `Asignatura` | Alternar estado activo/inactivo | `usp_toggle_estado_asignatura` | `PATCH /api/v1/coordinador/asignaturas/{id}/estado` | `COORDINADOR` (del programa) | Valida existencia de la asignatura. Alterna el campo `estado` entre 1 y 0 atómicamente. |
+| `Asignatura` | Actualizar datos de asignatura | `usp_actualizar_asignatura` | `PUT /api/v1/coordinador/planes-estudio/{planId}/asignaturas/{asigId}` | `COORDINADOR` (del programa) | Exige `@idUsuarioEjecutor` (GEN_002), perfil `COORDINADOR` (SEC_001) y que coordine el programa de la asignatura (SEC_002). Actualiza código, nombre y créditos de una asignatura existente. |
+| `Asignatura` | Alternar estado activo/inactivo | `usp_toggle_estado_asignatura` | `PATCH /api/v1/coordinador/asignaturas/{id}/estado` | `COORDINADOR` (del programa) | Exige `@idUsuarioEjecutor` (GEN_002), perfil `COORDINADOR` (SEC_001) y que coordine el programa de la asignatura (SEC_002). Valida existencia de la asignatura. Alterna el campo `estado` entre 1 y 0 atómicamente. |
 | `Asignatura` | Eliminar asignatura del plan | `usp_eliminar_asignatura` | `DELETE /api/v1/coordinador/planes-estudio/{planId}/asignaturas/{asigId}` | `COORDINADOR` (del programa) | Valida que no existan grupos activos vinculados a la asignatura antes de eliminarla. |
 
 ## Módulo: Cierre Masivo de Periodo
@@ -462,7 +462,7 @@
 | `uv_horario_estudiante` | Consultar horario del estudiante | `GET /api/v1/estudiante/horarios` | `ESTUDIANTE` |
 | `uv_solicitud_revision_asistencia` | Listar reclamos (histórico; hoy el estudiante usa `usp_consultar_solicitudes_revision_estudiante` y el docente `usp_consultar_solicitudes_revision_docente`) | `GET /api/v1/estudiante/reclamos`, `GET /api/v1/docente/reclamos` | `ESTUDIANTE`, `DOCENTE` |
 | `uv_tipo_identificacion` | Listar tipos de identificación | `GET /api/v1/tipos-identificacion` | `TODOS` |
-| `uv_usuario_perfil` | Consultar perfil del usuario autenticado | `GET /api/v1/usuarios/perfil` | `TODOS` (autenticado) |
+| `usp_consultar_perfil_usuario` (HU006; antes previsto como `uv_usuario_perfil`) | Consultar perfil del usuario autenticado con sus vínculos | `GET /api/v1/usuarios/perfil` | `TODOS` (autenticado) |
 
 ---
 
@@ -524,4 +524,4 @@
 | `GET /api/v1/coordinador/docentes/{idDocente}/ficha` | `usp_consultar_docentes_programa` (cabecera, `@idDocente`) + `usp_consultar_historial_grupos_docente_programa` | HU094 |
 | `GET /api/v1/coordinador/docentes/resumen` | `usp_consultar_resumen_docentes_programa` | HU095 |
 
-Firma de entrada/salida y códigos: `DOCUMENTACION_PROCEDIMIENTOS_PUBLICOS.md` (addendums 2026-10-25, HU010/HU011, HU051, HU053-HU055, HU008 y HU094/HU095) y el `CONTRACT.md` de cada work item del backend.
+Firma de entrada/salida y códigos: `DOCUMENTACION_PROCEDIMIENTOS_PUBLICOS.md` (addendums 2026-10-25, HU010/HU011, HU051, HU053-HU055, HU008, HU094/HU095 y HU006) y el `CONTRACT.md` de cada work item del backend.

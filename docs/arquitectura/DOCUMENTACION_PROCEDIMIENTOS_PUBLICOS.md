@@ -284,6 +284,16 @@ Work item: `docs/work-items/HU053-HU054-HU055-solicitudes-ingreso-grupo/` (tabla
 
 Permiso aditivo: `schema/security/rol_asistencias_runtime_hu053_hu055.sql`. Semillas: `22_estados_solicitud_ingreso_grupo.sql`, `23_mensajes_solicitud_ingreso_grupo.sql`. Prueba: `test/test_solicitud_ingreso_grupo.sql` (S-01..S-12).
 
+## Addendum HU006 — perfil del usuario autenticado (2026-10-27)
+
+Work item: `docs/work-items/HU006-perfil-usuario/` (contrato HTTP en el work item homónimo del backend). Solo lectura; sin tablas nuevas.
+
+| SP | Caso de uso | Ámbito | Códigos |
+|---|---|---|---|
+| `dbo.usp_consultar_perfil_usuario` | Lectura: datos personales (de `uv_usuario`, sin contraseña) y una fila por vínculo: ESTUDIANTE→programa, DOCENTE→programa (tipo de vinculación), COORDINADOR→programa, DECANO→facultad, ADMINISTRADOR→institución; sin vínculos devuelve 1 fila con el vínculo en NULL | solo el usuario ejecutor (no recibe otro id) | `VAL_001` (THROW) |
+
+Permiso aditivo: `schema/security/rol_asistencias_runtime_hu006.sql`. Prueba: `test/test_usp_consultar_perfil_usuario.sql` (P-01..P-03).
+
 ## Addendum HU094/HU095 — ficha del docente y consolidado del directorio docente del coordinador (2026-10-27)
 
 Work item: `docs/work-items/HU094-HU095-directorio-docentes-coordinador/` (contrato HTTP en el work item homónimo del backend). Solo lectura; sin cambios de tablas.
@@ -306,3 +316,7 @@ Work item: `docs/work-items/HU008-oferta-grupos-estudiante/` (contrato HTTP en e
 | `CatalogoParametro` `OFERTA.INCLUIR_TRANSVERSALES` | Parámetro nuevo (1 por defecto). `UPDATE ... SET valor = '0'` oculta las transversales de la oferta (solo enlace del docente) | — | — |
 
 Permiso aditivo: `schema/security/rol_asistencias_runtime_hu008.sql`. Seed: `24_parametro_oferta_grupos.sql`. Pruebas: `test/test_usp_consultar_oferta_grupos_estudiante.sql` (O-01..O-05) y `test/test_hu008_regla_inscripcion_programa.sql` (RI-01..RI-03).
+
+## Addendum INT-HU-01 — reactivación de la matrícula retirada al aceptar una solicitud de ingreso (2026-10-28)
+
+`dbo.usp_resolver_solicitud_ingreso_grupo`, ACEPTAR con cupo: si el estudiante tiene una matrícula `I` (retirado, HU051) en el grupo, se reactiva (`I` → `A`), se enlaza en la solicitud y responde `SIG_011` (antes: 409 por duplicado desde la matrícula interna). Sin cambios de firma, resultset ni mensajes. Work item: `docs/work-items/INT-HU-01-reactivar-matricula-retirada/`. Prueba: `test/test_int_hu01_reactivar_matricula_retirada.sql` (RM-01..RM-03).

@@ -22,6 +22,7 @@ PRINT '======================================================================';
 :r /tmp/test/test_uv_area_contrato.sql
 :r /tmp/test/test_user_dean_close.sql
 :r /tmp/test/test_subject_catalog.sql
+:r /tmp/test/test_rec2_rbac_asignatura.sql
 :r /tmp/test/test_reactive_academic.sql
 :r /tmp/test/test_mass_period_close.sql
 :r /tmp/test/test_usp_registrar_estudiante_en_grupo_usuario_no_existente.sql
@@ -37,11 +38,13 @@ PRINT '======================================================================';
 :r /tmp/test/test_consultas_reclamos_estudiante.sql
 :r /tmp/test/test_usp_retirar_estudiante_grupo.sql
 :r /tmp/test/test_solicitud_ingreso_grupo.sql
+:r /tmp/test/test_usp_consultar_perfil_usuario.sql
 :r /tmp/test/test_runtime_grants_backend_inventory.sql
 :r /tmp/test/test_usp_consultar_historial_grupos_docente_programa.sql
 :r /tmp/test/test_usp_consultar_resumen_docentes_programa.sql
 :r /tmp/test/test_usp_consultar_oferta_grupos_estudiante.sql
 :r /tmp/test/test_hu008_regla_inscripcion_programa.sql
+:r /tmp/test/test_int_hu01_reactivar_matricula_retirada.sql
 :r /tmp/test/test_usp_crear_actualizar_grupo.sql
 :r /tmp/test/test_usp_crear_actualizar_sesion.sql
 :r /tmp/test/test_usp_validar_sesion_operacion_interno.sql
@@ -53,6 +56,10 @@ PRINT '======================================================================';
 :r /tmp/test/test_attendance_review.sql
 :r /tmp/test/test_lb004d_support_binding.sql
 :r /tmp/test/test_usp_crear_coordinador.sql
+:r /tmp/test/test_usp_actualizar_coordinador.sql
+:r /tmp/test/test_usp_cambiar_estado_coordinador.sql
+:r /tmp/test/test_hu121_hu122_esquema_coordinador.sql
+:r /tmp/test/test_sec_baseline_identidad_externa.sql
 :r /tmp/test/test_migracion_docente_programa.sql
 :r /tmp/test/test_usp_vincular_docente_programa.sql
 :r /tmp/test/test_usp_consultar_docentes_programa.sql
