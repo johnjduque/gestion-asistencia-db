@@ -45,6 +45,10 @@ Guía operativa del repositorio de base de datos para Claude Code y asistentes d
 
 # 3. Congelamiento y verificación de hashes de manifiestos
 .\scripts\freeze-manifest.ps1
+
+# 4. Regenerar o verificar el catálogo de mensajes desde schema/seed (docs/catalogos/catalogo-mensajes.md)
+.\scripts\generar-catalogo-mensajes.ps1
+.\scripts\generar-catalogo-mensajes.ps1 -Check
 ```
 
 ---

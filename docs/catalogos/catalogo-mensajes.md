@@ -1,28 +1,297 @@
+---
+status: active
+type: catalog
+scope: database
+owner: database-team
+generated-by: scripts/generar-catalogo-mensajes.ps1
+---
+
 # Catálogo de mensajes
 
-## Hoja: Valores
+> Documento **generado** desde `schema/seed/*.sql` (MERGE sobre `CatalogoMensajeUsuario` y `CatalogoMensajeTecnico`). No editar a mano: agregue o cambie el seed y ejecute `./scripts/generar-catalogo-mensajes.ps1`. Verificación: `./scripts/generar-catalogo-mensajes.ps1 -Check`.
 
-| A | B | C | D | E | G | H |
-| --- | --- | --- | --- | --- | --- | --- |
+Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
+Total de códigos: **131**.
 
-## Hoja: Catálogo mensajes
+## ARC
 
-| A | B | C | D | E | F | G | H | I | J | K |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-|  |  | 00001 | GEN_USU_EXI_00001 |  |  |  |  |  |  |  |
-|  |  | 00002 | GEN_USU_ERR_00002 |  |  |  |  |  |  |  |
-|  |  | 00003 | GEN_USU_ERR_00003 |  |  |  |  |  |  |  |
-|  |  | 00004 | GEN_USU_ERR_00004 |  |  |  |  |  |  |  |
-|  |  | 00005 | GEN_USU_ERR_00005 |  |  |  |  |  |  |  |
-|  |  | 00006 | GEN_USU_EXI_00006 |  |  |  |  |  |  |  |
-|  |  | 00007 | GEN_USU_EXI_00007 |  |  |  |  |  |  |  |
-|  |  | 00008 | GEN_USU_ERR_00008 |  |  |  |  |  |  |  |
-|  |  | 00009 | GEN_USU_EXI_00009 |  |  |  |  |  |  |  |
-|  |  | 00010 | GEN_USU_EXI_00010 |  |  |  |  |  |  |  |
-|  |  | 00011 | GEN_USU_EXI_00011 |  |  |  |  |  |  |  |
-|  |  | 00012 | GEN_USU_ERR_00012 |  |  |  |  |  |  |  |
-|  |  | 00013 | GEN_USU_ADV_00013 |  |  |  |  |  |  |  |
-|  |  | 00014 | GEN_USU_INF_00014 |  |  |  |  |  |  |  |
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `ARC_001` | BUSINESS_ERROR | ALTO | El soporte indicado no esta disponible para esta solicitud. | Soporte no disponible para radicar: inexistente, de otro propietario, ya vinculado o no vigente. | `15_lb004d_archivo_soporte.sql` |
+| `ARC_002` | BUSINESS_ERROR | ALTO | No fue posible registrar el soporte. | Registro de soporte rechazado: el identificador ya existe con otro propietario o con metadata distinta. | `15_lb004d_archivo_soporte.sql` |
+| `ARC_003` | BUSINESS_ERROR | MEDIO | Los datos del soporte no son validos. | Metadata de soporte invalida: identificador, nombre, tipo de contenido, tamano o checksum fuera de contrato. | `15_lb004d_archivo_soporte.sql` |
+| `ARC_005` | BUSINESS_ERROR | ALTO | El estudiante indicado no corresponde al usuario autenticado. | El idEstudiante no pertenece al idUsuarioEjecutor. | `15_lb004d_archivo_soporte.sql` |
 
+## ARE
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `ARE_001` | BUSINESS_ERROR | MEDIO | El área de conocimiento especificada no existe en el sistema. | Error de búsqueda: No se encontró el área de conocimiento en uv_area: {}. | `04_mensaje.sql` |
+| `ARE_002` | BUSINESS_ERROR | ALTO | Ya existe un área de conocimiento con el mismo código o nombre. | Error de unicidad: código o nombre duplicado en área de conocimiento. | `04_mensaje.sql` |
+
+## ATT
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `ATT_001` | BUSINESS_ERROR | MEDIO | El payload JSON de asistencia no cumple el contrato requerido. | Payload JSON inválido: se requiere un arreglo no nulo de objetos con exactamente idEstudiante y estado. | `04_mensaje.sql` |
+| `ATT_002` | BUSINESS_ERROR | MEDIO | El lote de asistencia no puede estar vacío. | Payload JSON válido pero vacío: no hay operación de negocio que ejecutar. | `04_mensaje.sql` |
+| `ATT_003` | BUSINESS_ERROR | MEDIO | El estudiante {} aparece más de una vez en el lote de asistencia. | Duplicidad en payload JSON: idEstudiante [{}] aparece más de una vez. | `04_mensaje.sql` |
+
+## COO
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `COO_001` | BUSINESS_ERROR | ALTO | No se puede desactivar al coordinador mientras tenga un programa activo a cargo. Reasigne o desactive el programa primero. | Regla de negocio: el coordinador {} coordina el programa activo {}. | `04_mensaje.sql` |
+
+## CORR
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `CORR_001` | BUSINESS_ERROR | ALTO | El identificador de correlación no está presente o está vacío. | Validación fallida: idCorrelacion no está presente o no es un UUID válido. Transacción no procesable. | `04_mensaje.sql` |
+
+## DEC
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `DEC_001` | BUSINESS_ERROR | MEDIO | El decano especificado no existe en el sistema. | Error de búsqueda: No se encontró el decano en uv_decano_identidad: {}. | `04_mensaje.sql` |
+
+## DOC
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `DOC_001` | BUSINESS_ERROR | MEDIO | El docente especificado no existe o se encuentra inactivo. | Error de búsqueda: Docente no encontrado o deshabilitado en uv_docente: {}. | `04_mensaje.sql` |
+| `DOC_002` | BUSINESS_ERROR | MEDIO | El usuario ya se encuentra registrado como docente. | Unicidad: el usuario ya tiene un registro en dbo.Docente. | `17_mensaje_docente_programa.sql` |
+| `DOC_003` | BUSINESS_ERROR | ALTO | Ya existe una persona registrada con ese documento o correo. Use la opción "Vincular docente existente". | Conflicto de identidad: documento o correo ya existen en dbo.Usuario; el modo nuevo no hace find-or-create. | `17_mensaje_docente_programa.sql` |
+| `DOC_004` | BUSINESS_ERROR | MEDIO | El tipo de vinculación indicado no existe o está inactivo. | Validación: TipoVinculacion inexistente o con estado = 0. | `17_mensaje_docente_programa.sql` |
+| `DOC_005` | BUSINESS_ERROR | MEDIO | Debe indicar un docente existente o los datos de un docente nuevo, pero no ambos. | Validación de modo: exactamente uno entre @idDocente, @idUsuario o el bloque de datos de persona nueva. | `17_mensaje_docente_programa.sql` |
+| `DOC_006` | BUSINESS_ERROR | MEDIO | El docente ya está vinculado a este programa. | Unicidad: ya existe dbo.DocentePrograma para el par (docente, programa). | `17_mensaje_docente_programa.sql` |
+| `DOC_007` | BUSINESS_ERROR | BAJO | La búsqueda de candidatos requiere al menos 3 caracteres. | Validación: @busqueda de candidatos con menos caracteres que DOCENTE/BUSQUEDA_MIN_CARACTERES. | `17_mensaje_docente_programa.sql` |
+| `DOC_008` | BUSINESS_ERROR | MEDIO | El docente no está vinculado a este programa. | Existencia: no hay dbo.DocentePrograma para el par (docente, programa) indicado. | `17_mensaje_docente_programa.sql` |
+| `DOC_009` | BUSINESS_ERROR | MEDIO | El docente no tiene una vinculación activa con el programa. | Regla: el docente no tiene dbo.DocentePrograma con estado = 1 en el programa del grupo. | `17_mensaje_docente_programa.sql` |
+
+## ERR
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `ERR_CAPACIDAD_GRUPO_INVALIDA` | SYSTEM_ERROR | CRITICO | No fue posible determinar una capacidad máxima válida para el grupo. | El parametro GRUPO/CAPACIDAD_MAXIMA_DEFECTO es nulo, cero o negativo: {}. | `04_mensaje.sql` |
+| `ERR_CORRELACION_REQUERIDA` | BUSINESS_ERROR | ALTO | El codigo de correlacion es requerido. | Error: idCorrelacion no esta presente o es invalido. | `04_mensaje.sql` |
+| `ERR_CRUCE_HORARIO_DOCENTE` | BUSINESS_ERROR | ALTO | Existe un cruce de horario para el docente en la misma franja horaria. | Cruce detectado en uv_horario para Docente con GrupoID: {}. | `04_mensaje.sql` |
+| `ERR_CRUCE_HORARIO_ESTUDIANTE` | BUSINESS_ERROR | ALTO | No es posible realizar el registro. Existe un cruce de horario con otra asignatura. | Cruce detectado en uv_horario para Estudiante con GrupoID: {}. | `04_mensaje.sql` |
+| `ERR_CUPO_INFERIOR_OCUPACION` | BUSINESS_ERROR | ALTO | La capacidad del grupo no puede ser menor al número actual de estudiantes activos. | Grupo {}: capacidad solicitada {} es menor a los estudiantes activos {}. | `04_mensaje.sql` |
+| `ERR_CUPO_SUPERADO` | BUSINESS_ERROR | ALTO | El grupo ha superado la capacidad maxima de estudiantes permitida. | Cupo lleno. Maximo de estudiantes alcanzado para Grupo: {}. | `04_mensaje.sql` |
+| `ERR_DOCENTE_NO_EXISTE` | BUSINESS_ERROR | MEDIO | El docente especificado no existe o esta inactivo. | Error: No se encontro el ID de Docente especificado: {}. | `04_mensaje.sql` |
+| `ERR_DOCENTE_NO_TITULAR_GRUPO` | BUSINESS_ERROR | ALTO | El docente indicado no es el titular del grupo seleccionado. | Docente {} no es titular del Grupo {} (uv_grupo.idDocente). | `04_mensaje.sql` |
+| `ERR_ESTUDIANTE_NO_EXISTE` | BUSINESS_ERROR | MEDIO | El estudiante especificado no existe. | Error: No se encontro el ID de Estudiante especificado: {}. | `04_mensaje.sql` |
+| `ERR_ESTUDIANTE_NO_PERTENECE_SESION` | BUSINESS_ERROR | ALTO | El estudiante no pertenece al grupo de la sesion seleccionada. | Validacion fallida: Estudiante no pertenece al grupo de la sesion: {}. | `04_mensaje.sql` |
+| `ERR_GRUPO_NO_EXISTE` | BUSINESS_ERROR | MEDIO | El grupo seleccionado no existe o no esta habilitado. | Error: No existe un grupo habilitado con el identificador: {}. | `04_mensaje.sql` |
+| `ERR_GRUPO_NO_HABILITADO` | BUSINESS_ERROR | MEDIO | El grupo seleccionado no se encuentra habilitado para matricula. | Grupo existente, pero fuera de ventana habilitada para matricula: {}. | `04_mensaje.sql` |
+| `ERR_INESPERADO_REGISTRO_ASISTENCIA` | SYSTEM_ERROR | CRITICO | Hubo un error inesperado al registrar la asistencia del estudiante. | Error critico en orquestador [usp_registrar_asistencia_estudiante]: {}. | `04_mensaje.sql` |
+| `ERR_INESPERADO_REGISTRO_DOCENTE` | SYSTEM_ERROR | CRITICO | Hubo un error inesperado al procesar el registro completo del docente. | Error critico en orquestador [usp_registrar_docente_en_grupo_usuario_no_existente]: {}. | `04_mensaje.sql` |
+| `ERR_INESPERADO_REGISTRO_ESTUDIANTE` | SYSTEM_ERROR | CRITICO | Hubo un error inesperado al procesar el registro completo del estudiante. | Error critico en orquestador [usp_registrar_estudiante_en_grupo_usuario_no_existente]: {}. | `04_mensaje.sql` |
+| `ERR_MATRICULA_DUPLICADA` | BUSINESS_ERROR | ALTO | Usted ya se encuentra registrado o matriculado en este grupo. | Registro duplicado detectado en uv_estudiante_grupo para Estudiante en Grupo: {}. | `04_mensaje.sql` |
+| `ERR_PROGRAMA_FACULTAD_INCONSISTENTE` | BUSINESS_ERROR | CRITICO | El programa académico indicado no pertenece a la facultad especificada. | Programa {} no pertenece a la Facultad {} indicada en uv_programa.idFacultad. | `04_mensaje.sql` |
+| `ERR_PROGRAMA_GRUPO_NO_ENCONTRADO` | BUSINESS_ERROR | ALTO | No se encontro un programa academico asociado a este grupo. | Error: Trazabilidad rota para Grupo ID {}. | `04_mensaje.sql` |
+| `ERR_SESION_NO_EXISTE` | BUSINESS_ERROR | MEDIO | La sesion de clase no existe o no esta abierta. | Error: No se encontro una sesion activa para el ID especificado: {}. | `04_mensaje.sql` |
+| `ERR_SOLICITUD_MATRICULA_NO_IMPLEMENTADA` | BUSINESS_ERROR | MEDIO | La gestión de solicitudes de matrícula aún no se encuentra disponible. | Capability SolicitudMatricula is not implemented in the current schema. | `04_mensaje.sql` |
+| `ERR_TOKEN_VERIFICACION_INVALIDO` | BUSINESS_ERROR | MEDIO | El codigo de verificacion de asistencia es incorrecto o ha expirado. | Fallo: Codigo de verificacion incorrecto o expirado para Sesion: {}. | `04_mensaje.sql` |
+| `ERR_UNICIDAD_CORREO` | BUSINESS_ERROR | ALTO | El correo electronico ya se encuentra registrado. | Fallo unicidad: El correo [{}] ya existe en uv_usuario. | `04_mensaje.sql` |
+| `ERR_UNICIDAD_DOCUMENTO` | BUSINESS_ERROR | ALTO | El numero de documento ya esta registrado para este tipo de identificacion. | Fallo unicidad: Duplicado en idTipoIdentificacion y numeroIdentificacion [{}]. | `04_mensaje.sql` |
+| `ERR_USUARIO_NO_EXISTE` | BUSINESS_ERROR | MEDIO | El usuario especificado no existe. | Error: No se encontro el ID de Usuario especificado: {}. | `04_mensaje.sql` |
+
+## EST
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `EST_001` | BUSINESS_ERROR | MEDIO | El estudiante especificado no existe en el sistema. | Error de búsqueda: No se encontró el estudiante especificado en uv_estudiante: {}. | `04_mensaje.sql` |
+| `EST_002` | BUSINESS_ERROR | ALTO | El estudiante ya se encuentra matriculado o registrado en este grupo. | Registro duplicado: El estudiante {} ya se encuentra asociado al grupo {} en uv_estudiante_grupo. | `04_mensaje.sql` |
+| `EST_003` | BUSINESS_ERROR | ALTO | El estudiante ya pertenece a este programa académico. | Registro duplicado: El estudiante {} ya está asociado al programa en uv_estudiante_programa. | `04_mensaje.sql` |
+| `EST_004` | BUSINESS_ERROR | ALTO | El estudiante no pertenece al grupo de la sesion seleccionada. | Validación de pertenencia fallida: El estudiante {} no está inscrito en el grupo de la sesión {}. | `04_mensaje.sql` |
+
+## FAC
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `FAC_001` | BUSINESS_ERROR | MEDIO | La facultad especificada no existe en el sistema. | Error de búsqueda: No se encontró la facultad en uv_facultad: {}. | `04_mensaje.sql` |
+| `FAC_002` | BUSINESS_ERROR | ALTO | El decano seleccionado ya es titular de otra facultad activa. | Regla de unicidad de titularidad: el decano {} ya es titular de otra facultad activa. | `04_mensaje.sql` |
+
+## GEN
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `GEN_001` | BUSINESS_ERROR | MEDIO | El {} especificado no existe en el sistema. | Error de existencia: No se encontró el registro para la entidad [{}] con el identificador proporcionado. | `04_mensaje.sql` |
+| `GEN_002` | BUSINESS_ERROR | MEDIO | El {} no puede estar vacío o no está presente. | Error de validación: El parámetro o campo [{}] es requerido y no contiene un valor válido. | `04_mensaje.sql` |
+| `GEN_003` | BUSINESS_ERROR | ALTO | Ya existe un {} registrado con este {}. | Error de unicidad: Se detectó un registro duplicado para la entidad [{}] con la propiedad [{}]. | `04_mensaje.sql` |
+| `GEN_004` | SUCCESS | BAJO | {} registrado(a) exitosamente. | Operación exitosa: Se completó la creación/registro de la entidad [{}] de manera correcta. | `04_mensaje.sql` |
+| `GEN_005` | SUCCESS | BAJO | {} actualizado(a) exitosamente. | Operación exitosa: Se completó la actualización de la entidad [{}] de manera correcta. | `04_mensaje.sql` |
+
+## GRUP
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `GRUP_001` | BUSINESS_ERROR | MEDIO | El grupo seleccionado no existe o no se encuentra habilitado. | Error de búsqueda: Grupo inexistente o deshabilitado en uv_grupo: {}. | `04_mensaje.sql` |
+| `GRUP_002` | BUSINESS_ERROR | ALTO | El grupo ha alcanzado o superado la capacidad máxima de estudiantes permitida. | Límite alcanzado: Capacidad máxima superada para el grupo seleccionado: {}. | `04_mensaje.sql` |
+| `GRUP_003` | BUSINESS_ERROR | ALTO | No se encontró un programa académico asociado a este grupo. | Inconsistencia de trazabilidad: Grupo {} sin programa académico vinculado. | `04_mensaje.sql` |
+
+## HOR
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `HOR_001` | BUSINESS_ERROR | ALTO | No es posible realizar el registro. Existe un cruce de horario con otra asignatura. | Colisión horaria: Se detectó una superposición de horario para el estudiante en la misma franja: {}. | `04_mensaje.sql` |
+| `HOR_002` | BUSINESS_ERROR | ALTO | Existe un cruce de horario para el docente en la misma franja horaria. | Colisión horaria: Se detectó una superposición de horario para el docente en la misma franja: {}. | `04_mensaje.sql` |
+
+## IAM
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `IAM_001` | SYSTEM_ERROR | ALTO | El registro se guardó, pero la cuenta de acceso no pudo crearse en este momento. Intente de nuevo. | Aprovisionamiento IAM falló después del commit en DB (TD-015): reintentar crearCuenta de forma idempotente. | `17_mensaje_docente_programa.sql` |
+
+## INST
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `INST_001` | BUSINESS_ERROR | CRITICO | El estudiante, programa y facultad deben pertenecer a la misma institución. | Inconsistencia institucional: Los identificadores de institución no coinciden entre la facultad, programa y estudiante: {}. | `04_mensaje.sql` |
+
+## KPI
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `KPI_001` | BUSINESS_ERROR | ALTO | No tiene un programa académico a su cargo para consultar estos indicadores. | Ámbito: el ejecutor {} no coordina ningún programa en uv_programa. | `18_mensajes_kpis_coordinador.sql` |
+| `KPI_002` | BUSINESS_ERROR | CRITICO | No fue posible calcular los indicadores porque falta la configuración de umbrales de asistencia. | Falta el parámetro ASISTENCIA/UMBRAL_ALERTA_ADVERTENCIA o ASISTENCIA/UMBRAL_ALERTA_PERDIDA en CatalogoParametro. | `18_mensajes_kpis_coordinador.sql` |
+| `KPI_003` | BUSINESS_ERROR | ALTO | No tiene una facultad a su cargo para consultar estos indicadores. | Ámbito: el ejecutor {} no es decano de ninguna facultad en uv_facultad. | `19_mensajes_kpis_decano.sql` |
+| `KPI_004` | BUSINESS_ERROR | ALTO | No tiene una institución a su cargo para consultar estos indicadores. | Ámbito: el ejecutor {} no es administrador de ninguna institución en uv_administrador. | `20_mensajes_kpis_admin.sql` |
+
+## PAG
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `PAG_001` | BUSINESS_ERROR | MEDIO | Los parámetros de paginación no son válidos. | Paginación inválida: numeroPagina={} y tamanoPagina={} fuera de rango (máximo según PAGINACION/TAMANO_MAXIMO). | `17_mensajes_programa_academico.sql` |
+
+## PER
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `PER_001` | BUSINESS_ERROR | MEDIO | El período académico indicado no existe. | Existencia: no hay dbo.PeriodoAcademico con el id indicado en la institucion del ejecutor. | `17_mensajes_periodo_academico.sql` |
+| `PER_002` | BUSINESS_ERROR | MEDIO | La fecha de inicio del período debe ser anterior a la fecha de fin. | Validacion: fechaInicio y fechaFin obligatorias y fechaInicio < fechaFin. | `17_mensajes_periodo_academico.sql` |
+| `PER_003` | BUSINESS_ERROR | MEDIO | Ya existe un período académico con ese nombre en la institución. | Unicidad: ya existe dbo.PeriodoAcademico con el mismo id o nombre en la institucion. | `17_mensajes_periodo_academico.sql` |
+| `PER_004` | BUSINESS_ERROR | MEDIO | El período académico tiene grupos o sesiones asociados y no se puede eliminar. | Regla: existe dbo.Grupo que referencia el periodo a eliminar. | `17_mensajes_periodo_academico.sql` |
+| `PER_005` | BUSINESS_ERROR | MEDIO | No tiene una institución activa asignada como administrador para gestionar períodos académicos. | Ambito: el ejecutor no tiene dbo.Administrador en una institucion activa. | `17_mensajes_periodo_academico.sql` |
+| `PER_006` | SUCCESS | BAJO | Período académico eliminado exitosamente. | Eliminacion: dbo.PeriodoAcademico eliminado. | `17_mensajes_periodo_academico.sql` |
+
+## PLA
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `PLA_002` | BUSINESS_ERROR | MEDIO | El plan de estudios indicado no existe. | Existencia: no hay dbo.PlanEstudio con el id indicado. | `17_mensajes_plan_estudio.sql` |
+| `PLA_003` | BUSINESS_ERROR | MEDIO | El plan de estudios ya tiene el número máximo de semestres. | Regla: no existe dbo.Semestre con numero MAX(numero del plan) + 1. | `17_mensajes_plan_estudio.sql` |
+| `PLA_004` | BUSINESS_ERROR | MEDIO | El semestre indicado no pertenece al plan de estudios. | Existencia: no hay dbo.SemestrePlanEstudio del plan con el numero de semestre indicado. | `17_mensajes_plan_estudio.sql` |
+| `PLA_005` | BUSINESS_ERROR | MEDIO | Solo se puede quitar el último semestre del plan de estudios. | Regla: el numero de semestre indicado no es el mayor del plan; la malla debe seguir consecutiva. | `17_mensajes_plan_estudio.sql` |
+| `PLA_006` | BUSINESS_ERROR | MEDIO | El semestre tiene asignaturas asociadas. Reubíquelas o elimínelas primero. | Regla: existe dbo.Asignatura que referencia el dbo.SemestrePlanEstudio a quitar. | `17_mensajes_plan_estudio.sql` |
+
+## PROG
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `PROG_001` | BUSINESS_ERROR | ALTO | El programa académico especificado no existe en el sistema. | Error de búsqueda: No se encontró el programa en uv_programa: {}. | `04_mensaje.sql` |
+| `PROG_002` | BUSINESS_ERROR | ALTO | Ya existe un programa académico con el identificador indicado. | Registro duplicado: ya existe un programa con el id {} en uv_programa. | `17_mensajes_programa_academico.sql` |
+| `PROG_003` | BUSINESS_ERROR | ALTO | Ya existe un programa académico con ese nombre en la facultad. | Regla de unicidad: el nombre [{}] ya existe en la facultad (comparación sin distinguir mayúsculas). | `17_mensajes_programa_academico.sql` |
+| `PROG_004` | BUSINESS_ERROR | MEDIO | El tipo de programa indicado no existe o está inactivo. | Error de búsqueda: tipo de programa {} inexistente o inactivo en uv_tipo_programa. | `17_mensajes_programa_academico.sql` |
+| `PROG_005` | BUSINESS_ERROR | ALTO | El coordinador seleccionado no está disponible: no existe, está inactivo o ya tiene un programa asignado. | Regla 1 a 1: el coordinador {} no existe, está inactivo o ya figura en otro programa. | `17_mensajes_programa_academico.sql` |
+| `PROG_006` | BUSINESS_ERROR | MEDIO | La modalidad o la jornada indicada no existe o está inactiva. | Error de búsqueda: modalidad/jornada {} inexistente o inactiva. | `17_mensajes_programa_academico.sql` |
+| `PROG_007` | BUSINESS_ERROR | ALTO | No se puede desactivar el programa porque tiene grupos activos en el período vigente. | Regla D4: el programa {} tiene grupos habilitados en uv_grupo_programa. | `17_mensajes_programa_academico.sql` |
+| `PROG_008` | BUSINESS_ERROR | ALTO | No se puede activar el programa porque su facultad está inactiva. | Regla de jerarquía: la facultad del programa {} está inactiva. | `17_mensajes_programa_academico.sql` |
+
+## RC
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `RC_001` | BUSINESS_ERROR | MEDIO | El estado de asistencia {} no corresponde a una razón de causa válida. | RazonCausa.codigo = [{}] no existe o no es válido para el contrato de asistencia. | `04_mensaje.sql` |
+
+## RET
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `RET_001` | BUSINESS_ERROR | MEDIO | El grupo indicado no existe o no es un grupo a su cargo. | Ambito: no existe dbo.Grupo con el id indicado cuyo Docente.usuario sea el ejecutor. | `21_mensajes_retiro_estudiante_grupo.sql` |
+| `RET_002` | BUSINESS_ERROR | MEDIO | El estudiante no tiene una matrícula activa en este grupo. | Existencia: no hay dbo.EstudianteGrupo activo (estado A) para el estudiante en el grupo. | `21_mensajes_retiro_estudiante_grupo.sql` |
+| `RET_003` | BUSINESS_ERROR | MEDIO | El período académico del grupo ya terminó; no se puede retirar al estudiante. | Regla: PeriodoAcademico.fechaFin es anterior a la fecha local (TIEMPO.ZONA_HORARIA_SQLSERVER). | `21_mensajes_retiro_estudiante_grupo.sql` |
+| `RET_004` | BUSINESS_ERROR | MEDIO | El motivo del retiro es obligatorio y no puede superar 500 caracteres. | Validacion: @motivo nulo, vacio o de mas de 500 caracteres. | `21_mensajes_retiro_estudiante_grupo.sql` |
+| `RET_005` | SUCCESS | BAJO | El estudiante fue retirado del grupo. | Actualizacion: dbo.EstudianteGrupo pasa a estado I (inactivo) y se registra dbo.AuditoriaEvento. | `21_mensajes_retiro_estudiante_grupo.sql` |
+
+## SEC
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `SEC_001` | BUSINESS_ERROR | ALTO | No tiene permisos suficientes para realizar esta operación. | RBAC denegado: el usuario no posee perfil activo requerido o no existe/está inactivo. | `04_mensaje.sql` |
+| `SEC_002` | BUSINESS_ERROR | ALTO | No tiene autorización sobre el recurso solicitado. | Titularidad denegada: el usuario no está autorizado sobre el recurso solicitado. | `04_mensaje.sql` |
+
+## SES
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `SES_001` | BUSINESS_ERROR | MEDIO | La sesión de clase especificada no existe o no se encuentra activa. | Error de búsqueda: Sesión no encontrada o cerrada en uv_sesion: {}. | `04_mensaje.sql` |
+| `SES_002` | BUSINESS_ERROR | MEDIO | El código de verificación de asistencia es incorrecto o ha expirado. | Validación fallida: Token QR o código de verificación no coincide o venció para Sesión: {}. | `04_mensaje.sql` |
+| `SES_003` | BUSINESS_ERROR | MEDIO | El cierre de sesión no está soportado por el contrato vigente de base de datos. | LEGACY_NOT_SUPPORTED: dbo.Sesion no posee columna de cierre/estado; usp_cerrar_sesion no persiste cierre real. | `04_mensaje.sql` |
+| `SES_004` | BUSINESS_ERROR | MEDIO | La fecha y hora de fin de sesión debe ser posterior a la fecha y hora de inicio. | Validación temporal fallida: fechaHoraFin [{}] debe ser posterior a fechaHoraInicio [{}]. | `04_mensaje.sql` |
+| `SES_005` | BUSINESS_ERROR | MEDIO | El horario institucional incluye una hora local inexistente por cambio de horario; no se generaron sesiones. | Validación temporal fallida: la zona [{}] no contiene la hora local [{}] (salto DST); generación abortada sin escrituras. | `04_mensaje.sql` |
+| `SES_006` | BUSINESS_ERROR | ALTO | La sesión no coincide con el manifiesto de clasificación aprobado; no se modificó. | Clasificación UTC_OWNER rechazada: la sesión [{}] no coincide con el manifiesto [{}] (procedencia no NULL u horas distintas). | `04_mensaje.sql` |
+
+## SIG
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `SIG_001` | BUSINESS_ERROR | MEDIO | Solo un estudiante puede solicitar el ingreso a un grupo. | Ambito: el ejecutor no tiene dbo.Estudiante. | `23_mensajes_solicitud_ingreso_grupo.sql` |
+| `SIG_002` | BUSINESS_ERROR | MEDIO | El grupo indicado no existe. | Existencia: no hay dbo.Grupo con el id indicado. | `23_mensajes_solicitud_ingreso_grupo.sql` |
+| `SIG_003` | BUSINESS_ERROR | MEDIO | El período académico del grupo ya terminó. | Regla: PeriodoAcademico.fechaFin es anterior a la fecha local (TIEMPO.ZONA_HORARIA_SQLSERVER). | `23_mensajes_solicitud_ingreso_grupo.sql` |
+| `SIG_004` | BUSINESS_ERROR | MEDIO | El estudiante ya está matriculado en este grupo. | Regla: existe dbo.EstudianteGrupo activo (A) del estudiante en el grupo. | `23_mensajes_solicitud_ingreso_grupo.sql` |
+| `SIG_005` | BUSINESS_ERROR | MEDIO | Ya existe una solicitud abierta para este grupo. | Unicidad: existe dbo.SolicitudIngresoGrupo en estado P o E para el estudiante y el grupo. | `23_mensajes_solicitud_ingreso_grupo.sql` |
+| `SIG_006` | SUCCESS | BAJO | La solicitud de ingreso al grupo fue registrada. | Insercion: dbo.SolicitudIngresoGrupo en estado P. | `23_mensajes_solicitud_ingreso_grupo.sql` |
+| `SIG_007` | BUSINESS_ERROR | MEDIO | La solicitud indicada no existe o no está a su cargo. | Ambito: la solicitud no existe o el ejecutor no es el docente titular del grupo / el estudiante propietario. | `23_mensajes_solicitud_ingreso_grupo.sql` |
+| `SIG_008` | BUSINESS_ERROR | MEDIO | La solicitud ya fue resuelta o retirada. | Regla: la solicitud no esta en estado P o E. | `23_mensajes_solicitud_ingreso_grupo.sql` |
+| `SIG_009` | BUSINESS_ERROR | MEDIO | La acción indicada no es válida; use ACEPTAR o RECHAZAR. | Validacion: @accion distinta de ACEPTAR o RECHAZAR. | `23_mensajes_solicitud_ingreso_grupo.sql` |
+| `SIG_010` | BUSINESS_ERROR | MEDIO | El motivo del rechazo es obligatorio y no puede superar 500 caracteres. | Validacion: @motivo nulo, vacio o de mas de 500 caracteres al rechazar. | `23_mensajes_solicitud_ingreso_grupo.sql` |
+| `SIG_011` | SUCCESS | BAJO | La solicitud fue aceptada y el estudiante quedó matriculado en el grupo. | Actualizacion: solicitud A y dbo.EstudianteGrupo activo creado (usp_registrar_estudiante_en_grupo_interno). | `23_mensajes_solicitud_ingreso_grupo.sql` |
+| `SIG_012` | SUCCESS | BAJO | El grupo no tiene cupo: la solicitud quedó en lista de espera. | Actualizacion: sin cupo (capacidad - activos <= 0) bajo UPDLOCK; solicitud P pasa a E. | `23_mensajes_solicitud_ingreso_grupo.sql` |
+| `SIG_013` | BUSINESS_ERROR | MEDIO | El grupo sigue sin cupo; la solicitud permanece en lista de espera. | Regla: solicitud E sin cupo disponible bajo UPDLOCK. | `23_mensajes_solicitud_ingreso_grupo.sql` |
+| `SIG_014` | SUCCESS | BAJO | La solicitud fue rechazada. | Actualizacion: solicitud R con motivoRechazo. | `23_mensajes_solicitud_ingreso_grupo.sql` |
+| `SIG_015` | SUCCESS | BAJO | La solicitud fue retirada. | Actualizacion: solicitud X retirada por el estudiante propietario. | `23_mensajes_solicitud_ingreso_grupo.sql` |
+
+## SUC
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `SUC_REGISTRO_ASISTENCIA` | SUCCESS | BAJO | Asistencia registrada de forma satisfactoria. | Sincronizacion de asistencia completa. Registrada para: {}. | `04_mensaje.sql` |
+| `SUC_REGISTRO_DOCENTE_GRUPO` | SUCCESS | BAJO | Se ha registrado el docente en el grupo de forma satisfactoria. | Operacion exitosa completa. Orquestador finalizado para Docente en Grupo: {}. | `04_mensaje.sql` |
+| `SUC_REGISTRO_ESTUDIANTE_GRUPO` | SUCCESS | BAJO | Se ha registrado el estudiante en el grupo de forma satisfactoria. | Operacion exitosa completa. Orquestador finalizado para Estudiante en Grupo: {}. | `04_mensaje.sql` |
+
+## SYS
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `SYS_001` | SYSTEM_ERROR | CRITICO | Ocurrió un error inesperado al procesar la solicitud. | Excepción de sistema no controlada capturada en bloque CATCH: {}. | `04_mensaje.sql` |
+
+## TPR
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `TPR_001` | BUSINESS_ERROR | MEDIO | El tipo de programa especificado no existe en el sistema. | Error de búsqueda: No se encontró el tipo de programa en uv_tipo_programa: {}. | `04_mensaje.sql` |
+| `TPR_002` | BUSINESS_ERROR | ALTO | Ya existe un tipo de programa con el mismo código o nombre. | Error de unicidad: código o nombre duplicado en tipo de programa. | `04_mensaje.sql` |
+
+## USU
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `USU_001` | BUSINESS_ERROR | MEDIO | El usuario especificado no existe en el sistema. | Error de búsqueda: No se encontró el usuario con el ID especificado: {}. | `04_mensaje.sql` |
+| `USU_002` | BUSINESS_ERROR | ALTO | El usuario especificado se encuentra inactivo en la plataforma. | Restricción de acceso: El usuario [{}] tiene estaActivo = 0. | `04_mensaje.sql` |
+
+## VAL
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `VAL_001` | BUSINESS_ERROR | MEDIO | El número de identificación es obligatorio. | Validación de campo: numeroIdentificacion no está presente o es nulo. | `04_mensaje.sql` |
+| `VAL_002` | BUSINESS_ERROR | MEDIO | El número de identificación debe tener entre {} y {} dígitos. | Validación de rango: numeroIdentificacion debe tener una longitud de entre {} y {} dígitos. | `04_mensaje.sql` |
+| `VAL_003` | BUSINESS_ERROR | MEDIO | Los nombres y apellidos son obligatorios. | Validación de campo: nombres o apellidos vacíos o no proporcionados. | `04_mensaje.sql` |
+| `VAL_004` | BUSINESS_ERROR | MEDIO | El campo {} contiene caracteres no permitidos. | Validación de formato: El valor enviado para [{}] contiene caracteres especiales no válidos. | `04_mensaje.sql` |
+| `VAL_005` | BUSINESS_ERROR | MEDIO | El correo electrónico es obligatorio y debe tener un formato válido. | Validación de formato: La dirección de correo electrónico no cumple con la estructura estándar. | `04_mensaje.sql` |
+| `VAL_006` | BUSINESS_ERROR | ALTO | La dirección de correo electrónico ya se encuentra registrada. | Fallo de unicidad: El correo electrónico ya existe en la vista uv_usuario. | `04_mensaje.sql` |
+| `VAL_007` | BUSINESS_ERROR | ALTO | La contraseña no cumple con los requisitos mínimos de seguridad. | Validación de seguridad: La contraseña no satisface las políticas de complejidad establecidas. | `04_mensaje.sql` |
 
