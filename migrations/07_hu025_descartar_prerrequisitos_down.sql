@@ -1,3 +1,5 @@
+-- Rollback de 07_hu025_descartar_prerrequisitos_up.sql: restaura el stub tal como estaba antes de descartarse HU025.
+-- Solo para revertir el commit; el stub no implementa ninguna regla (siempre aprueba).
 USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;

@@ -39,7 +39,7 @@ Alejo lo registró en el work item `INTEGRACION-DEVELOP-20261027` del backend, v
 
 ### Límite conocido
 
-- **Validaciones que se omiten en la reactivación:** como la matrícula ya existía en el mismo grupo, no se vuelven a ejecutar las validaciones del interno (cruce de horario, prerrequisitos). Si después del retiro el estudiante se matriculó en otro grupo con horario cruzado, la reactivación no lo detecta. Queda para MV-008.
+- **Validaciones que se omiten en la reactivación:** como la matrícula ya existía en el mismo grupo, no se vuelven a ejecutar las validaciones del interno (cruce de horario). Si después del retiro el estudiante se matriculó en otro grupo con horario cruzado, la reactivación no lo detecta. Queda para MV-008.
 - **Estados no reactivados:** las matrículas en otros estados (finalizada, cancelada por inasistencia o por voluntad propia) no se reactivan y conservan el comportamiento anterior.
 
 ## Pruebas

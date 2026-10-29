@@ -11,7 +11,7 @@ Contiene la documentación oficial de:
 2. **55 Vistas (Views)**: Vistas de catálogo, vistas de proyección de identidad y vistas autorizadas por seguridad RBAC dinámicas (`uv_auth_*`).
 3. **15 Funciones (Functions)**: Funciones auxiliares de validación, consulta de parámetros y lectura de `SESSION_CONTEXT`.
 
-> **Inventario vigente (REC5, 2026-10-29):** `schema/` contiene hoy **163 procedimientos** (102 públicos y 61 `_interno`), **65 vistas** (13 `uv_auth_*`) y **17 funciones**. Este documento conserva las fichas originales de los 57 SP base. El resto está documentado en:
+> **Inventario vigente (REC5, 2026-10-29):** `schema/` contiene hoy **162 procedimientos** (102 públicos y 60 `_interno`; HU025 descartada eliminó el stub de prerrequisitos), **65 vistas** (13 `uv_auth_*`) y **17 funciones**. Este documento conserva las fichas originales de los 57 SP base. El resto está documentado en:
 > - `especificacion_sp_endpoints.md`: endpoint y rol de cada SP público (Addendum REC5);
 > - `DOCUMENTACION_PROCEDIMIENTOS_PUBLICOS.md` y `DOCUMENTACION_PROCEDIMIENTOS_INTERNOS.md`: fichas e índices REC5;
 > - los work items de cada HU (`docs/work-items/`).
@@ -373,7 +373,7 @@ Contiene la documentación oficial de:
 
 ### [SP-025] - `dbo.usp_registrar_estudiante_en_grupo`
 - **Módulo / Alcance:** Matrícula - Estudiantes
-- **Propósito de Negocio:** Registra formalmente a un estudiante en un grupo académico respetando cupos y prerrequisitos.
+- **Propósito de Negocio:** Registra formalmente a un estudiante en un grupo académico respetando cupos y cruce de horarios.
 - **Entidades del MER Involucradas:** `EstudianteGrupo`, `Estudiante`, `Grupo`.
 - **Flujo Paso a Paso (Paso Reactivo Atómico):**
   1. Validar cupo disponible en el grupo.
@@ -535,7 +535,6 @@ Contiene la documentación oficial de:
 * **`dbo.usp_validar_id_interno`**: Valida que un UUID/GUID sea válido y no nulo.
 * **`dbo.usp_validar_perfil_existe_por_codigo_interno`**: Confirma la existencia del código de perfil en el catálogo.
 * **`dbo.usp_validar_permiso_rbac_usuario_interno`**: Valida los permisos de rol (RBAC) del usuario sobre el recurso. Retorna `SEC_001` si falla.
-* **`dbo.usp_validar_prerrequisitos_asignatura_estudiante_interno`**: Verifica prerrequisitos de asignatura para el estudiante.
 * **`dbo.usp_validar_registro_estudiante_en_grupo_interno`**: Valida condiciones para permitir el registro en grupo.
 * **`dbo.usp_validar_sesion_exista_por_id_interno`**: Verifica la existencia de la sesión de clase.
 * **`dbo.usp_validar_tipo_identificacion_exista_por_id_interno`**: Confirma la validez del tipo de documento.
