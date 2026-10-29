@@ -301,6 +301,21 @@ Todos los procedimientos listados en esta documentación han sido compilados y p
 
 ---
 
+## Addendum REC2 (2026-10-29)
+
+### `dbo.usp_validar_gestion_asignatura_coordinador_interno`
+- **Propósito**: validación común para modificar una asignatura existente, en este orden:
+  1. ejecutor obligatorio (`GEN_002`);
+  2. perfil `COORDINADOR` (`SEC_001`);
+  3. existencia de la asignatura (`VAL_002`);
+  4. que el ejecutor coordine el programa de la asignatura (`SEC_002`, vía `usp_validar_titularidad_jerarquica_interno` con `PROGRAMA`).
+- **Lecturas**: por las vistas `uv_asignatura` y `uv_semestre_plan_estudio`.
+- **Parámetros de Entrada**: `@idAsignatura`, `@idUsuarioEjecutor` (puede llegar NULL y entonces responde `GEN_002`), `@idCorrelacion`.
+- **Parámetros de Salida**: `@mensajeUsuarioResultado`, `@mensajeTecnicoResultado`, `@estadoResultado`.
+- **Invocado por**: `usp_actualizar_asignatura` y `usp_toggle_estado_asignatura`.
+- **Códigos de Catálogo Consumidos**: `GEN_002`, `SEC_001`, `VAL_002`, `SEC_002`, `SYS_001`.
+- **Ampliación al decano**: perfil `'COORDINADOR,DECANO'` y titularidad de `FACULTAD`.
+- Work item: `docs/work-items/REC2-rbac-asignatura/`.
 ## Addendum REC5 (2026-10-29): índice de procedimientos internos sin ficha
 
 30 procedimientos `_interno` no tenían ficha en este documento. Propósito tomado del comentario de cabecera del SP; el contrato de salida es el triplete estándar (`@mensajeUsuarioResultado`, `@mensajeTecnicoResultado`, `@estadoResultado`), salvo los internos de resolución que lanzan `THROW` (ver work item de su HU).

@@ -40,7 +40,7 @@ La auditoría automática se volvió a ejecutar sobre esta rama. Cobertura docum
 
 | Regla | Antes | Después |
 |---|---|---|
-| D1 Internos en la documentación de arquitectura | 30/60 | 60/60 |
+| D1 Internos en la documentación de arquitectura | 30/60 | 61/61 (con el interno de REC2) |
 | D2 Públicos en PUBLICOS/ORQUESTADORES/transaccion-procedimiento | 54/102 | 102/102 |
 | D3 Públicos en `especificacion_sp_endpoints.md` | 49/102 | 102/102 |
 | D4 Públicos en algún documento o work item | 62/102 | 102/102 |
@@ -49,9 +49,11 @@ La auditoría automática se volvió a ejecutar sobre esta rama. Cobertura docum
 
 - 6 vistas siguen sin documentación (D5: 59/65).
 - Agregar `generar-catalogo-mensajes.ps1 -Check` al workflow `DB Quality Gate`. Requiere aprobación porque cambia el CI compartido.
-- **Al mergear REC2** (`usp_validar_gestion_asignatura_coordinador_interno`), el inventario pasa a 163 SP (61 internos). Su ficha ya está en el addendum REC2 de `DOCUMENTACION_PROCEDIMIENTOS_INTERNOS.md`.
+- Se integró `origin/develop` con REC2 (#61). El inventario quedó en 163 SP (61 internos) y `transaccion-procedimiento.md` ya está actualizado. La ficha del interno nuevo está en el addendum REC2 de `DOCUMENTACION_PROCEDIMIENTOS_INTERNOS.md`; al integrar se conservaron las dos secciones.
 
 ## Validación
 
 - `./scripts/generar-catalogo-mensajes.ps1 -Check`: `CATALOGO_MENSAJES_OK codigos=131`.
-- No hay cambios en `schema/` ni en `test/`. Se corre el CI de BD como control (ver el commit).
+- No hay cambios en `schema/` ni en `test/`.
+- CI de BD de control sobre la rama antes de integrar develop: `TOTAL_EXECUTED=378`, `FAILED=0`, `DB GATE PASS`.
+- Después de integrar `origin/develop` (#61) solo se resolvió un conflicto de documentación. `schema/` y `test/` quedan idénticos a `develop`, que ya pasó su DB Quality Gate en GitHub.

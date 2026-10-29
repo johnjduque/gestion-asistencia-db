@@ -11,7 +11,7 @@ Contiene la documentación oficial de:
 2. **55 Vistas (Views)**: Vistas de catálogo, vistas de proyección de identidad y vistas autorizadas por seguridad RBAC dinámicas (`uv_auth_*`).
 3. **15 Funciones (Functions)**: Funciones auxiliares de validación, consulta de parámetros y lectura de `SESSION_CONTEXT`.
 
-> **Inventario vigente (REC5, 2026-10-29):** `schema/` contiene hoy **162 procedimientos** (102 públicos y 60 `_interno`), **65 vistas** (13 `uv_auth_*`) y **17 funciones**. Este documento conserva las fichas originales de los 57 SP base. El resto está documentado en:
+> **Inventario vigente (REC5, 2026-10-29):** `schema/` contiene hoy **163 procedimientos** (102 públicos y 61 `_interno`), **65 vistas** (13 `uv_auth_*`) y **17 funciones**. Este documento conserva las fichas originales de los 57 SP base. El resto está documentado en:
 > - `especificacion_sp_endpoints.md`: endpoint y rol de cada SP público (Addendum REC5);
 > - `DOCUMENTACION_PROCEDIMIENTOS_PUBLICOS.md` y `DOCUMENTACION_PROCEDIMIENTOS_INTERNOS.md`: fichas e índices REC5;
 > - los work items de cada HU (`docs/work-items/`).
@@ -30,8 +30,8 @@ Contiene la documentación oficial de:
 - **Entidades del MER Involucradas:** `Asignatura`, `Usuario`.
 - **Flujo Paso a Paso (Paso Reactivo Atómico):**
   1. Validar la obligatoriedad de `@idUsuarioEjecutor` e `@idCorrelacion`.
-  2. Validar permisos RBAC del usuario ejecutor (roles permitidos: COORDINADOR, ADMINISTRADOR).
-  3. Verificar que la asignatura a actualizar exista en `dbo.Asignatura`.
+  2. Validar perfil `COORDINADOR` (SEC_001). El administrador no participa (modelo jerárquico RBAC; REC2, auditoría BD 2026-10-28).
+  3. Verificar que la asignatura exista y que el ejecutor coordine su programa (SEC_002).
   4. Validar la unicidad del código de la asignatura para evitar duplicados en la misma institución.
   5. Ejecutar `UPDATE` atómico sobre `dbo.Asignatura` con los nuevos valores de código, nombre, créditos, horas semanales y estado.
   6. Retornar respuesta estructurada `(idCorrelacion, mensajeUsuario, mensajeTecnico, estadoResultado)`.
@@ -509,9 +509,11 @@ Contiene la documentación oficial de:
 - **Propósito de Negocio:** Alterna el estado activo/inactivo de una asignatura en el catálogo.
 - **Entidades del MER Involucradas:** `Asignatura`.
 - **Flujo Paso a Paso (Paso Reactivo Atómico):**
-  1. Cambiar la bandera de estado de la asignatura.
+  1. Validar `@idCorrelacion` y `@idUsuarioEjecutor` (obligatorio, GEN_002).
+  2. Validar perfil `COORDINADOR` (SEC_001) y que el ejecutor coordine el programa de la asignatura (SEC_002).
+  3. Cambiar la bandera de estado de la asignatura.
 - **Reglas de Negocio y Validaciones Específicas:**
-  * Requiere permisos de Coordinador o Administrador.
+  * Solo el coordinador titular del programa (REC2, auditoría BD 2026-10-28). El administrador no participa (modelo jerárquico RBAC).
 - **Estado Resultante en la BD:** Estado de la asignatura actualizado.
 
 ---
