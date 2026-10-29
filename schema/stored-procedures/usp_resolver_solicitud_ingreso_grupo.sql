@@ -61,6 +61,10 @@ AS
     DECLARE @conteoTransaccionesInicial INT = 0;
     DECLARE @transaccionPropia          BIT = 0;
     DECLARE @savepointCreado            BIT = 0;
+
+    -- REC4 (estilo): variables declaradas en la cabecera; las que dependen de un paso previo se asignan con SET en ese paso.
+    DECLARE @estadoTransaccionCatch INT;
+
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
@@ -87,11 +91,13 @@ BEGIN
 
         -- PASO 3: Validar la accion y el motivo (codigo de rechazo)
         IF @estadoResultado = 1
+        BEGIN
             SET @codigoRechazo =
                 CASE
                     WHEN @accionNormalizada IS NULL OR @accionNormalizada NOT IN (N'ACEPTAR', N'RECHAZAR') THEN 'SIG_009'
                     WHEN @accionNormalizada = N'RECHAZAR' AND (@motivoNormalizado IS NULL OR LEN(@motivoNormalizado) > 500) THEN 'SIG_010'
                 END;
+        END
 
         -- PASO 4: Validar la accion y el motivo (codigo de rechazo)
         IF @estadoResultado = 1 AND @codigoRechazo IS NULL
@@ -117,10 +123,12 @@ BEGIN
 
             -- Bloqueo de la fila del grupo: serializa las aceptaciones concurrentes del mismo grupo (sin sobrecupo).
             IF @idGrupo IS NOT NULL
+            BEGIN
                 SELECT @capacidad = g.cantidadEstudiantes, @fechaFinPeriodo = pa.fechaFin
                 FROM dbo.Grupo g WITH (UPDLOCK, HOLDLOCK)
                 INNER JOIN dbo.PeriodoAcademico pa ON pa.id = g.periodoAcademico
                 WHERE g.id = @idGrupo;
+            END
 
             SET @codigoRechazo =
                 CASE
@@ -152,7 +160,9 @@ BEGIN
                 IF @capacidad - @activos <= 0
                 BEGIN
                     IF @estadoActual = @estadoEspera
+                    BEGIN
                         SET @codigoRechazo = 'SIG_013';
+                    END
                     ELSE
                     BEGIN
                         UPDATE dbo.SolicitudIngresoGrupo SET estado = @estadoEspera WHERE id = @idSolicitudDefecto;
@@ -234,12 +244,23 @@ BEGIN
 
             IF @transaccionPropia = 1
             BEGIN
-                IF @estadoResultado = 0 AND XACT_STATE() = 1 ROLLBACK TRANSACTION;
-                ELSE IF XACT_STATE() = 1 COMMIT TRANSACTION;
-                ELSE IF XACT_STATE() = -1 ROLLBACK TRANSACTION;
+                IF @estadoResultado = 0 AND XACT_STATE() = 1
+                BEGIN
+                    ROLLBACK TRANSACTION;
+                END
+                ELSE IF XACT_STATE() = 1
+                BEGIN
+                    COMMIT TRANSACTION;
+                END
+                ELSE IF XACT_STATE() = -1
+                BEGIN
+                    ROLLBACK TRANSACTION;
+                END
             END
             ELSE IF @savepointCreado = 1 AND @estadoResultado = 0 AND XACT_STATE() = 1
+            BEGIN
                 ROLLBACK TRANSACTION sp_resolver_solicitud_ingreso;
+            END
         END
 
         -- PASO 5: Traducir el codigo de rechazo a su mensaje de catalogo
@@ -255,10 +276,13 @@ BEGIN
         END
     END TRY
     BEGIN CATCH
-        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+        SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
-            IF @estadoTransaccionCatch <> 0 ROLLBACK TRANSACTION;
+            IF @estadoTransaccionCatch <> 0
+            BEGIN
+                ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN
