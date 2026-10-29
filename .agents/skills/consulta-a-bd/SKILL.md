@@ -35,6 +35,10 @@ Esta documentación establece la directiva obligatoria de acceso a datos de lect
 La consulta directas a una tabla física (`SELECT ... FROM dbo.Tabla`) solo se permite en los siguientes escenarios puntuales:
 1. **Comprobación de Existencia Pura en Transacciones Internas**: Clausulas de tipo `IF EXISTS (SELECT 1 FROM dbo.Usuario WHERE id = @idUsuario)` o similares dentro de procedimientos `*_interno` donde se requiera comprobar la presencia atómica de la PK en la tabla física antes de una inserción/actualización.
 2. **Scripts de Mantenimiento y Semillas**: Scripts de despliegue (`schema/seed/`) o migraciones administradas directamente por el DBA.
+3. **Lecturas con bloqueo dentro de una transacción** (REC4, 2026-10-29):
+   - Las lecturas que necesitan `UPDLOCK`/`HOLDLOCK` para garantizar consistencia concurrente pueden consultar la tabla física.
+   - Ejemplos: cupo de un grupo, correlativos de sesión, matrícula o solicitud pendiente.
+   - Las vistas no garantizan el bloqueo sobre la fila física.
 
 ---
 
