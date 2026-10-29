@@ -10,14 +10,12 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_toggle_estado_asignatura]
     @idAsignatura   UNIQUEIDENTIFIER,
     @idCorrelacion  UNIQUEIDENTIFIER,
     -- REC2 (auditoria BD 2026-10-28): ejecutor obligatorio (GEN_002 si llega NULL). El DEFAULT solo conserva la
-    -- compatibilidad de firma; RBAC COORDINADOR + titularidad del PROGRAMA de la asignatura se validan aqui.
+    -- compatibilidad de firma; RBAC COORDINADOR + titularidad del PROGRAMA se validan en usp_validar_gestion_asignatura_coordinador_interno.
     @idUsuarioEjecutor UNIQUEIDENTIFIER = NULL
 )
 AS
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idAsignaturaDefecto  UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idAsignatura, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @idUsuarioEjecutorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @idProgramaAsignatura UNIQUEIDENTIFIER;
 
     -- Variables locales de respuesta
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -34,59 +32,13 @@ BEGIN
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- PASO 1.1: Ejecutor obligatorio
-        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
-        BEGIN
-            EXEC dbo.usp_obtener_mensaje_catalogo
-                @p_codigo = 'GEN_002',
-                @p_param1 = 'idUsuarioEjecutor',
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-
-            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-            SET @estadoResultado = 0;
-        END
-
-        -- PASO 1.2: RBAC. Para ampliar al decano basta con 'COORDINADOR,DECANO' y la titularidad de FACULTAD.
+        -- PASO 2: Ejecutor obligatorio, perfil COORDINADOR, existencia de la asignatura y titularidad del
+        --         programa (REC2: logica comun en usp_validar_gestion_asignatura_coordinador_interno)
         IF @estadoResultado = 1
         BEGIN
-            EXEC dbo.usp_validar_permiso_rbac_usuario_interno
-                @idUsuario = @idUsuarioEjecutorDefecto,
-                @codigoPerfilRequerido = 'COORDINADOR',
-                @idCorrelacion = @idCorrelacionDefecto,
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-                @estadoResultado = @estadoResultado OUTPUT;
-        END
-
-        -- PASO 2: Validar existencia de la Asignatura en uv_asignatura
-        IF @estadoResultado = 1
-        BEGIN
-            IF NOT EXISTS (SELECT 1 FROM [dbo].[uv_asignatura] WHERE id = @idAsignaturaDefecto)
-            BEGIN
-                EXEC dbo.usp_obtener_mensaje_catalogo
-                    @p_codigo = 'VAL_002',
-                    @p_param1 = 'Asignatura',
-                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-
-                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-                SET @estadoResultado = 0;
-            END
-        END
-
-        -- PASO 2.1: Titularidad: el ejecutor coordina el programa al que pertenece la asignatura
-        IF @estadoResultado = 1
-        BEGIN
-            SELECT @idProgramaAsignatura = sp.idPrograma
-            FROM [dbo].[uv_asignatura] a
-            INNER JOIN [dbo].[uv_semestre_plan_estudio] sp ON sp.id = a.idSemestrePlanEstudio
-            WHERE a.id = @idAsignaturaDefecto;
-
-            EXEC dbo.usp_validar_titularidad_jerarquica_interno
-                @idUsuario = @idUsuarioEjecutorDefecto,
-                @idEntidadPadre = @idProgramaAsignatura,
-                @tipoEntidadPadre = 'PROGRAMA',
+            EXEC dbo.usp_validar_gestion_asignatura_coordinador_interno
+                @idAsignatura = @idAsignaturaDefecto,
+                @idUsuarioEjecutor = @idUsuarioEjecutor,
                 @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,

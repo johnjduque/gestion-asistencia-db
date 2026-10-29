@@ -298,3 +298,21 @@ Todos los procedimientos listados en esta documentación han sido compilados y p
 - **Invocado por**: `usp_crear_periodo_academico`, `usp_actualizar_periodo_academico`, `usp_eliminar_periodo_academico`.
 - **Códigos de Catálogo Consumidos**: `PER_005` (sin institución activa como administrador).
 - Work item: `docs/work-items/HU096-HU097-HU098-periodos-academicos/`.
+
+---
+
+## Addendum REC2 (2026-10-29)
+
+### `dbo.usp_validar_gestion_asignatura_coordinador_interno`
+- **Propósito**: validación común para modificar una asignatura existente, en este orden:
+  1. ejecutor obligatorio (`GEN_002`);
+  2. perfil `COORDINADOR` (`SEC_001`);
+  3. existencia de la asignatura (`VAL_002`);
+  4. que el ejecutor coordine el programa de la asignatura (`SEC_002`, vía `usp_validar_titularidad_jerarquica_interno` con `PROGRAMA`).
+- **Lecturas**: por las vistas `uv_asignatura` y `uv_semestre_plan_estudio`.
+- **Parámetros de Entrada**: `@idAsignatura`, `@idUsuarioEjecutor` (puede llegar NULL y entonces responde `GEN_002`), `@idCorrelacion`.
+- **Parámetros de Salida**: `@mensajeUsuarioResultado`, `@mensajeTecnicoResultado`, `@estadoResultado`.
+- **Invocado por**: `usp_actualizar_asignatura` y `usp_toggle_estado_asignatura`.
+- **Códigos de Catálogo Consumidos**: `GEN_002`, `SEC_001`, `VAL_002`, `SEC_002`, `SYS_001`.
+- **Ampliación al decano**: perfil `'COORDINADOR,DECANO'` y titularidad de `FACULTAD`.
+- Work item: `docs/work-items/REC2-rbac-asignatura/`.

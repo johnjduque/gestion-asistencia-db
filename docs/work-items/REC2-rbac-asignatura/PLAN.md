@@ -44,6 +44,7 @@ El backend ya validaba en el caso de uso que la asignatura fuera del programa de
   - PASO 1.2 RBAC `COORDINADOR` (`SEC_001`);
   - PASO 2.1 titularidad `PROGRAMA` con `usp_validar_titularidad_jerarquica_interno` (`SEC_002`).
 - Lecturas por las vistas `uv_asignatura` y `uv_semestre_plan_estudio`.
+- Corrección por SonarCloud (PR #61, «85.7% Duplication on New Code»): la validación de los dos SP se movió al interno `usp_validar_gestion_asignatura_coordinador_interno`, que ambos invocan en su PASO 2. No cambian los códigos ni el orden de las validaciones.
 
 **Backend** (rama `fix/REC2-rbac-asignatura`):
 - `AsignaturaCommandPort.actualizarAsignatura(..., usuarioEjecutor)` y `toggleEstadoAsignatura(id, usuarioEjecutor)`.
