@@ -35,7 +35,7 @@ John decidió (2026-10-29) organizarlos **solo** en los SP no congelados y **sin
 
 ## Validación
 
-CI de BD: ver el commit.
+Réplica del job `DB Quality Gate CI/CD` sobre SQL Server 2022 limpio (2026-10-29): `TOTAL_EXECUTED=386`, `FAILED=0`, `CRITICAL_MISSING=0`, `DB GATE PASS`, `GOLDEN_PATH_FREEZE_MANIFEST_VERIFIED`.
 
 ## Rollback
 
