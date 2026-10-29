@@ -40,6 +40,10 @@ AS
     DECLARE @conteoTransaccionesInicial INT = 0;
     DECLARE @transaccionPropia          BIT = 0;
     DECLARE @savepointCreado            BIT = 0;
+
+    -- REC4 (estilo): variables declaradas en la cabecera; las que dependen de un paso previo se asignan con SET en ese paso.
+    DECLARE @estadoTransaccionCatch INT;
+
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
@@ -111,8 +115,14 @@ BEGIN
 
             IF @transaccionPropia = 1
             BEGIN
-                IF XACT_STATE() = 1 COMMIT TRANSACTION;
-                ELSE IF XACT_STATE() = -1 ROLLBACK TRANSACTION;
+                IF XACT_STATE() = 1
+                BEGIN
+                    COMMIT TRANSACTION;
+                END
+                ELSE IF XACT_STATE() = -1
+                BEGIN
+                    ROLLBACK TRANSACTION;
+                END
             END
         END
 
@@ -128,10 +138,13 @@ BEGIN
         END
     END TRY
     BEGIN CATCH
-        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+        SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
-            IF @estadoTransaccionCatch <> 0 ROLLBACK TRANSACTION;
+            IF @estadoTransaccionCatch <> 0
+            BEGIN
+                ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN

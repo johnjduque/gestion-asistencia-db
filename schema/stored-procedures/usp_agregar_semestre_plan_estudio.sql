@@ -34,6 +34,9 @@ AS
     DECLARE @transaccionPropia          BIT = 0;
     DECLARE @savepointCreado            BIT = 0;
 
+    -- REC4 (estilo): variables declaradas en la cabecera; las que dependen de un paso previo se asignan con SET en ese paso.
+    DECLARE @estadoTransaccionCatch INT;
+
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
@@ -58,12 +61,14 @@ BEGIN
 
         -- PASO 3: Validar perfil del ejecutor (RBAC COORDINADOR)
         IF @estadoResultado = 1
+        BEGIN
             EXEC dbo.usp_validar_permiso_rbac_usuario_interno
                 @idUsuario = @idUsuarioEjecutorDefecto, @codigoPerfilRequerido = 'COORDINADOR',
                 @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
+        END
 
         -- PASO 4: Validacion de negocio (PLA_002)
         IF @estadoResultado = 1
@@ -82,12 +87,14 @@ BEGIN
 
         -- PASO 5: Validar titularidad del ejecutor sobre PROGRAMA
         IF @estadoResultado = 1
+        BEGIN
             EXEC dbo.usp_validar_titularidad_jerarquica_interno
                 @idUsuario = @idUsuarioEjecutorDefecto, @idEntidadPadre = @idProgramaPlan,
                 @tipoEntidadPadre = 'PROGRAMA', @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
+        END
 
         -- PASO 6: Escritura transaccional
         IF @estadoResultado = 1
@@ -138,16 +145,25 @@ BEGIN
 
             IF @transaccionPropia = 1
             BEGIN
-                IF XACT_STATE() = 1 COMMIT TRANSACTION;
-                ELSE IF XACT_STATE() = -1 ROLLBACK TRANSACTION;
+                IF XACT_STATE() = 1
+                BEGIN
+                    COMMIT TRANSACTION;
+                END
+                ELSE IF XACT_STATE() = -1
+                BEGIN
+                    ROLLBACK TRANSACTION;
+                END
             END
         END
     END TRY
     BEGIN CATCH
-        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+        SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
-            IF @estadoTransaccionCatch <> 0 ROLLBACK TRANSACTION;
+            IF @estadoTransaccionCatch <> 0
+            BEGIN
+                ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN
