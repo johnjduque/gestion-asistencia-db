@@ -30,12 +30,14 @@ AS
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
+        -- PASO 1: Validar el identificador de correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
+        -- PASO 2: Ejecutor obligatorio (GEN_002)
         IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -48,6 +50,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 3: Validar perfil del ejecutor (RBAC ADMINISTRADOR)
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_validar_permiso_rbac_usuario_interno
@@ -59,11 +62,13 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
+        -- PASO 4: Obtener el decano actual de la facultad
         IF @estadoResultado = 1
         BEGIN
             SELECT @idDecanoActual = idDecano FROM dbo.uv_facultad WHERE id = @id;
         END
 
+        -- PASO 5: Validacion de negocio (FAC_001)
         IF @estadoResultado = 1 AND (@id IS NULL OR @idDecanoActual IS NULL)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -76,6 +81,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 6: Validacion de negocio (GEN_002)
         IF @estadoResultado = 1 AND @estaActiva IS NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -88,7 +94,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
-        -- Al activar, el decano no puede titularizar ya otra facultad activa
+        -- PASO 7: Al activar, el decano no puede titularizar ya otra facultad activa
         IF @estadoResultado = 1 AND @estaActiva = 1
            AND EXISTS (SELECT 1 FROM dbo.uv_facultad WHERE idDecano = @idDecanoActual AND id <> @id AND estaActivaFacultad = 1)
         BEGIN
@@ -102,6 +108,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 8: Ejecutar usp_cambiar_estado_facultad_interno
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_cambiar_estado_facultad_interno

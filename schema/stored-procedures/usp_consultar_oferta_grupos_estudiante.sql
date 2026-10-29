@@ -51,12 +51,14 @@ BEGIN
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado BIT = 1;
 
+    -- PASO 1: Validar el identificador de correlacion
     EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
         @idCorrelacion = @idCorrelacionDefecto,
         @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
         @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
         @estadoResultado = @estadoResultado OUTPUT;
 
+    -- PASO 2: Ejecutor obligatorio (GEN_002)
     IF @estadoResultado = 1 AND (@idUsuarioEjecutor IS NULL OR @idUsuarioDefecto = @guidVacio)
     BEGIN
         EXEC dbo.usp_obtener_mensaje_catalogo
@@ -66,6 +68,7 @@ BEGIN
         SET @estadoResultado = 0;
     END
 
+    -- PASO 3: Validacion de entrada
     IF @estadoResultado = 0
     BEGIN
         THROW 51000, @mensajeTecnicoResultado, 1;
@@ -73,6 +76,7 @@ BEGIN
 
     DECLARE @idEstudiante UNIQUEIDENTIFIER = (SELECT TOP 1 e.id FROM dbo.Estudiante e WHERE e.usuario = @idUsuarioDefecto);
 
+    -- PASO 4: Consulta y retorno de resultados
     ;WITH oferta AS (
         SELECT
             g.id, g.codigo, g.nombre, g.cantidadEstudiantes AS capacidad,
@@ -108,6 +112,7 @@ BEGIN
                 OR g.nombre LIKE @patron ESCAPE '\'
               )
     )
+    -- PASO 5: Consulta y retorno de resultados
     SELECT
         idGrupo                = o.id,
         codigoGrupo            = o.codigo,

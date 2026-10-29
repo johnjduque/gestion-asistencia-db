@@ -20,12 +20,15 @@ BEGIN
     SET NOCOUNT ON;
 
     DECLARE @idPrograma UNIQUEIDENTIFIER, @idPeriodo UNIQUEIDENTIFIER;
+    -- PASO 1: Resolver ambito del ejecutor (usp_resolver_programa_coordinador_interno)
     EXEC dbo.usp_resolver_programa_coordinador_interno @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacion, @validarUmbrales = 1, @idPrograma = @idPrograma OUTPUT;
+    -- PASO 2: Resolver ambito del ejecutor (usp_resolver_periodo_kpi_interno)
     EXEC dbo.usp_resolver_periodo_kpi_interno @idPrograma = @idPrograma, @idPeriodoSolicitado = @idPeriodoAcademico, @idPeriodo = @idPeriodo OUTPUT;
 
     DECLARE @total INT = 0, @regulares INT = 0, @riesgo INT = 0, @perdida INT = 0;
     DECLARE @programadas INT = 0, @vencidas INT = 0, @ejecutadas INT = 0, @sinRegistro INT = 0, @sinProcedencia INT = 0;
 
+    -- PASO 3: Calcular los indicadores del periodo
     IF @idPeriodo IS NOT NULL
     BEGIN
         SELECT  @total = COUNT(*),
@@ -49,6 +52,7 @@ BEGIN
         WHERE   c.idPrograma = @idPrograma AND c.idPeriodoAcademico = @idPeriodo;
     END
 
+    -- PASO 4: Consulta y retorno de resultados
     SELECT
         idPrograma = p.id,
         nombrePrograma = p.nombrePrograma,

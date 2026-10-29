@@ -42,12 +42,14 @@ BEGIN
     DECLARE @zonaHoraria NVARCHAR(100) = CAST(dbo.ufn_obtener_parametro('TIEMPO', 'ZONA_HORARIA_SQLSERVER') AS NVARCHAR(100));
     DECLARE @hoyLocal DATE = CAST(SYSUTCDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE @zonaHoraria AS DATE);
 
+    -- PASO 1: Resolver ambito del ejecutor (usp_resolver_programa_coordinador_interno)
     EXEC dbo.usp_resolver_programa_coordinador_interno
         @idUsuarioEjecutor = @idUsuarioEjecutor,
         @idCorrelacion = @idCorrelacion,
         @validarUmbrales = 0,
         @idPrograma = @idPrograma OUTPUT;
 
+    -- PASO 2: Validacion de negocio (VAL_001)
     IF @idDocente IS NULL
     BEGIN
         SET @msgP1 = CAST(N'Docente' AS NVARCHAR(500));
@@ -59,6 +61,7 @@ BEGIN
         THROW 51000, @mensajeTecnicoResultado, 1;
     END
 
+    -- PASO 3: Validacion de negocio (GEN_001)
     IF NOT EXISTS (SELECT 1 FROM dbo.DocentePrograma dp WHERE dp.docente = @idDocente AND dp.programa = @idPrograma)
     BEGIN
         SET @msgP1 = CAST(N'Docente' AS NVARCHAR(500));
@@ -70,6 +73,7 @@ BEGIN
         THROW 51000, @mensajeTecnicoResultado, 1;
     END
 
+    -- PASO 4: Consulta y retorno de resultados
     ;WITH historial AS (
         SELECT
             g.id, g.codigo, g.nombre, g.idAsignatura, g.nombreAsignatura,
@@ -98,6 +102,7 @@ BEGIN
             activosVigentes  = SUM(IIF(h.estadoPeriodo = 'VIGENTE', h.estudiantesActivos, 0))
         FROM historial h
     )
+    -- PASO 5: Consulta y retorno de resultados
     SELECT
         idGrupo                           = h.id,
         codigoGrupo                       = h.codigo,

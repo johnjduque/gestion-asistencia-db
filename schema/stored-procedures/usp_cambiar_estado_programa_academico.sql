@@ -31,12 +31,14 @@ AS
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
+        -- PASO 1: Validar el identificador de correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
+        -- PASO 2: Ejecutor obligatorio (GEN_002)
         IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
         BEGIN
             SET @msgP1 = CAST('idUsuarioEjecutor' AS NVARCHAR(500));
@@ -50,6 +52,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 3: Validar perfil del ejecutor (RBAC DECANO)
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_validar_permiso_rbac_usuario_interno
@@ -61,6 +64,7 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
+        -- PASO 4: Resolver la facultad del programa a cargo del decano ejecutor
         IF @estadoResultado = 1
         BEGIN
             SELECT @idFacultadDefecto = p.idFacultad
@@ -70,6 +74,7 @@ BEGIN
             WHERE p.id = @idPrograma AND di.idUsuario = @idUsuarioEjecutorDefecto;
         END
 
+        -- PASO 5: Validacion de negocio (PROG_001)
         IF @estadoResultado = 1 AND (@idPrograma IS NULL OR @idFacultadDefecto IS NULL)
         BEGIN
             SET @msgP1 = CAST(CONVERT(NVARCHAR(36), @idPrograma) AS NVARCHAR(500));
@@ -83,6 +88,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 6: Validar titularidad del ejecutor sobre FACULTAD
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_validar_titularidad_jerarquica_interno
@@ -95,6 +101,7 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
+        -- PASO 7: Validacion de negocio (GEN_002)
         IF @estadoResultado = 1 AND @estaActivo IS NULL
         BEGIN
             SET @msgP1 = CAST('estaActivo' AS NVARCHAR(500));
@@ -109,6 +116,7 @@ BEGIN
         END
 
 
+        -- PASO 8: Ejecutar usp_cambiar_estado_programa_academico_interno
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_cambiar_estado_programa_academico_interno

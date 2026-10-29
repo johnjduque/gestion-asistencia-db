@@ -67,12 +67,14 @@ BEGIN
     BEGIN TRY
         SET @hoyLocal = CAST(SYSUTCDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE @zonaHoraria AS DATE);
 
+        -- PASO 1: Validar el identificador de correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
+        -- PASO 2: Ejecutor obligatorio (GEN_002)
         IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -83,6 +85,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 3: Validar la accion y el motivo (codigo de rechazo)
         IF @estadoResultado = 1
             SET @codigoRechazo =
                 CASE
@@ -90,6 +93,7 @@ BEGIN
                     WHEN @accionNormalizada = N'RECHAZAR' AND (@motivoNormalizado IS NULL OR LEN(@motivoNormalizado) > 500) THEN 'SIG_010'
                 END;
 
+        -- PASO 4: Validar la accion y el motivo (codigo de rechazo)
         IF @estadoResultado = 1 AND @codigoRechazo IS NULL
         BEGIN
             SET @conteoTransaccionesInicial = @@TRANCOUNT;
@@ -238,6 +242,7 @@ BEGIN
                 ROLLBACK TRANSACTION sp_resolver_solicitud_ingreso;
         END
 
+        -- PASO 5: Traducir el codigo de rechazo a su mensaje de catalogo
         IF @estadoResultado = 1 AND @codigoRechazo IS NOT NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo

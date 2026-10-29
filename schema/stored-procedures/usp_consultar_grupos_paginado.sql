@@ -61,14 +61,14 @@ BEGIN
     DECLARE @contextoPrevio SQL_VARIANT = SESSION_CONTEXT(N'idUsuarioEjecutor');
 
     BEGIN TRY
-        -- 3. Validacion obligatoria de identificador de correlacion
+        -- PASO 1: 3. Validacion obligatoria de identificador de correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- 4. Validacion obligatoria de usuario ejecutor (no nulo y no GUID vacio)
+        -- PASO 2: 4. Validacion obligatoria de usuario ejecutor (no nulo y no GUID vacio)
         IF @estadoResultado = 1 AND (@idUsuarioDefecto IS NULL OR @idUsuarioDefecto = @guidVacio)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -80,16 +80,17 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 3: Validacion de entrada
         IF @estadoResultado = 0
         BEGIN
             THROW 51000, @mensajeTecnicoResultado, 1;
         END
 
-        -- 5. Establecer identidad temporal en el contexto de sesion para la vista securizada uv_auth_grupo
+        -- PASO 4: 5. Establecer identidad temporal en el contexto de sesion para la vista securizada uv_auth_grupo
         EXEC dbo.usp_establecer_contexto_usuario_ejecutor
             @p_idUsuario = @idUsuarioDefecto;
 
-        -- 6. Consulta optimizada y deterministica a la vista securizada
+        -- PASO 5: 6. Consulta optimizada y deterministica a la vista securizada
         SELECT
             g.id,
             g.codigo,
@@ -118,7 +119,7 @@ BEGIN
         OFFSET @offset ROWS
         FETCH NEXT @tamano ROWS ONLY;
 
-        -- 7. Restaurar el contexto previo de la conexion (no forzar NULL)
+        -- PASO 6: 7. Restaurar el contexto previo de la conexion (no forzar NULL)
         EXEC sys.sp_set_session_context
             @key = N'idUsuarioEjecutor',
             @value = @contextoPrevio,

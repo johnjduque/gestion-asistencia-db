@@ -23,10 +23,14 @@ BEGIN
     DECLARE @msgP1 NVARCHAR(500);
     DECLARE @idPrograma UNIQUEIDENTIFIER, @idPeriodo UNIQUEIDENTIFIER;
 
+    -- PASO 1: Resolver ambito del ejecutor (usp_resolver_programa_coordinador_interno)
     EXEC dbo.usp_resolver_programa_coordinador_interno @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacion, @validarUmbrales = 1, @idPrograma = @idPrograma OUTPUT;
+    -- PASO 2: Validacion de negocio (usp_validar_estudiante_en_programa_interno)
     EXEC dbo.usp_validar_estudiante_en_programa_interno @idEstudiante = @idEstudiante, @idPrograma = @idPrograma;
+    -- PASO 3: Resolver ambito del ejecutor (usp_resolver_periodo_kpi_interno)
     EXEC dbo.usp_resolver_periodo_kpi_interno @idPrograma = @idPrograma, @idPeriodoSolicitado = @idPeriodoAcademico, @idPeriodo = @idPeriodo OUTPUT;
 
+    -- PASO 4: Consulta y retorno de resultados
     SELECT
         idGrupo = g.id,
         codigoGrupo = g.codigo,

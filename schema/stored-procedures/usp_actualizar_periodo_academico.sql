@@ -38,12 +38,14 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
     BEGIN TRY
+        -- PASO 1: Validar el identificador de correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
+        -- PASO 2: Ejecutor obligatorio (GEN_002)
         IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -54,6 +56,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 3: Resolver ambito del ejecutor (usp_resolver_institucion_gestor_periodo_interno)
         IF @estadoResultado = 1
             EXEC dbo.usp_resolver_institucion_gestor_periodo_interno
                 @idUsuario = @idUsuarioEjecutorDefecto, @idCorrelacion = @idCorrelacionDefecto,
@@ -62,6 +65,7 @@ BEGIN
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
 
+        -- PASO 4: Validacion de negocio (GEN_002)
         IF @estadoResultado = 1 AND (@nombreDef IS NULL OR @nombreDef = '')
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -72,6 +76,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 5: Validar la accion y el motivo (codigo de rechazo)
         IF @estadoResultado = 1
         BEGIN
             SET @conteoTransaccionesInicial = @@TRANCOUNT;
