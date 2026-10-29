@@ -28,8 +28,10 @@ BEGIN
     DECLARE @msgP1 NVARCHAR(500);
     DECLARE @idFacultad UNIQUEIDENTIFIER, @idPeriodo UNIQUEIDENTIFIER;
 
+    -- PASO 1: Resolver ambito del ejecutor (usp_resolver_facultad_decano_interno)
     EXEC dbo.usp_resolver_facultad_decano_interno @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacion, @validarUmbrales = 0, @idFacultad = @idFacultad OUTPUT;
     DECLARE @tamanoMaximo INT = TRY_CAST(NULLIF(TRIM(dbo.ufn_obtener_parametro('PAGINACION', 'TAMANO_MAXIMO')), '') AS INT);
+    -- PASO 2: Validacion de negocio (PAG_001)
     IF @numeroPagina IS NULL OR @numeroPagina < 1 OR @tamanoPagina IS NULL OR @tamanoPagina < 1 OR @tamanoMaximo IS NULL OR @tamanoPagina > @tamanoMaximo
     BEGIN
         SET @msgP1 = CAST(@numeroPagina AS NVARCHAR(500));
@@ -44,10 +46,13 @@ BEGIN
     END
     DECLARE @offset INT = (@numeroPagina - 1) * @tamanoPagina;
 
+    -- PASO 3: Validacion de negocio (usp_validar_programa_en_facultad_interno)
     IF @idPrograma IS NOT NULL
         EXEC dbo.usp_validar_programa_en_facultad_interno @idFacultad = @idFacultad, @idPrograma = @idPrograma;
+    -- PASO 4: Resolver ambito del ejecutor (usp_resolver_periodo_kpi_facultad_interno)
     EXEC dbo.usp_resolver_periodo_kpi_facultad_interno @idFacultad = @idFacultad, @idPeriodoSolicitado = @idPeriodoAcademico, @idPeriodo = @idPeriodo OUTPUT;
 
+    -- PASO 5: Consulta y retorno de resultados
     SELECT
         idGrupo = g.id,
         codigoGrupo = g.codigo,

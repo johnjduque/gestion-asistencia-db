@@ -24,7 +24,9 @@ BEGIN
     SET NOCOUNT ON;
     DECLARE @idInstitucion UNIQUEIDENTIFIER, @idPeriodo UNIQUEIDENTIFIER;
 
+    -- PASO 1: Resolver ambito del ejecutor (usp_resolver_institucion_administrador_interno)
     EXEC dbo.usp_resolver_institucion_administrador_interno @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacion, @validarUmbrales = 1, @idInstitucion = @idInstitucion OUTPUT;
+    -- PASO 2: Resolver ambito del ejecutor (usp_resolver_periodo_kpi_institucion_interno)
     EXEC dbo.usp_resolver_periodo_kpi_institucion_interno @idInstitucion = @idInstitucion, @idPeriodoSolicitado = @idPeriodoAcademico, @idPeriodo = @idPeriodo OUTPUT;
 
     DECLARE @facultades INT = (SELECT COUNT(*) FROM dbo.uv_facultad f WHERE f.idInstitucion = @idInstitucion);
@@ -48,6 +50,7 @@ BEGIN
     DECLARE @vencidas INT = 0, @conRegistro INT = 0;
     DECLARE @docentesActivos INT = 0;
 
+    -- PASO 3: Calcular los indicadores del periodo
     IF @idPeriodo IS NOT NULL
     BEGIN
         SELECT  @total = COUNT(*),
@@ -85,6 +88,7 @@ BEGIN
 
     DECLARE @ausentismo DECIMAL(5,2) = CAST(IIF(@sesiones = 0, NULL, 100.0 * @faltas / @sesiones) AS DECIMAL(5,2));
 
+    -- PASO 4: Consulta y retorno de resultados
     SELECT
         idInstitucion = i.id,
         nombreInstitucion = i.nombre,

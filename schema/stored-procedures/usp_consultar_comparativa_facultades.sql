@@ -21,9 +21,12 @@ BEGIN
     SET NOCOUNT ON;
     DECLARE @idInstitucion UNIQUEIDENTIFIER, @idPeriodo UNIQUEIDENTIFIER;
 
+    -- PASO 1: Resolver ambito del ejecutor (usp_resolver_institucion_administrador_interno)
     EXEC dbo.usp_resolver_institucion_administrador_interno @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacion, @validarUmbrales = 1, @idInstitucion = @idInstitucion OUTPUT;
+    -- PASO 2: Resolver ambito del ejecutor (usp_resolver_periodo_kpi_institucion_interno)
     EXEC dbo.usp_resolver_periodo_kpi_institucion_interno @idInstitucion = @idInstitucion, @idPeriodoSolicitado = @idPeriodoAcademico, @idPeriodo = @idPeriodo OUTPUT;
 
+    -- PASO 3: Consulta y retorno de resultados
     WITH persona AS (
         SELECT  p.idFacultad, r.idEstudiante,
                 peor = MAX(CASE r.codigoPermanencia WHEN N'PERDIDA' THEN 3 WHEN N'RIESGO' THEN 2 ELSE 1 END)
@@ -72,6 +75,7 @@ BEGIN
         LEFT JOIN asistencia a ON a.idFacultad = f.id
         WHERE f.idInstitucion = @idInstitucion
     )
+    -- PASO 4: Consulta y retorno de resultados
     SELECT idFacultad, nombreFacultad, estaActivaFacultad, totalProgramas, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida,
            tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo
     FROM resultado

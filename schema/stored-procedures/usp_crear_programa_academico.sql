@@ -37,12 +37,14 @@ AS
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
+        -- PASO 1: Validar el identificador de correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
+        -- PASO 2: Ejecutor obligatorio (GEN_002)
         IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
         BEGIN
             SET @msgP1 = CAST('idUsuarioEjecutor' AS NVARCHAR(500));
@@ -56,6 +58,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 3: Validar perfil del ejecutor (RBAC DECANO)
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_validar_permiso_rbac_usuario_interno
@@ -67,6 +70,7 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
+        -- PASO 4: Validacion de negocio (GEN_002)
         IF @estadoResultado = 1 AND @idFacultad IS NULL
         BEGIN
             SET @msgP1 = CAST('idFacultad' AS NVARCHAR(500));
@@ -80,6 +84,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 5: Validar titularidad del ejecutor sobre FACULTAD
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_validar_titularidad_jerarquica_interno
@@ -92,6 +97,7 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
+        -- PASO 6: Validacion de negocio (GEN_001)
         IF @estadoResultado = 1 AND NOT EXISTS (SELECT 1 FROM dbo.uv_facultad f WHERE f.id = @idFacultad AND f.estaActivaFacultad = 1)
         BEGIN
             SET @msgP1 = CAST('Facultad' AS NVARCHAR(500));
@@ -105,6 +111,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 7: Validacion de negocio (PROG_002)
         IF @estadoResultado = 1 AND @idPrograma IS NOT NULL AND EXISTS (SELECT 1 FROM dbo.uv_programa p WHERE p.id = @idPrograma)
         BEGIN
             SET @msgP1 = CAST(CONVERT(NVARCHAR(36), @idPrograma) AS NVARCHAR(500));
@@ -118,8 +125,10 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 8: Conservar el identificador de programa solicitado
         IF @estadoResultado = 1 AND @idPrograma IS NOT NULL SET @idProgramaDefecto = @idPrograma;
 
+        -- PASO 9: Ejecutar usp_insertar_programa_academico_interno
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_insertar_programa_academico_interno

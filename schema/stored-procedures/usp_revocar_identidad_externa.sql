@@ -30,12 +30,14 @@ BEGIN
     SET XACT_ABORT ON;
 
     BEGIN TRY
+        -- PASO 1: Validar el identificador de correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacion,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
+        -- PASO 2: Validacion de negocio (GEN_002)
         IF @estadoResultado = 1 AND (@emisor IS NULL OR LTRIM(RTRIM(@emisor)) = N''
                                      OR @sujeto IS NULL OR LTRIM(RTRIM(@sujeto)) = N'')
         BEGIN
@@ -47,6 +49,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 3: Escritura transaccional
         IF @estadoResultado = 1
         BEGIN
             SET @conteoTransaccionesInicial = @@TRANCOUNT;
@@ -90,6 +93,7 @@ BEGIN
             END
         END
 
+        -- PASO 4: Confirmar o revertir la transaccion propia
         IF @transaccionPropia = 1
         BEGIN
             IF XACT_STATE() = 1

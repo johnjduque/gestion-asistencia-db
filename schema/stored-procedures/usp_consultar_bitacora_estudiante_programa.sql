@@ -27,9 +27,12 @@ BEGIN
     DECLARE @msgP1 NVARCHAR(500);
     DECLARE @idPrograma UNIQUEIDENTIFIER, @idPeriodo UNIQUEIDENTIFIER;
 
+    -- PASO 1: Resolver ambito del ejecutor (usp_resolver_programa_coordinador_interno)
     EXEC dbo.usp_resolver_programa_coordinador_interno @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacion, @validarUmbrales = 0, @idPrograma = @idPrograma OUTPUT;
+    -- PASO 2: Validacion de negocio (usp_validar_estudiante_en_programa_interno)
     EXEC dbo.usp_validar_estudiante_en_programa_interno @idEstudiante = @idEstudiante, @idPrograma = @idPrograma;
     DECLARE @tamanoMaximo INT = TRY_CAST(NULLIF(TRIM(dbo.ufn_obtener_parametro('PAGINACION', 'TAMANO_MAXIMO')), '') AS INT);
+    -- PASO 3: Validacion de negocio (PAG_001)
     IF @numeroPagina IS NULL OR @numeroPagina < 1 OR @tamanoPagina IS NULL OR @tamanoPagina < 1 OR @tamanoMaximo IS NULL OR @tamanoPagina > @tamanoMaximo
     BEGIN
         SET @msgP1 = CAST(@numeroPagina AS NVARCHAR(500));
@@ -43,8 +46,10 @@ BEGIN
         THROW 51000, @mensajeTecnicoResultado, 1;
     END
     DECLARE @offset INT = (@numeroPagina - 1) * @tamanoPagina;
+    -- PASO 4: Resolver ambito del ejecutor (usp_resolver_periodo_kpi_interno)
     EXEC dbo.usp_resolver_periodo_kpi_interno @idPrograma = @idPrograma, @idPeriodoSolicitado = @idPeriodoAcademico, @idPeriodo = @idPeriodo OUTPUT;
 
+    -- PASO 5: Consulta y retorno de resultados
     SELECT
         idSesion = s.id,
         numeroSesion = s.numero,

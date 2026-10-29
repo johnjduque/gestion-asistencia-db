@@ -26,9 +26,11 @@ BEGIN
     DECLARE @msgP1 NVARCHAR(500);
     DECLARE @idInstitucion UNIQUEIDENTIFIER, @idPeriodo UNIQUEIDENTIFIER;
 
+    -- PASO 1: Resolver ambito del ejecutor (usp_resolver_institucion_administrador_interno)
     EXEC dbo.usp_resolver_institucion_administrador_interno @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacion, @validarUmbrales = 0, @idInstitucion = @idInstitucion OUTPUT;
 
     DECLARE @g NVARCHAR(6) = UPPER(TRIM(ISNULL(@granularidad, N'SEMANA')));
+    -- PASO 2: Validacion de negocio (GEN_002)
     IF @g NOT IN (N'SEMANA', N'MES')
     BEGIN
         SET @msgP1 = CAST(N'granularidad' AS NVARCHAR(500));
@@ -40,12 +42,14 @@ BEGIN
         THROW 51000, @mensajeTecnicoResultado, 1;
     END
 
+    -- PASO 3: Resolver ambito del ejecutor (usp_resolver_periodo_kpi_institucion_interno)
     EXEC dbo.usp_resolver_periodo_kpi_institucion_interno @idInstitucion = @idInstitucion, @idPeriodoSolicitado = @idPeriodoAcademico, @idPeriodo = @idPeriodo OUTPUT;
 
     DECLARE @zona NVARCHAR(100) = COALESCE(
         (SELECT TOP 1 valor FROM dbo.CatalogoParametro WHERE grupo = 'TIEMPO' AND clave = 'ZONA_HORARIA_SQLSERVER' AND estaActivo = 1),
         'SA Pacific Standard Time');
 
+    -- PASO 4: Consulta y retorno de resultados
     WITH ejecutadas AS (
         SELECT  c.idSesion, c.idGrupo,
                 fechaLocal = CAST(c.fechaHoraInicio AT TIME ZONE 'UTC' AT TIME ZONE @zona AS DATE)
@@ -76,6 +80,7 @@ BEGIN
         LEFT JOIN activos ac ON ac.idGrupo = e.idGrupo
         LEFT JOIN faltas fa ON fa.idSesion = e.idSesion
     )
+    -- PASO 5: Consulta y retorno de resultados
     SELECT
         inicioIntervalo = inicio,
         finIntervalo = fin,

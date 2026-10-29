@@ -52,12 +52,14 @@ BEGIN
     DECLARE @contextoPrevio SQL_VARIANT = SESSION_CONTEXT(N'idUsuarioEjecutor');
 
     BEGIN TRY
+        -- PASO 1: Validar el identificador de correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
+        -- PASO 2: Validar perfil del ejecutor (RBAC COORDINADOR)
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_validar_permiso_rbac_usuario_interno
@@ -69,6 +71,7 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
+        -- PASO 3: Validar titularidad del ejecutor sobre PROGRAMA
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_validar_titularidad_jerarquica_interno
@@ -81,13 +84,16 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
+        -- PASO 4: Validacion de entrada
         IF @estadoResultado = 0
         BEGIN
             THROW 51000, @mensajeTecnicoResultado, 1;
         END
 
+        -- PASO 5: Fijar el contexto del ejecutor para las vistas uv_auth_*
         EXEC dbo.usp_establecer_contexto_usuario_ejecutor @p_idUsuario = @idUsuarioDefecto;
 
+        -- PASO 6: Consulta y retorno de resultados
         SELECT
             d.idDocentePrograma, d.idDocente, d.idUsuario,
             d.idTipoIdentificacion, d.codigoTipoIdentificacion, d.numeroIdentificacion,
@@ -113,6 +119,7 @@ BEGIN
         OFFSET @offset ROWS
         FETCH NEXT @tamano ROWS ONLY;
 
+        -- PASO 7: Restaurar el contexto de sesion previo
         EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
     END TRY
     BEGIN CATCH
