@@ -25,9 +25,8 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_perfil_usuario]
     @idUsuarioEjecutor  UNIQUEIDENTIFIER
 )
 AS
-BEGIN
-    SET NOCOUNT ON;
 
+    -- REC4 (estilo): variables declaradas en la cabecera; las que dependen de un paso previo se asignan con SET en ese paso.
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idUsuarioDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @guidVacio            UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(NULL, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
@@ -35,7 +34,10 @@ BEGIN
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado BIT = 1;
 
-    -- PASO 1: Validar el identificador de correlacion
+BEGIN
+    SET NOCOUNT ON;
+
+-- PASO 1: Validar el identificador de correlacion
     EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
         @idCorrelacion = @idCorrelacionDefecto,
         @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,

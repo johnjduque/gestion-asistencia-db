@@ -31,9 +31,8 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_oferta_grupos_estudiante]
     @idUsuarioEjecutor  UNIQUEIDENTIFIER
 )
 AS
-BEGIN
-    SET NOCOUNT ON;
 
+    -- REC4 (estilo): variables declaradas en la cabecera; las que dependen de un paso previo se asignan con SET en ese paso.
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idUsuarioDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @guidVacio            UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(NULL, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
@@ -46,12 +45,15 @@ BEGIN
     DECLARE @zonaHoraria NVARCHAR(100) = CAST(dbo.ufn_obtener_parametro('TIEMPO', 'ZONA_HORARIA_SQLSERVER') AS NVARCHAR(100));
     DECLARE @hoyLocal DATE = CAST(SYSUTCDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE @zonaHoraria AS DATE);
     DECLARE @incluirTransversales BIT = IIF(TRY_CAST(NULLIF(TRIM(dbo.ufn_obtener_parametro('OFERTA', 'INCLUIR_TRANSVERSALES')), '') AS INT) = 0, 0, 1);
-
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado BIT = 1;
+    DECLARE @idEstudiante UNIQUEIDENTIFIER;
 
-    -- PASO 1: Validar el identificador de correlacion
+BEGIN
+    SET NOCOUNT ON;
+
+-- PASO 1: Validar el identificador de correlacion
     EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
         @idCorrelacion = @idCorrelacionDefecto,
         @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
@@ -74,7 +76,7 @@ BEGIN
         THROW 51000, @mensajeTecnicoResultado, 1;
     END
 
-    DECLARE @idEstudiante UNIQUEIDENTIFIER = (SELECT TOP 1 e.id FROM dbo.Estudiante e WHERE e.usuario = @idUsuarioDefecto);
+    SET @idEstudiante = (SELECT TOP 1 e.id FROM dbo.Estudiante e WHERE e.usuario = @idUsuarioDefecto);
 
     -- PASO 4: Consulta y retorno de resultados
     ;WITH oferta AS (

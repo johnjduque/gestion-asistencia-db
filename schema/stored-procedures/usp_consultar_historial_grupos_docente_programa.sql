@@ -29,9 +29,8 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_historial_grupos_docente_programa
     @tamanoPagina        INT              = 10
 )
 AS
-BEGIN
-    SET NOCOUNT ON;
 
+    -- REC4 (estilo): variables declaradas en la cabecera; las que dependen de un paso previo se asignan con SET en ese paso.
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @msgP1 NVARCHAR(500);
@@ -42,7 +41,10 @@ BEGIN
     DECLARE @zonaHoraria NVARCHAR(100) = CAST(dbo.ufn_obtener_parametro('TIEMPO', 'ZONA_HORARIA_SQLSERVER') AS NVARCHAR(100));
     DECLARE @hoyLocal DATE = CAST(SYSUTCDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE @zonaHoraria AS DATE);
 
-    -- PASO 1: Resolver ambito del ejecutor (usp_resolver_programa_coordinador_interno)
+BEGIN
+    SET NOCOUNT ON;
+
+-- PASO 1: Resolver ambito del ejecutor (usp_resolver_programa_coordinador_interno)
     EXEC dbo.usp_resolver_programa_coordinador_interno
         @idUsuarioEjecutor = @idUsuarioEjecutor,
         @idCorrelacion = @idCorrelacion,

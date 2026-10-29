@@ -22,12 +22,14 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_resumen_docentes_programa]
     @idCorrelacion     UNIQUEIDENTIFIER
 )
 AS
+
+    -- REC4 (estilo): variables declaradas en la cabecera; las que dependen de un paso previo se asignan con SET en ese paso.
+    DECLARE @idPrograma UNIQUEIDENTIFIER;
+
 BEGIN
     SET NOCOUNT ON;
 
-    DECLARE @idPrograma UNIQUEIDENTIFIER;
-
-    -- PASO 1: Resolver ambito del ejecutor (usp_resolver_programa_coordinador_interno)
+-- PASO 1: Resolver ambito del ejecutor (usp_resolver_programa_coordinador_interno)
     EXEC dbo.usp_resolver_programa_coordinador_interno
         @idUsuarioEjecutor = @idUsuarioEjecutor,
         @idCorrelacion = @idCorrelacion,
