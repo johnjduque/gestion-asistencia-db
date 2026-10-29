@@ -67,8 +67,8 @@ La siguiente tabla detalla la condición actual de los 24 procedimientos públic
 | `usp_crear_programa_academico` | ❌ No | ❌ No | ❌ No | No valida que ejecutor sea Decano de la Facultad |
 | `usp_crear_coordinador` | ❌ No | ❌ No | ❌ No | No valida pertenencia a Programa del Decano |
 | `usp_crear_asignatura` | ❌ No | ❌ No | ❌ No | No valida que ejecutor sea Coordinador del Programa |
-| `usp_actualizar_asignatura` | ❌ No | ❌ No | ❌ No | Sin validación de Coordinador |
-| `usp_toggle_estado_asignatura` | ❌ No | ❌ No | ❌ No | Sin validación de Coordinador |
+| `usp_actualizar_asignatura` | ✅ Sí | ✅ Sí | ✅ Sí | Corregido en REC2 (2026-10-29): ejecutor obligatorio, COORDINADOR y titularidad del programa |
+| `usp_toggle_estado_asignatura` | ✅ Sí | ✅ Sí | ✅ Sí | Corregido en REC2 (2026-10-29): ejecutor obligatorio, COORDINADOR y titularidad del programa |
 | `usp_crear_grupo` | ❌ No | ❌ No | ❌ No | No valida que ejecutor sea Coordinador del Programa |
 | `usp_actualizar_grupo` | ❌ No | ❌ No | ❌ No | Sin validación de Coordinador |
 | `usp_registrar_docente_en_grupo` | ❌ No | ❌ No | ❌ No | No valida flujo de registro / aprobación por Coordinador |

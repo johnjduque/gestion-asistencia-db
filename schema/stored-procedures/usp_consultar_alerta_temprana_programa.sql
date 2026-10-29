@@ -28,8 +28,10 @@ BEGIN
     DECLARE @idPrograma UNIQUEIDENTIFIER, @idPeriodo UNIQUEIDENTIFIER;
     DECLARE @filtro NVARCHAR(100) = NULLIF(TRIM(@filtroTexto), '');
 
+    -- PASO 1: Resolver ambito del ejecutor (usp_resolver_programa_coordinador_interno)
     EXEC dbo.usp_resolver_programa_coordinador_interno @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacion, @validarUmbrales = 1, @idPrograma = @idPrograma OUTPUT;
     DECLARE @tamanoMaximo INT = TRY_CAST(NULLIF(TRIM(dbo.ufn_obtener_parametro('PAGINACION', 'TAMANO_MAXIMO')), '') AS INT);
+    -- PASO 2: Validacion de negocio (PAG_001)
     IF @numeroPagina IS NULL OR @numeroPagina < 1 OR @tamanoPagina IS NULL OR @tamanoPagina < 1 OR @tamanoMaximo IS NULL OR @tamanoPagina > @tamanoMaximo
     BEGIN
         SET @msgP1 = CAST(@numeroPagina AS NVARCHAR(500));
@@ -43,6 +45,7 @@ BEGIN
         THROW 51000, @mensajeTecnicoResultado, 1;
     END
     DECLARE @offset INT = (@numeroPagina - 1) * @tamanoPagina;
+    -- PASO 3: Validacion de negocio (GEN_002)
     IF @semaforo IS NOT NULL AND @semaforo NOT IN (N'VERDE', N'AMBAR', N'ROJO')
     BEGIN
         SET @msgP1 = CAST(N'semaforo' AS NVARCHAR(500));
@@ -54,8 +57,10 @@ BEGIN
         THROW 51000, @mensajeTecnicoResultado, 1;
     END
 
+    -- PASO 4: Resolver ambito del ejecutor (usp_resolver_periodo_kpi_interno)
     EXEC dbo.usp_resolver_periodo_kpi_interno @idPrograma = @idPrograma, @idPeriodoSolicitado = @idPeriodoAcademico, @idPeriodo = @idPeriodo OUTPUT;
 
+    -- PASO 5: Consulta y retorno de resultados
     WITH persona AS (
         SELECT  r.idEstudiante,
                 totalMatriculasActivas = COUNT(*),
@@ -66,6 +71,7 @@ BEGIN
         WHERE   r.idPrograma = @idPrograma AND r.idPeriodoAcademico = @idPeriodo AND r.codigoEstadoEstudiante = N'A'
         GROUP BY r.idEstudiante
     )
+    -- PASO 6: Consulta y retorno de resultados
     SELECT
         idEstudiante = pe.idEstudiante,
         nombreCompleto = u.nombreCompleto,

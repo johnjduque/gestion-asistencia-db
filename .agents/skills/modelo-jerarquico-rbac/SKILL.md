@@ -36,18 +36,18 @@ Esta documentación establece las reglas de arquitectura y custodia jerárquica 
 
 ### A. Administrador (`AD`)
 * **Dominio Permitido**: Gestión de **Decanos**, **Facultades**, **Periodos Académicos** e **Institución**.
-* **Prohibición de Sobreachipamiento (Out of Scope)**: El Administrador **NO** debe ser incluido en la validación RBAC de procedimientos o endpoints pertenecientes a niveles inferiores de la jerarquía (ej. `usp_registrar_estudiante_en_grupo`, `usp_aprobar_docente_grupo`, `usp_registrar_asistencia_estudiante`).
+* **Prohibición de Sobreachipamiento (Out of Scope)**: El Administrador **NO** debe ser incluido en la validación RBAC de procedimientos o endpoints pertenecientes a niveles inferiores de la jerarquía (ej. `usp_registrar_estudiante_en_grupo`, `usp_vincular_docente_programa`, `usp_registrar_asistencia_estudiante`).
 
 ### B. Decano (`DE`)
 * **Dominio Permitido**: Gestión de **Facultad a su cargo**, **Programas Académicos** y **Coordinadores**.
 * **Delimitación**: Únicamente puede administrar y consultar entidades pertenecientes a la facultad donde figura como Decano titular.
 
 ### C. Coordinador (`CD`)
-* **Dominio Permitido**: Gestión de **Programa Académico a su cargo**, **Asignaturas**, **Docentes**, **Grupos** y aprobación/asignación de docentes en grupos (ej. `usp_aprobar_docente_grupo`).
-* **Delimitación RBAC**: Para `usp_aprobar_docente_grupo`, la validación RBAC exige que el ejecutor sea **COORDINADOR** (o Decano), excluyendo explícitamente al Administrador.
+* **Dominio Permitido**: Gestión del **Programa Académico a su cargo**, sus **Asignaturas**, **Docentes** y **Grupos**. Incluye vincular docentes al programa (ej. `usp_vincular_docente_programa`) y gestionar asignaturas (ej. `usp_actualizar_asignatura`).
+* **Delimitación RBAC**: Para `usp_vincular_docente_programa`, la validación RBAC exige que el ejecutor sea **COORDINADOR**, excluyendo explícitamente al Administrador, y que coordine el programa (titularidad).
 
 ### D. Docente (`DO`)
-* **Dominio Permitido**: Gestión de sus **Grupos asignados**, dictado de **Sesiones**, toma de **Asistencias** y aprobación de solicitudes de inscripción/matrícula de estudiantes en sus grupos (ej. `usp_registrar_estudiante_en_grupo`, `usp_aprobar_matricula_estudiante`).
+* **Dominio Permitido**: Gestión de sus **Grupos asignados**, dictado de **Sesiones**, toma de **Asistencias** y aprobación de solicitudes de inscripción/matrícula de estudiantes en sus grupos (ej. `usp_registrar_estudiante_en_grupo`, `usp_resolver_solicitud_ingreso_grupo`).
 * **Delimitación**: Su alcance está estrictamente acotado a los grupos donde es docente titular.
 
 ### E. Estudiante (`ES`)
@@ -58,7 +58,7 @@ Esta documentación establece las reglas de arquitectura y custodia jerárquica 
 ## 3. Reglas de Validación en Procedimientos Almacenados (`usp_*`)
 
 1. **Validación Estricta de RBAC**: Todo procedimiento almacenado debe validar explícitamente `@idUsuarioEjecutor` utilizando `dbo.usp_validar_permiso_rbac_usuario_interno` con la lista exacta de perfiles permitidos para ese nivel.
-2. **Ejemplo de Aprobación de Docente en Grupo (`usp_aprobar_docente_grupo`)**:
+2. **Ejemplo de Vinculación de Docente al Programa (`usp_vincular_docente_programa`)**:
    ```sql
    -- Exige que el ejecutor sea COORDINADOR (excluye explícitamente a ADMINISTRADOR)
    EXEC dbo.usp_validar_permiso_rbac_usuario_interno
@@ -80,3 +80,24 @@ Esta documentación establece las reglas de arquitectura y custodia jerárquica 
        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
        @estadoResultado = @estadoResultado OUTPUT;
    ```
+
+---
+
+## 4. Alternativas aceptadas y patrones vigentes (REC4, 2026-10-29)
+
+Estas alternativas **no relajan** la seguridad: siempre exigen el ejecutor (`GEN_002`) y responden `SEC_001` o `SEC_002`.
+
+1. **Titularidad validada dentro del propio SP.**
+   - Cuando la titularidad depende de la propia entidad, el SP puede validarla con un JOIN propio en lugar de `usp_validar_titularidad_jerarquica_interno`.
+   - Ejemplos: el docente titular del grupo (HU051, HU053-HU055) o "solo el propio usuario" (HU006 perfil).
+   - Condiciones:
+     - `@idUsuarioEjecutor` obligatorio;
+     - el administrador fuera de los niveles inferiores;
+     - "no existe" y "no es titular" indistinguibles cuando revelarlo filtraría información.
+2. **SP interno de validación compartido.**
+   - Si dos o más SP públicos repiten la misma secuencia (ejecutor, RBAC, existencia y titularidad), se extrae a un `usp_validar_*_interno` con el triplete OUTPUT y ambos lo invocan.
+   - Ejemplo: `usp_validar_gestion_asignatura_coordinador_interno`, usado por `usp_actualizar_asignatura` y `usp_toggle_estado_asignatura` (REC2).
+   - Evita la duplicación que rechaza SonarCloud.
+3. **Ampliar perfiles.**
+   - Para permitir otro nivel, se usa la lista de perfiles (`'COORDINADOR,DECANO'`) junto con la titularidad del nivel correspondiente (`PROGRAMA` o `FACULTAD`).
+   - Nunca se agrega `ADMINISTRADOR` a operaciones de grupo, docente, estudiante o asistencia.

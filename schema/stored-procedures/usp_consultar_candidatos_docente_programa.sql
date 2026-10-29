@@ -42,12 +42,14 @@ BEGIN
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado BIT = 1;
 
+    -- PASO 1: Validar el identificador de correlacion
     EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
         @idCorrelacion = @idCorrelacionDefecto,
         @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
         @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
         @estadoResultado = @estadoResultado OUTPUT;
 
+    -- PASO 2: Validar perfil del ejecutor (RBAC COORDINADOR)
     IF @estadoResultado = 1
     BEGIN
         EXEC dbo.usp_validar_permiso_rbac_usuario_interno
@@ -59,6 +61,7 @@ BEGIN
             @estadoResultado = @estadoResultado OUTPUT;
     END
 
+    -- PASO 3: Validar titularidad del ejecutor sobre PROGRAMA
     IF @estadoResultado = 1
     BEGIN
         EXEC dbo.usp_validar_titularidad_jerarquica_interno
@@ -71,6 +74,7 @@ BEGIN
             @estadoResultado = @estadoResultado OUTPUT;
     END
 
+    -- PASO 4: Validacion de negocio (DOC_007)
     IF @estadoResultado = 1 AND (@texto IS NULL OR LEN(@texto) < @minimoCaracteres)
     BEGIN
         EXEC dbo.usp_obtener_mensaje_catalogo
@@ -80,13 +84,16 @@ BEGIN
         SET @estadoResultado = 0;
     END
 
+    -- PASO 5: Validacion de entrada
     IF @estadoResultado = 0
     BEGIN
         THROW 51000, @mensajeTecnicoResultado, 1;
     END
 
+    -- PASO 6: Consulta y retorno de resultados
     SELECT @idInstitucion = idInstitucion FROM dbo.uv_programa WHERE id = @idProgramaDefecto;
 
+    -- PASO 7: Consulta y retorno de resultados
     SELECT TOP (@maximo)
         c.idDocente,
         c.idUsuario,

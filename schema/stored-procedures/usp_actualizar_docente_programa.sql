@@ -46,12 +46,14 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
     BEGIN TRY
+        -- PASO 1: Validar el identificador de correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
+        -- PASO 2: Ejecutor obligatorio (GEN_002)
         IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -62,6 +64,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 3: Validar perfil del ejecutor (RBAC COORDINADOR)
         IF @estadoResultado = 1
             EXEC dbo.usp_validar_permiso_rbac_usuario_interno
                 @idUsuario = @idUsuarioEjecutorDefecto, @codigoPerfilRequerido = 'COORDINADOR',
@@ -70,6 +73,7 @@ BEGIN
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
 
+        -- PASO 4: Validar titularidad del ejecutor sobre PROGRAMA
         IF @estadoResultado = 1
             EXEC dbo.usp_validar_titularidad_jerarquica_interno
                 @idUsuario = @idUsuarioEjecutorDefecto, @idEntidadPadre = @idProgramaDefecto,
@@ -78,7 +82,7 @@ BEGIN
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
 
-        -- Al menos un campo a actualizar
+        -- PASO 5: Al menos un campo a actualizar
         IF @estadoResultado = 1 AND @idTipoVinculacion IS NULL AND @pn IS NULL AND @sn IS NULL AND @pa IS NULL AND @sa IS NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -89,7 +93,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
-        -- Existencia del vinculo (docente, programa)
+        -- PASO 6: Existencia del vinculo (docente, programa)
         IF @estadoResultado = 1
         BEGIN
             SELECT @idUsuarioDocente = idUsuario FROM dbo.uv_docente_programa WHERE idDocente = @idDocenteDefecto AND idPrograma = @idProgramaDefecto;
@@ -104,7 +108,7 @@ BEGIN
             END
         END
 
-        -- Tipo de vinculacion (cuando viene)
+        -- PASO 7: Tipo de vinculacion (cuando viene)
         IF @estadoResultado = 1 AND @idTipoVinculacion IS NOT NULL
            AND NOT EXISTS (SELECT 1 FROM dbo.uv_tipo_vinculacion WHERE id = @idTipoVinculacion AND estaActivoTipoVinculacion = 1)
         BEGIN
@@ -116,7 +120,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
-        -- Nombres: obligatorios no vacios si vienen; opcionales pueden limpiarse con ''
+        -- PASO 8: Nombres: obligatorios no vacios si vienen; opcionales pueden limpiarse con ''
         IF @estadoResultado = 1
            AND ((@pn IS NOT NULL AND dbo.ufn_validar_texto(@pn) = 0) OR (@pa IS NOT NULL AND dbo.ufn_validar_texto(@pa) = 0))
         BEGIN
@@ -127,6 +131,7 @@ BEGIN
             SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
             SET @estadoResultado = 0;
         END
+        -- PASO 9: Validacion de negocio (VAL_004)
         IF @estadoResultado = 1
            AND ((@sn IS NOT NULL AND @sn <> '' AND dbo.ufn_validar_texto(@sn) = 0) OR (@sa IS NOT NULL AND @sa <> '' AND dbo.ufn_validar_texto(@sa) = 0))
         BEGIN
@@ -138,7 +143,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
-        -- Escrituras en una sola transaccion con ownership
+        -- PASO 10: Escrituras en una sola transaccion con ownership
         IF @estadoResultado = 1
         BEGIN
             SET @conteoTransaccionesInicial = @@TRANCOUNT;

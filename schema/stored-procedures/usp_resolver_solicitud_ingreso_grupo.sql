@@ -14,6 +14,8 @@ GO
 --   - RECHAZAR: motivo obligatorio (1..500) => R (SIG_014).
 --   - ACEPTAR: bajo UPDLOCK, HOLDLOCK de la fila del grupo se recalcula el cupo (capacidad - matriculas activas):
 --       con cupo  => matricula con usp_registrar_estudiante_en_grupo_interno y la solicitud pasa a A (SIG_011);
+--                    si el estudiante fue retirado del grupo (matricula 'I', HU051), se REACTIVA esa matricula
+--                    (I -> A) en lugar de crear otra (INT-HU-01, opcion a de John 2026-10-28);
 --       sin cupo  => P pasa a E, lista de espera (SIG_012); una E que sigue sin cupo => SIG_013.
 --     El docente puede aceptar a CUALQUIER solicitud en espera (decision de John); el orden de llegada solo se muestra.
 -- Codigos: GEN_002, SIG_009 accion invalida, SIG_010 motivo, SIG_007 inexistente o no titular, SIG_008 ya resuelta,
@@ -59,18 +61,24 @@ AS
     DECLARE @conteoTransaccionesInicial INT = 0;
     DECLARE @transaccionPropia          BIT = 0;
     DECLARE @savepointCreado            BIT = 0;
+
+    -- REC4 (estilo): variables declaradas en la cabecera; las que dependen de un paso previo se asignan con SET en ese paso.
+    DECLARE @estadoTransaccionCatch INT;
+
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
     BEGIN TRY
         SET @hoyLocal = CAST(SYSUTCDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE @zonaHoraria AS DATE);
 
+        -- PASO 1: Validar el identificador de correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
+        -- PASO 2: Ejecutor obligatorio (GEN_002)
         IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -81,13 +89,17 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 3: Validar la accion y el motivo (codigo de rechazo)
         IF @estadoResultado = 1
+        BEGIN
             SET @codigoRechazo =
                 CASE
                     WHEN @accionNormalizada IS NULL OR @accionNormalizada NOT IN (N'ACEPTAR', N'RECHAZAR') THEN 'SIG_009'
                     WHEN @accionNormalizada = N'RECHAZAR' AND (@motivoNormalizado IS NULL OR LEN(@motivoNormalizado) > 500) THEN 'SIG_010'
                 END;
+        END
 
+        -- PASO 4: Validar la accion y el motivo (codigo de rechazo)
         IF @estadoResultado = 1 AND @codigoRechazo IS NULL
         BEGIN
             SET @conteoTransaccionesInicial = @@TRANCOUNT;
@@ -111,10 +123,12 @@ BEGIN
 
             -- Bloqueo de la fila del grupo: serializa las aceptaciones concurrentes del mismo grupo (sin sobrecupo).
             IF @idGrupo IS NOT NULL
+            BEGIN
                 SELECT @capacidad = g.cantidadEstudiantes, @fechaFinPeriodo = pa.fechaFin
                 FROM dbo.Grupo g WITH (UPDLOCK, HOLDLOCK)
                 INNER JOIN dbo.PeriodoAcademico pa ON pa.id = g.periodoAcademico
                 WHERE g.id = @idGrupo;
+            END
 
             SET @codigoRechazo =
                 CASE
@@ -146,13 +160,51 @@ BEGIN
                 IF @capacidad - @activos <= 0
                 BEGIN
                     IF @estadoActual = @estadoEspera
+                    BEGIN
                         SET @codigoRechazo = 'SIG_013';
+                    END
                     ELSE
                     BEGIN
                         UPDATE dbo.SolicitudIngresoGrupo SET estado = @estadoEspera WHERE id = @idSolicitudDefecto;
                         SET @codigoEstadoResultante = 'E';
                         SET @codigoExito = 'SIG_012';
                     END
+                END
+                ELSE IF EXISTS (
+                    SELECT 1 FROM dbo.EstudianteGrupo eg INNER JOIN dbo.EstadoEstudianteGrupo est ON est.id = eg.estado
+                    WHERE eg.grupo = @idGrupo AND eg.estudiante = @idEstudiante AND est.codigo = 'I')
+                BEGIN
+                    -- INT-HU-01 (decision de John 2026-10-28, opcion a): el estudiante fue retirado del grupo (HU051,
+                    -- matricula 'I') y vuelve a solicitar el ingreso. Se REACTIVA su matricula (I -> A) en lugar de
+                    -- crear otra (la validacion de duplicado del interno la rechazaria con 409). El cupo ya se verifico
+                    -- arriba bajo UPDLOCK; las asistencias historicas de la matricula se conservan.
+                    SELECT TOP 1 @idEstudianteGrupo = eg.id
+                    FROM dbo.EstudianteGrupo eg WITH (UPDLOCK, HOLDLOCK)
+                    INNER JOIN dbo.EstadoEstudianteGrupo est ON est.id = eg.estado
+                    WHERE eg.grupo = @idGrupo AND eg.estudiante = @idEstudiante AND est.codigo = 'I'
+                    ORDER BY eg.id;
+
+                    UPDATE dbo.EstudianteGrupo
+                    SET estado = (SELECT id FROM dbo.EstadoEstudianteGrupo WHERE codigo = 'A')
+                    WHERE id = @idEstudianteGrupo;
+
+                    -- Regla HU008: solo una asignatura ESPECIFICA inscribe al estudiante en el programa.
+                    INSERT INTO dbo.EstudiantePrograma (id, estudiante, programa)
+                    SELECT NEWID(), @idEstudiante, pe.programa
+                    FROM dbo.Grupo g
+                    INNER JOIN dbo.Asignatura a ON a.id = g.asignatura
+                    INNER JOIN dbo.Componente comp ON comp.id = a.componente AND comp.codigo = 'ESP'
+                    INNER JOIN dbo.SemestrePlanEstudio spe ON spe.id = a.semestrePlanEstudio
+                    INNER JOIN dbo.PlanEstudio pe ON pe.id = spe.planEstudio
+                    WHERE g.id = @idGrupo
+                      AND NOT EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep WHERE ep.estudiante = @idEstudiante AND ep.programa = pe.programa);
+
+                    UPDATE dbo.SolicitudIngresoGrupo
+                    SET estado = @estadoAceptada, docenteResolutor = @idDocente,
+                        fechaResolucionUtc = SYSUTCDATETIME(), estudianteGrupo = @idEstudianteGrupo
+                    WHERE id = @idSolicitudDefecto;
+                    SET @codigoEstadoResultante = 'A';
+                    SET @codigoExito = 'SIG_011';
                 END
                 ELSE
                 BEGIN
@@ -192,14 +244,26 @@ BEGIN
 
             IF @transaccionPropia = 1
             BEGIN
-                IF @estadoResultado = 0 AND XACT_STATE() = 1 ROLLBACK TRANSACTION;
-                ELSE IF XACT_STATE() = 1 COMMIT TRANSACTION;
-                ELSE IF XACT_STATE() = -1 ROLLBACK TRANSACTION;
+                IF @estadoResultado = 0 AND XACT_STATE() = 1
+                BEGIN
+                    ROLLBACK TRANSACTION;
+                END
+                ELSE IF XACT_STATE() = 1
+                BEGIN
+                    COMMIT TRANSACTION;
+                END
+                ELSE IF XACT_STATE() = -1
+                BEGIN
+                    ROLLBACK TRANSACTION;
+                END
             END
             ELSE IF @savepointCreado = 1 AND @estadoResultado = 0 AND XACT_STATE() = 1
+            BEGIN
                 ROLLBACK TRANSACTION sp_resolver_solicitud_ingreso;
+            END
         END
 
+        -- PASO 5: Traducir el codigo de rechazo a su mensaje de catalogo
         IF @estadoResultado = 1 AND @codigoRechazo IS NOT NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -212,10 +276,13 @@ BEGIN
         END
     END TRY
     BEGIN CATCH
-        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+        SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
-            IF @estadoTransaccionCatch <> 0 ROLLBACK TRANSACTION;
+            IF @estadoTransaccionCatch <> 0
+            BEGIN
+                ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN

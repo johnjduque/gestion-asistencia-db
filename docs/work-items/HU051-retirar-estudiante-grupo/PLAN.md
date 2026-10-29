@@ -34,3 +34,7 @@ last-reviewed: 2026-10-27
 ## Rollback
 
 `DROP PROCEDURE` de los 2 SP, `REVOKE` de los permisos y borrar los mensajes `RET_*` (sin cambios de tablas). Las matrículas retiradas se pueden reactivar con un `UPDATE` controlado de `EstudianteGrupo.estado`.
+
+## Cambio posterior: INT-HU-01 (2026-10-28)
+
+Decisión de John (opción a): si un estudiante retirado del grupo (HU051, matrícula `I`) vuelve a solicitar el ingreso y el docente lo acepta (HU055), `usp_resolver_solicitud_ingreso_grupo` **reactiva** esa matrícula (`I` → `A`) en lugar de fallar con 409 por duplicado. Cupo y regla ESP de HU008 respetados; una matrícula activa sigue bloqueando (`SIG_004`). Prueba: `test/test_int_hu01_reactivar_matricula_retirada.sql` (RM-01..RM-03). Detalle: `docs/work-items/INT-HU-01-reactivar-matricula-retirada/`.

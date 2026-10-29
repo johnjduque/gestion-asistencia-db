@@ -32,8 +32,11 @@ Toda vista `uv_auth_*` debe incorporar obligatoriamente la combinación de dos n
    * **`DOCENTE` (`DO`)**: Acceso delimitado a los **Grupos, Asignaturas y Sesiones** donde figura como docente titular (`g.docente = doc.id`).
    * **`ESTUDIANTE` (`ES`)**: Acceso delimitado a sus datos de identidad propios y a los **Grupos y Asistencias** donde está matriculado (`eg.estudiante = e.id`).
 
-### 3. Comportamiento por Defecto (Contexto `NULL`)
-* Si `dbo.ufn_obtener_usuario_ejecutor_contexto()` retorna `NULL` (ej. scripts de mantenimiento, tareas de fondo o administración global sin sesión iniciada), la vista `uv_auth_*` debe retornar la totalidad de las filas por defecto (`dbo.ufn_obtener_usuario_ejecutor_contexto() IS NULL OR EXISTS (...)`), evitando el bloqueo del motor.
+### 3. Comportamiento por Defecto (Contexto `NULL`): FAIL-CLOSED
+* Si `dbo.ufn_obtener_usuario_ejecutor_contexto()` retorna `NULL`, la vista `uv_auth_*` **no devuelve filas**. El filtro empieza con `dbo.ufn_obtener_usuario_ejecutor_contexto() IS NOT NULL AND (...)`.
+* Es la decisión del Security Baseline: una consulta sin usuario ejecutor nunca debe ver datos de otros ámbitos.
+* Los scripts de mantenimiento, las tareas de fondo y los procedimientos internos leen las vistas base `uv_*`, que no tienen filtro (ver §4), y no las `uv_auth_*`.
+* *(REC4, 2026-10-29: antes este punto pedía "retornar la totalidad de las filas". Se alineó con el código vigente, que es más seguro. No reintroducir `IS NULL OR ...`.)*
 
 ### 4. Desacoplamiento Total de las Vistas Base (`uv_*`)
 * Las vistas base `uv_*` permanecen **100% libres de filtros de autorización** para que los procedimientos almacenados internos (`*_interno`) ejecuten validaciones relacionales y transacciones reactivas sin riesgos de silenciar registros.
@@ -57,9 +60,10 @@ SELECT  e.id,
         e.idInstitucion,
         e.idFacultad
 FROM    dbo.uv_entidad e
-WHERE   dbo.ufn_obtener_usuario_ejecutor_contexto() IS NULL
+WHERE   dbo.ufn_obtener_usuario_ejecutor_contexto() IS NOT NULL   -- fail-closed: sin contexto => 0 filas
+   AND  (
    -- 1. Validación de Ámbito Administrador
-   OR   EXISTS (
+        EXISTS (
             SELECT 1 FROM dbo.Administrador a 
             WHERE a.usuario = dbo.ufn_obtener_usuario_ejecutor_contexto() 
               AND a.institucion = e.idInstitucion
@@ -72,7 +76,8 @@ WHERE   dbo.ufn_obtener_usuario_ejecutor_contexto() IS NULL
               AND f.id = e.idFacultad
         )
    -- 3. Validación de Pertenece al Usuario Propio
-   OR   e.idUsuario = dbo.ufn_obtener_usuario_ejecutor_contexto();
+   OR   e.idUsuario = dbo.ufn_obtener_usuario_ejecutor_contexto()
+        );
 GO
 ```
 

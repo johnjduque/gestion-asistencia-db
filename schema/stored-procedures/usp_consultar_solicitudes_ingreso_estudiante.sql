@@ -21,10 +21,8 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_solicitudes_ingreso_estudiante]
     @idUsuarioEjecutor  UNIQUEIDENTIFIER
 )
 AS
-BEGIN
-    SET NOCOUNT ON;
-    SET XACT_ABORT ON;
 
+    -- REC4 (estilo): variables declaradas en la cabecera; las que dependen de un paso previo se asignan con SET en ese paso.
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idUsuarioDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @guidVacio            UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(NULL, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
@@ -32,17 +30,22 @@ BEGIN
     DECLARE @tamano INT = IIF(@tamanoPagina IS NULL OR @tamanoPagina < 1, 10, IIF(@tamanoPagina > 100, 100, @tamanoPagina));
     DECLARE @offset INT = (@pagina - 1) * @tamano;
     DECLARE @estadoFiltro NVARCHAR(5) = NULLIF(TRIM(@codigoEstado), '');
-
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado BIT = 1;
 
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+-- PASO 1: Validar el identificador de correlacion
     EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
         @idCorrelacion = @idCorrelacionDefecto,
         @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
         @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
         @estadoResultado = @estadoResultado OUTPUT;
 
+    -- PASO 2: Ejecutor obligatorio (GEN_002)
     IF @estadoResultado = 1 AND (@idUsuarioEjecutor IS NULL OR @idUsuarioDefecto = @guidVacio)
     BEGIN
         EXEC dbo.usp_obtener_mensaje_catalogo
@@ -52,11 +55,13 @@ BEGIN
         SET @estadoResultado = 0;
     END
 
+    -- PASO 3: Validacion de entrada
     IF @estadoResultado = 0
     BEGIN
         THROW 51000, @mensajeTecnicoResultado, 1;
     END
 
+    -- PASO 4: Consulta y retorno de resultados
     SELECT
         idSolicitud        = s.id,
         idGrupo            = g.id,

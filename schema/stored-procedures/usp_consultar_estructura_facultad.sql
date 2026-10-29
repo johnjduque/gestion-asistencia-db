@@ -25,26 +25,28 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_estructura_facultad]
     @idCorrelacion      UNIQUEIDENTIFIER
 )
 AS
-BEGIN
-    SET NOCOUNT ON;
 
+    -- REC4 (estilo): variables declaradas en la cabecera; las que dependen de un paso previo se asignan con SET en ese paso.
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idUsuarioDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @guidVacio            UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(NULL, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado BIT = 1;
-
     DECLARE @contextoPrevio SQL_VARIANT = SESSION_CONTEXT(N'idUsuarioEjecutor');
 
-    BEGIN TRY
+BEGIN
+    SET NOCOUNT ON;
+
+BEGIN TRY
+        -- PASO 1: Validar el identificador de correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
+        -- PASO 2: Validacion de negocio (VAL_001)
         IF @estadoResultado = 1 AND (@idUsuarioDefecto IS NULL OR @idUsuarioDefecto = @guidVacio)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -56,14 +58,17 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 3: Validacion de entrada
         IF @estadoResultado = 0
         BEGIN
             THROW 51000, @mensajeTecnicoResultado, 1;
         END
 
+        -- PASO 4: Fijar el contexto del ejecutor para las vistas uv_auth_*
         EXEC dbo.usp_establecer_contexto_usuario_ejecutor
             @p_idUsuario = @idUsuarioDefecto;
 
+        -- PASO 5: Consulta y retorno de resultados
         SELECT
             CONCAT(CONVERT(NVARCHAR(36), f.id), N'|', CONVERT(NVARCHAR(36), p.id), N'|', CONVERT(NVARCHAR(36), pe.id)) AS clave,
             f.id                    AS idFacultad,
@@ -95,6 +100,7 @@ BEGIN
               )
         ORDER BY f.nombreFacultad ASC, f.id ASC, p.nombrePrograma ASC, p.id ASC, pe.inp ASC, pe.id ASC;
 
+        -- PASO 6: Restaurar el contexto de sesion previo
         EXEC sys.sp_set_session_context
             @key = N'idUsuarioEjecutor',
             @value = @contextoPrevio,

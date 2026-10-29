@@ -66,12 +66,17 @@ El proyecto utiliza un **enfoque modular por objetos**. En lugar de crear archiv
 ### 1. Prerrequisitos
 * [Docker Desktop](https://www.docker.com/products/docker-desktop/) ejecutándose.
 
-### 2. Levantar el Contenedor de SQL Server
-Si aún no tienes el contenedor activo, créalo ejecutando el siguiente comando en PowerShell:
+### 2. Levantar SQL Server existente
+
+Iniciar exclusivamente el contenedor oficial:
 
 ```powershell
-docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=<MSSQL_SA_PASSWORD>" -p 1433:1433 --name sql_server_asistencias -d mcr.microsoft.com/mssql/server:2022-latest
+docker start sql_server_asistencias
 ```
+
+Si el contenedor no existe, detenerse y revisar la infraestructura del repositorio DB. No crear otro SQL Server automaticamente.
+
+El volumen oficial es `sql_server_asistencias_data`. La configuracion versionada se encuentra en `docker-compose.dev.yml`.
 
 ---
 
@@ -91,16 +96,36 @@ Para validar el baseline completo congelado, ejecuta:
 .\test_summary.ps1 -ContainerName "sql_server_asistencias"
 ```
 
-### 🔹 Reiniciar y Limpiar la Base de Datos desde Cero
-Si deseas simular una instalación fresca y verificar el esquema completo:
+### Pruebas que escriben o reinicializan la base
+
+`test_summary.ps1` valida que el destino sea `gestionasistenciadb` (Developer Edition) e **inserta filas de prueba** (por ejemplo, una sesion `QA Concurrent Upsert` para la prueba de concurrencia). Ejecutarlo sobre la instancia oficial solo con autorizacion del equipo DB.
+
+No ejecutar `DROP DATABASE`, recreaciones de esquema ni pruebas destructivas sobre la base oficial `gestionasistenciadb`.
+
+Las pruebas destructivas requieren un entorno desechable explicitamente autorizado, con controles que impidan afectar `sql_server_asistencias` y su volumen.
+
+---
+
+## SQL Server local - Docker Compose
+
+La infraestructura SQL Server se administra desde este repositorio mediante `docker-compose.dev.yml`.
+
+- Contenedor existente: `sql_server_asistencias`.
+- Base de datos: `gestionasistenciadb`.
+- Puerto local: `1433`.
+- Volumen fisico externo: `sql_server_asistencias_data`.
+- Variable de credencial: `SQL_CONTAINER_PASSWORD`, definida exclusivamente en `.env` local, ignorado por Git.
+
+El contenedor existente fue creado con una configuracion Compose anterior. Un `docker compose up` convencional puede intentar recrearlo.
+
+Para iniciar el contenedor original sin recrearlo:
 
 ```powershell
-# 1. Recrear Base de Datos Vacía en Docker
-docker exec -i sql_server_asistencias /opt/mssql-tools18/bin/sqlcmd -S localhost -C -d master -Q "ALTER DATABASE gestionasistenciadb SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE gestionasistenciadb; CREATE DATABASE gestionasistenciadb;"
-
-# 2. Desplegar todo el esquema
-.\deploy_schema.ps1 -ContainerName "sql_server_asistencias"
-
-# 3. Correr Pruebas
-.\test_summary.ps1 -ContainerName "sql_server_asistencias"
+docker start sql_server_asistencias
 ```
+
+Antes de administrar este contenedor desde Compose, comprobar que existe y simular los cambios con `docker compose --dry-run`. Utilizar `--no-recreate` mientras se conserva la instancia original.
+
+No ejecutar `docker compose down -v`, `docker volume prune` ni `docker compose up --force-recreate` sobre esta instancia.
+
+Mantener respaldos verificados fuera del volumen Docker. No versionar archivos `.env`, credenciales ni respaldos `.bak`.

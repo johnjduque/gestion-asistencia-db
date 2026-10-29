@@ -83,3 +83,11 @@ Todo desarrollo o ajuste en base de datos debe cumplir las 5 etapas:
 3. **Pruebas (TDD en SQL):** Escribir los escenarios en `test_suite.sql` o archivo específico en `test/` (Happy Path, Datos Inválidos, Violación de Unicidad, Concurrencia).
 4. **Implementación:** Redactar el script en `schema/` respetando convenciones y el orden de despliegue de `deploy_schema.ps1`.
 5. **Auditoría y Validación:** Ejecutar `test_summary.ps1` comprobando 100% de pruebas pasando y sin violaciones de seguridad.
+---
+
+## 🌿 5. Ramas, repositorios oficiales e infraestructura SQL Server
+
+1. **Nombres de ramas:** usar `fix/`, `feature/`, `chore/` o `docs/` (o `<autor>/<descripcion>`) con una descripcion clara del cambio. Prohibido crear ramas nuevas con prefijos `codex/`, `claude/`, `ai/`, `agent/` o `temp/`. Las ramas historicas con esos nombres se conservan mientras tengan commits o PR pendientes; no se renombran a ciegas.
+2. **Tres proyectos oficiales:** Backend (`AsistenciasUCO`), Frontend (`AsistenciasUCO-Frontend`) y este repositorio DB. No crear clones, worktrees, carpetas de cuarentena/laboratorio ni copias de los proyectos.
+3. **SQL Server local:** se administra solo desde este repositorio (`docker-compose.dev.yml`). Contenedor `sql_server_asistencias`, volumen externo `sql_server_asistencias_data`, base `gestionasistenciadb`, puerto `1433`. Iniciar con `docker start sql_server_asistencias`; nunca `docker compose up` convencional, `down -v`, `--force-recreate` ni `docker volume prune` sobre esta instancia. Las pruebas destructivas no se ejecutan contra ella.
+4. **Limpieza de ramas:** solo se eliminan (sin `-D`/force) ramas ya integradas en `develop`, sin PR abierto, sin worktree y sin commits exclusivos.

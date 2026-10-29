@@ -3,9 +3,15 @@ GO
 SET NOCOUNT ON;
 SET XACT_ABORT OFF;
 
-DECLARE @plan UNIQUEIDENTIFIER = (SELECT TOP 1 idPlanEstudio FROM dbo.uv_semestre_plan_estudio);
+-- REC2: actualizar/toggle exigen que el ejecutor coordine el programa del plan; plan y coordinador van juntos.
+DECLARE @plan UNIQUEIDENTIFIER, @coordinatorUser UNIQUEIDENTIFIER;
+SELECT TOP 1 @plan = sp.idPlanEstudio, @coordinatorUser = ci.idUsuario
+FROM dbo.uv_semestre_plan_estudio sp
+INNER JOIN dbo.uv_programa p ON p.id = sp.idPrograma
+INNER JOIN dbo.uv_coordinador_identidad ci ON ci.id = p.idCoordinador
+WHERE ci.estaActivoUsuario = 1
+ORDER BY sp.idPlanEstudio;
 DECLARE @semester INT = (SELECT TOP 1 numero FROM dbo.uv_semestre);
-DECLARE @coordinatorUser UNIQUEIDENTIFIER = (SELECT TOP 1 idUsuario FROM dbo.uv_coordinador_identidad WHERE estaActivoUsuario = 1);
 DECLARE @subject UNIQUEIDENTIFIER = NEWID();
 DECLARE @code NVARCHAR(50) = CONCAT(N'QA', LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 10));
 DECLARE @reactiveCode NVARCHAR(50) = CONCAT(N'QR', LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 10));
@@ -38,7 +44,7 @@ BEGIN TRY
     INSERT INTO #subjectResult
     EXEC dbo.usp_actualizar_asignatura @idAsignatura = @subject, @codigo = NULL,
         @nombre = N'QA Materia Editada', @creditos = 5, @idPlanEstudio = @plan,
-        @semestreNumero = @semester, @nombreArea = NULL, @nombreComponente = NULL, @idCorrelacion = @corr;
+        @semestreNumero = @semester, @nombreArea = NULL, @nombreComponente = NULL, @idCorrelacion = @corr, @idUsuarioEjecutor = @coordinatorUser;
     IF (SELECT COUNT(*) FROM #subjectResult WHERE idCorrelacion = @corr AND estadoResultado = 1
         AND mensajeUsuarioResultado = @userMsg) <> 1
         THROW 51973, 'TEST FAILED: SUBJECT_UPDATE wrong canonical result.', 1;
@@ -51,7 +57,7 @@ BEGIN TRY
     EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_004', @p_param1 = 'EstadoAsignatura',
         @mensajeUsuarioResultado = @userMsg OUTPUT, @mensajeTecnicoResultado = @techMsg OUTPUT;
     INSERT INTO #subjectResult
-    EXEC dbo.usp_toggle_estado_asignatura @idAsignatura = @subject, @idCorrelacion = @corr;
+    EXEC dbo.usp_toggle_estado_asignatura @idAsignatura = @subject, @idCorrelacion = @corr, @idUsuarioEjecutor = @coordinatorUser;
     IF (SELECT COUNT(*) FROM #subjectResult WHERE idCorrelacion = @corr AND estadoResultado = 1
         AND mensajeUsuarioResultado = @userMsg
         AND mensajeTecnicoResultado = CONCAT(@techMsg, ' Correlacion: ', @corr)) <> 1
@@ -61,7 +67,7 @@ BEGIN TRY
     SET @corr = NEWID();
     TRUNCATE TABLE #subjectResult;
     INSERT INTO #subjectResult
-    EXEC dbo.usp_toggle_estado_asignatura @idAsignatura = @subject, @idCorrelacion = @corr;
+    EXEC dbo.usp_toggle_estado_asignatura @idAsignatura = @subject, @idCorrelacion = @corr, @idUsuarioEjecutor = @coordinatorUser;
     IF (SELECT COUNT(*) FROM #subjectResult WHERE idCorrelacion = @corr AND estadoResultado = 1) <> 1 OR
         NOT EXISTS (SELECT 1 FROM dbo.uv_asignatura WHERE id = @subject AND estaActivaAsignatura = 1)
         THROW 51977, 'TEST FAILED: SUBJECT_TOGGLE did not restore state.', 1;
@@ -88,7 +94,7 @@ BEGIN TRY
     INSERT INTO #subjectResult
     EXEC dbo.usp_actualizar_asignatura @idAsignatura = @reactiveId, @codigo = @reactiveCode,
         @nombre = N'QA Reactiva Editada', @creditos = 6, @idPlanEstudio = @plan,
-        @semestreNumero = @semester, @nombreArea = NULL, @nombreComponente = NULL, @idCorrelacion = @corr;
+        @semestreNumero = @semester, @nombreArea = NULL, @nombreComponente = NULL, @idCorrelacion = @corr, @idUsuarioEjecutor = @coordinatorUser;
     IF (SELECT COUNT(*) FROM #subjectResult WHERE idCorrelacion = @corr AND estadoResultado = 1
         AND mensajeUsuarioResultado = @userMsg) <> 1 OR
         NOT EXISTS (SELECT 1 FROM dbo.uv_asignatura WHERE id = @reactiveId AND credito = 6 AND nombre = N'QA REACTIVA EDITADA')

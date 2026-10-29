@@ -12,7 +12,7 @@ Esta documentación especifica la arquitectura, reglas de negocio, contrato de f
 
 ### Reglas Estructurales Obligatorias (Modelo Canónico)
 1. **Inmutabilidad de Nombres Preexistentes**: Queda **estrictamente prohibido renombrar o alterar el nombre de los procedimientos almacenados, vistas, funciones o tablas preexistentes** en la base de datos. Todos los objetos ya creados deben conservar su nombre original sin modificaciones.
-2. **Respeto Estricto al Modelo Jerárquico RBAC**: Toda validación de perfil ejecutor en procedimientos almacenados públicos u orquestadores debe respetar las fronteras del **`modelo-jerarquico-rbac`** (ej. `Administrador` gestiona únicamente Decanos/Facultades/Periodos; `Coordinador` aprueba docentes en grupos mediante `usp_aprobar_docente_grupo` excluyendo al Administrador; `Docente` aprueba/registra estudiantes en sus grupos).
+2. **Respeto Estricto al Modelo Jerárquico RBAC**: Toda validación de perfil ejecutor en procedimientos almacenados públicos u orquestadores debe respetar las fronteras del **`modelo-jerarquico-rbac`** (ej. `Administrador` gestiona únicamente Decanos/Facultades/Periodos; `Coordinador` vincula docentes a su programa mediante `usp_vincular_docente_programa` excluyendo al Administrador; `Docente` aprueba/registra estudiantes en sus grupos).
 3. **Firma de Cabecera Sin Parámetros OUTPUT**:
    - Los procedimientos públicos/orquestadores NO llevan parámetros de salida (`OUTPUT`) en su firma de cabecera.
    - Todo parámetro de entrada de tipo `UNIQUEIDENTIFIER` (UUID) inicia obligatoriamente con el prefijo `id` (`@idTipoIdIdentificacion`, `@idGrupo`, `@idCorrelacion`, `@idEstudianteGrupo`, `@idGrupoSesion`, `@idEstadoAsistencia`, `@idEstudiante`, `@idSesion`).
@@ -47,3 +47,30 @@ Esta documentación especifica la arquitectura, reglas de negocio, contrato de f
        mensajeTecnicoResultado = @mensajeTecnicoResultado,
        estadoResultado         = @estadoResultado;
    ```
+
+---
+
+## Excepciones documentadas y patrones vigentes (REC4, 2026-10-29)
+
+Las reglas anteriores siguen siendo la norma. Estas excepciones están **acotadas** y existen porque el código vigente las necesita por corrección o seguridad (auditoría BD 2026-10-28).
+
+1. **SP de lectura (patrón READ_QUERY_RESULTSET).** Un SP público que solo consulta puede:
+   - validar ejecutor, correlación y ámbito;
+   - ante un error, hacer `THROW` con el código de catálogo (`VAL_001`, `KPI_001`, `GEN_001`, `SEC_00x`);
+   - devolver las filas de la consulta en lugar del resultset de 4 columnas.
+
+   Debe documentarse `READ_QUERY_RESULTSET` en su cabecera y agregarse a las listas de exclusión de `test/test_contract_closure.sql`. Los SP que **escriben** mantienen el resultset de 4 columnas y el TRY/CATCH con `SYS_001`.
+2. **Lecturas con bloqueo.**
+   - Dentro de una transacción, las lecturas que necesitan `UPDLOCK`/`HOLDLOCK` (cupo, correlativos, unicidad concurrente) pueden ir **a la tabla**, porque las vistas no garantizan el bloqueo sobre la fila física.
+   - El resto de las lecturas sigue la regla de vistas `uv_*`.
+3. **`ISNULL`/`COALESCE`.**
+   - Siguen prohibidos para limpiar o completar parámetros.
+   - Se permiten **solo en agregaciones** (`SUM`/`COUNT`/`AVG` sobre un conjunto que puede venir vacío) y en cálculos derivados de esas agregaciones.
+4. **Transacciones: `XACT_ABORT`.**
+   - **SP que abre su propia transacción con un patrón simple:** `SET XACT_ABORT ON` es obligatorio, y en el CATCH va `IF XACT_STATE() <> 0 ROLLBACK`. Ejemplos: `usp_ejecutar_cierre_masivo_periodo` y `usp_generar_sesiones_grupo`.
+   - **SP con transacción propia o savepoint:** si `@@TRANCOUNT = 0` hace `BEGIN TRAN`; si no, `SAVE TRANSACTION`, y revisa `XACT_STATE()` en todos los caminos. Este patrón **no** lleva `XACT_ABORT ON`, porque condenaría la transacción del llamador e impediría el rollback al savepoint (`Msg 3930`, REC3). Ejemplos: `usp_crear_decano`, `usp_sincronizar_usuario` y `usp_registrar_asistencias_sesion`.
+5. **Validación compartida.** Cuando la validación se repite entre SP, se extrae a un `usp_validar_*_interno` (ver `modelo-jerarquico-rbac` §4).
+6. **Estilo (DECLARE en la cabecera y `-- PASO n`).**
+   - Son **obligatorios en el código nuevo**.
+   - El código anterior **no se reescribe solo por estilo**: se ajusta cuando el SP se modifica por otra razón.
+   - Mover un `DECLARE` con valor inicial cambia el momento en que se evalúa, así que debe partirse en `DECLARE` y `SET`.
