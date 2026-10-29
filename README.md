@@ -104,3 +104,27 @@ docker exec -i sql_server_asistencias /opt/mssql-tools18/bin/sqlcmd -S localhost
 # 3. Correr Pruebas
 .\test_summary.ps1 -ContainerName "sql_server_asistencias"
 ```
+
+## SQL Server local - Docker Compose
+
+La infraestructura SQL Server se administra desde este repositorio mediante `docker-compose.dev.yml`.
+
+- Contenedor existente: `sql_server_asistencias`.
+- Base de datos: `gestionasistenciadb`.
+- Puerto local: `1433`.
+- Volumen fisico externo: `sql_server_asistencias_data`.
+- Variable de credencial: `SQL_CONTAINER_PASSWORD`, definida exclusivamente en `.env` local, ignorado por Git.
+
+El contenedor existente fue creado con una configuracion Compose anterior. Un `docker compose up` convencional puede intentar recrearlo.
+
+Para iniciar el contenedor original sin recrearlo:
+
+```powershell
+docker start sql_server_asistencias
+```
+
+Antes de administrar este contenedor desde Compose, comprobar que existe y simular los cambios con `docker compose --dry-run`. Utilizar `--no-recreate` mientras se conserva la instancia original.
+
+No ejecutar `docker compose down -v`, `docker volume prune` ni `docker compose up --force-recreate` sobre esta instancia.
+
+Mantener respaldos verificados fuera del volumen Docker. No versionar archivos `.env`, credenciales ni respaldos `.bak`.

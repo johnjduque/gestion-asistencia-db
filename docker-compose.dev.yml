@@ -1,7 +1,7 @@
 ﻿services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: ${SQL_CONTAINER_NAME:-sqlserver}
+    container_name: ${SQL_CONTAINER_NAME:-sql_server_asistencias}
     restart: unless-stopped
     environment:
       ACCEPT_EULA: "Y"
@@ -23,4 +23,5 @@
 
 volumes:
   mssql_dev_data:
-    driver: local
+    external: true
+    name: sql_server_asistencias_data
