@@ -23,7 +23,7 @@ La regla de AGENTS.md exige `SET XACT_ABORT ON` en los SP que abren una transacc
 | `usp_crear_coordinador` | No | Igual | **No se toca** (falso positivo) |
 | `usp_registrar_o_actualizar_plan_estudio` | No | Igual | **No se toca** (falso positivo) |
 | `usp_sincronizar_usuario` | No | Igual | **No se toca** (falso positivo) |
-| `usp_generar_sesiones_grupo` | **Sí** (DEVELOP_FREEZE y UTC_D06) | El mismo defecto que los 3 corregidos | Propuesta, pendiente de aprobación |
+| `usp_generar_sesiones_grupo` | **Sí** (DEVELOP_FREEZE y UTC_D06) | El mismo defecto que los 3 corregidos | **Corregido** con aprobación explícita de John (2026-10-29), como trabajo post-freeze |
 | `usp_registrar_asistencias_sesion` | **Sí** (DEVELOP_FREEZE, Golden Path) | Savepoint y `XACT_STATE()` correctos | Propuesta, pendiente de aprobación |
 | `usp_clasificar_procedencia_sesion` | **Sí** (UTC_D06) | Savepoint y `XACT_STATE()` correctos | Propuesta, pendiente de aprobación |
 | `usp_crear_sesion_interno` | **Sí** (UTC_D06) | Savepoint y `XACT_STATE()` correctos | Propuesta, pendiente de aprobación |
@@ -72,12 +72,17 @@ Cada caso verifica:
 
 Las pruebas son de **regresión**: con el código anterior también pasaban cuando el SP era dueño de la transacción. El beneficio propio de `XACT_ABORT ON` (cancelación o timeout del cliente) no se puede simular desde sqlcmd.
 
-## Propuesta para los 4 congelados (requiere aprobación explícita de John y work item post-freeze)
+## Congelados: decisión (2026-10-29)
 
-1. **`usp_generar_sesiones_grupo`:**
-   - el mismo cambio de 2 líneas que los 3 corregidos (`SET XACT_ABORT ON` y `IF XACT_STATE() <> 0 ROLLBACK`);
-   - prueba TX con falla en la inserción de `Sesion`;
-   - regenerar su hash con `freeze-manifest -Mode GeneratePostFreeze`.
+1. **`usp_generar_sesiones_grupo`: aprobado por John y aplicado.**
+   - El mismo cambio de 2 líneas que en los 3 SP corregidos.
+   - Prueba TX-04: falla en la segunda inserción de `Sesion` (CHECK temporal `numero < 2` sobre el grupo de la prueba). La primera sesión se revierte y `@@TRANCOUNT = 0`.
+   - **Manifiesto:** en `DB_UTC_D06_POST_FREEZE_MANIFEST.sha256` solo cambia el hash de este archivo (`099a5cf4…` → `ef9de7e9…`). La cadena `SUPERSEDES f4c71c7b…` (DB-GP-001C) se conserva y `freeze-manifest -Mode Verify` da OK. Registrado en `DB_DEVELOP_FREEZE_ADDENDUM.md`, sección "Revisión post-freeze REC3".
+   - **Impacto:**
+     - no cambian la firma, el resultset, las reglas ni los códigos;
+     - el backend (`POST /api/v1/sesiones/grupo/{grupoId}/generacion`) no cambia;
+     - un error o timeout en la generación ahora revierte siempre todas las sesiones del lote;
+     - si se invoca dentro de la transacción de un llamador y falla, la revierte, igual que antes.
 2. **`usp_registrar_asistencias_sesion`, `usp_clasificar_procedencia_sesion` y `usp_crear_sesion_interno`:**
    - ya tienen el patrón de savepoint y revisan bien `XACT_STATE()`;
    - **no se recomienda** agregar `XACT_ABORT ON`, por la misma razón que los 4 de arriba.
@@ -87,9 +92,10 @@ Las pruebas son de **regresión**: con el código anterior también pasaban cuan
 
 Réplica del job `DB Quality Gate CI/CD` sobre SQL Server 2022 limpio (2026-10-29), con `origin/develop` integrado (#60):
 - `TOTAL_EXECUTED=381`, `FAILED=0`, `CRITICAL_MISSING=0`, `DB GATE PASS`;
-- `TEST_PASS:REC3_TX01..TX03`;
+- `TEST_PASS:REC3_TX01..TX04`;
+- re-ejecutada con `usp_generar_sesiones_grupo` incluido y `origin/develop` integrado (#61, #62): `TOTAL_EXECUTED=386`, `FAILED=0`, `DB GATE PASS`, `GOLDEN_PATH_FREEZE_MANIFEST_VERIFIED` y `SESSION_GENERATION_*` en verde;
 - regresión verde: `MASS_CLOSE_SUCCESS`, `REVIEW_*`, `*_ROLLBACK_SAVEPOINT`;
-- `freeze-manifest -Mode Verify` OK: no se modificó ningún objeto congelado.
+- `freeze-manifest -Mode Verify` OK. El único congelado modificado, con aprobación, es `usp_generar_sesiones_grupo`, y su hash post-freeze quedó actualizado.
 
 ## Rollback
 

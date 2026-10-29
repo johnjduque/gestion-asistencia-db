@@ -61,6 +61,8 @@ AS
 
 BEGIN
     SET NOCOUNT ON;
+    -- REC3 (auditoria BD 2026-10-28, aprobado por John 2026-10-29): cualquier error o cancelacion del cliente revierte la transaccion completa.
+    SET XACT_ABORT ON;
     BEGIN TRY
 
         -- PASO 1: Validación de presencia del identificador de correlación obligatorio
@@ -338,7 +340,8 @@ BEGIN
     END TRY
     BEGIN CATCH
         -- BLOQUE CATCH: Captura centralizada de excepciones e inicio de reversión transaccional
-        IF @@TRANCOUNT > 0
+        -- REC3: solo se revierte si hay una transaccion viva (XACT_STATE <> 0); evita un segundo error en el CATCH.
+        IF XACT_STATE() <> 0
             ROLLBACK TRANSACTION;
 
         EXEC dbo.usp_obtener_mensaje_catalogo

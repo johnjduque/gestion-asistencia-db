@@ -84,3 +84,15 @@ DB CONTRACT CHANGE REQUIRED:           TO_BE_DETERMINED_AFTER_BACKEND_AS_IS
 DB / BACKEND PRODUCTION CHANGE AUTHORIZED: NO / NO
 NEXT AUTHORIZED PHASE:                 LB-002.1C-B1 - BACKEND AS-IS CONTRACT ANALYSIS (registrarEstudianteEnGrupo); no implica cambiar la DB
 ```
+
+## Revisión post-freeze REC3 (2026-10-29)
+
+- **Objeto:** `schema/stored-procedures/usp_generar_sesiones_grupo.sql`, congelado en DB-GP-001C y ya reemplazado por UTC-D06.
+- **Aprobación:** explícita de John Duque (2026-10-29), para este único SP congelado. Los otros congelados que la auditoría señaló (`usp_registrar_asistencias_sesion`, `usp_clasificar_procedencia_sesion` y `usp_crear_sesion_interno`) **no se modifican**.
+- **Cambio:**
+  - `SET XACT_ABORT ON`;
+  - el CATCH pasa de `IF @@TRANCOUNT > 0 ROLLBACK` a `IF XACT_STATE() <> 0 ROLLBACK`.
+  - No cambian la firma, el resultset ni las reglas.
+- **Manifiesto:** `DB_UTC_D06_POST_FREEZE_MANIFEST.sha256` actualiza solo el hash de ese archivo, de `099a5cf4…` a `ef9de7e9…`. La cadena de reemplazo sigue apuntando al hash DB-GP-001C (`f4c71c7b…`).
+- **Prueba:** `test_rec3_falla_intermedia_transaccion.sql`, caso TX-04.
+- **Work item:** `docs/work-items/REC3-transacciones/PLAN.md`.

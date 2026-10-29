@@ -20,6 +20,7 @@ PRINT 'TEST START: test_rec3_falla_intermedia_transaccion';
 IF OBJECT_ID('dbo.CK_REC3_TMP_SOLICITUD', 'C') IS NOT NULL ALTER TABLE dbo.SolicitudRevisionAsistencia DROP CONSTRAINT CK_REC3_TMP_SOLICITUD;
 IF OBJECT_ID('dbo.CK_REC3_TMP_DETALLE', 'C') IS NOT NULL ALTER TABLE dbo.DetalleAsistencia DROP CONSTRAINT CK_REC3_TMP_DETALLE;
 IF OBJECT_ID('dbo.CK_REC3_TMP_GRUPO', 'C') IS NOT NULL ALTER TABLE dbo.Grupo DROP CONSTRAINT CK_REC3_TMP_GRUPO;
+IF OBJECT_ID('dbo.CK_REC3_TMP_SESION', 'C') IS NOT NULL ALTER TABLE dbo.Sesion DROP CONSTRAINT CK_REC3_TMP_SESION;
 GO
 
 -- ---------------------------------------------------------------------------
@@ -194,8 +195,61 @@ IF @fallo IS NOT NULL THROW 54321, @fallo, 1;
 PRINT 'TEST_PASS:REC3_TX03_CIERRE_MASIVO_REVIERTE_TODO';
 GO
 
+-- ---------------------------------------------------------------------------
+-- TX-04: usp_generar_sesiones_grupo (congelado; cambio aprobado por John 2026-10-29). Inserta una Sesion por dia;
+-- la 1a insercion debe revertirse cuando falla la 2a.
+-- ---------------------------------------------------------------------------
+DECLARE @institution UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_institucion);
+DECLARE @assignment UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_asignatura);
+DECLARE @teacher UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_docente);
+DECLARE @teacherUser UNIQUEIDENTIFIER = (SELECT TOP 1 idUsuario FROM dbo.uv_docente WHERE id = @teacher);
+DECLARE @period UNIQUEIDENTIFIER = NEWID(), @group UNIQUEIDENTIFIER = NEWID(), @corr UNIQUEIDENTIFIER = NEWID();
+DECLARE @fallo NVARCHAR(4000) = NULL, @sql NVARCHAR(MAX);
+DECLARE @firstDay DATE = CAST(SYSUTCDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE dbo.ufn_obtener_parametro('TIEMPO', 'ZONA_HORARIA_SQLSERVER') AS DATE);
+IF @institution IS NULL OR @assignment IS NULL OR @teacher IS NULL OR @teacherUser IS NULL
+    THROW 54330, 'TEST FAILED: TX-04 fixture missing.', 1;
+
+INSERT dbo.PeriodoAcademico (id, institucion, nombre, codigo, fechaInicio, fechaFin, anio)
+VALUES (@period, @institution, N'Periodo QA REC3 TX04', 800000 + ABS(CHECKSUM(NEWID()) % 100000), @firstDay, DATEADD(DAY, 7, @firstDay), YEAR(@firstDay));
+INSERT dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron,
+    cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)
+VALUES (@group, @assignment, @period, 500000 + ABS(CHECKSUM(NEWID()) % 100000), N'Grupo QA REC3 TX04', 20, 0, 0, 0, @teacher);
+INSERT dbo.Horario (id, grupo, dia, horaInicio, horaFin)
+SELECT NEWID(), @group, id, '08:00', '09:00' FROM dbo.uv_dia;
+
+-- Precondicion: sin la restriccion la generacion es exitosa (dentro de una transaccion que se revierte).
+CREATE TABLE #preTX04 (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT);
+BEGIN TRANSACTION;
+INSERT INTO #preTX04 EXEC dbo.usp_generar_sesiones_grupo @idGrupo = @group, @idCorrelacion = @corr, @idUsuarioEjecutor = @teacherUser;
+IF NOT EXISTS (SELECT 1 FROM #preTX04 WHERE estadoResultado = 1) OR (SELECT COUNT(*) FROM dbo.Sesion WHERE grupo = @group) < 2
+    SET @fallo = 'TX04 precondicion: la generacion sin falla inyectada no fue exitosa o creo menos de 2 sesiones.';
+IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+DROP TABLE #preTX04;
+SET @sql = CONCAT(N'ALTER TABLE dbo.Sesion WITH NOCHECK ADD CONSTRAINT CK_REC3_TMP_SESION CHECK (grupo <> ''',
+                  CONVERT(NVARCHAR(36), @group), N''' OR numero < 2);');
+EXEC sys.sp_executesql @sql;
+BEGIN TRY
+    IF @fallo IS NOT NULL THROW 54390, @fallo, 1;
+    EXEC dbo.usp_generar_sesiones_grupo @idGrupo = @group, @idCorrelacion = @corr, @idUsuarioEjecutor = @teacherUser;
+    IF @@TRANCOUNT <> 0 SET @fallo = 'TX-04 dejo una transaccion abierta.';
+    ELSE IF EXISTS (SELECT 1 FROM dbo.Sesion WHERE grupo = @group)
+        SET @fallo = 'TX-04 la primera Sesion insertada antes de la falla NO se revirtio.';
+END TRY
+BEGIN CATCH
+    SET @fallo = CONCAT('TX-04 error no controlado: ', ERROR_MESSAGE());
+END CATCH;
+IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+ALTER TABLE dbo.Sesion DROP CONSTRAINT CK_REC3_TMP_SESION;
+DELETE FROM dbo.Sesion WHERE grupo = @group;
+DELETE FROM dbo.Horario WHERE grupo = @group;
+DELETE FROM dbo.Grupo WHERE id = @group;
+DELETE FROM dbo.PeriodoAcademico WHERE id = @period;
+IF @fallo IS NOT NULL THROW 54331, @fallo, 1;
+PRINT 'TEST_PASS:REC3_TX04_GENERAR_SESIONES_REVIERTE_TODO';
+GO
+
 IF OBJECT_ID('dbo.CK_REC3_TMP_SOLICITUD', 'C') IS NOT NULL OR OBJECT_ID('dbo.CK_REC3_TMP_DETALLE', 'C') IS NOT NULL
-   OR OBJECT_ID('dbo.CK_REC3_TMP_GRUPO', 'C') IS NOT NULL
+   OR OBJECT_ID('dbo.CK_REC3_TMP_GRUPO', 'C') IS NOT NULL OR OBJECT_ID('dbo.CK_REC3_TMP_SESION', 'C') IS NOT NULL
     THROW 54399, 'TEST FAILED: REC3 dejo restricciones temporales.', 1;
 IF @@TRANCOUNT <> 0 THROW 54398, 'TEST FAILED: REC3 dejo transacciones abiertas.', 1;
 PRINT 'TEST END: test_rec3_falla_intermedia_transaccion';
