@@ -8,7 +8,10 @@ GO
 CREATE OR ALTER PROCEDURE [dbo].[usp_toggle_estado_asignatura]
 (
     @idAsignatura   UNIQUEIDENTIFIER,
-    @idCorrelacion  UNIQUEIDENTIFIER
+    @idCorrelacion  UNIQUEIDENTIFIER,
+    -- REC2 (auditoria BD 2026-10-28): ejecutor obligatorio (GEN_002 si llega NULL). El DEFAULT solo conserva la
+    -- compatibilidad de firma; RBAC COORDINADOR + titularidad del PROGRAMA se validan en usp_validar_gestion_asignatura_coordinador_interno.
+    @idUsuarioEjecutor UNIQUEIDENTIFIER = NULL
 )
 AS
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
@@ -29,20 +32,17 @@ BEGIN
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- PASO 2: Validar existencia de la Asignatura en uv_asignatura
+        -- PASO 2: Ejecutor obligatorio, perfil COORDINADOR, existencia de la asignatura y titularidad del
+        --         programa (REC2: logica comun en usp_validar_gestion_asignatura_coordinador_interno)
         IF @estadoResultado = 1
         BEGIN
-            IF NOT EXISTS (SELECT 1 FROM [dbo].[uv_asignatura] WHERE id = @idAsignaturaDefecto)
-            BEGIN
-                EXEC dbo.usp_obtener_mensaje_catalogo
-                    @p_codigo = 'VAL_002',
-                    @p_param1 = 'Asignatura',
-                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-
-                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-                SET @estadoResultado = 0;
-            END
+            EXEC dbo.usp_validar_gestion_asignatura_coordinador_interno
+                @idAsignatura = @idAsignaturaDefecto,
+                @idUsuarioEjecutor = @idUsuarioEjecutor,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
         END
 
         -- PASO 3: Alternar estado atómicamente
