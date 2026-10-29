@@ -11,6 +11,13 @@ Contiene la documentación oficial de:
 2. **55 Vistas (Views)**: Vistas de catálogo, vistas de proyección de identidad y vistas autorizadas por seguridad RBAC dinámicas (`uv_auth_*`).
 3. **15 Funciones (Functions)**: Funciones auxiliares de validación, consulta de parámetros y lectura de `SESSION_CONTEXT`.
 
+> **Inventario vigente (REC5, 2026-10-29):** `schema/` contiene hoy **162 procedimientos** (102 públicos y 60 `_interno`), **65 vistas** (13 `uv_auth_*`) y **17 funciones**. Este documento conserva las fichas originales de los 57 SP base. El resto está documentado en:
+> - `especificacion_sp_endpoints.md`: endpoint y rol de cada SP público (Addendum REC5);
+> - `DOCUMENTACION_PROCEDIMIENTOS_PUBLICOS.md` y `DOCUMENTACION_PROCEDIMIENTOS_INTERNOS.md`: fichas e índices REC5;
+> - los work items de cada HU (`docs/work-items/`).
+>
+> Catálogo de mensajes: `docs/catalogos/catalogo-mensajes.md`, generado con `scripts/generar-catalogo-mensajes.ps1`.
+
 ---
 
 # 1. ⚙️ PROCEDIMIENTOS ALMACENADOS (STORED PROCEDURES)
