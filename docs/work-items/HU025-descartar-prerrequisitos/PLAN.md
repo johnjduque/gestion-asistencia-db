@@ -38,9 +38,9 @@ No cambian las tablas, los SP públicos, las pruebas, los permisos ni los manifi
   - se elimina la sección de prerrequisitos del formulario de asignatura del coordinador (el backend nunca la guardaba) y su visualización en la malla y el listado;
   - se eliminan también el campo `prerrequisitos` del modelo, los mocks y las pruebas.
 
-## Pendiente para el equipo (no se toca desde aquí)
+## Infra y pendientes del equipo
 
-- **Infra (`docs/user-stories/HU-CATALOG.md`):** marcar la HU025 como descartada.
+- **Infra (solo documentación, autorizado por John):** la rama `docs/HU025-descartada-prerrequisitos` marca la HU025 como `[DESCARTADA]` en `docs/user-stories/HU-CATALOG.md` (resumen: 13→12 BLOQUEADO 501 y 1 DESCARTADA) y retira "PrerrequisitoAsignatura" de `docs/baseline/TECHNICAL_DEBT.md`.
 - **José Alejandro (PDP):** retirar del aprovisionamiento la ruta `GET /api/v1/estudiante/materias/{materiaId}/prerrequisitos`.
 
 ## Validación
