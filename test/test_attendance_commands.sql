@@ -462,38 +462,6 @@ BEGIN TRY
         THROW 51807, 'TEST FAILED: ATTENDANCE_AUTO_INVALID wrong canonical result.', 1;
     IF EXISTS (SELECT 1 FROM dbo.Asistencia WHERE sesion = @sessionSingle)
         THROW 51808, 'TEST FAILED: ATTENDANCE_AUTO_INVALID wrote attendance.', 1;
-
-    TRUNCATE TABLE #attendanceResult;
-    SET @corr = NEWID();
-    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_004', @p_param1 = 'AsistenciaEstudiante',
-        @mensajeUsuarioResultado = @userMsg OUTPUT, @mensajeTecnicoResultado = @techMsg OUTPUT;
-    INSERT INTO #attendanceResult
-    EXEC dbo.usp_registrar_asistencia_estudiante
-        @idEstudianteGrupo = @enrollment, @idGrupoSesion = @sessionSingle, @idEstadoAsistencia = @reason,
-        @idCorrelacion = @corr, @idUsuarioEjecutor = @studentUser;
-    IF (SELECT COUNT(*) FROM #attendanceResult WHERE idCorrelacion = @corr AND estadoResultado = 1
-        AND mensajeUsuarioResultado = @userMsg
-        AND mensajeTecnicoResultado = CONCAT(@techMsg, ' Correlacion: ', @corr)) <> 1
-        THROW 51809, 'TEST FAILED: ATTENDANCE_SINGLE_SUCCESS wrong canonical result.', 1;
-    IF NOT EXISTS (SELECT 1 FROM dbo.uv_asistencia a JOIN dbo.uv_detalle_asistencia d ON d.idAsistencia = a.id
-        WHERE a.idSesion = @sessionSingle AND a.idEstudianteGrupo = @enrollment AND d.asistio = 1 AND d.idRazonCausa = @reason)
-        THROW 51810, 'TEST FAILED: ATTENDANCE_SINGLE_SUCCESS did not persist visible attendance.', 1;
-
-    TRUNCATE TABLE #attendanceResult;
-    DECLARE @missingEnrollment UNIQUEIDENTIFIER = NEWID();
-    SET @corr = NEWID();
-    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_001', @p_param1 = 'EstudianteGrupo',
-        @mensajeUsuarioResultado = @userMsg OUTPUT, @mensajeTecnicoResultado = @techMsg OUTPUT;
-    INSERT INTO #attendanceResult
-    EXEC dbo.usp_registrar_asistencia_estudiante
-        @idEstudianteGrupo = @missingEnrollment, @idGrupoSesion = @sessionSingle,
-        @idEstadoAsistencia = @reason, @idCorrelacion = @corr, @idUsuarioEjecutor = @studentUser;
-    IF (SELECT COUNT(*) FROM #attendanceResult WHERE idCorrelacion = @corr AND estadoResultado = 0
-        AND mensajeUsuarioResultado = @userMsg
-        AND mensajeTecnicoResultado = CONCAT(@techMsg, ' Correlacion: ', @corr)) <> 1
-        THROW 51811, 'TEST FAILED: ATTENDANCE_SINGLE_INVALID wrong canonical result.', 1;
-    IF (SELECT COUNT(*) FROM dbo.Asistencia WHERE sesion = @sessionSingle) <> 1
-        THROW 51812, 'TEST FAILED: ATTENDANCE_SINGLE_INVALID changed existing attendance.', 1;
 END TRY
 BEGIN CATCH
     IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;

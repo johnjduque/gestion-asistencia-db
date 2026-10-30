@@ -11,7 +11,7 @@ Contiene la documentación oficial de:
 2. **55 Vistas (Views)**: Vistas de catálogo, vistas de proyección de identidad y vistas autorizadas por seguridad RBAC dinámicas (`uv_auth_*`).
 3. **15 Funciones (Functions)**: Funciones auxiliares de validación, consulta de parámetros y lectura de `SESSION_CONTEXT`.
 
-> **Inventario vigente (REC5, 2026-10-29):** `schema/` contiene hoy **162 procedimientos** (102 públicos y 60 `_interno`; HU025 descartada eliminó el stub de prerrequisitos), **65 vistas** (13 `uv_auth_*`) y **17 funciones**. Este documento conserva las fichas originales de los 57 SP base. El resto está documentado en:
+> **Inventario vigente (REC5, 2026-10-29):** `schema/` contiene hoy **147 procedimientos** (89 públicos y 58 `_interno`), **65 vistas** (13 `uv_auth_*`) y **14 funciones**. HU025 descartada eliminó el stub de prerrequisitos, y el 2026-10-29 se eliminaron 15 SP y 3 funciones sin uso (`migrations/08_eliminar_codigo_sin_uso_up.sql`); sus fichas quedan marcadas como ELIMINADO. Este documento conserva las fichas originales de los 57 SP base. El resto está documentado en:
 > - `especificacion_sp_endpoints.md`: endpoint y rol de cada SP público (Addendum REC5);
 > - `DOCUMENTACION_PROCEDIMIENTOS_PUBLICOS.md` y `DOCUMENTACION_PROCEDIMIENTOS_INTERNOS.md`: fichas e índices REC5;
 > - los work items de cada HU (`docs/work-items/`).
@@ -290,6 +290,8 @@ Contiene la documentación oficial de:
 ---
 
 ### [SP-019] - `dbo.usp_registrar_asistencia_estudiante`
+
+> **ELIMINADO (2026-10-29):** este objeto se borró de &schema&& por no tener uso (migración &migrations&08_eliminar_codigo_sin_uso_up.sql&, work item &docs&work-items&BD-eliminar-codigo-sin-uso&&). El texto siguiente es histórico.
 - **Módulo / Alcance:** Control de Asistencia - Faltas Individuales
 - **Propósito de Negocio:** Registra la asistencia o inasistencia individual de un estudiante en una sesión.
 - **Entidades del MER Involucradas:** `Asistencia`, `DetalleAsistencia`, `EstudianteGrupo`, `Sesion`.
@@ -333,6 +335,8 @@ Contiene la documentación oficial de:
 ---
 
 ### [SP-022] - `dbo.usp_registrar_docente_en_grupo`
+
+> **ELIMINADO (2026-10-29):** este objeto se borró de &schema&& por no tener uso (migración &migrations&08_eliminar_codigo_sin_uso_up.sql&, work item &docs&work-items&BD-eliminar-codigo-sin-uso&&). El texto siguiente es histórico.
 - **Módulo / Alcance:** Matrícula y Asignación - Docentes
 - **Propósito de Negocio:** Asigna un docente a un grupo académico resolviendo cruces y validaciones de perfil.
 - **Entidades del MER Involucradas:** `Grupo`, `Docente`, `Usuario`.
@@ -360,6 +364,8 @@ Contiene la documentación oficial de:
 ---
 
 ### [SP-024] - `dbo.usp_registrar_docente_en_grupo_interno`
+
+> **ELIMINADO (2026-10-29):** este objeto se borró de &schema&& por no tener uso (migración &migrations&08_eliminar_codigo_sin_uso_up.sql&, work item &docs&work-items&BD-eliminar-codigo-sin-uso&&). El texto siguiente es histórico.
 - **Módulo / Alcance:** Asignación Interna - Helper
 - **Propósito de Negocio:** Procedimiento interno auxiliar para vincular la clave foránea del docente al grupo.
 - **Entidades del MER Involucradas:** `Grupo`, `Docente`.
@@ -393,7 +399,7 @@ Contiene la documentación oficial de:
   1. Validar datos de entrada.
   2. Insertar en `dbo.EstudianteGrupo` con estado de matrícula pendiente.
 - **Reglas de Negocio y Validaciones Específicas:**
-  * Requiere resolución mediante `usp_resolver_solicitud_matricula`.
+  * La resolución vigente es por solicitudes de ingreso (HU053-HU055, `usp_resolver_solicitud_ingreso_grupo`); `usp_resolver_solicitud_matricula` se eliminó el 2026-10-29.
 - **Estado Resultante en la BD:** Fila en `EstudianteGrupo` en estado pendiente.
 
 ---
@@ -424,6 +430,8 @@ Contiene la documentación oficial de:
 ---
 
 ### [SP-029] - `dbo.usp_resolver_solicitud_matricula`
+
+> **ELIMINADO (2026-10-29):** este objeto se borró de &schema&& por no tener uso (migración &migrations&08_eliminar_codigo_sin_uso_up.sql&, work item &docs&work-items&BD-eliminar-codigo-sin-uso&&). El texto siguiente es histórico.
 - **Módulo / Alcance:** Solicitudes de Matrícula - Aprobación
 - **Propósito de Negocio:** Permite al docente o coordinador aprobar o rechazar una solicitud de matrícula autónoma de estudiante.
 - **Entidades del MER Involucradas:** `EstudianteGrupo`.
@@ -525,7 +533,7 @@ Contiene la documentación oficial de:
 * **`dbo.usp_validar_cupo_disponible_grupo_interno`**: Verifica que las matrículas activas en `EstudianteGrupo` sean menores a `cupoMaximo`.
 * **`dbo.usp_validar_docente_exista_por_id_interno`**: Verifica que el ID pertenezca a un docente válido y activo.
 * **`dbo.usp_validar_estudiante_exista_por_id_interno`**: Verifica la validez y estado activo del estudiante.
-* **`dbo.usp_validar_estudiante_grupo_exista_interno`**: Confirma la existencia del registro de matrícula `EstudianteGrupo`.
+* **`dbo.usp_validar_estudiante_grupo_exista_interno`** (eliminado el 2026-10-29, sin uso): confirmaba la existencia del registro de matrícula `EstudianteGrupo`.
 * **`dbo.usp_validar_estudiante_pertenece_a_grupo_de_sesion_interno`**: Valida si el estudiante pertenece activamente al grupo de la sesión.
 * **`dbo.usp_validar_fechas_periodo_academico_interno`**: Valida que la fecha de inicio sea menor a la fecha fin del período.
 * **`dbo.usp_validar_grupo_exista_para_docente_interno`**: Verifica que el grupo esté asignado al docente especificado.
@@ -614,22 +622,21 @@ Estas vistas aplican la política *fail-closed*: si no hay `SESSION_CONTEXT` act
 
 # 3. 🧪 FUNCIONES (FUNCTIONS)
 
-La base de datos cuenta con **15 funciones escalar/tabla** divididas en utilidades de validación, consulta de parámetros y lectura de contexto:
+La base de datos cuenta con **14 funciones escalares** divididas en utilidades de validación, consulta de parámetros, reglas de dominio y lectura de contexto. El 2026-10-29 se eliminaron por no tener uso `fn_diagramobjects`, `ufn_obtener_perfil_usuario_contexto` y `ufn_validar_password` (`migrations/08_eliminar_codigo_sin_uso_up.sql`).
 
-1. **`dbo.fn_diagramobjects`**: Función técnica interna de SQL Server para soporte de diagramas de base de datos.
+1. **`dbo.ufn_clasificar_permanencia`**: Clasifica la permanencia del estudiante (REGULAR, RIESGO, PERDIDA) a partir del porcentaje de inasistencia y los umbrales de `CatalogoParametro` (HU070).
 2. **`dbo.ufn_obtener_detalle_error`**: Construye la cadena contractual del canal técnico de error en formato `DBCODE=<catalog-code>|<technical-detail>`.
-3. **`dbo.ufn_obtener_estado_estudiante_grupo`**: Retorna el ID del estado de la matrícula en grupo a partir de su código funcional (ej. 'A' para Activo).
+3. **`dbo.ufn_obtener_estado_estudiante_grupo`**: Devuelve el nombre del estado de la matrícula de un estudiante en un grupo (`NO INSCRITO` si no existe). Sin uso hoy; se conserva para el flujo de límite de faltas.
 4. **`dbo.ufn_obtener_mensaje_desde_plantilla`**: Reemplaza marcadores de posición `{0}`, `{1}` en plantillas de mensajes del catálogo.
 5. **`dbo.ufn_obtener_parametro`**: Obtiene el valor genérico en texto de un parámetro desde `CatalogoParametro` según su clave.
 6. **`dbo.ufn_obtener_parametro_guid`**: Obtiene el valor de un parámetro del sistema convertido al tipo de dato `UNIQUEIDENTIFIER`.
 7. **`dbo.ufn_obtener_parametro_int`**: Obtiene el valor de un parámetro convertido a entero (`INT`).
 8. **`dbo.ufn_obtener_parametro_texto`**: Obtiene la cadena de texto de un parámetro configurado en `CatalogoParametro`.
-9. **`dbo.ufn_obtener_perfil_usuario_contexto`**: Lee desde `SESSION_CONTEXT` el código de perfil activo del usuario ejecutor (`codigoPerfil`).
-10. **`dbo.ufn_obtener_usuario_ejecutor_contexto`**: Lee desde `SESSION_CONTEXT` el GUID del usuario ejecutor (`idUsuarioEjecutor`).
-11. **`dbo.ufn_reemplazar_plantilla_mensaje`**: Función auxiliar de formateo para sustituir variables en textos de respuesta.
+9. **`dbo.ufn_obtener_usuario_ejecutor_contexto`**: Lee desde `SESSION_CONTEXT` el GUID del usuario ejecutor (`idUsuarioEjecutor`).
+10. **`dbo.ufn_reemplazar_plantilla_mensaje`**: Función auxiliar de formateo para sustituir variables en textos de respuesta.
+11. **`dbo.ufn_usuario_tiene_roles_activos`**: Devuelve 1 si el usuario conserva al menos un rol activo (HU121/HU122).
 12. **`dbo.ufn_validar_correo`**: Valida mediante expresiones regulares la sintaxis del correo electrónico institucional.
 13. **`dbo.ufn_validar_numero`**: Verifica que una cadena contenga exclusivamente caracteres numéricos válidos.
-14. **`dbo.ufn_validar_password`**: Valida las políticas de complejidad de contraseñas de usuario.
-15. **`dbo.ufn_validar_texto`**: Valida que una cadena de texto cumpla con longitud mínima/máxima y no sea nula o vacía.
+14. **`dbo.ufn_validar_texto`**: Valida que una cadena de texto cumpla con longitud mínima/máxima y no sea nula o vacía.
 
 ---

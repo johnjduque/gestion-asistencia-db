@@ -66,7 +66,7 @@ Todo script de prueba de funciones en `test/` debe evaluar:
 
 * **Casos Borde y Validaciones de Formato (*Edge Cases*)**:
   - Limpieza de cadenas con espacios extras (`TRIM`).
-  - Formatos de texto invalidados (ej. `ufn_validar_correo`, `ufn_validar_numero`, `ufn_validar_password`, `ufn_validar_texto`).
+  - Formatos de texto invalidados (ej. `ufn_validar_correo`, `ufn_validar_numero`, `ufn_validar_texto`).
   - Intentos de casteo inválidos utilizando `TRY_CAST` (ej. `ufn_obtener_parametro_guid`, `ufn_obtener_parametro_int`).
 
 ---

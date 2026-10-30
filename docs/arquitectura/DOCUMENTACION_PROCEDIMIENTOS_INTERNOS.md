@@ -40,12 +40,14 @@ Esta documentación especifica la arquitectura, reglas de negocio, contrato de f
 - **Flujo de Ejecución**:
   1. PASO 1: Validación de `@idCorrelacionDefecto`.
   2. PASO 2: Invocación a `usp_validar_tipo_identificacion_exista_por_id_interno` y `usp_validar_unicidad_usuario_interno`.
-  3. PASO 3: Validación de formato con UFNs (`ufn_validar_numero`, `ufn_validar_texto`, `ufn_validar_correo`, `ufn_validar_password`).
+  3. PASO 3: Validación de formato con UFNs (`ufn_validar_numero`, `ufn_validar_texto`, `ufn_validar_correo`).
   4. PASO 4: Inserción final en `dbo.Usuario`.
 
 ---
 
 ### 2. `dbo.usp_registrar_docente_en_grupo_interno`
+
+> **ELIMINADO (2026-10-29):** este objeto se borró de &schema&& por no tener uso (migración &migrations&08_eliminar_codigo_sin_uso_up.sql&, work item &docs&work-items&BD-eliminar-codigo-sin-uso&&). El texto siguiente es histórico.
 - **Propósito**: Vincula o actualiza el docente asignado a un grupo académico.
 - **Parámetros de Entrada**:
   - `@idDocente UNIQUEIDENTIFIER`
@@ -96,7 +98,7 @@ Esta documentación especifica la arquitectura, reglas de negocio, contrato de f
 - **Parámetros de Entrada**:
   - `@idEstudiante UNIQUEIDENTIFIER`
   - `@idSesion UNIQUEIDENTIFIER`
-  - `@codigoEstado NVARCHAR(5)`: código canónico de `dbo.RazonCausa` (`'AN'`, `'SJC'`, `'EX'`). Alias legacy **solo internos**: `'A'` → `AN` y `'F'` → `SJC` (callers `usp_registrar_asistencia_estudiante*`); el batch público los rechaza antes de llegar aquí.
+  - `@codigoEstado NVARCHAR(5)`: código canónico de `dbo.RazonCausa` (`'AN'`, `'SJC'`, `'EX'`). Alias legacy **solo internos**: `'A'` → `AN` y `'F'` → `SJC` (caller `usp_registrar_asistencia_estudiante_autonomo`); el batch público los rechaza antes de llegar aquí.
   - `@idCorrelacion UNIQUEIDENTIFIER`
 - **Parámetros de Salida**: `@mensajeUsuarioResultado`, `@mensajeTecnicoResultado`, `@estadoResultado`.
 - **Códigos de Catálogo Consumidos**: `SES_001`, `EST_004`, `RC_001`, `GEN_004`, `SYS_001`.
@@ -174,6 +176,8 @@ Esta documentación especifica la arquitectura, reglas de negocio, contrato de f
 ---
 
 ### 12. `dbo.usp_validar_estudiante_grupo_exista_interno`
+
+> **ELIMINADO (2026-10-29):** este objeto se borró de &schema&& por no tener uso (migración &migrations&08_eliminar_codigo_sin_uso_up.sql&, work item &docs&work-items&BD-eliminar-codigo-sin-uso&&). El texto siguiente es histórico.
 - **Propósito**: Valida la existencia y estado activo (`'A'`) de un registro de matrícula `EstudianteGrupo`.
 - **Parámetros de Entrada**: `@idEstudianteGrupo UNIQUEIDENTIFIER`, `@idCorrelacion UNIQUEIDENTIFIER`.
 - **Parámetros de Salida**: `@mensajeUsuarioResultado`, `@mensajeTecnicoResultado`, `@estadoResultado`.
