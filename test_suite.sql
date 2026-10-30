@@ -1,4 +1,4 @@
-﻿USE [gestionasistenciadb];
+USE [gestionasistenciadb];
 GO
 
 SET NOCOUNT ON;
@@ -104,6 +104,7 @@ PRINT '======================================================================';
 :r /tmp/test/test_usp_registrar_fallo_notificacion.sql
 :r /tmp/test/test_usp_depurar_notificaciones_salientes.sql
 :r /tmp/test/test_notificacion_migracion_catalogo.sql
+:r /tmp/test/test_notif002a_plantillas_contacto.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN
