@@ -146,7 +146,9 @@ Esta documentación especifica la arquitectura, reglas de negocio, contrato de f
 - **Parámetros de Entrada**: `@idDocente UNIQUEIDENTIFIER`, `@idGrupo UNIQUEIDENTIFIER`, `@idCorrelacion UNIQUEIDENTIFIER`.
 - **Parámetros de Salida**: `@mensajeUsuarioResultado`, `@mensajeTecnicoResultado`, `@estadoResultado`.
 - **Códigos de Catálogo Consumidos**: `HOR_002`, `SYS_001`.
-- **Flujo de Ejecución**: Validaciones previas de existencia de docente y grupo, seguida de consulta de traslape horaria en `uv_horario`.
+- **Flujo de Ejecución**: Validación previa de existencia del docente (la del grupo la hace el caller; desde 2026-10-29 no exige que el grupo esté en el período vigente), seguida de consulta de traslape horaria en `uv_horario`: mismo día y período académico, franjas que se traslapan (`inicio1 < fin2 AND fin1 > inicio2`; las horas contiguas no son cruce) con otro grupo del que el docente es titular.
+- **Mensaje** (2026-10-29): `HOR_002` nombra el grupo en conflicto y la franja (p. ej. "Grupo 1 (Lunes 08:00-10:00)"); el técnico añade el `idGrupo` evaluado.
+- **Callers**: `usp_actualizar_grupo` (PASO 3C, cuando cambia el titular). Regla de John (2026-10-29): un docente no puede tener dos grupos a la misma hora. `usp_crear_grupo` no la invoca porque el grupo nace sin horario (`Horario.grupo` es FK a `Grupo`); el SP que en el futuro guarde horarios debe invocarla.
 
 ---
 

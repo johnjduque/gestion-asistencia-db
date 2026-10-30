@@ -66,6 +66,7 @@ PRINT '======================================================================';
 :r /tmp/test/test_usp_consultar_candidatos_docente_programa.sql
 :r /tmp/test/test_usp_actualizar_docente_programa.sql
 :r /tmp/test/test_usp_cambiar_estado_docente_programa.sql
+:r /tmp/test/test_cruce_horario_docente.sql
 :r /tmp/test/test_golden_path_immutability.sql
 :r /tmp/test/test_utc_d06_readonly_contract.sql
 :r /tmp/test/test_utc_d06_procedencia_temporal.sql
