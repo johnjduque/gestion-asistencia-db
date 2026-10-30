@@ -113,6 +113,20 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
+        -- PASO 3C: un docente no puede tener dos grupos a la misma hora. Si el titular cambia, los horarios
+        -- del grupo no pueden cruzarse con los de otro grupo del nuevo titular en el mismo período (HOR_002).
+        IF @estadoResultado = 1 AND @idDocente IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM [dbo].[uv_grupo] WHERE id = @idGrupoDefecto AND idDocente = @idDocenteDefecto)
+        BEGIN
+            EXEC dbo.usp_validar_cruce_horario_docente_interno
+                @idDocente = @idDocenteDefecto,
+                @idGrupo = @idGrupoDefecto,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
+
         -- PASO 4: Validar conflicto de unicidad de código
         IF @estadoResultado = 1 AND @codigo IS NOT NULL AND @codigo > 0
         BEGIN

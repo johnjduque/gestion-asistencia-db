@@ -50,12 +50,13 @@ Contiene la documentación oficial de:
   1. Validar `@idUsuarioEjecutor` e `@idCorrelacion`.
   2. Verificar autorización RBAC del ejecutor.
   3. Validar existencia del `idGrupo` en `dbo.Grupo`.
-  4. Si se especifica `@idDocente`, validar que el docente exista y esté activo en la institución.
+  4. Si se especifica `@idDocente`, validar que el docente exista y esté activo en la institución. Si el titular cambia, validar su vínculo activo con el programa (DOC_009) y que los horarios del grupo no se crucen con los de otro grupo suyo en el mismo período (`usp_validar_cruce_horario_docente_interno`, HOR_002).
   5. Validar que el cupo máximo no sea inferior a la cantidad de estudiantes actualmente matriculados en estado activo.
   6. Ejecutar `UPDATE` sobre `dbo.Grupo`.
   7. Retornar respuesta estructurada.
 - **Reglas de Negocio y Validaciones Específicas:**
   * El cupo máximo no puede reducirse por debajo del número de estudiantes con matrícula activa.
+  * Un docente no puede tener dos grupos a la misma hora (mismo día y período, franjas traslapadas; las horas contiguas se permiten). Sin cambio de titular no se revalida.
 - **Estado Resultante en la BD:** Datos del registro en `dbo.Grupo` modificados atómicamente.
 
 ---
@@ -528,7 +529,7 @@ Contiene la documentación oficial de:
 
 ### [SP-036] a [SP-057] - Procedimientos Internos de Validación y Seguridad (RBAC)
 
-* **`dbo.usp_validar_cruce_horario_docente_interno`**: Valida que un docente no tenga choques de horario en grupos activos simultáneos.
+* **`dbo.usp_validar_cruce_horario_docente_interno`**: Valida que un docente no tenga choques de horario con otro grupo suyo del mismo período (mismo día, franjas traslapadas). Lo invoca `usp_actualizar_grupo` al cambiar el titular.
 * **`dbo.usp_validar_cruce_horario_estudiante_interno`**: Verifica que las asignaturas/grupos del estudiante no colisionen en fecha y hora.
 * **`dbo.usp_validar_cupo_disponible_grupo_interno`**: Verifica que las matrículas activas en `EstudianteGrupo` sean menores a `cupoMaximo`.
 * **`dbo.usp_validar_docente_exista_por_id_interno`**: Verifica que el ID pertenezca a un docente válido y activo.

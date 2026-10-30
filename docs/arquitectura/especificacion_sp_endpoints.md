@@ -179,7 +179,7 @@
 
 ### Transacción 3.3: Asignar o Reasignar Docente a Grupo
 
-> **Estado (2026-10-29):** el docente del grupo se asigna hoy en `usp_crear_grupo` y `usp_actualizar_grupo`. El SP `usp_registrar_docente_en_grupo` y su interno se eliminaron por no tener uso. `usp_validar_cruce_horario_docente_interno` se conserva: la regla "un docente no puede tener dos grupos a la misma hora" sigue vigente y su integración en crear y actualizar grupo está en análisis.
+> **Estado (2026-10-29):** el docente del grupo se asigna hoy en `usp_crear_grupo` y `usp_actualizar_grupo`. El SP `usp_registrar_docente_en_grupo` y su interno se eliminaron por no tener uso. `usp_validar_cruce_horario_docente_interno` aplica la regla "un docente no puede tener dos grupos a la misma hora": `usp_actualizar_grupo` la invoca al cambiar el titular (HOR_002, HTTP 409). `usp_crear_grupo` no la necesita porque el grupo nace sin horario.
 
 - **Intención de negocio**: Asignar un nuevo docente titular a un grupo o transferir la titularidad.
 - **Atomicidad requerida**: Validar disponibilidad horaria del nuevo docente en todos los bloques del grupo antes de la reasignación.
@@ -403,7 +403,7 @@
 | Tabla | Transacción / Acción de Negocio | Procedimiento Almacenado (BD) | Método del Controlador (Backend) | Rol / Permiso Requerido | Descripción del procedimiento |
 |:---|:---|:---|:---|:---|:---|
 | `Grupo` | Crear grupo académico | `usp_crear_grupo` | `POST /api/v1/grupos` | `DOCENTE`, `COORDINADOR` | Valida existencia de asignatura. Resuelve periodo académico. Valida docente activo. Valida unicidad de código de grupo en asignatura/periodo. Inserta `Grupo` con contadores en 0. Invoca: `usp_validar_docente_exista_por_id_interno`. |
-| `Grupo` | Actualizar datos operativos del grupo | `usp_actualizar_grupo` | `PUT /api/v1/grupos/{id}` | `DOCENTE` (titular), `COORDINADOR` | Valida existencia del grupo. Valida docente si se modifica. Valida unicidad de código (excluyendo el propio grupo). Actualiza nombre, código y docente de forma granular (solo campos proporcionados). |
+| `Grupo` | Actualizar datos operativos del grupo | `usp_actualizar_grupo` | `PUT /api/v1/grupos/{id}` | `DOCENTE` (titular), `COORDINADOR` | Valida existencia del grupo. Valida docente si se modifica y, si cambia el titular, que no tenga otro grupo a la misma hora (HOR_002, HTTP 409). Valida unicidad de código (excluyendo el propio grupo). Actualiza nombre, código y docente de forma granular (solo campos proporcionados). |
 | `Asignatura` | Crear nueva asignatura en plan | `usp_crear_asignatura` | `POST /api/v1/coordinador/planes-estudio/{id}/asignaturas` | `COORDINADOR` (del programa) | Crea una asignatura vinculada a un `SemestrePlanEstudio`, resolviendo `Area` y `Componente` por nombre o ID. |
 | `Asignatura` | Actualizar datos de asignatura | `usp_actualizar_asignatura` | `PUT /api/v1/coordinador/planes-estudio/{planId}/asignaturas/{asigId}` | `COORDINADOR` (del programa) | Exige `@idUsuarioEjecutor` (GEN_002), perfil `COORDINADOR` (SEC_001) y que coordine el programa de la asignatura (SEC_002). Actualiza código, nombre y créditos de una asignatura existente. |
 | `Asignatura` | Alternar estado activo/inactivo | `usp_toggle_estado_asignatura` | `PATCH /api/v1/coordinador/asignaturas/{id}/estado` | `COORDINADOR` (del programa) | Exige `@idUsuarioEjecutor` (GEN_002), perfil `COORDINADOR` (SEC_001) y que coordine el programa de la asignatura (SEC_002). Valida existencia de la asignatura. Alterna el campo `estado` entre 1 y 0 atómicamente. |
@@ -480,7 +480,7 @@
 | `usp_validar_estudiante_pertenece_a_grupo_de_sesion_interno` | Validación | Valida que el estudiante esté inscrito en el grupo de la sesión | `usp_registrar_asistencias_sesion`, `usp_radicar_solicitud*` |
 | `usp_validar_registro_estudiante_en_grupo_interno` | Unicidad | Valida que el estudiante no esté ya matriculado en el grupo | `usp_registrar_estudiante_en_grupo_interno` |
 | `usp_validar_cruce_horario_estudiante_interno` | Concurrencia | Detecta solapamientos entre franjas horarias del estudiante | `usp_registrar_estudiante_en_grupo_interno` |
-| `usp_validar_cruce_horario_docente_interno` | Concurrencia | Detecta solapamientos entre franjas horarias del docente | Sin caller desde 2026-10-29 (se eliminó `usp_registrar_docente_en_grupo_interno`); se conserva para integrarla en la creación y actualización de grupos |
+| `usp_validar_cruce_horario_docente_interno` | Concurrencia | Detecta solapamientos entre franjas horarias del docente | `usp_actualizar_grupo` (al cambiar el titular, desde 2026-10-29) |
 | `usp_validar_horarios_grupo_interno` | Validación | Verifica que el grupo tenga franjas horarias configuradas | `usp_generar_sesiones_grupo` |
 | `usp_validar_fechas_periodo_academico_interno` | Validación | Valida coherencia y vigencia de fechas del periodo | `usp_generar_sesiones_grupo` |
 | `usp_validar_unicidad_usuario_interno` | Unicidad | Valida unicidad de correo y documento en `uv_usuario` | `usp_sincronizar_usuario_interno` |

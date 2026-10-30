@@ -69,7 +69,7 @@ USING (VALUES
 
     ('HOR_001', 'BUSINESS_ERROR', 'ALTO', 'No es posible realizar el registro. Existe un cruce de horario con otra asignatura.'),
     ('ERR_CRUCE_HORARIO_ESTUDIANTE', 'BUSINESS_ERROR', 'ALTO', 'No es posible realizar el registro. Existe un cruce de horario con otra asignatura.'),
-    ('HOR_002', 'BUSINESS_ERROR', 'ALTO', 'Existe un cruce de horario para el docente en la misma franja horaria.'),
+    ('HOR_002', 'BUSINESS_ERROR', 'ALTO', 'Existe un cruce de horario para el docente: ya tiene el grupo {} en la misma franja ({}).'),
     ('ERR_CRUCE_HORARIO_DOCENTE', 'BUSINESS_ERROR', 'ALTO', 'Existe un cruce de horario para el docente en la misma franja horaria.'),
 
     ('SES_001', 'BUSINESS_ERROR', 'MEDIO', 'La sesión de clase especificada no existe o no se encuentra activa.'),
@@ -183,7 +183,7 @@ USING (VALUES
 
     ('HOR_001', 'BUSINESS_ERROR', 'ALTO', 'Colisión horaria: Se detectó una superposición de horario para el estudiante en la misma franja: {}.'),
     ('ERR_CRUCE_HORARIO_ESTUDIANTE', 'BUSINESS_ERROR', 'ALTO', 'Cruce detectado en uv_horario para Estudiante con GrupoID: {}.'),
-    ('HOR_002', 'BUSINESS_ERROR', 'ALTO', 'Colisión horaria: Se detectó una superposición de horario para el docente en la misma franja: {}.'),
+    ('HOR_002', 'BUSINESS_ERROR', 'ALTO', 'Colisión horaria del docente con el grupo {} en la franja {}. GrupoID evaluado: {}.'),
     ('ERR_CRUCE_HORARIO_DOCENTE', 'BUSINESS_ERROR', 'ALTO', 'Cruce detectado en uv_horario para Docente con GrupoID: {}.'),
 
     ('SES_001', 'BUSINESS_ERROR', 'MEDIO', 'Error de búsqueda: Sesión no encontrada o cerrada en uv_sesion: {}.'),
