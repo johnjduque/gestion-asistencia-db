@@ -1,3 +1,4 @@
+-- Rollback de 09_eliminar_validar_grupo_docente_up.sql: restaura el SP tal como estaba en develop (950877d).
 USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;

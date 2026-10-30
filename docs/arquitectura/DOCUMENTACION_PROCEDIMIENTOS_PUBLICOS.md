@@ -107,7 +107,7 @@ Esta documentación especifica la arquitectura, reglas de negocio, contrato de f
 
 ### 3. `dbo.usp_registrar_asistencia_estudiante`
 
-> **ELIMINADO (2026-10-29):** este objeto se borró de &schema&& por no tener uso (migración &migrations&08_eliminar_codigo_sin_uso_up.sql&, work item &docs&work-items&BD-eliminar-codigo-sin-uso&&). El texto siguiente es histórico.
+> **ELIMINADO (2026-10-29):** este objeto se borró de `schema/` por no tener uso (migración `migrations/08_eliminar_codigo_sin_uso_up.sql`, work item `docs/work-items/BD-eliminar-codigo-sin-uso/`). El texto siguiente es histórico.
 - **Caso de Uso de Negocio**: Orquestador de registro manual de asistencia por estudiante. Permite a los docentes o administradores registrar o actualizar el estado de asistencia de un estudiante matriculado para una sesión específica.
 - **Parámetros de Entrada**:
   - `@idEstudianteGrupo UNIQUEIDENTIFIER`: ID de la matrícula del estudiante en el grupo.

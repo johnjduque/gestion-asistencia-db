@@ -11,7 +11,7 @@ Contiene la documentación oficial de:
 2. **55 Vistas (Views)**: Vistas de catálogo, vistas de proyección de identidad y vistas autorizadas por seguridad RBAC dinámicas (`uv_auth_*`).
 3. **15 Funciones (Functions)**: Funciones auxiliares de validación, consulta de parámetros y lectura de `SESSION_CONTEXT`.
 
-> **Inventario vigente (REC5, 2026-10-29):** `schema/` contiene hoy **147 procedimientos** (89 públicos y 58 `_interno`), **65 vistas** (13 `uv_auth_*`) y **14 funciones**. HU025 descartada eliminó el stub de prerrequisitos, y el 2026-10-29 se eliminaron 15 SP y 3 funciones sin uso (`migrations/08_eliminar_codigo_sin_uso_up.sql`); sus fichas quedan marcadas como ELIMINADO. Este documento conserva las fichas originales de los 57 SP base. El resto está documentado en:
+> **Inventario vigente (REC5, 2026-10-29):** `schema/` contiene hoy **146 procedimientos** (89 públicos y 57 `_interno`), **65 vistas** (13 `uv_auth_*`) y **14 funciones**. HU025 descartada eliminó el stub de prerrequisitos, y el 2026-10-29 se eliminaron 15 SP y 3 funciones sin uso (`migrations/08_eliminar_codigo_sin_uso_up.sql`), y el 2026-10-30 `usp_validar_grupo_exista_para_docente_interno` (`migrations/09_eliminar_validar_grupo_docente_up.sql`); sus fichas quedan marcadas como ELIMINADO. Este documento conserva las fichas originales de los 57 SP base. El resto está documentado en:
 > - `especificacion_sp_endpoints.md`: endpoint y rol de cada SP público (Addendum REC5);
 > - `DOCUMENTACION_PROCEDIMIENTOS_PUBLICOS.md` y `DOCUMENTACION_PROCEDIMIENTOS_INTERNOS.md`: fichas e índices REC5;
 > - los work items de cada HU (`docs/work-items/`).
@@ -292,7 +292,7 @@ Contiene la documentación oficial de:
 
 ### [SP-019] - `dbo.usp_registrar_asistencia_estudiante`
 
-> **ELIMINADO (2026-10-29):** este objeto se borró de &schema&& por no tener uso (migración &migrations&08_eliminar_codigo_sin_uso_up.sql&, work item &docs&work-items&BD-eliminar-codigo-sin-uso&&). El texto siguiente es histórico.
+> **ELIMINADO (2026-10-29):** este objeto se borró de `schema/` por no tener uso (migración `migrations/08_eliminar_codigo_sin_uso_up.sql`, work item `docs/work-items/BD-eliminar-codigo-sin-uso/`). El texto siguiente es histórico.
 - **Módulo / Alcance:** Control de Asistencia - Faltas Individuales
 - **Propósito de Negocio:** Registra la asistencia o inasistencia individual de un estudiante en una sesión.
 - **Entidades del MER Involucradas:** `Asistencia`, `DetalleAsistencia`, `EstudianteGrupo`, `Sesion`.
@@ -337,7 +337,7 @@ Contiene la documentación oficial de:
 
 ### [SP-022] - `dbo.usp_registrar_docente_en_grupo`
 
-> **ELIMINADO (2026-10-29):** este objeto se borró de &schema&& por no tener uso (migración &migrations&08_eliminar_codigo_sin_uso_up.sql&, work item &docs&work-items&BD-eliminar-codigo-sin-uso&&). El texto siguiente es histórico.
+> **ELIMINADO (2026-10-29):** este objeto se borró de `schema/` por no tener uso (migración `migrations/08_eliminar_codigo_sin_uso_up.sql`, work item `docs/work-items/BD-eliminar-codigo-sin-uso/`). El texto siguiente es histórico.
 - **Módulo / Alcance:** Matrícula y Asignación - Docentes
 - **Propósito de Negocio:** Asigna un docente a un grupo académico resolviendo cruces y validaciones de perfil.
 - **Entidades del MER Involucradas:** `Grupo`, `Docente`, `Usuario`.
@@ -366,7 +366,7 @@ Contiene la documentación oficial de:
 
 ### [SP-024] - `dbo.usp_registrar_docente_en_grupo_interno`
 
-> **ELIMINADO (2026-10-29):** este objeto se borró de &schema&& por no tener uso (migración &migrations&08_eliminar_codigo_sin_uso_up.sql&, work item &docs&work-items&BD-eliminar-codigo-sin-uso&&). El texto siguiente es histórico.
+> **ELIMINADO (2026-10-29):** este objeto se borró de `schema/` por no tener uso (migración `migrations/08_eliminar_codigo_sin_uso_up.sql`, work item `docs/work-items/BD-eliminar-codigo-sin-uso/`). El texto siguiente es histórico.
 - **Módulo / Alcance:** Asignación Interna - Helper
 - **Propósito de Negocio:** Procedimiento interno auxiliar para vincular la clave foránea del docente al grupo.
 - **Entidades del MER Involucradas:** `Grupo`, `Docente`.
@@ -432,7 +432,7 @@ Contiene la documentación oficial de:
 
 ### [SP-029] - `dbo.usp_resolver_solicitud_matricula`
 
-> **ELIMINADO (2026-10-29):** este objeto se borró de &schema&& por no tener uso (migración &migrations&08_eliminar_codigo_sin_uso_up.sql&, work item &docs&work-items&BD-eliminar-codigo-sin-uso&&). El texto siguiente es histórico.
+> **ELIMINADO (2026-10-29):** este objeto se borró de `schema/` por no tener uso (migración `migrations/08_eliminar_codigo_sin_uso_up.sql`, work item `docs/work-items/BD-eliminar-codigo-sin-uso/`). El texto siguiente es histórico.
 - **Módulo / Alcance:** Solicitudes de Matrícula - Aprobación
 - **Propósito de Negocio:** Permite al docente o coordinador aprobar o rechazar una solicitud de matrícula autónoma de estudiante.
 - **Entidades del MER Involucradas:** `EstudianteGrupo`.
@@ -537,7 +537,7 @@ Contiene la documentación oficial de:
 * **`dbo.usp_validar_estudiante_grupo_exista_interno`** (eliminado el 2026-10-29, sin uso): confirmaba la existencia del registro de matrícula `EstudianteGrupo`.
 * **`dbo.usp_validar_estudiante_pertenece_a_grupo_de_sesion_interno`**: Valida si el estudiante pertenece activamente al grupo de la sesión.
 * **`dbo.usp_validar_fechas_periodo_academico_interno`**: Valida que la fecha de inicio sea menor a la fecha fin del período.
-* **`dbo.usp_validar_grupo_exista_para_docente_interno`**: Verifica que el grupo esté asignado al docente especificado.
+* **`dbo.usp_validar_grupo_exista_para_docente_interno`** (eliminado el 2026-10-30, sin callers): verificaba que el grupo existiera y estuviera en el período vigente.
 * **`dbo.usp_validar_grupo_exista_por_id_interno`**: Confirma la existencia del grupo.
 * **`dbo.usp_validar_horarios_grupo_interno`**: Valida la congruencia horaria configurada para el grupo.
 * **`dbo.usp_validar_id_correlacion_esta_presente_interno`**: Valida la presencia de `@idCorrelacion` (Retorna `GEN_002` si es NULL).
