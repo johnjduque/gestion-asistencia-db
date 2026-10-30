@@ -47,7 +47,7 @@ Esta documentación especifica la arquitectura, reglas de negocio, contrato de f
 
 ### 2. `dbo.usp_registrar_docente_en_grupo_interno`
 
-> **ELIMINADO (2026-10-29):** este objeto se borró de &schema&& por no tener uso (migración &migrations&08_eliminar_codigo_sin_uso_up.sql&, work item &docs&work-items&BD-eliminar-codigo-sin-uso&&). El texto siguiente es histórico.
+> **ELIMINADO (2026-10-29):** este objeto se borró de `schema/` por no tener uso (migración `migrations/08_eliminar_codigo_sin_uso_up.sql`, work item `docs/work-items/BD-eliminar-codigo-sin-uso/`). El texto siguiente es histórico.
 - **Propósito**: Vincula o actualiza el docente asignado a un grupo académico.
 - **Parámetros de Entrada**:
   - `@idDocente UNIQUEIDENTIFIER`
@@ -179,7 +179,7 @@ Esta documentación especifica la arquitectura, reglas de negocio, contrato de f
 
 ### 12. `dbo.usp_validar_estudiante_grupo_exista_interno`
 
-> **ELIMINADO (2026-10-29):** este objeto se borró de &schema&& por no tener uso (migración &migrations&08_eliminar_codigo_sin_uso_up.sql&, work item &docs&work-items&BD-eliminar-codigo-sin-uso&&). El texto siguiente es histórico.
+> **ELIMINADO (2026-10-29):** este objeto se borró de `schema/` por no tener uso (migración `migrations/08_eliminar_codigo_sin_uso_up.sql`, work item `docs/work-items/BD-eliminar-codigo-sin-uso/`). El texto siguiente es histórico.
 - **Propósito**: Valida la existencia y estado activo (`'A'`) de un registro de matrícula `EstudianteGrupo`.
 - **Parámetros de Entrada**: `@idEstudianteGrupo UNIQUEIDENTIFIER`, `@idCorrelacion UNIQUEIDENTIFIER`.
 - **Parámetros de Salida**: `@mensajeUsuarioResultado`, `@mensajeTecnicoResultado`, `@estadoResultado`.
@@ -204,6 +204,8 @@ Esta documentación especifica la arquitectura, reglas de negocio, contrato de f
 ---
 
 ### 15. `dbo.usp_validar_grupo_exista_para_docente_interno`
+
+> **ELIMINADO (2026-10-30):** este interno se borró de `schema/` porque quedó sin callers (migración `migrations/09_eliminar_validar_grupo_docente_up.sql`, work item `docs/work-items/BD-eliminar-validar-grupo-docente/`). Exigía que el grupo estuviera en el período vigente. El texto siguiente es histórico.
 - **Propósito**: Valida que un grupo exista en `uv_grupo`, tenga un periodo académico asignado y esté habilitado para docentes.
 - **Parámetros de Entrada**: `@idGrupo UNIQUEIDENTIFIER`, `@idCorrelacion UNIQUEIDENTIFIER`.
 - **Parámetros de Salida**: `@mensajeUsuarioResultado`, `@mensajeTecnicoResultado`, `@estadoResultado`.

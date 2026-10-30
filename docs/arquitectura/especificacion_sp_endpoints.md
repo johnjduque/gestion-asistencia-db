@@ -84,13 +84,13 @@
 - **Atomicidad requerida**: El cálculo de `MAX(numero) + 1` y la inserción deben ocurrir en la misma transacción con bloqueo pesimista para evitar correlativos duplicados bajo concurrencia.
 - **Lógica de validación**:
   1. Validar correlación (`usp_validar_id_correlacion_esta_presente_interno`).
-  2. Validar que el grupo exista y pertenezca al docente titular (`usp_validar_grupo_exista_para_docente_interno`).
+  2. Validar que el grupo exista (`usp_validar_grupo_exista_por_id_interno`) y la titularidad del ejecutor (`usp_validar_titularidad_jerarquica_interno`).
   3. Calcular `@numeroSiguiente = MAX(numero) + 1` con `WITH (UPDLOCK, HOLDLOCK)` sobre `dbo.Sesion`.
   4. Generar código `SES-XX`.
   5. Insertar en `dbo.Sesion`.
 - **Procedimientos internos invocados**:
   - `usp_validar_id_correlacion_esta_presente_interno`
-  - `usp_validar_grupo_exista_para_docente_interno`
+  - `usp_validar_titularidad_jerarquica_interno`
 
 ### Transacción 2.2: Cierre de Sesión Legacy No Soportado
 
@@ -103,7 +103,7 @@
 - **Procedimientos internos invocados**:
   - `usp_validar_id_correlacion_esta_presente_interno`
   - `usp_validar_sesion_exista_por_id_interno`
-  - `usp_validar_grupo_exista_para_docente_interno`
+  - `usp_validar_titularidad_jerarquica_interno`
   - `usp_marcar_ausencias_pendientes_sesion_interno` *(nuevo)*
 
 ### Transacción 2.3: Cancelar Sesión con Motivo
@@ -118,7 +118,7 @@
 - **Procedimientos internos invocados**:
   - `usp_validar_id_correlacion_esta_presente_interno`
   - `usp_validar_sesion_exista_por_id_interno`
-  - `usp_validar_grupo_exista_para_docente_interno`
+  - `usp_validar_titularidad_jerarquica_interno`
 
 ### Transacción 2.4: Generar Sesiones Masivas del Semestre
 
@@ -476,7 +476,6 @@
 | `usp_validar_estudiante_exista_por_id_interno` | Validación | Comprueba existencia y estado activo del estudiante | `usp_registrar_estudiante_en_grupo_interno`, `usp_radicar_solicitud*` |
 | `usp_validar_docente_exista_por_id_interno` | Validación | Comprueba existencia y estado activo del docente | `usp_crear_grupo`, `usp_actualizar_grupo`, `usp_registrar_docente*` |
 | `usp_validar_grupo_exista_por_id_interno` | Validación | Comprueba existencia y habilitación del grupo | `usp_registrar_estudiante*`, `usp_generar_sesiones*` |
-| `usp_validar_grupo_exista_para_docente_interno` | Validación RBAC | Valida que el grupo pertenezca al docente titular | `usp_crear_sesion`, `usp_cerrar_sesion`, `usp_registrar_docente*` |
 | `usp_validar_estudiante_pertenece_a_grupo_de_sesion_interno` | Validación | Valida que el estudiante esté inscrito en el grupo de la sesión | `usp_registrar_asistencias_sesion`, `usp_radicar_solicitud*` |
 | `usp_validar_registro_estudiante_en_grupo_interno` | Unicidad | Valida que el estudiante no esté ya matriculado en el grupo | `usp_registrar_estudiante_en_grupo_interno` |
 | `usp_validar_cruce_horario_estudiante_interno` | Concurrencia | Detecta solapamientos entre franjas horarias del estudiante | `usp_registrar_estudiante_en_grupo_interno` |
