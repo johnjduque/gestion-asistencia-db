@@ -36,7 +36,7 @@ Esta documentación establece las reglas de arquitectura y custodia jerárquica 
 
 ### A. Administrador (`AD`)
 * **Dominio Permitido**: Gestión de **Decanos**, **Facultades**, **Periodos Académicos** e **Institución**.
-* **Prohibición de Sobreachipamiento (Out of Scope)**: El Administrador **NO** debe ser incluido en la validación RBAC de procedimientos o endpoints pertenecientes a niveles inferiores de la jerarquía (ej. `usp_registrar_estudiante_en_grupo`, `usp_vincular_docente_programa`, `usp_registrar_asistencia_estudiante`).
+* **Prohibición de Sobreachipamiento (Out of Scope)**: El Administrador **NO** debe ser incluido en la validación RBAC de procedimientos o endpoints pertenecientes a niveles inferiores de la jerarquía (ej. `usp_registrar_estudiante_en_grupo`, `usp_vincular_docente_programa`, `usp_registrar_asistencias_sesion`).
 
 ### B. Decano (`DE`)
 * **Dominio Permitido**: Gestión de **Facultad a su cargo**, **Programas Académicos** y **Coordinadores**.
