@@ -21,7 +21,7 @@ AS
     DECLARE @idGrupoDefecto       UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idGrupo, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
 
     DECLARE @nombreGrupoConflicto NVARCHAR(200);
-    DECLARE @diaConflicto         NVARCHAR(50);
+    DECLARE @franjaConflicto      NVARCHAR(100);
 
     -- Inicialización de respuesta desde parámetros del catálogo
     SELECT 
@@ -40,7 +40,9 @@ BEGIN
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- PASO 2: Validaciones previas de existencia de docente y grupo
+        -- PASO 2: Validación previa de existencia del docente. La existencia del grupo la valida el caller
+        -- (usp_actualizar_grupo): no se exige que el grupo esté en el período vigente, para poder cambiar el
+        -- titular de grupos de períodos futuros o pasados.
         IF @estadoResultado = 1 
         BEGIN
             EXEC dbo.usp_validar_docente_exista_por_id_interno 
@@ -51,23 +53,14 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
-        IF @estadoResultado = 1 
-        BEGIN
-            EXEC dbo.usp_validar_grupo_exista_para_docente_interno 
-                @idGrupo = @idGrupoDefecto, 
-                @idCorrelacion = @idCorrelacionDefecto, 
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
-                @estadoResultado = @estadoResultado OUTPUT;
-        END
-
-        -- PASO 3: Detección de colisión / cruce de horario del docente
+        -- PASO 3: Detección de colisión / cruce de horario del docente: mismo día y período, franjas que se
+        -- traslapan (las horas contiguas, p. ej. 08-10 y 10-12, no son cruce). El mensaje nombra el grupo y la franja.
         IF @estadoResultado = 1 
         BEGIN
             SELECT TOP 1 
                 @estadoResultado = 0,
                 @nombreGrupoConflicto = gExistente.nombre,
-                @diaConflicto = hNuevo.nombreDia
+                @franjaConflicto = CONCAT(hExistente.nombreDia, ' ', CONVERT(CHAR(5), hExistente.horaInicio, 108), '-', CONVERT(CHAR(5), hExistente.horaFin, 108))
             FROM dbo.uv_horario hNuevo
             INNER JOIN dbo.uv_horario hExistente ON hNuevo.idDia = hExistente.idDia 
                 AND hNuevo.idPeriodoAcademico = hExistente.idPeriodoAcademico
@@ -76,13 +69,16 @@ BEGIN
                 AND gExistente.idDocente = @idDocenteDefecto
                 AND hNuevo.idGrupo <> hExistente.idGrupo
                 AND hNuevo.horaInicio < hExistente.horaFin
-                AND hNuevo.horaFin > hExistente.horaInicio;
+                AND hNuevo.horaFin > hExistente.horaInicio
+            ORDER BY gExistente.nombre, hExistente.horaInicio;
 
             IF @estadoResultado = 0
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
                     @p_codigo = 'HOR_002',
-                    @p_param1 = @idGrupoDefecto,
+                    @p_param1 = @nombreGrupoConflicto,
+                    @p_param2 = @franjaConflicto,
+                    @p_param3 = @idGrupoDefecto,
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 

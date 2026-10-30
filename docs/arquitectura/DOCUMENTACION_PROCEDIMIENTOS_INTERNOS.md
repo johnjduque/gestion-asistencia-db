@@ -40,12 +40,14 @@ Esta documentación especifica la arquitectura, reglas de negocio, contrato de f
 - **Flujo de Ejecución**:
   1. PASO 1: Validación de `@idCorrelacionDefecto`.
   2. PASO 2: Invocación a `usp_validar_tipo_identificacion_exista_por_id_interno` y `usp_validar_unicidad_usuario_interno`.
-  3. PASO 3: Validación de formato con UFNs (`ufn_validar_numero`, `ufn_validar_texto`, `ufn_validar_correo`, `ufn_validar_password`).
+  3. PASO 3: Validación de formato con UFNs (`ufn_validar_numero`, `ufn_validar_texto`, `ufn_validar_correo`).
   4. PASO 4: Inserción final en `dbo.Usuario`.
 
 ---
 
 ### 2. `dbo.usp_registrar_docente_en_grupo_interno`
+
+> **ELIMINADO (2026-10-29):** este objeto se borró de `schema/` por no tener uso (migración `migrations/08_eliminar_codigo_sin_uso_up.sql`, work item `docs/work-items/BD-eliminar-codigo-sin-uso/`). El texto siguiente es histórico.
 - **Propósito**: Vincula o actualiza el docente asignado a un grupo académico.
 - **Parámetros de Entrada**:
   - `@idDocente UNIQUEIDENTIFIER`
@@ -96,7 +98,7 @@ Esta documentación especifica la arquitectura, reglas de negocio, contrato de f
 - **Parámetros de Entrada**:
   - `@idEstudiante UNIQUEIDENTIFIER`
   - `@idSesion UNIQUEIDENTIFIER`
-  - `@codigoEstado NVARCHAR(5)`: código canónico de `dbo.RazonCausa` (`'AN'`, `'SJC'`, `'EX'`). Alias legacy **solo internos**: `'A'` → `AN` y `'F'` → `SJC` (callers `usp_registrar_asistencia_estudiante*`); el batch público los rechaza antes de llegar aquí.
+  - `@codigoEstado NVARCHAR(5)`: código canónico de `dbo.RazonCausa` (`'AN'`, `'SJC'`, `'EX'`). Alias legacy **solo internos**: `'A'` → `AN` y `'F'` → `SJC` (caller `usp_registrar_asistencia_estudiante_autonomo`); el batch público los rechaza antes de llegar aquí.
   - `@idCorrelacion UNIQUEIDENTIFIER`
 - **Parámetros de Salida**: `@mensajeUsuarioResultado`, `@mensajeTecnicoResultado`, `@estadoResultado`.
 - **Códigos de Catálogo Consumidos**: `SES_001`, `EST_004`, `RC_001`, `GEN_004`, `SYS_001`.
@@ -144,7 +146,9 @@ Esta documentación especifica la arquitectura, reglas de negocio, contrato de f
 - **Parámetros de Entrada**: `@idDocente UNIQUEIDENTIFIER`, `@idGrupo UNIQUEIDENTIFIER`, `@idCorrelacion UNIQUEIDENTIFIER`.
 - **Parámetros de Salida**: `@mensajeUsuarioResultado`, `@mensajeTecnicoResultado`, `@estadoResultado`.
 - **Códigos de Catálogo Consumidos**: `HOR_002`, `SYS_001`.
-- **Flujo de Ejecución**: Validaciones previas de existencia de docente y grupo, seguida de consulta de traslape horaria en `uv_horario`.
+- **Flujo de Ejecución**: Validación previa de existencia del docente (la del grupo la hace el caller; desde 2026-10-29 no exige que el grupo esté en el período vigente), seguida de consulta de traslape horaria en `uv_horario`: mismo día y período académico, franjas que se traslapan (`inicio1 < fin2 AND fin1 > inicio2`; las horas contiguas no son cruce) con otro grupo del que el docente es titular.
+- **Mensaje** (2026-10-29): `HOR_002` nombra el grupo en conflicto y la franja (p. ej. "Grupo 1 (Lunes 08:00-10:00)"); el técnico añade el `idGrupo` evaluado.
+- **Callers**: `usp_actualizar_grupo` (PASO 3C, cuando cambia el titular). Regla de John (2026-10-29): un docente no puede tener dos grupos a la misma hora. `usp_crear_grupo` no la invoca porque el grupo nace sin horario (`Horario.grupo` es FK a `Grupo`); el SP que en el futuro guarde horarios debe invocarla.
 
 ---
 
@@ -174,6 +178,8 @@ Esta documentación especifica la arquitectura, reglas de negocio, contrato de f
 ---
 
 ### 12. `dbo.usp_validar_estudiante_grupo_exista_interno`
+
+> **ELIMINADO (2026-10-29):** este objeto se borró de `schema/` por no tener uso (migración `migrations/08_eliminar_codigo_sin_uso_up.sql`, work item `docs/work-items/BD-eliminar-codigo-sin-uso/`). El texto siguiente es histórico.
 - **Propósito**: Valida la existencia y estado activo (`'A'`) de un registro de matrícula `EstudianteGrupo`.
 - **Parámetros de Entrada**: `@idEstudianteGrupo UNIQUEIDENTIFIER`, `@idCorrelacion UNIQUEIDENTIFIER`.
 - **Parámetros de Salida**: `@mensajeUsuarioResultado`, `@mensajeTecnicoResultado`, `@estadoResultado`.
@@ -198,6 +204,8 @@ Esta documentación especifica la arquitectura, reglas de negocio, contrato de f
 ---
 
 ### 15. `dbo.usp_validar_grupo_exista_para_docente_interno`
+
+> **ELIMINADO (2026-10-30):** este interno se borró de `schema/` porque quedó sin callers (migración `migrations/09_eliminar_validar_grupo_docente_up.sql`, work item `docs/work-items/BD-eliminar-validar-grupo-docente/`). Exigía que el grupo estuviera en el período vigente. El texto siguiente es histórico.
 - **Propósito**: Valida que un grupo exista en `uv_grupo`, tenga un periodo académico asignado y esté habilitado para docentes.
 - **Parámetros de Entrada**: `@idGrupo UNIQUEIDENTIFIER`, `@idCorrelacion UNIQUEIDENTIFIER`.
 - **Parámetros de Salida**: `@mensajeUsuarioResultado`, `@mensajeTecnicoResultado`, `@estadoResultado`.

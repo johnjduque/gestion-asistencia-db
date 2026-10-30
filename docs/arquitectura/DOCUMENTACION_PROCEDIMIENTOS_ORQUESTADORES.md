@@ -205,6 +205,8 @@ Esta documentación especifica la arquitectura, reglas de negocio, contrato de f
 ---
 
 ### 10. `dbo.usp_registrar_asistencia_estudiante`
+
+> **ELIMINADO (2026-10-29):** este objeto se borró de `schema/` por no tener uso (migración `migrations/08_eliminar_codigo_sin_uso_up.sql`, work item `docs/work-items/BD-eliminar-codigo-sin-uso/`). El texto siguiente es histórico.
 - **Propósito**: Registra la marca de asistencia de un estudiante a una sesión de clase presencial u homologada.
 - **Parámetros de Entrada**:
   - `@idSesion UNIQUEIDENTIFIER`, `@idEstudiante UNIQUEIDENTIFIER`, `@idEstadoAsistencia UNIQUEIDENTIFIER`

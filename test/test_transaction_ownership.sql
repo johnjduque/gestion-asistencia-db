@@ -50,35 +50,6 @@ PRINT 'TEST_PASS:OWNERSHIP_STUDENT';
 
 BEGIN TRANSACTION;
 BEGIN TRY
-    DECLARE @beforeDoc INT = @@TRANCOUNT;
-    DECLARE @correoDoc NVARCHAR(255) = N'ownership.docente@test.local';
-    DECLARE @corrDoc UNIQUEIDENTIFIER = NEWID();
-
-    EXEC dbo.usp_registrar_docente_en_grupo
-        @numeroIdentificacion = 935000002,
-        @primerApellido = N'Ownership',
-        @segundoApellido = N'Docente',
-        @primerNombre = N'QA',
-        @segundoNombre = N'Test',
-        @correo = @correoDoc,
-        @password = N'HashBackend_QaOwnership1234567890',
-        @idGrupo = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-        @idCorrelacion = @corrDoc,
-        @idUsuarioEjecutor = @coordinatorUser;
-
-    IF @@TRANCOUNT <> @beforeDoc THROW 51505, 'TEST FAILED: docente hizo rollback/commit total de transaccion externa.', 1;
-    IF EXISTS (SELECT 1 FROM dbo.Usuario WHERE correo = @correoDoc) THROW 51506, 'TEST FAILED: docente dejo Usuario parcial tras rollback a savepoint.', 1;
-END TRY
-BEGIN CATCH
-    IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
-    THROW;
-END CATCH
-ROLLBACK TRANSACTION;
-PRINT 'TEST PASS: ownership docente outer transaction preserved, savepoint rollback parcial.';
-PRINT 'TEST_PASS:OWNERSHIP_TEACHER';
-
-BEGIN TRANSACTION;
-BEGIN TRY
     DECLARE @beforeCoord INT = @@TRANCOUNT;
     DECLARE @correoCoord NVARCHAR(100) = N'ownership.coordinador@test.local';
     DECLARE @corrCoord UNIQUEIDENTIFIER = NEWID();

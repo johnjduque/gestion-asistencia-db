@@ -234,18 +234,8 @@ WHERE SCHEMA_NAME(sp.schema_id) = 'dbo'
   AND sp.name NOT IN ('usp_reservar_notificaciones_salientes', 'usp_depurar_notificaciones_salientes')
   AND sp.name <> 'usp_consultar_grupos_paginado'
   AND sp.name NOT IN ('usp_consultar_archivo_soporte_autorizado', 'usp_consultar_solicitudes_revision_docente', 'usp_consultar_solicitudes_revision_estudiante', 'usp_consultar_destinatarios_retiro_estudiante_grupo', 'usp_resolver_solicitud_ingreso_grupo', 'usp_consultar_solicitudes_ingreso_grupo_docente', 'usp_consultar_solicitudes_ingreso_estudiante', 'usp_consultar_perfil_usuario', 'usp_consultar_oferta_grupos_estudiante', 'usp_consultar_destinatarios_solicitud_ingreso_grupo', 'usp_consultar_detalle_solicitud_revision_docente', 'usp_consultar_programas_academicos', 'usp_consultar_docentes_programa', 'usp_consultar_historial_grupos_docente_programa', 'usp_consultar_resumen_docentes_programa', 'usp_consultar_candidatos_docente_programa', 'usp_actualizar_coordinador', 'usp_cambiar_estado_coordinador', 'usp_consultar_kpis_coordinador', 'usp_consultar_alerta_temprana_programa', 'usp_consultar_bitacora_estudiante_programa', 'usp_consultar_ficha_estudiante_programa', 'usp_consultar_resumen_asistencia_estudiante_programa', 'usp_consultar_kpis_decano', 'usp_consultar_comparativa_programas_facultad', 'usp_consultar_aforo_grupos_facultad', 'usp_consultar_kpis_institucion', 'usp_consultar_comparativa_facultades', 'usp_consultar_tendencia_ausentismo')
-  AND sp.name <> 'usp_consultar_estudiantes_paginado'
-  AND sp.name <> 'usp_consultar_estudiantes_grupo_paginado'
-  AND sp.name <> 'usp_consultar_estudiante_por_id'
-  AND sp.name <> 'usp_consultar_docentes_paginado'
-  AND sp.name <> 'usp_consultar_docente_por_id'
   AND sp.name <> 'usp_consultar_sesiones_grupo_paginado'
   AND sp.name <> 'usp_consultar_asistencias_sesion_paginado'
-  AND sp.name <> 'usp_consultar_asistencias_estudiante_paginado'
-  AND sp.name <> 'usp_consultar_asignaturas_paginado'
-  AND sp.name <> 'usp_consultar_programas_paginado'
-  AND sp.name <> 'usp_consultar_facultades_paginado'
-  AND sp.name <> 'usp_consultar_solicitudes_revision_asistencia_paginado'
   AND sp.name NOT IN ('usp_consultar_estudiantes_facultad_paginado', 'usp_consultar_estudiante_facultad_detalle', 'usp_consultar_estructura_facultad', 'usp_consultar_sesiones_facultad_paginado')
   AND sp.name <> 'usp_establecer_contexto_usuario_ejecutor'
   AND d.error_number IS NOT NULL;
@@ -261,18 +251,8 @@ WHERE SCHEMA_NAME(sp.schema_id) = 'dbo'
   AND sp.name NOT IN ('usp_reservar_notificaciones_salientes', 'usp_depurar_notificaciones_salientes')
   AND sp.name <> 'usp_consultar_grupos_paginado'
   AND sp.name NOT IN ('usp_consultar_archivo_soporte_autorizado', 'usp_consultar_solicitudes_revision_docente', 'usp_consultar_solicitudes_revision_estudiante', 'usp_consultar_destinatarios_retiro_estudiante_grupo', 'usp_resolver_solicitud_ingreso_grupo', 'usp_consultar_solicitudes_ingreso_grupo_docente', 'usp_consultar_solicitudes_ingreso_estudiante', 'usp_consultar_perfil_usuario', 'usp_consultar_oferta_grupos_estudiante', 'usp_consultar_destinatarios_solicitud_ingreso_grupo', 'usp_consultar_detalle_solicitud_revision_docente', 'usp_consultar_programas_academicos', 'usp_consultar_docentes_programa', 'usp_consultar_historial_grupos_docente_programa', 'usp_consultar_resumen_docentes_programa', 'usp_consultar_candidatos_docente_programa', 'usp_actualizar_coordinador', 'usp_cambiar_estado_coordinador', 'usp_consultar_kpis_coordinador', 'usp_consultar_alerta_temprana_programa', 'usp_consultar_bitacora_estudiante_programa', 'usp_consultar_ficha_estudiante_programa', 'usp_consultar_resumen_asistencia_estudiante_programa', 'usp_consultar_kpis_decano', 'usp_consultar_comparativa_programas_facultad', 'usp_consultar_aforo_grupos_facultad', 'usp_consultar_kpis_institucion', 'usp_consultar_comparativa_facultades', 'usp_consultar_tendencia_ausentismo')
-  AND sp.name <> 'usp_consultar_estudiantes_paginado'
-  AND sp.name <> 'usp_consultar_estudiantes_grupo_paginado'
-  AND sp.name <> 'usp_consultar_estudiante_por_id'
-  AND sp.name <> 'usp_consultar_docentes_paginado'
-  AND sp.name <> 'usp_consultar_docente_por_id'
   AND sp.name <> 'usp_consultar_sesiones_grupo_paginado'
   AND sp.name <> 'usp_consultar_asistencias_sesion_paginado'
-  AND sp.name <> 'usp_consultar_asistencias_estudiante_paginado'
-  AND sp.name <> 'usp_consultar_asignaturas_paginado'
-  AND sp.name <> 'usp_consultar_programas_paginado'
-  AND sp.name <> 'usp_consultar_facultades_paginado'
-  AND sp.name <> 'usp_consultar_solicitudes_revision_asistencia_paginado'
   AND sp.name NOT IN ('usp_consultar_estudiantes_facultad_paginado', 'usp_consultar_estudiante_facultad_detalle', 'usp_consultar_estructura_facultad', 'usp_consultar_sesiones_facultad_paginado')
   AND sp.name <> 'usp_establecer_contexto_usuario_ejecutor'
   AND d.error_number IS NULL
@@ -290,18 +270,8 @@ WHERE SCHEMA_NAME(sp.schema_id) = 'dbo'
   AND sp.name NOT IN ('usp_reservar_notificaciones_salientes', 'usp_depurar_notificaciones_salientes')
   AND sp.name <> 'usp_consultar_grupos_paginado'
   AND sp.name NOT IN ('usp_consultar_archivo_soporte_autorizado', 'usp_consultar_solicitudes_revision_docente', 'usp_consultar_solicitudes_revision_estudiante', 'usp_consultar_destinatarios_retiro_estudiante_grupo', 'usp_resolver_solicitud_ingreso_grupo', 'usp_consultar_solicitudes_ingreso_grupo_docente', 'usp_consultar_solicitudes_ingreso_estudiante', 'usp_consultar_perfil_usuario', 'usp_consultar_oferta_grupos_estudiante', 'usp_consultar_destinatarios_solicitud_ingreso_grupo', 'usp_consultar_detalle_solicitud_revision_docente', 'usp_consultar_programas_academicos', 'usp_consultar_docentes_programa', 'usp_consultar_historial_grupos_docente_programa', 'usp_consultar_resumen_docentes_programa', 'usp_consultar_candidatos_docente_programa', 'usp_actualizar_coordinador', 'usp_cambiar_estado_coordinador', 'usp_consultar_kpis_coordinador', 'usp_consultar_alerta_temprana_programa', 'usp_consultar_bitacora_estudiante_programa', 'usp_consultar_ficha_estudiante_programa', 'usp_consultar_resumen_asistencia_estudiante_programa', 'usp_consultar_kpis_decano', 'usp_consultar_comparativa_programas_facultad', 'usp_consultar_aforo_grupos_facultad', 'usp_consultar_kpis_institucion', 'usp_consultar_comparativa_facultades', 'usp_consultar_tendencia_ausentismo')
-  AND sp.name <> 'usp_consultar_estudiantes_paginado'
-  AND sp.name <> 'usp_consultar_estudiantes_grupo_paginado'
-  AND sp.name <> 'usp_consultar_estudiante_por_id'
-  AND sp.name <> 'usp_consultar_docentes_paginado'
-  AND sp.name <> 'usp_consultar_docente_por_id'
   AND sp.name <> 'usp_consultar_sesiones_grupo_paginado'
   AND sp.name <> 'usp_consultar_asistencias_sesion_paginado'
-  AND sp.name <> 'usp_consultar_asistencias_estudiante_paginado'
-  AND sp.name <> 'usp_consultar_asignaturas_paginado'
-  AND sp.name <> 'usp_consultar_programas_paginado'
-  AND sp.name <> 'usp_consultar_facultades_paginado'
-  AND sp.name <> 'usp_consultar_solicitudes_revision_asistencia_paginado'
   AND sp.name NOT IN ('usp_consultar_estudiantes_facultad_paginado', 'usp_consultar_estudiante_facultad_detalle', 'usp_consultar_estructura_facultad', 'usp_consultar_sesiones_facultad_paginado')
   AND sp.name <> 'usp_establecer_contexto_usuario_ejecutor'
   AND d.error_number IS NULL

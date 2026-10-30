@@ -138,7 +138,7 @@ Total de códigos: **131**.
 | Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
 |---|---|---|---|---|---|
 | `HOR_001` | BUSINESS_ERROR | ALTO | No es posible realizar el registro. Existe un cruce de horario con otra asignatura. | Colisión horaria: Se detectó una superposición de horario para el estudiante en la misma franja: {}. | `04_mensaje.sql` |
-| `HOR_002` | BUSINESS_ERROR | ALTO | Existe un cruce de horario para el docente en la misma franja horaria. | Colisión horaria: Se detectó una superposición de horario para el docente en la misma franja: {}. | `04_mensaje.sql` |
+| `HOR_002` | BUSINESS_ERROR | ALTO | Existe un cruce de horario para el docente: ya tiene el grupo {} en la misma franja ({}). | Colisión horaria del docente con el grupo {} en la franja {}. GrupoID evaluado: {}. | `04_mensaje.sql` |
 
 ## IAM
 

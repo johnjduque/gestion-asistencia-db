@@ -84,13 +84,13 @@
 - **Atomicidad requerida**: El cálculo de `MAX(numero) + 1` y la inserción deben ocurrir en la misma transacción con bloqueo pesimista para evitar correlativos duplicados bajo concurrencia.
 - **Lógica de validación**:
   1. Validar correlación (`usp_validar_id_correlacion_esta_presente_interno`).
-  2. Validar que el grupo exista y pertenezca al docente titular (`usp_validar_grupo_exista_para_docente_interno`).
+  2. Validar que el grupo exista (`usp_validar_grupo_exista_por_id_interno`) y la titularidad del ejecutor (`usp_validar_titularidad_jerarquica_interno`).
   3. Calcular `@numeroSiguiente = MAX(numero) + 1` con `WITH (UPDLOCK, HOLDLOCK)` sobre `dbo.Sesion`.
   4. Generar código `SES-XX`.
   5. Insertar en `dbo.Sesion`.
 - **Procedimientos internos invocados**:
   - `usp_validar_id_correlacion_esta_presente_interno`
-  - `usp_validar_grupo_exista_para_docente_interno`
+  - `usp_validar_titularidad_jerarquica_interno`
 
 ### Transacción 2.2: Cierre de Sesión Legacy No Soportado
 
@@ -103,7 +103,7 @@
 - **Procedimientos internos invocados**:
   - `usp_validar_id_correlacion_esta_presente_interno`
   - `usp_validar_sesion_exista_por_id_interno`
-  - `usp_validar_grupo_exista_para_docente_interno`
+  - `usp_validar_titularidad_jerarquica_interno`
   - `usp_marcar_ausencias_pendientes_sesion_interno` *(nuevo)*
 
 ### Transacción 2.3: Cancelar Sesión con Motivo
@@ -118,7 +118,7 @@
 - **Procedimientos internos invocados**:
   - `usp_validar_id_correlacion_esta_presente_interno`
   - `usp_validar_sesion_exista_por_id_interno`
-  - `usp_validar_grupo_exista_para_docente_interno`
+  - `usp_validar_titularidad_jerarquica_interno`
 
 ### Transacción 2.4: Generar Sesiones Masivas del Semestre
 
@@ -176,9 +176,10 @@
   3. Actualizar `cantidadEstudiantesCancelaronVoluntadPropia` en `dbo.Grupo`.
 - **Procedimientos internos invocados**:
   - `usp_validar_id_correlacion_esta_presente_interno`
-  - `usp_validar_estudiante_grupo_exista_interno`
 
 ### Transacción 3.3: Asignar o Reasignar Docente a Grupo
+
+> **Estado (2026-10-29):** el docente del grupo se asigna hoy en `usp_crear_grupo` y `usp_actualizar_grupo`. El SP `usp_registrar_docente_en_grupo` y su interno se eliminaron por no tener uso. `usp_validar_cruce_horario_docente_interno` aplica la regla "un docente no puede tener dos grupos a la misma hora": `usp_actualizar_grupo` la invoca al cambiar el titular (HOR_002, HTTP 409). `usp_crear_grupo` no la necesita porque el grupo nace sin horario.
 
 - **Intención de negocio**: Asignar un nuevo docente titular a un grupo o transferir la titularidad.
 - **Atomicidad requerida**: Validar disponibilidad horaria del nuevo docente en todos los bloques del grupo antes de la reasignación.
@@ -194,6 +195,8 @@
   - `usp_validar_cruce_horario_docente_interno`
 
 ### Transacción 3.4: Resolver Solicitud de Matrícula (Coordinador)
+
+> **ELIMINADO (2026-10-29):** `usp_resolver_solicitud_matricula` era un stub sin tabla `SolicitudMatricula` y se borró por no tener uso. El flujo vigente es el de solicitudes de ingreso (HU053-HU055, `usp_resolver_solicitud_ingreso_grupo`). El texto siguiente es histórico.
 
 - **Intención de negocio**: El coordinador aprueba o rechaza una solicitud de inscripción de un estudiante a un grupo. Si aprueba, ejecuta automáticamente la matrícula con las mismas validaciones de cupo y cruce horario.
 - **Atomicidad requerida**: Actualizar estado de la solicitud + ejecutar la matrícula (si aplica) en una transacción.
@@ -359,7 +362,6 @@
 | Tabla | Transacción / Acción de Negocio | Procedimiento Almacenado (BD) | Método del Controlador (Backend) | Rol / Permiso Requerido | Descripción del procedimiento |
 |:---|:---|:---|:---|:---|:---|
 | `Asistencia`, `DetalleAsistencia` | Registrar asistencia masiva por planilla | `usp_registrar_asistencias_sesion` | `POST /api/v1/asistencias/lote` | `DOCENTE` (titular del grupo) | Recibe JSON array con elementos exactos `idEstudiante` y estado (`AN`/`SJC`/`EX`) y `@idUsuarioEjecutor` (`Usuario.id`, requerido). Valida RBAC docente, titularidad de la sesión, existencia de sesión, JSON completo, duplicados y pertenencia activa de cada estudiante antes de escribir. Lote parcial permitido; estudiante omitido = sin registro. Sincroniza asistencia en transacción atómica e idempotente. |
-| `Asistencia`, `DetalleAsistencia` | Registrar asistencia individual | `usp_registrar_asistencia_estudiante` | `POST /api/v1/asistencias` | `DOCENTE` (titular del grupo) | Registra la asistencia de un único estudiante para una sesión. Valida matrícula activa (`usp_validar_estudiante_grupo_exista_interno`) y existencia de sesión (`usp_validar_sesion_exista_por_id_interno`). Resuelve `RazonCausa` por código y delega a `usp_sincronizar_asistencia_estudiante_interno`. |
 | `Asistencia`, `DetalleAsistencia` | Auto-registro de asistencia por QR/PIN | `usp_registrar_asistencia_estudiante_autonomo` | `POST /api/v1/estudiante/asistencia-qr` | `ESTUDIANTE` (matriculado en grupo) | Valida token/PIN efímero (TTL 60s) generado por el docente. Verifica que la sesión esté dentro de la ventana temporal. Valida matrícula activa del estudiante (sin autovivificación). Registra asistencia como `'AN'` (Asistencia Normal). Invoca internamente: `usp_validar_sesion_abierta_con_ventana_temporal_interno`, `usp_validar_estudiante_pertenece_a_grupo_de_sesion_interno`, `usp_sincronizar_asistencia_estudiante_interno`. |
 | `Sesion` | Generar token/PIN efímero para asistencia | — *(Backend Java)* | `GET /api/v1/sesiones/{id}/qr-token` | `DOCENTE` (titular del grupo) | Genera un token UUID + PIN de 6 dígitos con expiración de 60 segundos en memoria (sin SP, lógica en Spring Boot `AsistenciaQrController`). |
 
@@ -379,8 +381,6 @@
 |:---|:---|:---|:---|:---|:---|
 | `EstudianteGrupo`, `Grupo` | Matricular estudiante en grupo | `usp_registrar_estudiante_en_grupo_interno` | `POST /api/v1/coordinador/grupos/{id}/estudiantes`, `POST /api/v1/grupos/{id}/estudiantes` | `COORDINADOR` (del programa), `DOCENTE` (titular del grupo) | Valida existencia del estudiante, existencia y habilitación del grupo, unicidad de la matrícula, cruce horario con otros grupos del estudiante, y cupo disponible. Inserta en `EstudianteGrupo` con estado `'A'`. Invoca: `usp_validar_estudiante_exista_por_id_interno`, `usp_validar_grupo_exista_por_id_interno`, `usp_validar_registro_estudiante_en_grupo_interno`, `usp_validar_cruce_horario_estudiante_interno`. |
 | `EstudianteGrupo`, `Grupo` | Retirar estudiante de grupo (voluntario) | `usp_retirar_estudiante_de_grupo` | `DELETE /api/v1/coordinador/grupos/{id}/estudiantes/{estId}` | `COORDINADOR` (del programa), `DOCENTE` (titular del grupo) | Valida que exista la relación activa en `EstudianteGrupo`. Cambia estado a `'CVP'` (Cancelado por Voluntad Propia). Actualiza `Grupo.cantidadEstudiantesCancelaronVoluntadPropia`. |
-| `Grupo` | Asignar/reasignar docente a grupo | `usp_registrar_docente_en_grupo_interno` | `POST /api/v1/docentes/asignaciones/grupo` | `COORDINADOR` (del programa) | Valida existencia y estado activo del docente. Valida existencia del grupo. Valida cruce de horarios del docente con otros grupos. Actualiza `Grupo.docente`. Invoca: `usp_validar_docente_exista_por_id_interno`, `usp_validar_cruce_horario_docente_interno`. |
-| `SolicitudMatricula`, `EstudianteGrupo` | Resolver solicitud de matrícula | `usp_resolver_solicitud_matricula` | `PATCH /api/v1/coordinador/solicitudes-matricula/{id}` | `COORDINADOR` (del programa) | Valida existencia de la solicitud. Si acción = `'APROBADA'`, ejecuta `usp_registrar_estudiante_en_grupo_interno` con todas las validaciones de cupo y cruce. Si `'RECHAZADA'`, solo actualiza estado. |
 
 ## Módulo: Solicitudes de Revisión (Reclamos)
 
@@ -403,7 +403,7 @@
 | Tabla | Transacción / Acción de Negocio | Procedimiento Almacenado (BD) | Método del Controlador (Backend) | Rol / Permiso Requerido | Descripción del procedimiento |
 |:---|:---|:---|:---|:---|:---|
 | `Grupo` | Crear grupo académico | `usp_crear_grupo` | `POST /api/v1/grupos` | `DOCENTE`, `COORDINADOR` | Valida existencia de asignatura. Resuelve periodo académico. Valida docente activo. Valida unicidad de código de grupo en asignatura/periodo. Inserta `Grupo` con contadores en 0. Invoca: `usp_validar_docente_exista_por_id_interno`. |
-| `Grupo` | Actualizar datos operativos del grupo | `usp_actualizar_grupo` | `PUT /api/v1/grupos/{id}` | `DOCENTE` (titular), `COORDINADOR` | Valida existencia del grupo. Valida docente si se modifica. Valida unicidad de código (excluyendo el propio grupo). Actualiza nombre, código y docente de forma granular (solo campos proporcionados). |
+| `Grupo` | Actualizar datos operativos del grupo | `usp_actualizar_grupo` | `PUT /api/v1/grupos/{id}` | `DOCENTE` (titular), `COORDINADOR` | Valida existencia del grupo. Valida docente si se modifica y, si cambia el titular, que no tenga otro grupo a la misma hora (HOR_002, HTTP 409). Valida unicidad de código (excluyendo el propio grupo). Actualiza nombre, código y docente de forma granular (solo campos proporcionados). |
 | `Asignatura` | Crear nueva asignatura en plan | `usp_crear_asignatura` | `POST /api/v1/coordinador/planes-estudio/{id}/asignaturas` | `COORDINADOR` (del programa) | Crea una asignatura vinculada a un `SemestrePlanEstudio`, resolviendo `Area` y `Componente` por nombre o ID. |
 | `Asignatura` | Actualizar datos de asignatura | `usp_actualizar_asignatura` | `PUT /api/v1/coordinador/planes-estudio/{planId}/asignaturas/{asigId}` | `COORDINADOR` (del programa) | Exige `@idUsuarioEjecutor` (GEN_002), perfil `COORDINADOR` (SEC_001) y que coordine el programa de la asignatura (SEC_002). Actualiza código, nombre y créditos de una asignatura existente. |
 | `Asignatura` | Alternar estado activo/inactivo | `usp_toggle_estado_asignatura` | `PATCH /api/v1/coordinador/asignaturas/{id}/estado` | `COORDINADOR` (del programa) | Exige `@idUsuarioEjecutor` (GEN_002), perfil `COORDINADOR` (SEC_001) y que coordine el programa de la asignatura (SEC_002). Valida existencia de la asignatura. Alterna el campo `estado` entre 1 y 0 atómicamente. |
@@ -476,12 +476,10 @@
 | `usp_validar_estudiante_exista_por_id_interno` | Validación | Comprueba existencia y estado activo del estudiante | `usp_registrar_estudiante_en_grupo_interno`, `usp_radicar_solicitud*` |
 | `usp_validar_docente_exista_por_id_interno` | Validación | Comprueba existencia y estado activo del docente | `usp_crear_grupo`, `usp_actualizar_grupo`, `usp_registrar_docente*` |
 | `usp_validar_grupo_exista_por_id_interno` | Validación | Comprueba existencia y habilitación del grupo | `usp_registrar_estudiante*`, `usp_generar_sesiones*` |
-| `usp_validar_grupo_exista_para_docente_interno` | Validación RBAC | Valida que el grupo pertenezca al docente titular | `usp_crear_sesion`, `usp_cerrar_sesion`, `usp_registrar_docente*` |
-| `usp_validar_estudiante_grupo_exista_interno` | Validación | Valida existencia de matrícula activa `EstudianteGrupo` | `usp_registrar_asistencia_estudiante` |
 | `usp_validar_estudiante_pertenece_a_grupo_de_sesion_interno` | Validación | Valida que el estudiante esté inscrito en el grupo de la sesión | `usp_registrar_asistencias_sesion`, `usp_radicar_solicitud*` |
 | `usp_validar_registro_estudiante_en_grupo_interno` | Unicidad | Valida que el estudiante no esté ya matriculado en el grupo | `usp_registrar_estudiante_en_grupo_interno` |
 | `usp_validar_cruce_horario_estudiante_interno` | Concurrencia | Detecta solapamientos entre franjas horarias del estudiante | `usp_registrar_estudiante_en_grupo_interno` |
-| `usp_validar_cruce_horario_docente_interno` | Concurrencia | Detecta solapamientos entre franjas horarias del docente | `usp_registrar_docente_en_grupo_interno` |
+| `usp_validar_cruce_horario_docente_interno` | Concurrencia | Detecta solapamientos entre franjas horarias del docente | `usp_actualizar_grupo` (al cambiar el titular, desde 2026-10-29) |
 | `usp_validar_horarios_grupo_interno` | Validación | Verifica que el grupo tenga franjas horarias configuradas | `usp_generar_sesiones_grupo` |
 | `usp_validar_fechas_periodo_academico_interno` | Validación | Valida coherencia y vigencia de fechas del periodo | `usp_generar_sesiones_grupo` |
 | `usp_validar_unicidad_usuario_interno` | Unicidad | Valida unicidad de correo y documento en `uv_usuario` | `usp_sincronizar_usuario_interno` |
@@ -530,7 +528,7 @@ Firma de entrada/salida y códigos: `DOCUMENTACION_PROCEDIMIENTOS_PUBLICOS.md` (
 
 ## Addendum REC5 (2026-10-29): SP públicos que faltaban en esta especificación
 
-Auditoría BD 2026-10-28: 53 de 102 SP públicos no figuraban aquí. Cada endpoint se trazó sobre el backend `develop` (`*JpaRepository` → puerto → caso de uso → controller). La columna "Propósito" sale del comentario de cabecera del SP. Las firmas completas y los códigos están en el script del SP y en su work item.
+Auditoría BD 2026-10-28: 53 de 102 SP públicos no figuraban aquí (10 de ellos, los paginados y por id legacy, se eliminaron el 2026-10-29 por no tener uso; hoy hay 89 SP públicos). Cada endpoint se trazó sobre el backend `develop` (`*JpaRepository` → puerto → caso de uso → controller). La columna "Propósito" sale del comentario de cabecera del SP. Las firmas completas y los códigos están en el script del SP y en su work item.
 
 | Módulo | SP | Endpoint / consumidor | Rol | Parámetros | Propósito |
 |---|---|---|---|---|---|
@@ -579,18 +577,8 @@ Auditoría BD 2026-10-28: 53 de 102 SP públicos no figuraban aquí. Cada endpoi
 
 ### SP públicos legacy sin consumidor en el backend
 
-Ninguno de estos lo invoca el backend de `develop` y no tienen `GRANT EXECUTE` al runtime. Quedan documentados como legacy; su eliminación requiere un work item (Expand & Contract).
+El backend de `develop` no lo invoca y no tiene `GRANT EXECUTE` al runtime. Se conserva porque la HU176B (matrícula autónoma por QR) lo nombra como base. Los otros 10 SP legacy de esta tabla (paginados y por id) se eliminaron el 2026-10-29 por no tener uso (`migrations/08_eliminar_codigo_sin_uso_up.sql`).
 
 | SP | Parámetros | Propósito |
 |---|---|---|
-| `usp_consultar_asignaturas_paginado` | `@idUsuarioEjecutor, @idCorrelacion, @filtroTexto, @codigo, @estaActivo, @numeroPagina, @tamanoPagina` | usp_consultar_asignaturas_paginado Clasificacion: NON_GOLDEN_PATH_EXTENSION        Consulta paginada institucional READ_QUERY_RESULTSET             Retorna conjunto de filas + totalRegistros Proposito: Búsqueda y catálogo paginado de asignaturas curriculares c… |
-| `usp_consultar_asistencias_estudiante_paginado` | `@idUsuarioEjecutor, @idCorrelacion, @idEstudiante, @idGrupo, @numeroPagina, @tamanoPagina` | usp_consultar_asistencias_estudiante_paginado Clasificacion: NON_GOLDEN_PATH_EXTENSION        Consulta paginada institucional READ_QUERY_RESULTSET             Retorna conjunto de filas + totalRegistros Proposito: Consultar el historial y auditoría de asistenci… |
-| `usp_consultar_docente_por_id` | `@idUsuarioEjecutor, @idCorrelacion, @idDocente` | usp_consultar_docente_por_id Clasificacion: NON_GOLDEN_PATH_EXTENSION        Consulta individual de docente READ_QUERY_RESULTSET             Retorna datos de identidad y usuario Proposito: Recuperar la información consolidada de un docente específico consumien… |
-| `usp_consultar_docentes_paginado` | `@idUsuarioEjecutor, @idCorrelacion, @idTipoIdentificacion, @numeroIdentificacion, @filtroTexto, @idFacultad, @idPrograma, @estaActivo, @numeroPagina, @tamanoPagina` | usp_consultar_docentes_paginado Clasificacion: NON_GOLDEN_PATH_EXTENSION        Consulta paginada institucional READ_QUERY_RESULTSET             Retorna conjunto de filas + totalRegistros Proposito: Búsqueda, filtrado y paginación determinística de docentes in… |
-| `usp_consultar_estudiante_por_id` | `@idUsuarioEjecutor, @idCorrelacion, @idEstudiante` | usp_consultar_estudiante_por_id Clasificacion: NON_GOLDEN_PATH_EXTENSION        Consulta individual de estudiante READ_QUERY_RESULTSET             Retorna datos de identidad y contexto academico Proposito: Recuperar la información consolidada de un estudiante … |
-| `usp_consultar_estudiantes_grupo_paginado` | `@idUsuarioEjecutor, @idCorrelacion, @idGrupo, @filtroTexto, @idEstadoEstudiante, @numeroPagina, @tamanoPagina` | usp_consultar_estudiantes_grupo_paginado Clasificacion: NON_GOLDEN_PATH_EXTENSION        Consulta paginada institucional READ_QUERY_RESULTSET             Retorna conjunto de filas + totalRegistros Proposito: Listar de forma paginada y filtrada los estudiantes … |
-| `usp_consultar_estudiantes_paginado` | `@idUsuarioEjecutor, @idCorrelacion, @idTipoIdentificacion, @numeroIdentificacion, @filtroTexto, @idPrograma, @idGrupo, @estaActivo, @numeroPagina, @tamanoPagina` | usp_consultar_estudiantes_paginado Clasificacion: NON_GOLDEN_PATH_EXTENSION        Consulta paginada institucional READ_QUERY_RESULTSET             Retorna conjunto de filas + totalRegistros Proposito: Búsqueda, filtrado y paginación determinística de estudian… |
-| `usp_consultar_facultades_paginado` | `@idUsuarioEjecutor, @idCorrelacion, @filtroTexto, @estaActivo, @numeroPagina, @tamanoPagina` | usp_consultar_facultades_paginado Clasificacion: NON_GOLDEN_PATH_EXTENSION        Consulta paginada institucional READ_QUERY_RESULTSET             Retorna conjunto de filas + totalRegistros Proposito: Catálogo paginado de facultades institucionales consumiendo… |
-| `usp_consultar_programas_paginado` | `@idUsuarioEjecutor, @idCorrelacion, @idFacultad, @filtroTexto, @estaActivo, @numeroPagina, @tamanoPagina` | usp_consultar_programas_paginado Clasificacion: NON_GOLDEN_PATH_EXTENSION        Consulta paginada institucional READ_QUERY_RESULTSET             Retorna conjunto de filas + totalRegistros Proposito: Catálogo paginado de programas académicos institucionales co… |
-| `usp_consultar_solicitudes_revision_asistencia_paginado` | `@idUsuarioEjecutor, @idCorrelacion, @idGrupo, @idEstudiante, @idEstado, @fechaDesde, @fechaHasta, @numeroPagina, @tamanoPagina` | usp_consultar_solicitudes_revision_asistencia_paginado Clasificacion: NON_GOLDEN_PATH_EXTENSION        Consulta paginada institucional READ_QUERY_RESULTSET             Retorna conjunto de filas + totalRegistros Proposito: Bandeja institucional de solicitudes d… |
 | `usp_registrar_estudiante_en_grupo_autonomo` | `@idGrupo, @numeroIdentificacion, @primerNombre, @segundoNombre, @primerApellido, @segundoApellido, @correo, @password, @idCorrelacion, @idUsuarioEjecutor, @idTipoIdIdentificacion` | Autoinscripción del estudiante a un grupo (registro + matrícula). Reemplazado en el flujo actual por las solicitudes de ingreso (HU053-HU055). |
