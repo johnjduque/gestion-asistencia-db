@@ -22,7 +22,7 @@ IF @studentUser IS NULL OR @coordinatorUser IS NULL OR @deanUser IS NULL OR @adm
 BEGIN TRANSACTION;
 BEGIN TRY
     DECLARE @beforeEst INT = @@TRANCOUNT;
-    DECLARE @correoEst NVARCHAR(255) = N'ownership.estudiante@test.local';
+    DECLARE @correoEst NVARCHAR(255) = CONCAT(N'ownership.estudiante', dbo.ufn_obtener_parametro('REGISTRO', 'DOMINIO_CORREO_ESTUDIANTE'));
     DECLARE @corrEst UNIQUEIDENTIFIER = NEWID();
 
     EXEC dbo.usp_registrar_estudiante_en_grupo

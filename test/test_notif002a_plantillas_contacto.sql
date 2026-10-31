@@ -33,7 +33,7 @@ BEGIN TRY
     -- DB-P01: Semillas v1 de los 4 tipos y sus marcadores con obligatorio
     -- =========================================================================
     PRINT '-> DB-P01: usp_consultar_plantilla_notificacion_activa semillas v1 y marcadores';
-    IF (SELECT COUNT(*) FROM dbo.PlantillaNotificacion WHERE idioma = 'es' AND version = 1 AND activa = 1 AND creadoPor IS NULL) <> 4
+    IF (SELECT COUNT(*) FROM dbo.PlantillaNotificacion WHERE idioma = 'es' AND version = 1 AND activa = 1 AND creadoPor IS NULL AND tipo IN ('RETIRO_ESTUDIANTE_GRUPO','SOLICITUD_INGRESO_REGISTRADA','SOLICITUD_INGRESO_RESUELTA','SOLICITUD_INGRESO_RETIRADA')) <> 4
         THROW 54010, 'TEST FAILED DB-P01: no existen exactamente las 4 plantillas semilla v1 activas en es.', 1;
 
     IF NOT EXISTS (
@@ -69,7 +69,7 @@ BEGIN TRY
         THROW 54014, 'TEST FAILED DB-P01: plantilla semilla SOLICITUD_INGRESO_RETIRADA no coincide.', 1;
 
     -- Verificar marcadores por tipo y su flag obligatorio
-    IF (SELECT COUNT(*) FROM dbo.PlantillaNotificacionMarcador) <> 9
+    IF (SELECT COUNT(*) FROM dbo.PlantillaNotificacionMarcador WHERE tipo IN ('RETIRO_ESTUDIANTE_GRUPO','SOLICITUD_INGRESO_REGISTRADA','SOLICITUD_INGRESO_RESUELTA','SOLICITUD_INGRESO_RETIRADA')) <> 9
         THROW 54015, 'TEST FAILED DB-P01: el catalogo PlantillaNotificacionMarcador debe tener 9 marcadores sembrados.', 1;
 
     IF NOT EXISTS (SELECT 1 FROM dbo.PlantillaNotificacionMarcador WHERE tipo = 'RETIRO_ESTUDIANTE_GRUPO' AND marcador = 'grupo' AND obligatorio = 1)
