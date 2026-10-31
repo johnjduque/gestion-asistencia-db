@@ -375,3 +375,8 @@ BEGIN
     ALTER TABLE [dbo].[SolicitudIngresoGrupo] ADD CONSTRAINT [FK_SolicitudIngresoGrupo_EstudianteGrupo] FOREIGN KEY ([estudianteGrupo]) REFERENCES [dbo].[EstudianteGrupo] ([id]);
 END
 GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_TokenVerificacionCorreo_Usuario')
+BEGIN
+    ALTER TABLE [dbo].[TokenVerificacionCorreo] ADD CONSTRAINT [FK_TokenVerificacionCorreo_Usuario] FOREIGN KEY ([usuario]) REFERENCES [dbo].[Usuario] ([id]);
+END
+GO

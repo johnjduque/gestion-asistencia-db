@@ -103,7 +103,25 @@ BEGIN
             DECLARE @idUsuarioTarget UNIQUEIDENTIFIER;
             SELECT TOP 1 @idUsuarioTarget = id FROM dbo.Usuario WHERE correo = LOWER(TRIM(@correo));
 
-            IF @idUsuarioTarget IS NULL
+            -- IDENT-001: en un alta nueva (sin usuario con ese correo) el correo debe ser institucional. El dominio es el
+            -- parametro REGISTRO/DOMINIO_CORREO_ESTUDIANTE; un usuario existente no se revalida (D5).
+            IF @estadoResultado = 1 AND @idUsuarioTarget IS NULL
+            BEGIN
+                DECLARE @dominioInstitucional NVARCHAR(255) = dbo.ufn_obtener_parametro('REGISTRO', 'DOMINIO_CORREO_ESTUDIANTE');
+                IF dbo.ufn_correo_cumple_dominio_institucional(@correo, @dominioInstitucional) = 0
+                BEGIN
+                    EXEC dbo.usp_obtener_mensaje_catalogo
+                        @p_codigo = 'VCE_001',
+                        @p_param1 = @dominioInstitucional,
+                        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                    SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                    SET @estadoResultado = 0;
+                END
+            END
+
+            IF @estadoResultado = 1 AND @idUsuarioTarget IS NULL
             BEGIN
                 EXEC dbo.usp_sincronizar_usuario_interno
                     @idTipoIdIdentificacion = @idTipoIdTarget,

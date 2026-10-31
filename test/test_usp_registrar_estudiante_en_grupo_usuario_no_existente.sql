@@ -5,7 +5,7 @@ SET XACT_ABORT OFF;
 
 DECLARE @tipoId UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_tipo_identificacion WHERE tipoIdentificacion = 'CC');
 DECLARE @grupo UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_grupo WHERE grupoEstaHablitado = 1 AND cuposDisponibles > 0 ORDER BY cuposDisponibles DESC);
-DECLARE @correo NVARCHAR(255) = CONCAT(N'qa.student.', REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), N'@test.local');
+DECLARE @correo NVARCHAR(255) = CONCAT(N'qa.student.', REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), dbo.ufn_obtener_parametro('REGISTRO', 'DOMINIO_CORREO_ESTUDIANTE'));
 DECLARE @numero INT = 1000000000 + ABS(CHECKSUM(NEWID()) % 500000000);
 DECLARE @corr UNIQUEIDENTIFIER = NEWID();
 DECLARE @usuario UNIQUEIDENTIFIER;
@@ -106,7 +106,7 @@ SET NOCOUNT ON;
 SET XACT_ABORT OFF;
 DECLARE @tipoId UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_tipo_identificacion WHERE tipoIdentificacion = 'CC');
 DECLARE @missingGroup UNIQUEIDENTIFIER = NEWID(), @corr UNIQUEIDENTIFIER = NEWID();
-DECLARE @correo NVARCHAR(255) = CONCAT(N'qa.student.missing.', REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), N'@test.local');
+DECLARE @correo NVARCHAR(255) = CONCAT(N'qa.student.missing.', REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), dbo.ufn_obtener_parametro('REGISTRO', 'DOMINIO_CORREO_ESTUDIANTE'));
 DECLARE @numero INT = 1000000000 + ABS(CHECKSUM(NEWID()) % 500000000);
 DECLARE @userMsg NVARCHAR(4000), @techMsg NVARCHAR(4000);
 DECLARE @idUsuarioEstudianteEjecutor UNIQUEIDENTIFIER = (SELECT TOP 1 idUsuario FROM dbo.uv_docente_identidad WHERE estaActivoUsuario = 1);
@@ -148,7 +148,7 @@ DECLARE @institution UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_institucion
 DECLARE @assignment UNIQUEIDENTIFIER = (SELECT idAsignatura FROM dbo.uv_grupo WHERE id = @baseGroup);
 DECLARE @teacher UNIQUEIDENTIFIER = (SELECT idDocente FROM dbo.uv_grupo WHERE id = @baseGroup);
 DECLARE @period UNIQUEIDENTIFIER = NEWID(), @closedGroup UNIQUEIDENTIFIER = NEWID(), @corr UNIQUEIDENTIFIER = NEWID();
-DECLARE @correo NVARCHAR(255) = CONCAT(N'qa.student.closed.', REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), N'@test.local');
+DECLARE @correo NVARCHAR(255) = CONCAT(N'qa.student.closed.', REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), dbo.ufn_obtener_parametro('REGISTRO', 'DOMINIO_CORREO_ESTUDIANTE'));
 DECLARE @numero INT = 1000000000 + ABS(CHECKSUM(NEWID()) % 500000000);
 DECLARE @userMsg NVARCHAR(4000), @techMsg NVARCHAR(4000);
 DECLARE @idUsuarioEstudianteEjecutor UNIQUEIDENTIFIER = (SELECT TOP 1 idUsuario FROM dbo.uv_docente_identidad WHERE estaActivoUsuario = 1);
@@ -207,7 +207,7 @@ DECLARE @teacher UNIQUEIDENTIFIER = (SELECT idDocente FROM dbo.uv_grupo WHERE id
 DECLARE @existingStudent UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.Estudiante);
 DECLARE @activeState UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_estado_estudiante_grupo WHERE codigo = 'A');
 DECLARE @fullGroup UNIQUEIDENTIFIER = NEWID(), @corr UNIQUEIDENTIFIER = NEWID();
-DECLARE @correo NVARCHAR(255) = CONCAT(N'qa.student.full.', REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), N'@test.local');
+DECLARE @correo NVARCHAR(255) = CONCAT(N'qa.student.full.', REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), dbo.ufn_obtener_parametro('REGISTRO', 'DOMINIO_CORREO_ESTUDIANTE'));
 DECLARE @numero INT = 1000000000 + ABS(CHECKSUM(NEWID()) % 500000000);
 DECLARE @userMsg NVARCHAR(4000), @techMsg NVARCHAR(4000);
 DECLARE @idUsuarioEstudianteEjecutor UNIQUEIDENTIFIER = (SELECT TOP 1 idUsuario FROM dbo.uv_docente_identidad WHERE estaActivoUsuario = 1);

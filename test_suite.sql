@@ -93,6 +93,14 @@ PRINT '======================================================================';
 :r /tmp/test/test_usp_consultar_kpis_institucion.sql
 :r /tmp/test/test_usp_consultar_comparativa_facultades.sql
 :r /tmp/test/test_usp_consultar_tendencia_ausentismo.sql
+:r /tmp/test/test_usp_registrar_notificacion_saliente.sql
+:r /tmp/test/test_usp_reservar_notificaciones_salientes.sql
+:r /tmp/test/test_usp_marcar_notificacion_entregada.sql
+:r /tmp/test/test_usp_registrar_fallo_notificacion.sql
+:r /tmp/test/test_usp_depurar_notificaciones_salientes.sql
+:r /tmp/test/test_notificacion_migracion_catalogo.sql
+:r /tmp/test/test_notif002a_plantillas_contacto.sql
+:r /tmp/test/test_ident001_correo_verificacion.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN
