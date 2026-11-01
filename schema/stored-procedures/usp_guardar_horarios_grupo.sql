@@ -47,8 +47,8 @@ AS
     );
 
 BEGIN
+    -- Sin XACT_ABORT ON: con savepoint condenaria la transaccion del llamador (Msg 3930); ver skill procedimientos-externos-condiciones.
     SET NOCOUNT ON;
-    SET XACT_ABORT ON;
     BEGIN TRY
         -- PASO 1: Validar el identificador de correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
@@ -198,19 +198,24 @@ BEGIN
                 SET @savepointCreado = 1;
             END
 
-            DELETE FROM dbo.Horario WHERE grupo = @idGrupoDefecto;
-
-            INSERT INTO dbo.Horario (id, grupo, dia, horaInicio, horaFin)
-            SELECT NEWID(), @idGrupoDefecto, idDia, horaInicio, horaFin
-            FROM @franjas;
-
-            EXEC dbo.usp_validar_cruce_horario_docente_interno
-                @idDocente = @idDocente,
+            EXEC dbo.usp_guardar_horarios_grupo_interno
                 @idGrupo = @idGrupoDefecto,
+                @horariosJSON = @horariosJSON,
                 @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
+
+            IF @estadoResultado = 1
+            BEGIN
+                EXEC dbo.usp_validar_cruce_horario_docente_interno
+                    @idDocente = @idDocente,
+                    @idGrupo = @idGrupoDefecto,
+                    @idCorrelacion = @idCorrelacionDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                    @estadoResultado = @estadoResultado OUTPUT;
+            END
 
             IF @estadoResultado = 1
             BEGIN
