@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **131**.
+Total de códigos: **143**.
 
 ## ARC
 
@@ -139,6 +139,8 @@ Total de códigos: **131**.
 |---|---|---|---|---|---|
 | `HOR_001` | BUSINESS_ERROR | ALTO | No es posible realizar el registro. Existe un cruce de horario con otra asignatura. | Colisión horaria: Se detectó una superposición de horario para el estudiante en la misma franja: {}. | `04_mensaje.sql` |
 | `HOR_002` | BUSINESS_ERROR | ALTO | Existe un cruce de horario para el docente: ya tiene el grupo {} en la misma franja ({}). | Colisión horaria del docente con el grupo {} en la franja {}. GrupoID evaluado: {}. | `04_mensaje.sql` |
+| `HOR_003` | BUSINESS_ERROR | MEDIO | Las franjas del horario del grupo no pueden cruzarse: {} se cruza con {}. | Franjas traslapadas en el horario del grupo: {} y {}. | `04_mensaje.sql` |
+| `HOR_004` | BUSINESS_ERROR | MEDIO | El horario del grupo no es válido: {}. | Horario de grupo invalido: {}. | `04_mensaje.sql` |
 
 ## IAM
 
@@ -160,6 +162,14 @@ Total de códigos: **131**.
 | `KPI_002` | BUSINESS_ERROR | CRITICO | No fue posible calcular los indicadores porque falta la configuración de umbrales de asistencia. | Falta el parámetro ASISTENCIA/UMBRAL_ALERTA_ADVERTENCIA o ASISTENCIA/UMBRAL_ALERTA_PERDIDA en CatalogoParametro. | `18_mensajes_kpis_coordinador.sql` |
 | `KPI_003` | BUSINESS_ERROR | ALTO | No tiene una facultad a su cargo para consultar estos indicadores. | Ámbito: el ejecutor {} no es decano de ninguna facultad en uv_facultad. | `19_mensajes_kpis_decano.sql` |
 | `KPI_004` | BUSINESS_ERROR | ALTO | No tiene una institución a su cargo para consultar estos indicadores. | Ámbito: el ejecutor {} no es administrador de ninguna institución en uv_administrador. | `20_mensajes_kpis_admin.sql` |
+
+## NTF
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `NTF_001` | BUSINESS_ERROR | MEDIO | Los datos de la notificación no son válidos. | Datos de la notificación o parámetros de invocación no cumplen el contrato. | `04_mensaje.sql` |
+| `NTF_002` | BUSINESS_ERROR | MEDIO | La notificación especificada no existe en el sistema. | Notificación no encontrada por identificador. | `04_mensaje.sql` |
+| `NTF_003` | BUSINESS_ERROR | MEDIO | La notificación ya no está reservada por este proceso. | La notificación no está reservada por la instancia o la reserva ya venció. | `04_mensaje.sql` |
 
 ## PAG
 
@@ -294,4 +304,16 @@ Total de códigos: **131**.
 | `VAL_005` | BUSINESS_ERROR | MEDIO | El correo electrónico es obligatorio y debe tener un formato válido. | Validación de formato: La dirección de correo electrónico no cumple con la estructura estándar. | `04_mensaje.sql` |
 | `VAL_006` | BUSINESS_ERROR | ALTO | La dirección de correo electrónico ya se encuentra registrada. | Fallo de unicidad: El correo electrónico ya existe en la vista uv_usuario. | `04_mensaje.sql` |
 | `VAL_007` | BUSINESS_ERROR | ALTO | La contraseña no cumple con los requisitos mínimos de seguridad. | Validación de seguridad: La contraseña no satisface las políticas de complejidad establecidas. | `04_mensaje.sql` |
+
+## VCE
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `VCE_001` | BUSINESS_ERROR | MEDIO | El correo del estudiante debe ser institucional y terminar en {}. | Regla: el correo de un alta nueva no cumple REGISTRO/DOMINIO_CORREO_ESTUDIANTE ({}). | `27_mensajes_ident001.sql` |
+| `VCE_002` | BUSINESS_ERROR | MEDIO | El enlace de verificación no es válido o ya venció. | Token de verificación inexistente, vencido, usado, revocado o de usuario inactivo. | `27_mensajes_ident001.sql` |
+| `VCE_003` | BUSINESS_ERROR | BAJO | Debe esperar unos minutos antes de volver a enviar el enlace de verificación. | Regla: aún no transcurre VERIFICACION_CORREO/REENVIO_ESPERA_MINUTOS desde la última emisión. | `27_mensajes_ident001.sql` |
+| `VCE_004` | BUSINESS_ERROR | MEDIO | El estudiante no pertenece a un grupo a su cargo. | Ámbito: el ejecutor no es titular del grupo ni coordinador de su programa, o el estudiante no pertenece al grupo. | `27_mensajes_ident001.sql` |
+| `VCE_005` | BUSINESS_ERROR | BAJO | El correo de este estudiante ya fue verificado. | Estado: Usuario.correoConfirmado ya es 1. | `27_mensajes_ident001.sql` |
+| `VCE_006` | SUCCESS | BAJO | Su correo fue verificado. Ya puede iniciar sesión. | Token consumido y Usuario.correoConfirmado = 1. | `27_mensajes_ident001.sql` |
+| `VCE_007` | BUSINESS_ERROR | MEDIO | El usuario no existe o no está activo. | Existencia: no hay dbo.Usuario activo con el id indicado. | `27_mensajes_ident001.sql` |
 
