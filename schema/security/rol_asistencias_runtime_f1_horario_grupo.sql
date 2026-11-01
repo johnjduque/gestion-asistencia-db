@@ -16,6 +16,11 @@ IF OBJECT_ID(N'dbo.usp_guardar_horarios_grupo', N'P') IS NULL
     THROW 52193, 'F1_HORARIO_GRUPO_RUNTIME_GRANT: usp_guardar_horarios_grupo requerido ausente.', 1;
 GO
 
+IF OBJECT_ID(N'dbo.usp_guardar_horarios_grupo_interno', N'P') IS NULL
+    THROW 52194, 'F1_HORARIO_GRUPO_RUNTIME_GRANT: usp_guardar_horarios_grupo_interno requerido ausente.', 1;
+GO
+
 GRANT EXECUTE ON [dbo].[usp_guardar_horarios_grupo] TO [rol_asistencias_runtime];
+DENY EXECUTE ON [dbo].[usp_guardar_horarios_grupo_interno] TO [rol_asistencias_runtime];
 DENY INSERT, UPDATE, DELETE ON [dbo].[Horario] TO [rol_asistencias_runtime];
 GO

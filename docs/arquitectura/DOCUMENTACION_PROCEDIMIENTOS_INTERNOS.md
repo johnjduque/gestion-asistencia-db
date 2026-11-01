@@ -152,6 +152,16 @@ Esta documentación especifica la arquitectura, reglas de negocio, contrato de f
 
 ---
 
+### 8.1. `dbo.usp_guardar_horarios_grupo_interno`
+- **Propósito**: Núcleo atómico de F1. Reemplaza todas las franjas de `dbo.Horario` del grupo.
+- **Parámetros de Entrada**: `@idGrupo UNIQUEIDENTIFIER`, `@horariosJSON NVARCHAR(MAX)` (arreglo de `{codigoDia, horaInicio, horaFin}` ya validado por el caller), `@idCorrelacion UNIQUEIDENTIFIER`.
+- **Parámetros de Salida**: `@mensajeUsuarioResultado`, `@mensajeTecnicoResultado`, `@estadoResultado`.
+- **Códigos de Catálogo Consumidos**: `SYS_001`.
+- **Flujo de Ejecución**: PASO 1 valida la correlación; PASO 2 hace `DELETE` de las franjas del grupo e `INSERT` de las nuevas (día resuelto por `uv_dia.codigo`). No abre transacción: la controla el caller. Ante un error devuelve `estadoResultado = 0` y el caller deshace lo escrito.
+- **Caller**: `usp_guardar_horarios_grupo`, que valida formato (`HOR_004`), traslapes entre franjas (`HOR_003`) y, después de este núcleo, el cruce del docente (`HOR_002`). El runtime no puede ejecutarlo directo (`DENY EXECUTE` en `rol_asistencias_runtime_f1_horario_grupo.sql`).
+
+---
+
 ### 9. `dbo.usp_validar_cruce_horario_estudiante_interno`
 - **Propósito**: Detecta traslapes de horario para un estudiante en los grupos matriculados.
 - **Parámetros de Entrada**: `@idEstudiante UNIQUEIDENTIFIER`, `@idGrupo UNIQUEIDENTIFIER`, `@idCorrelacion UNIQUEIDENTIFIER`.

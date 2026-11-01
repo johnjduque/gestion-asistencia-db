@@ -27,7 +27,8 @@ John (2026-10-30), dentro del plan de sesiones y faltas (`informes/PLAN_SESIONES
    - reemplaza todas las franjas del grupo;
    - valida formato (`HOR_004`), franjas cruzadas (`HOR_003`) y cruce del docente (`HOR_002`);
    - usa transacción propia, o savepoint si ya hay una transacción abierta;
-   - un rechazo no deja escrituras parciales.
+   - un rechazo no deja escrituras parciales;
+   - la escritura en `dbo.Horario` la hace `usp_guardar_horarios_grupo_interno` (el runtime no puede ejecutarlo directo); el SP público valida, controla la transacción o el savepoint y no usa `XACT_ABORT ON`.
 2. **Mensajes nuevos** `HOR_003` y `HOR_004` en `schema/seed/04_mensaje.sql` (usuario y técnico). `docs/catalogos/catalogo-mensajes.md` se regenera.
 3. **Vistas, cambios aditivos y no congelados:**
    - `uv_dia` expone `codigo`;
