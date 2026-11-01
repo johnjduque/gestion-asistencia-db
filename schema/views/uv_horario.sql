@@ -14,6 +14,7 @@ SELECT		id = h.id,
 			nombreGrupo = g.nombre,
 			idDia = di.id,
 			nombreDia = di.nombre,
+			codigoDia = di.codigo,
 			horaInicio = h.horaInicio,
 			horaFin = h.horaFin
 

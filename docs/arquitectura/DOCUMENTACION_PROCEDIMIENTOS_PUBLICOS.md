@@ -369,3 +369,17 @@ La auditoría BD 2026-10-28 encontró 48 SP públicos sin ficha aquí; 10 de ell
 | `usp_revocar_identidad_externa` | `@emisor, @sujeto, @idCorrelacion` | SEC-BASELINE-017: revoca el vinculo (emisor, sujeto) -> Usuario.id. Idempotente: revocar un vinculo ya revocado responde exito sin cambios. La fila se conserva (estado = 0) para que la identidad revocada no pueda reutilizarse ni reasignarse a otra cuenta sin u… |
 | `usp_vincular_docente_programa` | `@idDocente, @idUsuario, @idTipoIdentificacion, @numeroIdentificacion, @primerNombre, @segundoNombre, @primerApellido, @segundoApellido, @correo, @password, @idTipoVinculacion, @idPrograma, @idCorrelacion, @idUsuarioEjecutor` | HU091: vincula un docente al programa del coordinador. Tres modos excluyentes: (a) @idDocente        docente existente (p. ej. de otro programa de la misma institucion) (b) @idUsuario        usuario existente que aun no es docente (c) datos de persona  alta nu… |
 | `usp_vincular_identidad_externa` | `@emisor, @sujeto, @idUsuario, @correoVinculacion, @idCorrelacion` | SEC-BASELINE-017: registra el vinculo estable (emisor, sujeto) -> Usuario.id. Reglas (todas atomicas bajo UPDLOCK/HOLDLOCK; los indices unicos son la ultima barrera ante carreras): * El usuario debe existir y estar activo. * Repetir el mismo vinculo vigente es… |
+
+## Addendum F1 — horario semanal del grupo (2026-10-30)
+
+### `dbo.usp_guardar_horarios_grupo`
+- **Caso de uso:** el COORDINADOR del programa define o reemplaza el horario semanal de un grupo (varias franjas). El backend lo invoca en la misma transacción que `usp_crear_grupo` y `usp_actualizar_grupo` cuando el comando trae `franjas`.
+- **Parámetros:** `@idGrupo`, `@horariosJSON` (arreglo no vacío de `{"codigoDia":"LU","horaInicio":"08:00","horaFin":"10:00"}` con códigos de `dbo.Dia`), `@idCorrelacion`, `@idUsuarioEjecutor`.
+- **Reglas:**
+  - formato, día existente y `horaFin > horaInicio` (`HOR_004`);
+  - las franjas del grupo no se traslapan entre sí; las contiguas sí se permiten (`HOR_003`);
+  - el docente titular no tiene otro grupo a la misma hora en el período (`HOR_002`, vía `usp_validar_cruce_horario_docente_interno`);
+  - el grupo debe pertenecer al programa del ejecutor (`SEC_002`); un ejecutor que no es COORDINADOR recibe `SEC_001`.
+- **Escritura:** `DELETE` + `INSERT` sobre `dbo.Horario` en transacción propia, o en un savepoint si ya hay una transacción abierta. Un rechazo después de escribir deshace todo lo escrito. El runtime solo tiene `EXECUTE` sobre el SP y no puede escribir `dbo.Horario` directamente (`rol_asistencias_runtime_f1_horario_grupo.sql`).
+- **Resultset:** canónico de 4 columnas (`GEN_005` en éxito).
+- **Pruebas:** `test/test_usp_guardar_horarios_grupo.sql`. Work item: `docs/work-items/F1-horario-grupo/`.

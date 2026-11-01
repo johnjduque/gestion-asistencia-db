@@ -8,6 +8,7 @@ GO
 CREATE OR ALTER  VIEW [dbo].[uv_dia]
 AS
 SELECT  id,
-		nombre
+		nombre,
+		codigo
 FROM	Dia
 GO

@@ -582,3 +582,11 @@ El backend de `develop` no lo invoca y no tiene `GRANT EXECUTE` al runtime. Se c
 | SP | Parámetros | Propósito |
 |---|---|---|
 | `usp_registrar_estudiante_en_grupo_autonomo` | `@idGrupo, @numeroIdentificacion, @primerNombre, @segundoNombre, @primerApellido, @segundoApellido, @correo, @password, @idCorrelacion, @idUsuarioEjecutor, @idTipoIdIdentificacion` | Autoinscripción del estudiante a un grupo (registro + matrícula). Reemplazado en el flujo actual por las solicitudes de ingreso (HU053-HU055). |
+
+## Addendum F1 (2026-10-30): horario semanal del grupo
+
+| Tabla | SP | Endpoint | Rol | Parámetros | Propósito |
+|---|---|---|---|---|---|
+| `Horario` | `usp_guardar_horarios_grupo` | `POST /api/v1/grupos` y `PUT /api/v1/grupos/{id}` con `franjas` (misma transacción que crear o actualizar el grupo) | COORDINADOR (del programa) | `@idGrupo, @horariosJSON, @idCorrelacion, @idUsuarioEjecutor` | Reemplaza el horario semanal del grupo. HOR_004 (formato), HOR_003 (franjas que se cruzan) y HOR_002 (cruce del docente) responden 400, 400 y 409 |
+
+`GET /api/v1/grupos` devuelve además las `franjas` de cada grupo, leídas de `uv_horario`, que ahora expone `codigoDia`; `uv_dia` también expone `codigo`.
