@@ -26,9 +26,11 @@ El job `Database Deployment & Quality Gate` completó con `failure` el 2026-11-0
 
 La segunda ejecución de CI, para el commit `ad9f03e7c0d1b039b29d8597b7418d301cc5bc0f`, confirmó que la compilación SQL y la prueba de concurrencia ya pasan (`PRELOAD_CONCURRENT_IDEMPOTENT`). El gate sigue fallando porque el fixture RBAC buscaba en el seed una asignatura de otro programa, pero el seed CI contiene uno solo. El test abortó antes de emitir los tokens F2: 311 pruebas pasaron, hubo 1 error SQL y 59 críticos quedaron ausentes como cascada. La corrección en curso crea dentro de la transacción de prueba un coordinador y programa ajenos, y prueba al actor contra el grupo del programa titular. No se repitió contra SQL local compartido.
 
+La tercera ejecución, para `2c54f31e6bc5a451f777bba3d7ca534601f31692`, pasó `Database Deployment & Quality Gate`: `TOTAL_EXPECTED=297`, `PASSED=429`, `FAILED=0`, `SKIPPED=1` (el único skip permitido), `CRITICAL_MISSING=0`, `SQLCMD_EXIT_CODE=0`, `SQL_ERROR_COUNT=0` y `UNAUTHORIZED_SKIPS=0`. También pasaron `SUITE_TRANCOUNT_ZERO` y `PRELOAD_CONCURRENT_IDEMPOTENT`.
+
 ## Pendiente
 
-- La evidencia de arriba corresponde al código de 2026-11-02. La continuación del 2026-11-04 agrega los casos de preservación, RBAC, períodos variables, permisos runtime y concurrencia, además de una regresión para período vencido. Los primeros dos defectos están corregidos y pasan en CI; el nuevo fixture RBAC debe confirmarse en el siguiente `DB Quality Gate`.
+- La evidencia de arriba corresponde al código de 2026-11-02. La continuación del 2026-11-04 agrega los casos de preservación, RBAC, períodos variables, permisos runtime y concurrencia, además de una regresión para período vencido. Estos casos pasan en el último `DB Quality Gate`.
 - El chequeo local `test_summary.ps1 -ParserSelfTestOnly` aprobó sus diez casos de parser antes de estos cambios; no equivale a ejecutar la suite SQL.
 - La integración del Backend ya está presente en `origin/develop`. La prueba de extremo a extremo de navegador queda pendiente: el Backend y Frontend no están activos en los puertos 8080/4200 y los `.env` locales apuntan al realm legado `asistencias-uco` en 8081, mientras el Keycloak activo está en 19090 con el realm `security-baseline`. No se modificaron `.env` ni se autenticó contra otro realm.
 - La política de feriados, recesos y suspensiones no está definida en el contrato de este flujo. Actualmente se generan los días semanales configurados dentro del período académico.
@@ -49,4 +51,4 @@ La suite SQL y la prueba de concurrencia quedan sin ejecutar en local porque fal
 
 ## Estado
 
-`PARCIAL`: el segundo `DB Quality Gate` falló por la dependencia del seed en el test RBAC; el fixture autocontenido está en preparación. Falta el siguiente resultado de CI. La instancia compartida carece de dependencias actuales y queda pendiente una prueba E2E autenticada con un proveedor configurado para este sistema.
+`PARCIAL`: el último `DB Quality Gate` pasó. La instancia SQL local compartida carece de dependencias actuales y queda pendiente una prueba E2E autenticada con un proveedor configurado para este sistema.
