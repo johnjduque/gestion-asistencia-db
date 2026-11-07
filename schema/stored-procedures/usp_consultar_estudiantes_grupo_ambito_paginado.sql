@@ -68,10 +68,8 @@ BEGIN
                 EXISTS (SELECT 1 FROM dbo.Grupo g INNER JOIN dbo.Docente d ON d.id = g.docente
                         WHERE g.id = @idGrupo AND d.usuario = @idUsuarioEjecutor)
              OR EXISTS (SELECT 1 FROM dbo.Grupo g
-                        INNER JOIN dbo.Asignatura a ON a.id = g.asignatura
-                        INNER JOIN dbo.AsignaturaPlanEstudio ape ON ape.asignatura = a.id AND ape.estaActivo = 1 INNER JOIN dbo.SemestrePlanEstudio spe ON spe.id = ape.semestrePlanEstudio
-                        INNER JOIN dbo.PlanEstudio pe ON pe.id = spe.planEstudio
-                        INNER JOIN dbo.Programa p ON p.id = pe.programa
+                        INNER JOIN dbo.uv_grupo_programa gpx ON gpx.idGrupo = g.id   -- CULM-001 B2NM: vigencia S1
+                        INNER JOIN dbo.Programa p ON p.id = gpx.idPrograma
                         INNER JOIN dbo.Facultad f ON f.id = p.facultad
                         INNER JOIN dbo.Administrador ad ON ad.institucion = f.institucion
                         WHERE g.id = @idGrupo AND ad.usuario = @idUsuarioEjecutor)), 1, 0);
