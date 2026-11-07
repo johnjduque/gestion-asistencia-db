@@ -10,6 +10,8 @@ PRINT '======================================================================';
 -- CULM-001 B.2 ([SUPUESTO-B-20]): helper de pruebas (procedimientos temporales de la sesion) para la columna obligatoria
 -- DetalleAsistencia.toma; lo usan las pruebas que insertan detalles o borran sesiones directamente.
 :r /tmp/test/fixtures/culm001_b2_toma_fixture.sql
+:r /tmp/test/test_culm001_b2nm_compilacion.sql
+:r /tmp/test/test_culm001_b2nm_asignatura_plan.sql
 :r /tmp/test/test_public_objects.sql
 :r /tmp/test/test_contract_closure.sql
 :r /tmp/test/test_usp_crear_facultad.sql
