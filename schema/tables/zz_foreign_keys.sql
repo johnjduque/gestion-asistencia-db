@@ -137,14 +137,6 @@ BEGIN
 END
 GO
 
--- 18. Asignatura -> SemestrePlanEstudio
-IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Asignatura_SemestrePlanEstudio')
-BEGIN
-    ALTER TABLE [dbo].[Asignatura] ADD CONSTRAINT [FK_Asignatura_SemestrePlanEstudio] 
-    FOREIGN KEY ([semestrePlanEstudio]) REFERENCES [dbo].[SemestrePlanEstudio] ([id]);
-END
-GO
-
 -- 19. Grupo -> Asignatura
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Grupo_Asignatura')
 BEGIN
@@ -428,3 +420,13 @@ BEGIN
     ALTER TABLE [dbo].[DetalleAsistencia] ADD CONSTRAINT [FK_DetalleAsistencia_TomaAsistencia] FOREIGN KEY ([toma]) REFERENCES [dbo].[TomaAsistencia] ([id]);
 END
 GO
+
+-- CULM-001 B2NM: FKs de la tabla puente AsignaturaPlanEstudio y del programa por defecto del token de matricula.
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_AsignaturaPlanEstudio_Asignatura')
+    ALTER TABLE dbo.AsignaturaPlanEstudio ADD CONSTRAINT FK_AsignaturaPlanEstudio_Asignatura FOREIGN KEY (asignatura) REFERENCES dbo.Asignatura (id);
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_AsignaturaPlanEstudio_SemestrePlanEstudio')
+    ALTER TABLE dbo.AsignaturaPlanEstudio ADD CONSTRAINT FK_AsignaturaPlanEstudio_SemestrePlanEstudio FOREIGN KEY (semestrePlanEstudio) REFERENCES dbo.SemestrePlanEstudio (id);
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_AsignaturaPlanEstudio_CaracterAsignaturaPlan')
+    ALTER TABLE dbo.AsignaturaPlanEstudio ADD CONSTRAINT FK_AsignaturaPlanEstudio_CaracterAsignaturaPlan FOREIGN KEY (caracter) REFERENCES dbo.CaracterAsignaturaPlan (id);
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_TokenMatriculaGrupo_Programa')
+    ALTER TABLE dbo.TokenMatriculaGrupo ADD CONSTRAINT FK_TokenMatriculaGrupo_Programa FOREIGN KEY (programaPorDefecto) REFERENCES dbo.Programa (id);
