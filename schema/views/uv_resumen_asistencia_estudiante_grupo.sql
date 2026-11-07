@@ -18,14 +18,14 @@ GO
 --   (sesionesConFaltaSinJustaCausa / sesionesEjecutadas), solo trazabilidad. umbralAdvertencia / umbralPerdida: parametros.
 --   sesionesAsistidas / sesionesConFaltaSinJustaCausa / sesionesConExcusa: sesiones por estado consolidado (consumidores
 --   diferidos a D).
+-- CULM-001 B2NM: sin idPrograma (1 fila por matricula); el resumen por programa es uv_resumen_asistencia_estudiante_programa_grupo.
 CREATE OR ALTER VIEW [dbo].[uv_resumen_asistencia_estudiante_grupo]
 AS
 SELECT  idEstudianteGrupo = eg.id,
         idEstudiante = eg.idEstudiante,
         idGrupo = eg.idGrupo,
         idAsignatura = g.idAsignatura,
-        idPrograma = gp.idPrograma,
-        idPeriodoAcademico = gp.idPeriodoAcademico,
+        idPeriodoAcademico = g.idPeriodoAcademico,
         codigoEstadoEstudiante = eg.codigoEstadoEstudiante,
         sesionesEjecutadas = ISNULL(se.sesionesEjecutadas, 0),
         asistencias = ISNULL(de.asistencias, 0),
@@ -52,8 +52,6 @@ SELECT  idEstudianteGrupo = eg.id,
 FROM    dbo.uv_estudiante_grupo eg
 INNER JOIN dbo.uv_grupo g
 ON      g.id = eg.idGrupo
-INNER JOIN dbo.uv_grupo_programa gp
-ON      gp.idGrupo = eg.idGrupo
 LEFT JOIN (
             SELECT  c.idGrupo,
                     sesionesEjecutadas = COUNT(*),

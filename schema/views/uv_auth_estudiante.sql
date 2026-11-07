@@ -5,6 +5,7 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
+-- CULM-001 B2NM (R6/R10): coordinador y decano exigen tieneVinculoPrograma = 1; administrador, docente titular y el propio estudiante no.
 CREATE OR ALTER VIEW [dbo].[uv_auth_estudiante]
 AS
 SELECT  e.id,
@@ -28,7 +29,8 @@ SELECT  e.id,
         e.codigoPerfil,
         e.nombrePerfil,
         e.estaActivoEstudiante,
-        e.estaActivoTextoEstudiante
+        e.estaActivoTextoEstudiante,
+        e.tieneVinculoPrograma
 FROM    dbo.uv_estudiante e
 WHERE   dbo.ufn_obtener_usuario_ejecutor_contexto() IS NOT NULL   -- fail closed: sin contexto => 0 filas
    AND  (
@@ -36,10 +38,10 @@ WHERE   dbo.ufn_obtener_usuario_ejecutor_contexto() IS NOT NULL   -- fail closed
             SELECT 1 FROM dbo.Administrador a WHERE a.usuario = dbo.ufn_obtener_usuario_ejecutor_contexto() AND a.institucion = e.idInstitucion
         )
    OR   EXISTS (
-            SELECT 1 FROM dbo.Decano dec INNER JOIN dbo.Facultad f ON dec.id = f.decano WHERE dec.usuario = dbo.ufn_obtener_usuario_ejecutor_contexto() AND f.id = e.idFacultad
+            SELECT 1 FROM dbo.Decano dec INNER JOIN dbo.Facultad f ON dec.id = f.decano WHERE e.tieneVinculoPrograma = 1 AND dec.usuario = dbo.ufn_obtener_usuario_ejecutor_contexto() AND f.id = e.idFacultad
         )
    OR   EXISTS (
-            SELECT 1 FROM dbo.Coordinador c INNER JOIN dbo.Programa pr ON c.id = pr.coordinador WHERE c.usuario = dbo.ufn_obtener_usuario_ejecutor_contexto() AND pr.id = e.idPrograma
+            SELECT 1 FROM dbo.Coordinador c INNER JOIN dbo.Programa pr ON c.id = pr.coordinador WHERE e.tieneVinculoPrograma = 1 AND c.usuario = dbo.ufn_obtener_usuario_ejecutor_contexto() AND pr.id = e.idPrograma
         )
    OR   EXISTS (
             SELECT 1 FROM dbo.Docente doc INNER JOIN dbo.Grupo g ON doc.id = g.docente WHERE doc.usuario = dbo.ufn_obtener_usuario_ejecutor_contexto() AND g.id = e.idGrupo
