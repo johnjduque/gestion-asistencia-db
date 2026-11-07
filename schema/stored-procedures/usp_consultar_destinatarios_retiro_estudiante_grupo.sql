@@ -60,6 +60,7 @@ BEGIN
                d.usuario AS usuarioDocente, c.usuario AS usuarioCoordinador, e.usuario AS usuarioEstudiante
         FROM dbo.Grupo g
         INNER JOIN dbo.Docente d               ON d.id = g.docente
+        INNER JOIN dbo.Asignatura asg          ON asg.id = g.asignatura
         INNER JOIN dbo.uv_grupo_programa gpx ON gpx.idGrupo = g.id   -- CULM-001 B2NM: vigencia S1
         INNER JOIN dbo.Programa pr             ON pr.id = gpx.idPrograma
         INNER JOIN dbo.Coordinador c           ON c.id = pr.coordinador
