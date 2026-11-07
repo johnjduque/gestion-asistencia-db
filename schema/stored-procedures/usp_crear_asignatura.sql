@@ -26,7 +26,8 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_crear_asignatura]
     @nombreArea         NVARCHAR(100),
     @nombreComponente   NVARCHAR(100),
     @idCorrelacion      UNIQUEIDENTIFIER,
-    @idUsuarioEjecutor  UNIQUEIDENTIFIER = NULL
+    @idUsuarioEjecutor  UNIQUEIDENTIFIER = NULL,
+    @codigoCaracter     NVARCHAR(3) = NULL   -- CULM-001 B2NM (R1): NULL -> ASIGNATURA_PLAN/CARACTER_DEFECTO
 )
 AS
     DECLARE @idCorrelacionDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
@@ -40,7 +41,7 @@ AS
 
     DECLARE @idAreaResolved       UNIQUEIDENTIFIER;
     DECLARE @idComponenteResolved UNIQUEIDENTIFIER;
-    DECLARE @idSpeResolved        UNIQUEIDENTIFIER;
+    DECLARE @transaccionPropia    BIT = 0;
     DECLARE @idProgramaPlan       UNIQUEIDENTIFIER;
 
     -- Variables locales de respuesta
@@ -50,6 +51,7 @@ AS
 
 BEGIN
     SET NOCOUNT ON;
+    SET XACT_ABORT ON;
     BEGIN TRY
         -- PASO 1: Validación del identificador de correlación
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
@@ -135,14 +137,14 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
-        -- PASO 3: Validación de unicidad de código consultando uv_asignatura
+        -- PASO 3 (CULM-001 B2NM, R2): unicidad del codigo contra la tabla (UX_Asignatura_codigo); existente -> ASI_002.
+        --         La proteccion de concurrencia (UPDLOCK, HOLDLOCK) se toma dentro de la transaccion del PASO 5.
         IF @estadoResultado = 1
         BEGIN
-            IF EXISTS (SELECT 1 FROM [dbo].[uv_asignatura] WHERE UPPER(TRIM(codigo)) = @codigoDefecto)
+            IF EXISTS (SELECT 1 FROM [dbo].[Asignatura] WHERE UPPER(TRIM(codigo)) = @codigoDefecto)
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
-                    @p_codigo = 'VAL_006',
-                    @p_param1 = 'Asignatura',
+                    @p_codigo = 'ASI_002',
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
@@ -167,52 +169,57 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
-        -- PASO 4.1: El semestre debe existir en el plan de estudios (PLA_004); no se crea desde aqui
+        -- PASO 5 (CULM-001 B2NM, R3): catalogo + primer vinculo en una sola transaccion.
         IF @estadoResultado = 1
         BEGIN
-            SELECT @idSpeResolved = id
-            FROM [dbo].[uv_semestre_plan_estudio]
-            WHERE idPlanEstudio = @idPlanEstudioDefecto AND numeroSemestre = @semestreNumero;
-
-            IF @idSpeResolved IS NULL
+            IF @@TRANCOUNT = 0
             BEGIN
-                EXEC dbo.usp_obtener_mensaje_catalogo
-                    @p_codigo = 'PLA_004',
-                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+                BEGIN TRANSACTION;
+                SET @transaccionPropia = 1;
+            END
+
+            IF EXISTS (SELECT 1 FROM [dbo].[Asignatura] WITH (UPDLOCK, HOLDLOCK) WHERE UPPER(TRIM(codigo)) = @codigoDefecto)
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'ASI_002',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
                 SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
                 SET @estadoResultado = 0;
             END
-        END
 
-        -- PASO 5: Inserción de Asignatura y generación de mensaje de éxito desde catálogo
-        IF @estadoResultado = 1
-        BEGIN
-            INSERT INTO dbo.Asignatura (
-                id, codigo, nombre, credito, area, componente, semestrePlanEstudio, estado
-            )
-            VALUES (
-                @idAsignaturaDefecto,
-                @codigoDefecto,
-                @nombreDefecto,
-                @creditos,
-                @idAreaResolved,
-                @idComponenteResolved,
-                @idSpeResolved,
-                1
-            );
+            IF @estadoResultado = 1
+            BEGIN
+                INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, estado)
+                VALUES (@idAsignaturaDefecto, @codigoDefecto, @nombreDefecto, @creditos, @idAreaResolved, @idComponenteResolved, 1);
 
-            EXEC dbo.usp_obtener_mensaje_catalogo
-                @p_codigo = 'GEN_004',
-                @p_param1 = 'Asignatura',
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+                EXEC dbo.usp_internal_asociar_asignatura_plan
+                    @idAsignatura = @idAsignaturaDefecto,
+                    @idPlanEstudio = @idPlanEstudioDefecto,
+                    @semestreNumero = @semestreNumero,
+                    @codigoCaracter = @codigoCaracter,
+                    @idCorrelacion = @idCorrelacionDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                    @estadoResultado = @estadoResultado OUTPUT;
+            END
 
-            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            IF @estadoResultado = 1
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'GEN_004',
+                    @p_param1 = 'Asignatura',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                IF @transaccionPropia = 1 COMMIT TRANSACTION;
+            END
+            ELSE IF @transaccionPropia = 1
+                ROLLBACK TRANSACTION;
         END
 
     END TRY
     BEGIN CATCH
+        IF @@TRANCOUNT > 0 AND @transaccionPropia = 1 ROLLBACK TRANSACTION;
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,

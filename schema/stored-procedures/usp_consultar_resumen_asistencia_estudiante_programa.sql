@@ -14,17 +14,18 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_resumen_asistencia_estudiante_pro
     @idCorrelacion      UNIQUEIDENTIFIER,
     @idEstudiante       UNIQUEIDENTIFIER,
     @idPeriodoAcademico UNIQUEIDENTIFIER = NULL
-)
+,
+    @idPrograma UNIQUEIDENTIFIER = NULL)
 AS
 BEGIN
     SET NOCOUNT ON;
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @msgP1 NVARCHAR(500);
-    DECLARE @idPrograma UNIQUEIDENTIFIER, @idPeriodo UNIQUEIDENTIFIER;
+    DECLARE @idPeriodo UNIQUEIDENTIFIER;
 
     -- PASO 1: Resolver ambito del ejecutor (usp_resolver_programa_coordinador_interno)
-    EXEC dbo.usp_resolver_programa_coordinador_interno @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacion, @validarUmbrales = 1, @idPrograma = @idPrograma OUTPUT;
+    EXEC dbo.usp_resolver_programa_coordinador_interno @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacion, @validarUmbrales = 1, @idPrograma = @idPrograma OUTPUT, @idProgramaSolicitado = @idPrograma;
     -- PASO 2: Validacion de negocio (usp_validar_estudiante_en_programa_interno)
     EXEC dbo.usp_validar_estudiante_en_programa_interno @idEstudiante = @idEstudiante, @idPrograma = @idPrograma;
     -- PASO 3: Resolver ambito del ejecutor (usp_resolver_periodo_kpi_interno)
@@ -48,7 +49,7 @@ BEGIN
         tomasDictadas = r.tomasDictadas,
         horasDictadas = r.horasDictadas,
         horasFalta = r.horasFalta
-    FROM dbo.uv_resumen_asistencia_estudiante_grupo r
+    FROM dbo.uv_resumen_asistencia_estudiante_programa_grupo r
     INNER JOIN dbo.uv_estudiante_grupo eg ON eg.id = r.idEstudianteGrupo
     INNER JOIN dbo.uv_grupo g ON g.id = r.idGrupo
     WHERE r.idEstudiante = @idEstudiante AND r.idPrograma = @idPrograma AND r.idPeriodoAcademico = @idPeriodo

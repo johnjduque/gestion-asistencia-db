@@ -66,6 +66,7 @@ BEGIN
             WHERE   p.idInstitucion IN (SELECT a.idInstitucion FROM dbo.uv_administrador a WHERE a.idUsuario = @idUsuario)
                OR   p.idFacultad IN (SELECT d.idFacultad FROM dbo.uv_decano d WHERE d.idUsuario = @idUsuario)
         )
+        -- CULM-001 B2NM (DEC-019): 1 fila por asignatura (catalogo); planes = vinculos activos en el ambito, totalPlanes = su conteo.
         SELECT
             idAsignatura          = a.id,
             codigo                = a.codigo,
@@ -73,20 +74,24 @@ BEGIN
             credito               = a.credito,
             nombreArea            = a.nombreArea,
             nombreComponente      = a.nombreComponente,
-            codigoSemestre        = a.codigoSemestre,
-            idPlanEstudio         = sp.idPlanEstudio,
-            inpPlanEstudio        = a.inp,
-            idPrograma            = pa.id,
-            nombrePrograma        = pa.nombrePrograma,
-            idFacultad            = pa.idFacultad,
-            nombreFacultad        = pa.nombreFacultad,
+            planes                = CAST((SELECT STRING_AGG(CONCAT(v.nombrePrograma, N' · Plan ', v.inpPlanEstudio, N' · S', v.numeroSemestre), N'; ')
+                                          WITHIN GROUP (ORDER BY v.nombrePrograma, v.inpPlanEstudio)
+                                          FROM dbo.uv_asignatura_plan_estudio v
+                                          INNER JOIN programasAmbito pa ON pa.id = v.idPrograma
+                                          WHERE v.idAsignatura = a.id AND v.estaActivoVinculo = 1
+                                            AND (@idFacultad IS NULL OR pa.idFacultad = @idFacultad)) AS NVARCHAR(1000)),
+            totalPlanes           = (SELECT COUNT(*)
+                                     FROM dbo.uv_asignatura_plan_estudio v
+                                     INNER JOIN programasAmbito pa ON pa.id = v.idPrograma
+                                     WHERE v.idAsignatura = a.id AND v.estaActivoVinculo = 1
+                                       AND (@idFacultad IS NULL OR pa.idFacultad = @idFacultad)),
             estaActivaAsignatura  = a.estaActivaAsignatura,
             totalRegistros        = COUNT(*) OVER()
         FROM dbo.uv_asignatura a
-        INNER JOIN dbo.uv_semestre_plan_estudio sp ON sp.id = a.idSemestrePlanEstudio
-        INNER JOIN programasAmbito pa ON pa.id = sp.idPrograma
         WHERE
-            (@idFacultad IS NULL OR pa.idFacultad = @idFacultad)
+            EXISTS (SELECT 1 FROM dbo.uv_asignatura_plan_estudio v
+                    INNER JOIN programasAmbito pa ON pa.id = v.idPrograma
+                    WHERE v.idAsignatura = a.id AND v.estaActivoVinculo = 1 AND (@idFacultad IS NULL OR pa.idFacultad = @idFacultad))
             AND (@estaActiva IS NULL OR a.estaActivaAsignatura = @estaActiva)
             AND (
                 @busquedaFiltro IS NULL

@@ -65,20 +65,23 @@ BEGIN
         THROW 51000, @mensajeTecnicoResultado, 1;
     END
 
-    -- PASO 3: Asignaturas activas de los programas con vinculo activo del docente
+    -- PASO 3: Asignaturas activas con vinculo activo en un programa donde el docente tiene vinculo activo (CULM-001 B2NM:
+    -- 1 fila por asignatura; programas = nombres de los programas del docente que la incluyen).
     SELECT
-        idDocente          = dp.idDocente,
-        idAsignatura       = a.id,
-        codigoAsignatura   = a.codigo,
-        nombreAsignatura   = a.nombre,
-        idPrograma         = dp.idPrograma,
-        nombrePrograma     = dp.nombrePrograma
-    FROM dbo.uv_docente_programa dp
-    INNER JOIN dbo.uv_plan_estudio pe ON pe.idPrograma = dp.idPrograma AND pe.estaActivoPlanEstudio = 1
-    INNER JOIN dbo.uv_semestre_plan_estudio spe ON spe.idPlanEstudio = pe.id
-    INNER JOIN dbo.uv_asignatura a ON a.idSemestrePlanEstudio = spe.id AND a.estaActivaAsignatura = 1
-    WHERE dp.idUsuario = @idUsuarioDefecto
-      AND dp.estaActivoDocentePrograma = 1
-    ORDER BY dp.nombrePrograma, a.nombre, a.codigo;
+        idDocente          = x.idDocente,
+        idAsignatura       = x.idAsignatura,
+        codigoAsignatura   = x.codigo,
+        nombreAsignatura   = x.nombre,
+        programas          = CAST(STRING_AGG(x.nombrePrograma, N', ') WITHIN GROUP (ORDER BY x.nombrePrograma) AS NVARCHAR(1000))
+    FROM (
+        SELECT DISTINCT dp.idDocente, idAsignatura = a.id, a.codigo, a.nombre, dp.nombrePrograma
+        FROM dbo.uv_docente_programa dp
+        INNER JOIN dbo.uv_asignatura_plan_estudio v ON v.idPrograma = dp.idPrograma AND v.estaActivoVinculo = 1 AND v.estaActivoPlan = 1
+        INNER JOIN dbo.uv_asignatura a ON a.id = v.idAsignatura AND a.estaActivaAsignatura = 1
+        WHERE dp.idUsuario = @idUsuarioDefecto
+          AND dp.estaActivoDocentePrograma = 1
+    ) x
+    GROUP BY x.idDocente, x.idAsignatura, x.codigo, x.nombre
+    ORDER BY x.nombre, x.codigo;
 END;
 GO

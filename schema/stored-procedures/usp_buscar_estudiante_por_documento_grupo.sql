@@ -94,7 +94,7 @@ BEGIN
     SELECT @idInstitucionGrupo = f.institucion
     FROM dbo.Grupo g
     INNER JOIN dbo.Asignatura a ON a.id = g.asignatura
-    INNER JOIN dbo.SemestrePlanEstudio spe ON spe.id = a.semestrePlanEstudio
+    INNER JOIN dbo.AsignaturaPlanEstudio ape ON ape.asignatura = a.id AND ape.estaActivo = 1 INNER JOIN dbo.SemestrePlanEstudio spe ON spe.id = ape.semestrePlanEstudio
     INNER JOIN dbo.PlanEstudio pe ON pe.id = spe.planEstudio
     INNER JOIN dbo.Programa p ON p.id = pe.programa
     INNER JOIN dbo.Facultad f ON f.id = p.facultad
@@ -133,7 +133,7 @@ BEGIN
             OR EXISTS (SELECT 1 FROM dbo.EstudianteGrupo eg
                        INNER JOIN dbo.Grupo g ON g.id = eg.grupo
                        INNER JOIN dbo.Asignatura a ON a.id = g.asignatura
-                       INNER JOIN dbo.SemestrePlanEstudio spe ON spe.id = a.semestrePlanEstudio
+                       INNER JOIN dbo.AsignaturaPlanEstudio ape ON ape.asignatura = a.id AND ape.estaActivo = 1 INNER JOIN dbo.SemestrePlanEstudio spe ON spe.id = ape.semestrePlanEstudio
                        INNER JOIN dbo.PlanEstudio pe ON pe.id = spe.planEstudio
                        INNER JOIN dbo.Programa p ON p.id = pe.programa
                        INNER JOIN dbo.Facultad f ON f.id = p.facultad

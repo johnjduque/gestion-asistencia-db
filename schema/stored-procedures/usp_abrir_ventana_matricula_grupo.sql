@@ -18,7 +18,8 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_abrir_ventana_matricula_grupo]
     @tokenHash         VARBINARY(32),
     @pin               NCHAR(6),
     @idCorrelacion     UNIQUEIDENTIFIER,
-    @idUsuarioEjecutor UNIQUEIDENTIFIER = NULL
+    @idUsuarioEjecutor UNIQUEIDENTIFIER = NULL,
+    @idPrograma        UNIQUEIDENTIFIER = NULL   -- CULM-001 B2NM (S3 minimo): obligatorio si el grupo tiene varios programas
 )
 AS
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
@@ -118,6 +119,33 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
+        -- PASO 4.1 (CULM-001 B2NM, S3): programa de la ventana en grupos multiprograma (EST_005 si falta, EST_006 si es ajeno)
+        IF @estadoResultado = 1 AND (SELECT COUNT(*) FROM dbo.ufn_programas_grupo(@idGrupoDefecto)) > 1
+        BEGIN
+            DECLARE @codigoPrograma NVARCHAR(10) = CASE
+                WHEN @idPrograma IS NULL THEN 'EST_005'
+                WHEN NOT EXISTS (SELECT 1 FROM dbo.ufn_programas_grupo(@idGrupoDefecto) pg WHERE pg.idPrograma = @idPrograma) THEN 'EST_006' END;
+            IF @codigoPrograma IS NOT NULL
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = @codigoPrograma,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+        END
+        ELSE IF @estadoResultado = 1 AND @idPrograma IS NOT NULL
+             AND NOT EXISTS (SELECT 1 FROM dbo.ufn_programas_grupo(@idGrupoDefecto) pg WHERE pg.idPrograma = @idPrograma)
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'EST_006',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
         -- PASO 5: escritura atomica
         IF @estadoResultado = 1
         BEGIN
@@ -156,10 +184,10 @@ BEGIN
 
                 INSERT INTO dbo.TokenMatriculaGrupo
                     (id, grupo, docenteEmisor, tokenHash, pin, tokenHashAnterior, pinAnterior, fechaRotacionUtc,
-                     estado, fechaEmisionUtc, fechaExpiracionUtc, fechaCierreUtc, totalMatriculas)
+                     estado, fechaEmisionUtc, fechaExpiracionUtc, fechaCierreUtc, totalMatriculas, programaPorDefecto)
                 VALUES
                     (@idVentana, @idGrupoDefecto, @idDocenteTitular, @tokenHash, @pin, NULL, NULL, @ahora,
-                     @estadoActiva, @ahora, @fechaExpiracionUtc, NULL, 0);
+                     @estadoActiva, @ahora, @fechaExpiracionUtc, NULL, 0, @idPrograma);
 
                 EXEC dbo.usp_obtener_mensaje_catalogo
                     @p_codigo = 'GEN_004', @p_param1 = 'Ventana de matricula',

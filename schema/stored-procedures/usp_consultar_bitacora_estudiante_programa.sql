@@ -18,17 +18,18 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_bitacora_estudiante_programa]
     @numeroPagina       INT,
     @tamanoPagina       INT,
     @idPeriodoAcademico UNIQUEIDENTIFIER = NULL
-)
+,
+    @idPrograma UNIQUEIDENTIFIER = NULL)
 AS
 BEGIN
     SET NOCOUNT ON;
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @msgP1 NVARCHAR(500);
-    DECLARE @idPrograma UNIQUEIDENTIFIER, @idPeriodo UNIQUEIDENTIFIER;
+    DECLARE @idPeriodo UNIQUEIDENTIFIER;
 
     -- PASO 1: Resolver ambito del ejecutor (usp_resolver_programa_coordinador_interno)
-    EXEC dbo.usp_resolver_programa_coordinador_interno @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacion, @validarUmbrales = 0, @idPrograma = @idPrograma OUTPUT;
+    EXEC dbo.usp_resolver_programa_coordinador_interno @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacion, @validarUmbrales = 0, @idPrograma = @idPrograma OUTPUT, @idProgramaSolicitado = @idPrograma;
     -- PASO 2: Validacion de negocio (usp_validar_estudiante_en_programa_interno)
     EXEC dbo.usp_validar_estudiante_en_programa_interno @idEstudiante = @idEstudiante, @idPrograma = @idPrograma;
     DECLARE @tamanoMaximo INT = TRY_CAST(NULLIF(TRIM(dbo.ufn_obtener_parametro('PAGINACION', 'TAMANO_MAXIMO')), '') AS INT);
@@ -77,7 +78,7 @@ BEGIN
         WHERE h.idEstudianteGrupo = eg.id AND h.idSesion = s.id AND h.codigoRazonCausaConsolidado IS NOT NULL
     ) d
     WHERE eg.idEstudiante = @idEstudiante
-      AND c.idPrograma = @idPrograma
+      AND EXISTS (SELECT 1 FROM dbo.uv_grupo_programa gp WHERE gp.idGrupo = c.idGrupo AND gp.idPrograma = @idPrograma)
       AND c.idPeriodoAcademico = @idPeriodo
     ORDER BY s.fechaHoraInicio DESC, s.id DESC
     OFFSET @offset ROWS FETCH NEXT @tamanoPagina ROWS ONLY;

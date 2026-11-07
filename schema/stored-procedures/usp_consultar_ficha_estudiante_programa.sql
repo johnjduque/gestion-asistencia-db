@@ -13,17 +13,17 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_ficha_estudiante_programa]
     @idUsuarioEjecutor UNIQUEIDENTIFIER,
     @idCorrelacion     UNIQUEIDENTIFIER,
     @idEstudiante      UNIQUEIDENTIFIER
-)
+,
+    @idPrograma UNIQUEIDENTIFIER = NULL)
 AS
 BEGIN
     SET NOCOUNT ON;
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @msgP1 NVARCHAR(500);
-    DECLARE @idPrograma UNIQUEIDENTIFIER;
 
     -- PASO 1: Resolver ambito del ejecutor (usp_resolver_programa_coordinador_interno)
-    EXEC dbo.usp_resolver_programa_coordinador_interno @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacion, @validarUmbrales = 0, @idPrograma = @idPrograma OUTPUT;
+    EXEC dbo.usp_resolver_programa_coordinador_interno @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacion, @validarUmbrales = 0, @idPrograma = @idPrograma OUTPUT, @idProgramaSolicitado = @idPrograma;
     -- PASO 2: Validacion de negocio (usp_validar_estudiante_en_programa_interno)
     EXEC dbo.usp_validar_estudiante_en_programa_interno @idEstudiante = @idEstudiante, @idPrograma = @idPrograma;
 

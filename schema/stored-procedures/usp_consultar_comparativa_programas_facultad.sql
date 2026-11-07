@@ -30,7 +30,7 @@ BEGIN
     WITH persona AS (
         SELECT  r.idPrograma, r.idEstudiante,
                 peor = MAX(CASE r.codigoPermanencia WHEN N'PERDIDA' THEN 3 WHEN N'RIESGO' THEN 2 ELSE 1 END)
-        FROM    dbo.uv_resumen_asistencia_estudiante_grupo r
+        FROM    dbo.uv_resumen_asistencia_estudiante_programa_grupo r
         INNER JOIN dbo.uv_programa p ON p.id = r.idPrograma
         WHERE   p.idFacultad = @idFacultad AND r.idPeriodoAcademico = @idPeriodo AND r.codigoEstadoEstudiante = N'A'
         GROUP BY r.idPrograma, r.idEstudiante
@@ -49,7 +49,7 @@ BEGIN
                 sesiones = SUM(r.sesionesEjecutadas),
                 -- CULM-001 B.2 (diferido a D: debe pasar a horas): faltas en unidades de sesion para no mezclar unidades
                 faltas = SUM(r.sesionesConFaltaSinJustaCausa)
-        FROM    dbo.uv_resumen_asistencia_estudiante_grupo r
+        FROM    dbo.uv_resumen_asistencia_estudiante_programa_grupo r
         INNER JOIN dbo.uv_programa p ON p.id = r.idPrograma
         WHERE   p.idFacultad = @idFacultad AND r.idPeriodoAcademico = @idPeriodo AND r.codigoEstadoEstudiante = N'A'
         GROUP BY r.idPrograma

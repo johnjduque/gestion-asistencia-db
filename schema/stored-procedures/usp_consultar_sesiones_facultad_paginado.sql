@@ -112,13 +112,15 @@ BEGIN
         FROM dbo.uv_auth_sesion s
         INNER JOIN dbo.uv_sesion_estado se ON se.idSesion = s.id
         INNER JOIN dbo.uv_auth_grupo g ON g.id = s.idGrupo
-        INNER JOIN dbo.uv_grupo_programa gp ON gp.idGrupo = s.idGrupo
-        INNER JOIN dbo.uv_programa pr ON pr.id = gp.idPrograma
-        WHERE pr.idFacultad IN (
-                SELECT f.id FROM dbo.Facultad f INNER JOIN dbo.Decano d ON d.id = f.decano
-                WHERE d.usuario = @idUsuarioDefecto
-              )
-          AND (@idPrograma IS NULL OR pr.id = @idPrograma)
+        -- CULM-001 B2NM (R5): 1 fila por sesion; el programa expuesto es el primero del ambito del decano (EXISTS + TOP 1).
+        CROSS APPLY (SELECT TOP 1 x.id, x.nombrePrograma
+                     FROM dbo.uv_grupo_programa gp
+                     INNER JOIN dbo.uv_programa x ON x.id = gp.idPrograma
+                     WHERE gp.idGrupo = s.idGrupo
+                       AND x.idFacultad IN (SELECT f.id FROM dbo.Facultad f INNER JOIN dbo.Decano d ON d.id = f.decano WHERE d.usuario = @idUsuarioDefecto)
+                       AND (@idPrograma IS NULL OR x.id = @idPrograma)
+                     ORDER BY x.nombrePrograma, x.id) pr
+        WHERE 1 = 1
           AND (@inicio IS NULL OR s.fechaHoraInicio >= @inicio)
           AND (@finExclusivo IS NULL OR s.fechaHoraInicio < @finExclusivo)
         ORDER BY s.fechaHoraInicio ASC, s.id ASC

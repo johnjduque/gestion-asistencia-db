@@ -61,13 +61,15 @@ BEGIN
         FROM dbo.Grupo g
         INNER JOIN dbo.Docente d               ON d.id = g.docente
         INNER JOIN dbo.Asignatura asg          ON asg.id = g.asignatura
-        INNER JOIN dbo.SemestrePlanEstudio spe ON spe.id = asg.semestrePlanEstudio
+        INNER JOIN dbo.AsignaturaPlanEstudio ape ON ape.asignatura = asg.id AND ape.estaActivo = 1 INNER JOIN dbo.SemestrePlanEstudio spe ON spe.id = ape.semestrePlanEstudio
         INNER JOIN dbo.PlanEstudio pe          ON pe.id = spe.planEstudio
         INNER JOIN dbo.Programa pr             ON pr.id = pe.programa
         INNER JOIN dbo.Coordinador c           ON c.id = pr.coordinador
         INNER JOIN dbo.EstudianteGrupo eg      ON eg.grupo = g.id AND eg.estudiante = @idEstudiante
         INNER JOIN dbo.Estudiante e            ON e.id = eg.estudiante
         WHERE g.id = @idGrupo AND d.usuario = @idUsuarioDefecto
+          -- CULM-001 B2NM: coordinadores de los programas del estudiante que comparten el grupo
+          AND EXISTS (SELECT 1 FROM dbo.EstudiantePrograma epx WHERE epx.estudiante = eg.estudiante AND epx.programa = pr.id)
     ),
     destinatarios AS (
         SELECT DISTINCT orden = 1, rolDestinatario = 'ESTUDIANTE', idUsuario = usuarioEstudiante, idGrupo, codigoGrupo, nombreGrupo, nombreAsignatura FROM contexto

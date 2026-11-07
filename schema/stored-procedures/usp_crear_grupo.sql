@@ -114,11 +114,10 @@ BEGIN
         BEGIN
             IF NOT EXISTS (
                 SELECT 1
-                FROM dbo.uv_asignatura a
-                INNER JOIN dbo.uv_semestre_plan_estudio spe ON a.idSemestrePlanEstudio = spe.id
-                INNER JOIN dbo.uv_plan_estudio pe ON spe.idPlanEstudio = pe.id
-                INNER JOIN dbo.uv_docente_programa dp ON dp.idPrograma = pe.idPrograma
-                WHERE a.id = @idAsignaturaDefecto
+                FROM dbo.uv_asignatura_plan_estudio v
+                INNER JOIN dbo.uv_docente_programa dp ON dp.idPrograma = v.idPrograma
+                WHERE v.idAsignatura = @idAsignaturaDefecto
+                  AND v.estaActivoVinculo = 1   -- CULM-001 B2NM: algun programa de la asignatura (tabla puente)
                   AND dp.idDocente = @idDocenteEjecutor
                   AND dp.estaActivoDocentePrograma = 1
             )

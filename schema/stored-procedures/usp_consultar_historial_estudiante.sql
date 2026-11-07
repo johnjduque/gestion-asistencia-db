@@ -116,7 +116,7 @@ BEGIN
         LEFT JOIN dbo.uv_usuario u ON u.id = e.idUsuario
         LEFT JOIN dbo.uv_estudiante_grupo eg ON eg.idEstudiante = e.id AND eg.idGrupo = e.idGrupo
         LEFT JOIN dbo.uv_resumen_asistencia_estudiante_grupo r ON r.idEstudianteGrupo = eg.id
-        LEFT JOIN dbo.uv_grupo_programa gp ON gp.idGrupo = e.idGrupo
+        LEFT JOIN dbo.uv_grupo_programa gp ON gp.idGrupo = e.idGrupo AND gp.idPrograma = e.idPrograma
         LEFT JOIN dbo.uv_periodo_academico pa ON pa.id = gp.idPeriodoAcademico
         WHERE e.id = @idEstudiante
         ORDER BY pa.fechaInicio DESC, e.nombrePrograma ASC, e.nombreAsignatura ASC, e.idGrupo ASC;

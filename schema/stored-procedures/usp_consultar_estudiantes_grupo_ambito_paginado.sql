@@ -69,7 +69,7 @@ BEGIN
                         WHERE g.id = @idGrupo AND d.usuario = @idUsuarioEjecutor)
              OR EXISTS (SELECT 1 FROM dbo.Grupo g
                         INNER JOIN dbo.Asignatura a ON a.id = g.asignatura
-                        INNER JOIN dbo.SemestrePlanEstudio spe ON spe.id = a.semestrePlanEstudio
+                        INNER JOIN dbo.AsignaturaPlanEstudio ape ON ape.asignatura = a.id AND ape.estaActivo = 1 INNER JOIN dbo.SemestrePlanEstudio spe ON spe.id = ape.semestrePlanEstudio
                         INNER JOIN dbo.PlanEstudio pe ON pe.id = spe.planEstudio
                         INNER JOIN dbo.Programa p ON p.id = pe.programa
                         INNER JOIN dbo.Facultad f ON f.id = p.facultad
@@ -77,13 +77,14 @@ BEGIN
                         WHERE g.id = @idGrupo AND ad.usuario = @idUsuarioEjecutor)), 1, 0);
 
         SET @esCoordinador = IIF(@ejecutorActivo = 1 AND EXISTS (
+                -- CULM-001 B2NM (DEC-020): coordinador de algun programa del grupo, o decano de su facultad.
                 SELECT 1 FROM dbo.Grupo g
-                INNER JOIN dbo.Asignatura a ON a.id = g.asignatura
-                INNER JOIN dbo.SemestrePlanEstudio spe ON spe.id = a.semestrePlanEstudio
-                INNER JOIN dbo.PlanEstudio pe ON pe.id = spe.planEstudio
-                INNER JOIN dbo.Programa p ON p.id = pe.programa
-                INNER JOIN dbo.Coordinador c ON c.id = p.coordinador
-                WHERE g.id = @idGrupo AND c.usuario = @idUsuarioEjecutor AND c.estado = 1), 1, 0);
+                INNER JOIN dbo.uv_grupo_programa gpa ON gpa.idGrupo = g.id
+                INNER JOIN dbo.Programa p ON p.id = gpa.idPrograma
+                LEFT JOIN dbo.Coordinador c ON c.id = p.coordinador AND c.usuario = @idUsuarioEjecutor AND c.estado = 1
+                LEFT JOIN dbo.Facultad fa ON fa.id = p.facultad
+                LEFT JOIN dbo.Decano dc ON dc.id = fa.decano AND dc.usuario = @idUsuarioEjecutor
+                WHERE g.id = @idGrupo AND (c.id IS NOT NULL OR dc.id IS NOT NULL)), 1, 0);
 
         IF @verTodos = 0 AND @esCoordinador = 0
         BEGIN
@@ -116,10 +117,7 @@ BEGIN
     INNER JOIN dbo.uv_usuario u ON u.id = ei.idUsuario
     WHERE eg.idGrupo = @idGrupo
       AND (@verTodos = 1
-           OR EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep
-                      INNER JOIN dbo.Programa p ON p.id = ep.programa
-                      INNER JOIN dbo.Coordinador c ON c.id = p.coordinador
-                      WHERE ep.estudiante = eg.idEstudiante AND c.usuario = @idUsuarioEjecutor AND c.estado = 1))
+           OR eg.id IN (SELECT v.idEstudianteGrupo FROM dbo.ufn_estudiantes_grupo_visibles(@idGrupo, @idUsuarioEjecutor) v))   -- CULM-001 B2NM R6
     ORDER BY ei.nombreCompleto ASC, eg.id ASC
     OFFSET @offset ROWS
     FETCH NEXT @tamano ROWS ONLY;
