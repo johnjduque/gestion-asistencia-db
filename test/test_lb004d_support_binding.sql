@@ -524,7 +524,8 @@ BEGIN TRY
         SET @i += 1;
     END
 
-    -- un segundo soporte sobre la misma solicitud viola el indice unico filtrado
+    -- CULM-001 D.2 ([SUPUESTO-D-02], CONTRACT §3.2): el indice ya no es unico; un segundo soporte sobre la misma solicitud es valido a nivel de
+    -- tabla (el tope ARCHIVOS/MAXIMO_SOPORTES_POR_RECLAMO lo impone el SP, cubierto por D2-02).
     SET @err = 0;
     BEGIN TRY
         INSERT dbo.ArchivoSoporte (id, usuarioPropietario, solicitudRevisionAsistencia, nombreOriginal, tipoContenido, tamanioBytes,
@@ -534,8 +535,8 @@ BEGIN TRY
     BEGIN CATCH
         SET @err = ERROR_NUMBER();
     END CATCH
-    SET @ok = IIF(@err IN (2601, 2627), 1, 0);
-    EXEC #lb4d_expect 'INTEGRITY_ONE_SUPPORT_PER_REQUEST', @ok;
+    SET @ok = IIF(@err = 0 AND (SELECT COUNT(*) FROM dbo.ArchivoSoporte WHERE solicitudRevisionAsistencia = @req2 AND estado = 'ATTACHED') = 2, 1, 0);
+    EXEC #lb4d_expect 'INTEGRITY_SECOND_SUPPORT_ALLOWED_BY_NON_UNIQUE_INDEX', @ok;
 
     -- ---------------------------------------------------------------- rollback atomico tras crear la solicitud
     -- Un trigger INSTEAD OF que anula el UPDATE de vinculo hace que @@ROWCOUNT <> 1 DESPUES de insertar la solicitud:
