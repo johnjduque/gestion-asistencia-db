@@ -98,7 +98,7 @@ Esta documentación especifica la arquitectura, reglas de negocio, contrato de f
 - **Parámetros de Entrada**:
   - `@idEstudiante UNIQUEIDENTIFIER`
   - `@idSesion UNIQUEIDENTIFIER`
-  - `@codigoEstado NVARCHAR(5)`: código canónico de `dbo.RazonCausa` (`'AN'`, `'SJC'`, `'EX'`). Alias legacy **solo internos**: `'A'` → `AN` y `'F'` → `SJC` (caller `usp_registrar_asistencia_estudiante_autonomo`); el batch público los rechaza antes de llegar aquí.
+  - `@codigoEstado NVARCHAR(5)`: código canónico de `dbo.RazonCausa` (`'AN'`, `'SJC'`, `'EX'`). Alias legacy **solo internos**: `'A'` → `AN` y `'F'` → `SJC` (el caller `usp_registrar_asistencia_estudiante_autonomo` se retiró en CULM-001 D.7); el batch público los rechaza antes de llegar aquí.
   - `@idCorrelacion UNIQUEIDENTIFIER`
 - **Parámetros de Salida**: `@mensajeUsuarioResultado`, `@mensajeTecnicoResultado`, `@estadoResultado`.
 - **Códigos de Catálogo Consumidos**: `SES_001`, `EST_004`, `RC_001`, `GEN_004`, `SYS_001`.
@@ -423,5 +423,5 @@ Todos los procedimientos listados en esta documentación han sido compilados y p
 - **Parámetros de Entrada**: `@idSesion UNIQUEIDENTIFIER`, `@idCorrelacion UNIQUEIDENTIFIER`.
 - **Parámetros de Salida**: `@mensajeUsuarioResultado`, `@mensajeTecnicoResultado`, `@estadoResultado`.
 - **Códigos de Catálogo Consumidos**: `SES_001`, `SES_007` (no iniciada), `SES_008` (cerrada), `SES_009` (indeterminada), `SYS_001`.
-- **Consumidores**: `usp_registrar_asistencias_sesion` (antes de escribir y antes de confirmar) y `usp_registrar_asistencia_estudiante_autonomo`. No lo usa `usp_resolver_solicitud_revision_asistencia`: la rectificación posterior al cierre es el flujo formal de reclamos (SES-04).
+- **Consumidores**: `usp_registrar_asistencias_sesion` (antes de escribir y antes de confirmar) (el consumidor `usp_registrar_asistencia_estudiante_autonomo` se retiró en CULM-001 D.7). No lo usa `usp_resolver_solicitud_revision_asistencia`: la rectificación posterior al cierre es el flujo formal de reclamos (SES-04).
 - **Work item**: `docs/work-items/SES-01-cierre-estricto-asistencia/PLAN.md`.

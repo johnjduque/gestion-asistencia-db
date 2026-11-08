@@ -5,16 +5,18 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
--- HU078: relacion grupo -> programa (via asignatura, semestre del plan y plan de estudio) y su habilitacion
--- en el periodo vigente (uv_grupo.grupoEstaHablitado). Base de la regla D4 (no desactivar con grupos activos).
+-- HU078 / CULM-001 B2NM (DEC-019, R5): relacion grupo -> programas por la tabla puente (ufn_programas_grupo, regla S1).
+-- GRANO 1:N por (grupo, programa): todo consumidor que cuente o pagine grupos, sesiones o estudiantes debe usar EXISTS o
+-- DISTINCT sobre la clave de negocio. El plan es el del programa con vinculo vigente; si hay varios: activo primero,
+-- mayor inp, menor id. PlanEstudio.estado = 0 NO saca un grupo de la vista (conserva la historia, O-N10).
 CREATE OR ALTER VIEW [dbo].[uv_grupo_programa]
 AS
 SELECT  idGrupo = g.id,
-        idPrograma = pe.programa,
+        idPrograma = pg.idPrograma,
         idPeriodoAcademico = g.idPeriodoAcademico,
-        grupoEstaHablitado = g.grupoEstaHablitado
+        grupoEstaHablitado = g.grupoEstaHablitado,
+        idPlanEstudio = pg.idPlanEstudio,
+        inpPlanEstudio = pg.inpPlanEstudio
 FROM    uv_grupo g
-INNER JOIN Asignatura a ON g.idAsignatura = a.id
-INNER JOIN SemestrePlanEstudio spe ON a.semestrePlanEstudio = spe.id
-INNER JOIN PlanEstudio pe ON spe.planEstudio = pe.id
+CROSS APPLY dbo.ufn_programas_grupo(g.id) pg
 GO

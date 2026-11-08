@@ -80,7 +80,7 @@ BEGIN
         -- PASO 3: Consolidado de asistencia y retorno de resultados
         WITH consolidado AS (
             -- ISNULL/COALESCE permitidos solo sobre agregaciones (REC4 #3): un grupo sin estudiantes suma 0.
-            SELECT  r.idGrupo,
+            SELECT  r.idGrupo, r.idPrograma,
                     activos = SUM(IIF(r.codigoEstadoEstudiante = N'A', 1, 0)),
                     sesionesEjecutadas = MAX(r.sesionesEjecutadas),
                     -- CULM-001 B.2 (diferido a D: debe pasar a horas): conteos en unidades de sesion (estado consolidado)
@@ -89,9 +89,10 @@ BEGIN
                     excusas = SUM(IIF(r.codigoEstadoEstudiante = N'A', r.sesionesConExcusa, 0)),
                     riesgo = SUM(IIF(r.codigoEstadoEstudiante = N'A' AND r.codigoPermanencia = N'RIESGO', 1, 0)),
                     perdida = SUM(IIF(r.codigoPermanencia = N'PERDIDA', 1, 0))
-            FROM    dbo.uv_resumen_asistencia_estudiante_grupo r
-            INNER JOIN @grupos gg ON gg.id = r.idGrupo
-            GROUP BY r.idGrupo
+            -- CULM-001 B2NM (R9): grano (grupo, programa del ambito); cuenta solo a los estudiantes con vinculo en ese programa.
+            FROM    dbo.uv_resumen_asistencia_estudiante_programa_grupo r
+            INNER JOIN @grupos gg ON gg.id = r.idGrupo AND gg.idPrograma = r.idPrograma
+            GROUP BY r.idGrupo, r.idPrograma
         )
         SELECT
             idGrupo                 = g.id,
@@ -118,7 +119,7 @@ BEGIN
             estudiantesPerdida      = ISNULL(c.perdida, 0),
             totalRegistros          = COUNT(*) OVER()
         FROM @grupos g
-        LEFT JOIN consolidado c ON c.idGrupo = g.id
+        LEFT JOIN consolidado c ON c.idGrupo = g.id AND c.idPrograma = g.idPrograma
         LEFT JOIN dbo.uv_periodo_academico pa ON pa.id = g.idPeriodoAcademico
         LEFT JOIN dbo.uv_programa p ON p.id = g.idPrograma
         LEFT JOIN dbo.uv_docente_identidad d ON d.id = g.idDocente

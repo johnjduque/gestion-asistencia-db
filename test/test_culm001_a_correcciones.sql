@@ -104,10 +104,15 @@ BEGIN
         (CAST(@p + '6B' AS UNIQUEIDENTIFIER), CAST(@p + '68' AS UNIQUEIDENTIFIER), @semestre),
         (CAST(@p + '6C' AS UNIQUEIDENTIFIER), CAST(@p + '69' AS UNIQUEIDENTIFIER), @semestre),
         (CAST(@p + '6D' AS UNIQUEIDENTIFIER), CAST(@p + '6A' AS UNIQUEIDENTIFIER), @semestre);
-    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, semestrePlanEstudio, estado) VALUES
-        (CAST(@p + '6E' AS UNIQUEIDENTIFIER), CONCAT(N'A2A', @codBase), N'QA A2 Asignatura A', 3, @area, @esp, CAST(@p + '6B' AS UNIQUEIDENTIFIER), 1),
-        (CAST(@p + '6F' AS UNIQUEIDENTIFIER), CONCAT(N'A2B', @codBase), N'QA A2 Asignatura B', 3, @area, @esp, CAST(@p + '6C' AS UNIQUEIDENTIFIER), 1),
-        (CAST(@p + '70' AS UNIQUEIDENTIFIER), CONCAT(N'A2Z', @codBase), N'QA A2 Asignatura Z', 3, @area, @esp, CAST(@p + '6D' AS UNIQUEIDENTIFIER), 1);
+    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, estado) VALUES
+        (CAST(@p + '6E' AS UNIQUEIDENTIFIER), CONCAT(N'A2A', @codBase), N'QA A2 Asignatura A', 3, @area, @esp, 1),
+        (CAST(@p + '6F' AS UNIQUEIDENTIFIER), CONCAT(N'A2B', @codBase), N'QA A2 Asignatura B', 3, @area, @esp, 1),
+        (CAST(@p + '70' AS UNIQUEIDENTIFIER), CONCAT(N'A2Z', @codBase), N'QA A2 Asignatura Z', 3, @area, @esp, 1);
+    -- CULM-001 B2NM (CONTRACT B2 tabla de pruebas existentes, fila 109): el vinculo asignatura-plan vive en AsignaturaPlanEstudio
+    INSERT INTO dbo.AsignaturaPlanEstudio (id, asignatura, semestrePlanEstudio, caracter, estaActivo, fechaVinculacionUtc) VALUES
+        (NEWID(), CAST(@p + '6E' AS UNIQUEIDENTIFIER), CAST(@p + '6B' AS UNIQUEIDENTIFIER), (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01'),
+        (NEWID(), CAST(@p + '6F' AS UNIQUEIDENTIFIER), CAST(@p + '6C' AS UNIQUEIDENTIFIER), (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01'),
+        (NEWID(), CAST(@p + '70' AS UNIQUEIDENTIFIER), CAST(@p + '6D' AS UNIQUEIDENTIFIER), (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01');
     INSERT INTO dbo.PeriodoAcademico (id, institucion, nombre, codigo, fechaInicio, fechaFin, anio) VALUES
         (CAST(@p + '71' AS UNIQUEIDENTIFIER), @inst1, N'QA A2 Periodo V', @codBase + 4, DATEADD(DAY, -60, @hoy), DATEADD(DAY, 60, @hoy), YEAR(@hoy)),
         (CAST(@p + '72' AS UNIQUEIDENTIFIER), CAST(@p + '01' AS UNIQUEIDENTIFIER), N'QA A2 Periodo Z', @codBase + 5, DATEADD(DAY, -60, @hoy), DATEADD(DAY, 60, @hoy), YEAR(@hoy));
@@ -235,7 +240,7 @@ CREATE TABLE #hor (id UNIQUEIDENTIFIER, idEstudiante UNIQUEIDENTIFIER, idGrupo U
 CREATE TABLE #o (idGrupo UNIQUEIDENTIFIER, codigoGrupo INT, nombreGrupo NVARCHAR(50), idAsignatura UNIQUEIDENTIFIER, codigoAsignatura NVARCHAR(50),
     nombreAsignatura NVARCHAR(100), nombreDocente NVARCHAR(400), idPeriodoAcademico UNIQUEIDENTIFIER, nombrePeriodoAcademico NVARCHAR(50),
     fechaInicioPeriodo DATE, fechaFinPeriodo DATE, estadoPeriodo NVARCHAR(10), horario NVARCHAR(400), capacidadMaxima INT, estudiantesActivos INT,
-    cuposDisponibles INT, matriculado BIT, codigoComponente NVARCHAR(3), totalRegistros INT);
+    cuposDisponibles INT, matriculado BIT, codigoComponente NVARCHAR(3), codigoCaracter NVARCHAR(3), nombreCaracter NVARCHAR(50), totalRegistros INT);   -- CULM-001 B2NM (CONTRACT B2 fila 113): 21 columnas
 CREATE TABLE #r (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT);
 CREATE TABLE #dec (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT,
     idUsuario UNIQUEIDENTIFIER, personaSinRolesActivos BIT, estaActivoDecano BIT);
@@ -247,7 +252,8 @@ CREATE TABLE #r2 (idSolicitudRevisionAsistencia UNIQUEIDENTIFIER, nombreSolicitu
     fechaHoraInicioSesion DATETIME2(7), procedenciaTemporalSesion NVARCHAR(24), idGrupo UNIQUEIDENTIFIER, codigoGrupo INT,
     nombreGrupo NVARCHAR(100), idAsignatura UNIQUEIDENTIFIER, codigoAsignatura NVARCHAR(100), nombreAsignatura NVARCHAR(100),
     idArchivoSoporte UNIQUEIDENTIFIER, nombreSoporte NVARCHAR(250), tipoContenidoSoporte VARCHAR(50),
-    tamanioSoporteBytes BIGINT, fechaRegistroSoporteUtc DATETIME2(7), totalRegistros INT);
+    tamanioSoporteBytes BIGINT, fechaRegistroSoporteUtc DATETIME2(7), totalRegistros INT,
+    codigoCategoria NVARCHAR(5), nombreCategoria NVARCHAR(50), totalSoportes INT);
 
 BEGIN TRANSACTION;
 BEGIN TRY
@@ -277,11 +283,10 @@ BEGIN TRY
     IF (SELECT COUNT(*) FROM #dl) <> 3 OR EXISTS (SELECT 1 FROM #dl WHERE id NOT IN (@E1, @E4, CAST(@p + '58' AS UNIQUEIDENTIFIER)))
         THROW 58103, 'TEST FAILED: A2-T-02 el coordinador de PA ve solo E1, E4 y E8.', 1;
     TRUNCATE TABLE #dl;
-    INSERT INTO #dl (id, idUsuario, tipoIdentificacionId, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre,
-        nombreCompleto, correo, estaActivoUsuario, totalRegistros)
-    EXEC dbo.usp_consultar_directorio_estudiantes_paginado @idUsuarioEjecutor = @uCoordA, @idCorrelacion = @c, @idPrograma = @PB;
-    IF (SELECT COUNT(*) FROM #dl) <> 0
-        THROW 58104, 'TEST FAILED: A2-T-02 un programa ajeno da 0 filas (el filtro solo restringe dentro del ambito).', 1;
+    -- CULM-001 B2NM (CONTRACT B2 B2NM-06): un programa ajeno a la coordinacion responde COO_003 (403) en lugar de 0 filas. La respuesta COO_003 del
+    -- SP se prueba en test_culm001_b2nm_ambito_grupo_mixto (un THROW con XACT_ABORT ON invalida esta transaccion compartida); aqui se fija la regla de ambito.
+    IF EXISTS (SELECT 1 FROM dbo.ufn_programas_coordinador(@uCoordA) WHERE idPrograma = @PB)
+        THROW 58104, 'TEST FAILED: A2-T-02 el programa PB no debe estar en la coordinacion de A (COO_003).', 1;
     UPDATE dbo.Coordinador SET estado = 0 WHERE usuario = @uCoordA;
     TRUNCATE TABLE #dl;
     INSERT INTO #dl (id, idUsuario, tipoIdentificacionId, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre,

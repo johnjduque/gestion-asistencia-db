@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **233**.
+Total de códigos: **248**.
 
 ## ADS
 
@@ -64,6 +64,12 @@ Total de códigos: **233**.
 | Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
 |---|---|---|---|---|---|
 | `ASI_001` | BUSINESS_ERROR | MEDIO | Los créditos de la asignatura son obligatorios y deben ser mayores que cero. | Validacion: @creditos nulo o menor o igual a cero; no se asigna un valor por defecto. | `29_mensajes_asignatura.sql` |
+| `ASI_002` | BUSINESS_ERROR | MEDIO | Ya existe una asignatura con ese código. Usa "Asociar asignatura existente" para agregarla a este plan. | Regla: Asignatura.codigo es unico global (UX_Asignatura_codigo); use usp_asociar_asignatura_plan para vincular una existente. | `38_mensajes_asignatura_plan.sql` |
+| `ASI_003` | BUSINESS_ERROR | MEDIO | La asignatura ya está asociada a este plan de estudios. | Regla: la asignatura ya tiene un vinculo activo en el plan (mismo u otro semestre). | `38_mensajes_asignatura_plan.sql` |
+| `ASI_004` | BUSINESS_ERROR | MEDIO | La asignatura no está asociada a este plan de estudios. | Regla: la asignatura no tiene vinculo activo con el plan indicado. | `38_mensajes_asignatura_plan.sql` |
+| `ASI_005` | BUSINESS_ERROR | ALTO | No puedes quitar la asignatura de este plan: tiene grupos o estudiantes del programa en el periodo vigente o en periodos futuros. | Regla: hay grupos vigentes o futuros, o matriculas activas, cuyo unico programa comun es el del plan. | `38_mensajes_asignatura_plan.sql` |
+| `ASI_006` | BUSINESS_ERROR | MEDIO | La asignatura es compartida con programas que no coordinas; solo puedes cambiar su semestre y su carácter en tu plan. | Regla S2: el catalogo de una asignatura compartida solo lo cambia quien coordina todos sus programas con vinculo activo. | `38_mensajes_asignatura_plan.sql` |
+| `ASI_007` | BUSINESS_ERROR | MEDIO | El carácter de la asignatura no es válido. | Validacion: codigoCaracter no existe en CaracterAsignaturaPlan o esta inactivo. | `38_mensajes_asignatura_plan.sql` |
 
 ## ATT
 
@@ -105,6 +111,8 @@ Total de códigos: **233**.
 | Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
 |---|---|---|---|---|---|
 | `COO_001` | BUSINESS_ERROR | ALTO | No se puede desactivar al coordinador mientras tenga un programa activo a cargo. Reasigne o desactive el programa primero. | Regla de negocio: el coordinador {} coordina el programa activo {}. | `04_mensaje.sql` |
+| `COO_002` | BUSINESS_ERROR | MEDIO | Coordinas varios programas: selecciona el programa que quieres consultar. | Regla S4: el coordinador tiene varios programas y no envio idPrograma. | `38_mensajes_asignatura_plan.sql` |
+| `COO_003` | BUSINESS_ERROR | ALTO | El programa indicado no pertenece a tu coordinación. | Regla de ambito: idPrograma no esta entre los programas del coordinador. | `38_mensajes_asignatura_plan.sql` |
 
 ## CORR
 
@@ -170,6 +178,8 @@ Total de códigos: **233**.
 | `EST_002` | BUSINESS_ERROR | ALTO | El estudiante ya se encuentra matriculado o registrado en este grupo. | Registro duplicado: El estudiante {} ya se encuentra asociado al grupo {} en uv_estudiante_grupo. | `04_mensaje.sql` |
 | `EST_003` | BUSINESS_ERROR | ALTO | El estudiante ya pertenece a este programa académico. | Registro duplicado: El estudiante {} ya está asociado al programa en uv_estudiante_programa. | `04_mensaje.sql` |
 | `EST_004` | BUSINESS_ERROR | ALTO | El estudiante no pertenece al grupo de la sesion seleccionada. | Validación de pertenencia fallida: El estudiante {} no está inscrito en el grupo de la sesión {}. | `04_mensaje.sql` |
+| `EST_005` | BUSINESS_ERROR | MEDIO | El grupo pertenece a varios programas: indica el programa. | Regla R7/S3: el grupo tiene varios programas y no se envio idPrograma. | `38_mensajes_asignatura_plan.sql` |
+| `EST_006` | BUSINESS_ERROR | MEDIO | El programa indicado no corresponde a los programas del grupo. | Regla R7/S3: idPrograma no esta entre los programas del grupo. | `38_mensajes_asignatura_plan.sql` |
 
 ## FAC
 
@@ -261,6 +271,7 @@ Total de códigos: **233**.
 | `MQR_005` | BUSINESS_ERROR | MEDIO | Ya tienes una cuenta registrada. Inicia sesión para completar tu matrícula. | Existencia: el documento o el correo ya pertenecen a un usuario registrado. | `29_mensajes_matricula_qr.sql` |
 | `MQR_006` | BUSINESS_ERROR | BAJO | No fue posible generar un código único. Inténtalo de nuevo. | Unicidad: el PIN ya está en uso por el token vigente o anterior de otra ventana activa. | `29_mensajes_matricula_qr.sql` |
 | `MQR_007` | BUSINESS_ERROR | MEDIO | Debes indicar el código QR o el PIN, pero no ambos. | Validación: debe indicarse exactamente uno entre tokenHash y pin. | `29_mensajes_matricula_qr.sql` |
+| `MQR_008` | BUSINESS_ERROR | MEDIO | No se pudo determinar tu programa en este grupo. Pide a tu docente que te matricule. | Regla S3: el token no tiene programaPorDefecto y el grupo tiene varios programas. | `38_mensajes_asignatura_plan.sql` |
 
 ## NTF
 
@@ -362,6 +373,10 @@ Total de códigos: **233**.
 | `REV_007` | BUSINESS_ERROR | MEDIO | Solo se puede retirar una solicitud de revisión pendiente. | Regla: la solicitud de revision [{}] no esta en el estado de RECLAMO/ESTADO_PENDIENTE; sin escrituras. | `33_culm001_a_mensajes.sql` |
 | `REV_008` | SUCCESS | BAJO | La solicitud de revisión fue retirada. | Actualizacion: la solicitud de revision [{}] paso al estado de RECLAMO/ESTADO_RETIRADO. | `33_culm001_a_mensajes.sql` |
 | `REV_020` | BUSINESS_ERROR | MEDIO | El plazo para justificar esta inasistencia venció el {}. | HU026B: instante {} >= límite {} (ASISTENCIA/DIAS_LIMITE_JUSTIFICACION={}). | `51_culm001_d1_mensajes.sql` |
+| `REV_021` | BUSINESS_ERROR | MEDIO | La categoría de justificación no es válida. | HU015: la categoría [{}] no existe en CategoriaJustificacion (ni por código ni por nombre). | `52_culm001_d2_parametros_mensajes.sql` |
+| `REV_022` | BUSINESS_ERROR | MEDIO | La categoría «{}» exige adjuntar al menos un soporte. | HU014: la categoría [{}] tiene requiereSoporte = 1 y la solicitud llegó sin soportes. | `52_culm001_d2_parametros_mensajes.sql` |
+| `REV_023` | BUSINESS_ERROR | MEDIO | Puedes adjuntar como máximo {} soportes. | HU015: [{}] soportes superan ARCHIVOS/MAXIMO_SOPORTES_POR_RECLAMO = [{}]. | `52_culm001_d2_parametros_mensajes.sql` |
+| `REV_024` | BUSINESS_ERROR | MEDIO | Un mismo soporte no se puede adjuntar dos veces. | HU015: la lista de soportes repite al menos un idArchivoSoporte. | `52_culm001_d2_parametros_mensajes.sql` |
 | `REV_025` | TECHNICAL_ERROR | ALTO | No es posible validar el plazo de justificación en este momento. | HU026B: falta ASISTENCIA/DIAS_LIMITE_JUSTIFICACION o TIEMPO/ZONA_HORARIA_SQLSERVER. | `51_culm001_d1_mensajes.sql` |
 
 ## SEC

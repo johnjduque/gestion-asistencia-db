@@ -65,50 +65,6 @@ $postFreezeNew = @( # added or extended (Sesion.sql gains the provenance column 
     'schema/stored-procedures/usp_clasificar_procedencia_sesion.sql',
     'schema/security/rol_asistencias_runtime.sql'
 )
-$culm001DManifestRel = 'docs/contracts/DB_CULM001_D_POST_FREEZE_MANIFEST.sha256'
-$culm001DNew = @( # CULM-001 D: fuentes nuevas por subpaquete (D.x agrega las suyas)
-    # D.4 admision de estudiantes (HU156)
-    'schema/stored-procedures/usp_admitir_estudiante.sql',
-    'schema/stored-procedures/usp_consultar_programas_institucion_paginado.sql',
-    'schema/security/rol_asistencias_runtime_culm001_d4.sql',
-    'schema/seed/54_culm001_d4_mensajes.sql',
-    'schema/seed/54_culm001_d4_parametros.sql',
-    'migrations/23_culm001_d4_admision_estudiantes_up.sql',
-    'migrations/23_culm001_d4_admision_estudiantes_down.sql',
-    # D.1 plazo de excusas (HU026B)
-    'schema/functions/ufn_calcular_fecha_limite_justificacion.sql',
-    'schema/stored-procedures/usp_internal_validar_plazo_justificacion.sql',
-    'schema/views/uv_sesion_estudiante_reclamo.sql',
-    'schema/stored-procedures/usp_consultar_sesiones_materia_estudiante.sql',
-    'schema/security/rol_asistencias_runtime_culm001_d1.sql',
-    'migrations/20_culm001_d1_plazo_justificacion_up.sql',
-    'migrations/20_culm001_d1_plazo_justificacion_down.sql',
-    # D.3 parametros editables e historial (HU168)
-    'schema/tables/CatalogoParametroEdicion.sql',
-    'schema/tables/CambioParametro.sql',
-    'schema/views/uv_parametro_edicion.sql',
-    'schema/views/uv_cambio_parametro.sql',
-    'schema/functions/ufn_validar_valor_parametro.sql',
-    'schema/stored-procedures/usp_actualizar_parametro.sql',
-    'schema/stored-procedures/usp_consultar_parametros_paginado.sql',
-    'schema/stored-procedures/usp_consultar_cambios_parametro_paginado.sql',
-    'schema/security/rol_asistencias_runtime_culm001_d3.sql',
-    'migrations/22_culm001_d3_parametros_editables_up.sql',
-    'migrations/22_culm001_d3_parametros_editables_down.sql',
-    # D.6 auditoria mutaciones admin (HU172)
-    'migrations/25_culm001_d6_auditoria_admin_up.sql',
-    'migrations/25_culm001_d6_auditoria_admin_down.sql',
-    # D.5 carga masiva CSV (HU171)
-    'schema/tables/JerarquiaAltaUsuario.sql',
-    'schema/views/uv_jerarquia_alta_usuario.sql',
-    'schema/stored-procedures/usp_validar_carga_masiva_usuarios.sql',
-    'schema/security/rol_asistencias_runtime_culm001_d5.sql',
-    'schema/seed/55_culm001_d5_mensajes.sql',
-    'schema/seed/55_culm001_d5_parametros.sql',
-    'schema/seed/55_culm001_d5_jerarquia.sql',
-    'migrations/24_culm001_d5_carga_masiva_up.sql',
-    'migrations/24_culm001_d5_carga_masiva_down.sql'
-)
 $expectedContractSha = '45e48c5a0ab321d0c8cbffb55ee224e3b6fd29febc39a62ca723b2b209945aec'
 
 function Get-NormalizedSha256 {

@@ -45,8 +45,7 @@ BEGIN
                 SELECT  r.idEstudiante,
                         peor = MAX(CASE r.codigoPermanencia WHEN N'PERDIDA' THEN 3 WHEN N'RIESGO' THEN 2 ELSE 1 END)
                 FROM    dbo.uv_resumen_asistencia_estudiante_grupo r
-                INNER JOIN dbo.uv_programa p ON p.id = r.idPrograma
-                WHERE   p.idFacultad = @idFacultad AND r.idPeriodoAcademico = @idPeriodo AND r.codigoEstadoEstudiante = N'A'
+                WHERE   EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo_programa egp INNER JOIN dbo.uv_programa p ON p.id = egp.idPrograma WHERE egp.id = r.idEstudianteGrupo AND p.idFacultad = @idFacultad) AND r.idPeriodoAcademico = @idPeriodo AND r.codigoEstadoEstudiante = N'A'
                 GROUP BY r.idEstudiante
              ) x;
 
@@ -56,16 +55,14 @@ BEGIN
                 @horasDictadas = ISNULL(SUM(r.horasDictadas), 0),
                 @horasFalta = ISNULL(SUM(r.horasFalta), 0)
         FROM    dbo.uv_resumen_asistencia_estudiante_grupo r
-        INNER JOIN dbo.uv_programa p ON p.id = r.idPrograma
-        WHERE   p.idFacultad = @idFacultad AND r.idPeriodoAcademico = @idPeriodo AND r.codigoEstadoEstudiante = N'A';
+        WHERE   EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo_programa egp INNER JOIN dbo.uv_programa p ON p.id = egp.idPrograma WHERE egp.id = r.idEstudianteGrupo AND p.idFacultad = @idFacultad) AND r.idPeriodoAcademico = @idPeriodo AND r.codigoEstadoEstudiante = N'A';
 
         SELECT  @grupos = COUNT(*),
                 @cupo = ISNULL(SUM(g.capacidadMaximaPermitida), 0),
                 @matriculados = ISNULL(SUM(g.estudiantesActivos), 0)
-        FROM    dbo.uv_grupo_programa gp
-        INNER JOIN dbo.uv_programa p ON p.id = gp.idPrograma
-        INNER JOIN dbo.uv_grupo g ON g.id = gp.idGrupo
-        WHERE   p.idFacultad = @idFacultad AND gp.idPeriodoAcademico = @idPeriodo AND gp.grupoEstaHablitado = 1;
+        FROM    dbo.uv_grupo g
+        WHERE   EXISTS (SELECT 1 FROM dbo.uv_grupo_programa gp INNER JOIN dbo.uv_programa p ON p.id = gp.idPrograma
+                        WHERE gp.idGrupo = g.id AND p.idFacultad = @idFacultad) AND g.idPeriodoAcademico = @idPeriodo AND g.grupoEstaHablitado = 1;
     END
 
     -- CULM-001 B.2 (CONTRACT §2.9, DEC-012/DEC-024): ausentismo por horas = 100 * Sigma horasFalta / Sigma horasDictadas de las

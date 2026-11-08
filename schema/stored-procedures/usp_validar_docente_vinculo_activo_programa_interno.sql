@@ -30,11 +30,16 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    SELECT TOP 1 @idPrograma = pe.idPrograma
-    FROM dbo.uv_asignatura a
-    INNER JOIN dbo.uv_semestre_plan_estudio spe ON a.idSemestrePlanEstudio = spe.id
-    INNER JOIN dbo.uv_plan_estudio pe ON spe.idPlanEstudio = pe.id
-    WHERE a.id = @idAsignatura;
+    -- CULM-001 B2NM (R8): sin TOP 1. DOC_009 si el docente solo tiene vinculos inactivos con los programas de la asignatura
+    -- (vinculos activos de la asignatura en planes) y ninguno activo.
+    SELECT TOP 1 @idPrograma = v.idPrograma
+    FROM dbo.uv_asignatura_plan_estudio v
+    INNER JOIN dbo.DocentePrograma dpi ON dpi.programa = v.idPrograma AND dpi.docente = @idDocente AND dpi.estado = 0
+    WHERE v.idAsignatura = @idAsignatura AND v.estaActivoVinculo = 1
+      AND NOT EXISTS (SELECT 1 FROM dbo.uv_asignatura_plan_estudio w
+                      INNER JOIN dbo.DocentePrograma dpa ON dpa.programa = w.idPrograma AND dpa.docente = @idDocente AND dpa.estado = 1
+                      WHERE w.idAsignatura = @idAsignatura AND w.estaActivoVinculo = 1)
+    ORDER BY v.idPrograma;
 
     IF @idPrograma IS NOT NULL
        AND EXISTS (SELECT 1 FROM dbo.DocentePrograma WHERE docente = @idDocente AND programa = @idPrograma AND estado = 0)

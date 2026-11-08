@@ -100,8 +100,6 @@ BEGIN
             s.nombreGrupo,
             g.idAsignatura,
             g.nombreAsignatura,
-            pr.id                   AS idPrograma,
-            pr.nombrePrograma,
             COUNT(*) OVER()         AS totalRegistros,
             -- CULM-001 B.1 (CONTRACT §2.7.7): estado de la sesion desde uv_sesion_estado
             se.estaCancelada,
@@ -112,13 +110,13 @@ BEGIN
         FROM dbo.uv_auth_sesion s
         INNER JOIN dbo.uv_sesion_estado se ON se.idSesion = s.id
         INNER JOIN dbo.uv_auth_grupo g ON g.id = s.idGrupo
-        INNER JOIN dbo.uv_grupo_programa gp ON gp.idGrupo = s.idGrupo
-        INNER JOIN dbo.uv_programa pr ON pr.id = gp.idPrograma
-        WHERE pr.idFacultad IN (
-                SELECT f.id FROM dbo.Facultad f INNER JOIN dbo.Decano d ON d.id = f.decano
-                WHERE d.usuario = @idUsuarioDefecto
-              )
-          AND (@idPrograma IS NULL OR pr.id = @idPrograma)
+        -- CULM-001 B2NM (R5): 1 fila por sesion; el ambito es un EXISTS sobre los programas del grupo en la facultad del decano.
+        WHERE EXISTS (SELECT 1
+                      FROM dbo.uv_grupo_programa gp
+                      INNER JOIN dbo.uv_programa x ON x.id = gp.idPrograma
+                      WHERE gp.idGrupo = s.idGrupo
+                        AND x.idFacultad IN (SELECT f.id FROM dbo.Facultad f INNER JOIN dbo.Decano d ON d.id = f.decano WHERE d.usuario = @idUsuarioDefecto)
+                        AND (@idPrograma IS NULL OR x.id = @idPrograma))
           AND (@inicio IS NULL OR s.fechaHoraInicio >= @inicio)
           AND (@finExclusivo IS NULL OR s.fechaHoraInicio < @finExclusivo)
         ORDER BY s.fechaHoraInicio ASC, s.id ASC

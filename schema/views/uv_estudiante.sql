@@ -5,6 +5,8 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
+-- CULM-001 B2NM (DEC-020, R6): 1 fila por (estudiante, grupo, programa del grupo); ya no exige EstudiantePrograma.
+-- tieneVinculoPrograma = 1 cuando el estudiante tiene EstudiantePrograma en ese programa.
 CREATE OR ALTER     VIEW	[dbo].[uv_estudiante]
 AS
 SELECT		ei.id,
@@ -13,45 +15,39 @@ SELECT		ei.id,
 			ei.nombreCompleto,
 			ei.estaActivoUsuario,
 
-			-- Informaci?n de la Instituci?n
 			idInstitucion = pr.idInstitucion,
 			nombreInstitucion = pr.nombreInstitucion,
 
-			-- Informaci?n de la Facultad y Programa
 			idFacultad = pr.idFacultad,
 			nombreFacultad = pr.nombreFacultad,
 			idPrograma = pr.id,
 			nombrePrograma = pr.nombrePrograma,
 
-			-- Trazabilidad
-			idPlanEstudio = pe.id,
-			inpPlanEstudio = pe.inp,
+			idPlanEstudio = gp.idPlanEstudio,
+			inpPlanEstudio = gp.inpPlanEstudio,
 			idAsignatura = a.id,
 			nombreAsignatura = a.nombre,
 			idGrupo = g.id,
 			nombreGrupo = g.nombre,
 
-			-- Perfil del Estudiante (Asumiendo c?digo 'ES')
 			idPerfil = p.id,
 			codigoPerfil = p.codigo,
 			nombrePerfil = p.nombre,
 
-			-- Estado L?gico
 			estaActivoEstudiante = IIF(ei.estaActivoUsuario = 1 AND pr.estaActivoPrograma = 1, 1, 0),
-			estaActivoTextoEstudiante = IIF(ei.estaActivoUsuario = 1 AND pr.estaActivoPrograma = 1, 'SI', 'NO')
+			estaActivoTextoEstudiante = IIF(ei.estaActivoUsuario = 1 AND pr.estaActivoPrograma = 1, 'SI', 'NO'),
+			tieneVinculoPrograma = CAST(IIF(EXISTS (SELECT 1 FROM EstudiantePrograma ep WHERE ep.estudiante = ei.id AND ep.programa = pr.id), 1, 0) AS BIT)
 
 FROM		uv_estudiante_identidad ei
-INNER JOIN	uv_estudiante_grupo eg 
+INNER JOIN	uv_estudiante_grupo eg
 ON			ei.id = eg.idEstudiante
-INNER JOIN	uv_grupo g            
+INNER JOIN	uv_grupo g
 ON			eg.idGrupo = g.id
-INNER JOIN	uv_asignatura a       
+INNER JOIN	uv_asignatura a
 ON			g.idAsignatura = a.id
-INNER JOIN	uv_semestre_plan_estudio spe 
-ON			a.idSemestrePlanEstudio = spe.id
-INNER JOIN	uv_plan_estudio pe     
-ON			spe.idPlanEstudio = pe.id
-INNER JOIN	uv_programa pr     
-ON			pe.idPrograma = pr.id
+INNER JOIN	uv_grupo_programa gp
+ON			gp.idGrupo = g.id
+INNER JOIN	uv_programa pr
+ON			gp.idPrograma = pr.id
 CROSS JOIN	(SELECT TOP 1 id, codigo, nombre FROM uv_perfil WHERE codigo = 'ES') p
 GO

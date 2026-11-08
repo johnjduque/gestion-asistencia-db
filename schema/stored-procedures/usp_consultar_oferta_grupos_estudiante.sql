@@ -85,28 +85,34 @@ BEGIN
             g.id, g.codigo, g.nombre, g.cantidadEstudiantes AS capacidad,
             asg.id AS idAsignatura, asg.codigo AS codigoAsignatura, asg.nombre AS nombreAsignatura,
             g.docente, pa.id AS idPeriodo, pa.nombre AS nombrePeriodo, pa.fechaInicio, pa.fechaFin, comp.codigo AS codigoComponente,
+            car.codigoCaracter, car.nombreCaracter,
             activos = (SELECT COUNT(*) FROM dbo.EstudianteGrupo eg INNER JOIN dbo.EstadoEstudianteGrupo ee ON ee.id = eg.estado
                        WHERE eg.grupo = g.id AND ee.codigo = @codigoInscrita)
         FROM dbo.Grupo g
         INNER JOIN dbo.PeriodoAcademico pa ON pa.id = g.periodoAcademico
         INNER JOIN dbo.Asignatura asg ON asg.id = g.asignatura
         INNER JOIN dbo.Componente comp ON comp.id = asg.componente
-        INNER JOIN dbo.SemestrePlanEstudio spe ON spe.id = asg.semestrePlanEstudio
-        INNER JOIN dbo.PlanEstudio pe ON pe.id = spe.planEstudio
-        INNER JOIN dbo.Programa pr ON pr.id = pe.programa
-        INNER JOIN dbo.Facultad fa ON fa.id = pr.facultad
+        -- CULM-001 B2NM (DEC-019/R5): 1 fila por grupo. Caracter = el del vinculo activo de la asignatura en un programa del
+        -- estudiante (si hay varios, el de menor orden). Propias: ESP con vinculo en un programa del estudiante.
+        OUTER APPLY (SELECT TOP 1 ca.codigo AS codigoCaracter, ca.nombre AS nombreCaracter
+                     FROM dbo.AsignaturaPlanEstudio ape
+                     INNER JOIN dbo.SemestrePlanEstudio spe ON spe.id = ape.semestrePlanEstudio
+                     INNER JOIN dbo.PlanEstudio pe ON pe.id = spe.planEstudio
+                     INNER JOIN dbo.CaracterAsignaturaPlan ca ON ca.id = ape.caracter
+                     WHERE ape.asignatura = asg.id AND ape.estaActivo = 1
+                       AND EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep WHERE ep.estudiante = @idEstudiante AND ep.programa = pe.programa)
+                     ORDER BY ca.orden, ca.id) car
         WHERE @idEstudiante IS NOT NULL
           AND pa.fechaFin >= @hoyLocal
           AND (
-                -- Propias: especificas de sus programas.
-                (comp.codigo = 'ESP'
-                 AND EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep WHERE ep.estudiante = @idEstudiante AND ep.programa = pe.programa))
+                -- Propias: especificas con vinculo activo en un programa del estudiante.
+                (comp.codigo = 'ESP' AND car.codigoCaracter IS NOT NULL)
                 -- Transversales: basicas e institucionales de cualquier programa de su institucion (configurable).
                 OR (@incluirTransversales = 1 AND comp.codigo IN ('BAS', 'INS')
                     AND EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep
                                 INNER JOIN dbo.Programa pp ON pp.id = ep.programa
                                 INNER JOIN dbo.Facultad fp ON fp.id = pp.facultad
-                                WHERE ep.estudiante = @idEstudiante AND fp.institucion = fa.institucion))
+                                WHERE ep.estudiante = @idEstudiante AND fp.institucion = pa.institucion))
               )
           AND (
                 @patron IS NULL
@@ -144,6 +150,8 @@ BEGIN
                                      SELECT 1 FROM dbo.EstudianteGrupo eg INNER JOIN dbo.EstadoEstudianteGrupo ee ON ee.id = eg.estado
                                      WHERE eg.grupo = o.id AND eg.estudiante = @idEstudiante AND ee.codigo = @codigoInscrita), 1, 0) AS BIT),
         codigoComponente       = CAST(o.codigoComponente AS NVARCHAR(3)),
+        codigoCaracter         = CAST(o.codigoCaracter AS NVARCHAR(3)),
+        nombreCaracter         = CAST(o.nombreCaracter AS NVARCHAR(50)),
         totalRegistros         = COUNT(*) OVER()
     FROM oferta o
     INNER JOIN dbo.Docente doc ON doc.id = o.docente

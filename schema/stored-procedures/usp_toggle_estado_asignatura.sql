@@ -42,6 +42,7 @@ BEGIN
                 @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @exigirTodosLosProgramas = 1,
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 

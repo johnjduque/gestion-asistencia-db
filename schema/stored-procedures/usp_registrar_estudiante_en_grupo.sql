@@ -28,7 +28,8 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_estudiante_en_grupo]
     @password                NVARCHAR(500),
     @idCorrelacion           UNIQUEIDENTIFIER,
     @idUsuarioEjecutor       UNIQUEIDENTIFIER = NULL,
-    @idTipoIdIdentificacion  UNIQUEIDENTIFIER = NULL
+    @idTipoIdIdentificacion  UNIQUEIDENTIFIER = NULL,
+    @idPrograma              UNIQUEIDENTIFIER = NULL   -- CULM-001 B2NM: obligatorio solo si el grupo tiene varios programas (EST_005/EST_006)
 )
 AS
     -- 1. Estandarización e inicialización de variables utilizando funciones de catálogo (Sin ISNULL)
@@ -211,6 +212,7 @@ BEGIN
                     @idEstudiante = @idEstudianteResultado,
                     @idGrupo = @idGrupoDefecto,
                     @idCorrelacion = @idCorrelacionDefecto,
+                    @idProgramaElegido = @idPrograma,
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                     @estadoResultado = @estadoResultado OUTPUT;

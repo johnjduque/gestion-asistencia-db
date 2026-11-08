@@ -64,12 +64,19 @@ BEGIN TRY
     DECLARE @a1 UNIQUEIDENTIFIER = NEWID(), @a2 UNIQUEIDENTIFIER = NEWID(), @a3 UNIQUEIDENTIFIER = NEWID(), @a4 UNIQUEIDENTIFIER = NEWID(), @a5 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.PlanEstudio (id, programa, inp, estado) VALUES (@pl1, @p1, 970000 + ABS(CHECKSUM(NEWID()) % 9999), 1), (@pl2, @p2, 975000 + ABS(CHECKSUM(NEWID()) % 4999), 1);
     INSERT INTO dbo.SemestrePlanEstudio (id, planEstudio, semestre) VALUES (@spe1, @pl1, @semestre), (@spe2, @pl2, @semestre);
-    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, semestrePlanEstudio, estado) VALUES
-        (@a1, CONCAT(N'O1', @sufijo), N'Algebra QA008', 3, @area, @compESP, @spe1, 1),
-        (@a2, CONCAT(N'O2', @sufijo), N'Calculo QA008', 3, @area, @compESP, @spe1, 1),
-        (@a3, CONCAT(N'O3', @sufijo), N'Fisica QA008', 3, @area, @compINS, @spe2, 1),
-        (@a4, CONCAT(N'O4', @sufijo), N'Electronica QA008', 3, @area, @compESP, @spe2, 1),
-        (@a5, CONCAT(N'O5', @sufijo), N'Biologia QA008', 3, @area, @compBAS, @spe1, 1);
+    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, estado) VALUES
+        (@a1, CONCAT(N'O1', @sufijo), N'Algebra QA008', 3, @area, @compESP, 1),
+        (@a2, CONCAT(N'O2', @sufijo), N'Calculo QA008', 3, @area, @compESP, 1),
+        (@a3, CONCAT(N'O3', @sufijo), N'Fisica QA008', 3, @area, @compINS, 1),
+        (@a4, CONCAT(N'O4', @sufijo), N'Electronica QA008', 3, @area, @compESP, 1),
+        (@a5, CONCAT(N'O5', @sufijo), N'Biologia QA008', 3, @area, @compBAS, 1);
+    -- CULM-001 B2NM (CONTRACT B2 tabla de pruebas existentes, fila 109): el vinculo asignatura-plan vive en AsignaturaPlanEstudio
+    INSERT INTO dbo.AsignaturaPlanEstudio (id, asignatura, semestrePlanEstudio, caracter, estaActivo, fechaVinculacionUtc) VALUES
+        (NEWID(), @a1, @spe1, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01'),
+        (NEWID(), @a2, @spe1, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01'),
+        (NEWID(), @a3, @spe2, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01'),
+        (NEWID(), @a4, @spe2, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01'),
+        (NEWID(), @a5, @spe1, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01');
 
     -- G1 vigente (P1 ESP, cupo 2, 1 activo de E2 y 1 inactivo), G2 proximo (P1 ESP), G3 finalizado (P1, excluido),
     -- G4 vigente de P2 INSTITUCIONAL (transversal: incluido), G5 vigente (P1 ESP, cupo 1, E1 matriculado => 0 cupos),
@@ -96,13 +103,13 @@ BEGIN TRY
     CREATE TABLE #o (n INT IDENTITY(1,1), idGrupo UNIQUEIDENTIFIER, codigoGrupo INT, nombreGrupo NVARCHAR(50), idAsignatura UNIQUEIDENTIFIER,
         codigoAsignatura NVARCHAR(20), nombreAsignatura NVARCHAR(100), nombreDocente NVARCHAR(400), idPeriodoAcademico UNIQUEIDENTIFIER,
         nombrePeriodoAcademico NVARCHAR(50), fechaInicioPeriodo DATE, fechaFinPeriodo DATE, estadoPeriodo NVARCHAR(10), horario NVARCHAR(400),
-        capacidadMaxima INT, estudiantesActivos INT, cuposDisponibles INT, matriculado BIT, codigoComponente NVARCHAR(3), totalRegistros INT);
+        capacidadMaxima INT, estudiantesActivos INT, cuposDisponibles INT, matriculado BIT, codigoComponente NVARCHAR(3), codigoCaracter NVARCHAR(3), nombreCaracter NVARCHAR(50), totalRegistros INT);   -- CONTRACT B2 fila 113: 21 columnas
 
     -- O-01: especificas de su programa + transversales (BAS/INS) de la institucion, en periodos vigentes y proximos;
     --       excluye el periodo finalizado y las especificas de otro programa.
     INSERT INTO #o (idGrupo, codigoGrupo, nombreGrupo, idAsignatura, codigoAsignatura, nombreAsignatura, nombreDocente, idPeriodoAcademico,
         nombrePeriodoAcademico, fechaInicioPeriodo, fechaFinPeriodo, estadoPeriodo, horario, capacidadMaxima, estudiantesActivos, cuposDisponibles,
-        matriculado, codigoComponente, totalRegistros)
+        matriculado, codigoComponente, codigoCaracter, nombreCaracter, totalRegistros)
     EXEC dbo.usp_consultar_oferta_grupos_estudiante @idCorrelacion = @c, @idUsuarioEjecutor = @uE1;
     IF (SELECT COUNT(*) FROM #o) <> 5 OR EXISTS (SELECT 1 FROM #o WHERE totalRegistros <> 5)
         THROW 53901, 'TEST FAILED: O-01 se esperaban 5 grupos (G1, G5, G7, G2, G4).', 1;
@@ -130,21 +137,21 @@ BEGIN TRY
     TRUNCATE TABLE #o;
     INSERT INTO #o (idGrupo, codigoGrupo, nombreGrupo, idAsignatura, codigoAsignatura, nombreAsignatura, nombreDocente, idPeriodoAcademico,
         nombrePeriodoAcademico, fechaInicioPeriodo, fechaFinPeriodo, estadoPeriodo, horario, capacidadMaxima, estudiantesActivos, cuposDisponibles,
-        matriculado, codigoComponente, totalRegistros)
+        matriculado, codigoComponente, codigoCaracter, nombreCaracter, totalRegistros)
     EXEC dbo.usp_consultar_oferta_grupos_estudiante @busqueda = N'  calculo qa008 ', @idCorrelacion = @c, @idUsuarioEjecutor = @uE1;
     IF (SELECT COUNT(*) FROM #o) <> 1 OR (SELECT idGrupo FROM #o) <> @g2
         THROW 53906, 'TEST FAILED: O-03 busqueda por asignatura.', 1;
     TRUNCATE TABLE #o;
     INSERT INTO #o (idGrupo, codigoGrupo, nombreGrupo, idAsignatura, codigoAsignatura, nombreAsignatura, nombreDocente, idPeriodoAcademico,
         nombrePeriodoAcademico, fechaInicioPeriodo, fechaFinPeriodo, estadoPeriodo, horario, capacidadMaxima, estudiantesActivos, cuposDisponibles,
-        matriculado, codigoComponente, totalRegistros)
+        matriculado, codigoComponente, codigoCaracter, nombreCaracter, totalRegistros)
     EXEC dbo.usp_consultar_oferta_grupos_estudiante @numeroPagina = 2, @tamanoPagina = 1, @idCorrelacion = @c, @idUsuarioEjecutor = @uE1;
     IF (SELECT COUNT(*) FROM #o) <> 1 OR (SELECT idGrupo FROM #o) <> @g5 OR (SELECT totalRegistros FROM #o) <> 5
         THROW 53907, 'TEST FAILED: O-03 paginacion.', 1;
     TRUNCATE TABLE #o;
     INSERT INTO #o (idGrupo, codigoGrupo, nombreGrupo, idAsignatura, codigoAsignatura, nombreAsignatura, nombreDocente, idPeriodoAcademico,
         nombrePeriodoAcademico, fechaInicioPeriodo, fechaFinPeriodo, estadoPeriodo, horario, capacidadMaxima, estudiantesActivos, cuposDisponibles,
-        matriculado, codigoComponente, totalRegistros)
+        matriculado, codigoComponente, codigoCaracter, nombreCaracter, totalRegistros)
     EXEC dbo.usp_consultar_oferta_grupos_estudiante @busqueda = N'100%_', @idCorrelacion = @c, @idUsuarioEjecutor = @uE1;
     IF (SELECT COUNT(*) FROM #o) <> 0
         THROW 53908, 'TEST FAILED: O-03 comodines escapados.', 1;
@@ -156,7 +163,7 @@ BEGIN TRY
     TRUNCATE TABLE #o;
     INSERT INTO #o (idGrupo, codigoGrupo, nombreGrupo, idAsignatura, codigoAsignatura, nombreAsignatura, nombreDocente, idPeriodoAcademico,
         nombrePeriodoAcademico, fechaInicioPeriodo, fechaFinPeriodo, estadoPeriodo, horario, capacidadMaxima, estudiantesActivos, cuposDisponibles,
-        matriculado, codigoComponente, totalRegistros)
+        matriculado, codigoComponente, codigoCaracter, nombreCaracter, totalRegistros)
     EXEC dbo.usp_consultar_oferta_grupos_estudiante @idCorrelacion = @c, @idUsuarioEjecutor = @uE1;
     IF (SELECT COUNT(*) FROM #o) <> 3 OR EXISTS (SELECT 1 FROM #o WHERE codigoComponente <> N'ESP')
         THROW 53912, 'TEST FAILED: O-05 sin transversales solo quedan las especificas (G1, G5, G2).', 1;
@@ -167,7 +174,7 @@ BEGIN TRY
     TRUNCATE TABLE #o;
     INSERT INTO #o (idGrupo, codigoGrupo, nombreGrupo, idAsignatura, codigoAsignatura, nombreAsignatura, nombreDocente, idPeriodoAcademico,
         nombrePeriodoAcademico, fechaInicioPeriodo, fechaFinPeriodo, estadoPeriodo, horario, capacidadMaxima, estudiantesActivos, cuposDisponibles,
-        matriculado, codigoComponente, totalRegistros)
+        matriculado, codigoComponente, codigoCaracter, nombreCaracter, totalRegistros)
     EXEC dbo.usp_consultar_oferta_grupos_estudiante @idCorrelacion = @c, @idUsuarioEjecutor = @uDoc;
     IF (SELECT COUNT(*) FROM #o) <> 0
         THROW 53909, 'TEST FAILED: O-04 un docente no ve oferta de estudiante.', 1;
@@ -183,15 +190,20 @@ BEGIN TRY
     PRINT 'TEST_PASS:HU008_OFERTA_VALIDACIONES';
 
     -- O-06 (CULM-001 A, T-02): la oferta ya no trae columnas de solicitud de ingreso. Fija el orden posicional que
-    -- lee el backend: 19 columnas, codigoComponente en la 18 y totalRegistros en la 19.
-    IF (SELECT COUNT(*) FROM sys.dm_exec_describe_first_result_set_for_object(OBJECT_ID('dbo.usp_consultar_oferta_grupos_estudiante'), 0)) <> 19
+    -- lee el backend: 21 columnas (CONTRACT B2): codigoComponente en la 18, codigoCaracter 19, nombreCaracter 20 y totalRegistros en la 21.
+    IF (SELECT COUNT(*) FROM sys.dm_exec_describe_first_result_set_for_object(OBJECT_ID('dbo.usp_consultar_oferta_grupos_estudiante'), 0)) <> 21
        OR EXISTS (SELECT 1 FROM sys.dm_exec_describe_first_result_set_for_object(OBJECT_ID('dbo.usp_consultar_oferta_grupos_estudiante'), 0)
                   WHERE name IN (N'idSolicitudAbierta', N'codigoEstadoSolicitud'))
        OR NOT EXISTS (SELECT 1 FROM sys.dm_exec_describe_first_result_set_for_object(OBJECT_ID('dbo.usp_consultar_oferta_grupos_estudiante'), 0)
                       WHERE column_ordinal = 18 AND name = N'codigoComponente')
+       -- CULM-001 B2NM (CONTRACT B2 fila 113, T-02 de A): 21 columnas; codigoCaracter y nombreCaracter antes de totalRegistros
        OR NOT EXISTS (SELECT 1 FROM sys.dm_exec_describe_first_result_set_for_object(OBJECT_ID('dbo.usp_consultar_oferta_grupos_estudiante'), 0)
-                      WHERE column_ordinal = 19 AND name = N'totalRegistros')
-        THROW 53913, 'TEST FAILED: O-06 la oferta debe tener 19 columnas sin idSolicitudAbierta ni codigoEstadoSolicitud.', 1;
+                      WHERE column_ordinal = 19 AND name = N'codigoCaracter')
+       OR NOT EXISTS (SELECT 1 FROM sys.dm_exec_describe_first_result_set_for_object(OBJECT_ID('dbo.usp_consultar_oferta_grupos_estudiante'), 0)
+                      WHERE column_ordinal = 20 AND name = N'nombreCaracter')
+       OR NOT EXISTS (SELECT 1 FROM sys.dm_exec_describe_first_result_set_for_object(OBJECT_ID('dbo.usp_consultar_oferta_grupos_estudiante'), 0)
+                      WHERE column_ordinal = 21 AND name = N'totalRegistros')
+        THROW 53913, 'TEST FAILED: O-06 la oferta debe tener 21 columnas sin idSolicitudAbierta ni codigoEstadoSolicitud.', 1;
     PRINT 'TEST_PASS:HU008_OFERTA_SIN_SOLICITUD';
 
     IF @@TRANCOUNT <> 1 THROW 53998, 'TEST FAILED: el objeto altero el nivel de transaccion del llamador.', 1;

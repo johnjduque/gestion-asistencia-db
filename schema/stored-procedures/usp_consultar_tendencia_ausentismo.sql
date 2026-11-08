@@ -54,8 +54,8 @@ BEGIN
         SELECT  c.idSesion, c.idGrupo,
                 fechaLocal = CAST(c.fechaHoraInicio AT TIME ZONE 'UTC' AT TIME ZONE @zona AS DATE)
         FROM    dbo.uv_cumplimiento_sesion_grupo c
-        INNER JOIN dbo.uv_programa p ON p.id = c.idPrograma
-        WHERE   p.idInstitucion = @idInstitucion AND c.idPeriodoAcademico = @idPeriodo
+        WHERE   EXISTS (SELECT 1 FROM dbo.uv_grupo_programa gp INNER JOIN dbo.uv_programa p ON p.id = gp.idPrograma
+                        WHERE gp.idGrupo = c.idGrupo AND p.idInstitucion = @idInstitucion) AND c.idPeriodoAcademico = @idPeriodo
           AND   c.estaVencida = 1 AND c.tieneRegistroAsistencia = 1
     ),
     activos AS (

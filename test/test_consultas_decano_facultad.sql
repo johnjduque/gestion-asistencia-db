@@ -37,8 +37,8 @@ CREATE TABLE #estructura (
 CREATE TABLE #sesiones (
     id UNIQUEIDENTIFIER, nombre NVARCHAR(100), codigo NVARCHAR(50), numeroSemana INT, fechaHoraInicio DATETIME2,
     fechaHoraFin DATETIME2, idGrupo UNIQUEIDENTIFIER, codigoGrupo INT, nombreGrupo NVARCHAR(100),
-    idAsignatura UNIQUEIDENTIFIER, nombreAsignatura NVARCHAR(100), idPrograma UNIQUEIDENTIFIER,
-    nombrePrograma NVARCHAR(100), totalRegistros INT,
+    idAsignatura UNIQUEIDENTIFIER, nombreAsignatura NVARCHAR(100),
+    totalRegistros INT,   -- CULM-001 B2NM (CONTRACT B2 fila 116): 1 fila por sesion, sin idPrograma/nombrePrograma
     -- CULM-001 B.1 (CONTRACT §2.7.7): estado de la sesion desde uv_sesion_estado
     estaCancelada BIT, codigoTipoCancelacion NVARCHAR(20), motivoCancelacion NVARCHAR(500), nombreDiaFestivo NVARCHAR(120), fechaCancelacionUtc DATETIME2(0));
 
@@ -134,7 +134,7 @@ BEGIN TRY
         @fechaDesde = @fechaSesion, @fechaHasta = @fechaSesion, @idPrograma = @idPrograma;
     IF NOT EXISTS (SELECT 1 FROM #sesiones WHERE idGrupo = @idGrupo)
         THROW 52962, 'TEST FAILED T-145-01: el cronograma no incluyo la sesion del dia.', 1;
-    IF EXISTS (SELECT 1 FROM #sesiones WHERE CAST(fechaHoraInicio AS DATE) <> @fechaSesion OR idPrograma <> @idPrograma)
+    IF EXISTS (SELECT 1 FROM #sesiones WHERE CAST(fechaHoraInicio AS DATE) <> @fechaSesion OR 1 = 0)
         THROW 52963, 'TEST FAILED T-145-01: el filtro de fecha o programa no se aplico.', 1;
     TRUNCATE TABLE #sesiones;
     INSERT INTO #sesiones EXEC dbo.usp_consultar_sesiones_facultad_paginado

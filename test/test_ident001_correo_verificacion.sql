@@ -56,7 +56,7 @@ BEGIN TRY
     SELECT @userCoordPrograma = c.usuario
     FROM dbo.Grupo g
     INNER JOIN dbo.Asignatura a ON a.id = g.asignatura
-    INNER JOIN dbo.SemestrePlanEstudio spe ON spe.id = a.semestrePlanEstudio
+    INNER JOIN dbo.AsignaturaPlanEstudio ape_spe ON ape_spe.asignatura = a.id JOIN dbo.SemestrePlanEstudio spe ON spe.id = ape_spe.semestrePlanEstudio
     INNER JOIN dbo.PlanEstudio pe ON pe.id = spe.planEstudio
     INNER JOIN dbo.Programa pr ON pr.id = pe.programa
     INNER JOIN dbo.Coordinador c ON c.id = pr.coordinador

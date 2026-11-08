@@ -29,11 +29,10 @@ DECLARE @reason UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.RazonCausa WHERE co
 IF @group IS NULL OR @student IS NULL OR @student2 IS NULL OR @enrollment IS NULL OR @enrollment2 IS NULL OR @owner IS NULL OR @studentUser IS NULL OR @reason IS NULL
     THROW 51800, 'TEST FAILED: ATTENDANCE fixture missing (grupo con docente activo con Usuario.id <> Docente.id, razon AN).', 1;
 
-DECLARE @sessionBulk UNIQUEIDENTIFIER = NEWID(), @sessionAuto UNIQUEIDENTIFIER = NEWID(), @sessionSingle UNIQUEIDENTIFIER = NEWID();
+DECLARE @sessionBulk UNIQUEIDENTIFIER = NEWID(), @sessionSingle UNIQUEIDENTIFIER = NEWID();
 DECLARE @sessionSjc UNIQUEIDENTIFIER = NEWID(), @sessionEx UNIQUEIDENTIFIER = NEWID(), @sessionInvalid UNIQUEIDENTIFIER = NEWID();
 DECLARE @sessionNoExec UNIQUEIDENTIFIER = NEWID(), @sessionNonOwner UNIQUEIDENTIFIER = NEWID(), @sessionAtomic UNIQUEIDENTIFIER = NEWID();
 DECLARE @sessionPartial UNIQUEIDENTIFIER = NEWID(), @sessionOmitted UNIQUEIDENTIFIER = NEWID(), @sessionIdempotent UNIQUEIDENTIFIER = NEWID(), @sessionUpdate UNIQUEIDENTIFIER = NEWID();
-DECLARE @codeAuto NVARCHAR(50) = LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8);
 DECLARE @firstNumber INT = 1 + (SELECT ISNULL(MAX(numero), 0) FROM dbo.Sesion WHERE grupo = @group);
 DECLARE @corr UNIQUEIDENTIFIER, @userMsg NVARCHAR(4000), @techMsg NVARCHAR(4000), @failure NVARCHAR(2048);
 DECLARE @tranBefore INT = 0, @abcBefore INT, @rcBefore INT;
@@ -79,7 +78,6 @@ BEGIN TRY
     INSERT dbo.Sesion (id, nombre, numero, codigo, numeroSemana, grupo, fechaHoraInicio, fechaHoraFin, procedenciaTemporal)
     VALUES
         (@sessionBulk,     N'QA Bulk AN',    @firstNumber,     LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8), 1, @group, @ventanaInicio, @ventanaFin, N'UTC_V2'),
-        (@sessionAuto,     N'QA Auto',       @firstNumber + 1, @codeAuto,                                                1, @group, @ventanaInicio, @ventanaFin, N'UTC_V2'),
         (@sessionSingle,   N'QA Single',     @firstNumber + 2, LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8), 1, @group, @ventanaInicio, @ventanaFin, N'UTC_V2'),
         (@sessionSjc,      N'QA Bulk SJC',   @firstNumber + 3, LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8), 1, @group, @ventanaInicio, @ventanaFin, N'UTC_V2'),
         (@sessionEx,       N'QA Bulk EX',    @firstNumber + 4, LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8), 1, @group, @ventanaInicio, @ventanaFin, N'UTC_V2'),
@@ -435,46 +433,17 @@ BEGIN TRY
     IF (SELECT COUNT(*) FROM dbo.RazonCausa) <> @rcCountBefore
         THROW 51856, 'TEST FAILED: ATTENDANCE_HELPER_CLOSED_CATALOG altero dbo.RazonCausa.', 1;
 
-    -- Comandos individuales / autonomo (contrato sin cambios; sesion activa por SES-01)
-    TRUNCATE TABLE #attendanceResult;
-    SET @corr = NEWID();
-    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_004', @p_param1 = 'AsistenciaEstudianteAutonomo',
-        @mensajeUsuarioResultado = @userMsg OUTPUT, @mensajeTecnicoResultado = @techMsg OUTPUT;
-    INSERT INTO #attendanceResult
-    EXEC dbo.usp_registrar_asistencia_estudiante_autonomo
-        @idEstudiante = @student, @idSesion = @sessionAuto, @codigoVerificacion = @codeAuto,
-        @idCorrelacion = @corr, @idUsuarioEjecutor = @studentUser;
-    IF (SELECT COUNT(*) FROM #attendanceResult WHERE idCorrelacion = @corr AND estadoResultado = 1
-        AND mensajeUsuarioResultado = @userMsg
-        AND mensajeTecnicoResultado = CONCAT(@techMsg, ' Correlacion: ', @corr)) <> 1
-        THROW 51805, 'TEST FAILED: ATTENDANCE_AUTO_SUCCESS wrong canonical result.', 1;
-    IF NOT EXISTS (SELECT 1 FROM dbo.uv_asistencia a JOIN dbo.uv_detalle_asistencia d ON d.idAsistencia = a.id
-        WHERE a.idSesion = @sessionAuto AND a.idEstudianteGrupo = @enrollment AND d.asistio = 1 AND d.idRazonCausa = @reason)
-        THROW 51806, 'TEST FAILED: ATTENDANCE_AUTO_SUCCESS did not persist visible attendance.', 1;
-
-    TRUNCATE TABLE #attendanceResult;
-    SET @corr = NEWID();
-    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'VAL_007', @p_param1 = 'codigoVerificacion',
-        @mensajeUsuarioResultado = @userMsg OUTPUT, @mensajeTecnicoResultado = @techMsg OUTPUT;
-    INSERT INTO #attendanceResult
-    EXEC dbo.usp_registrar_asistencia_estudiante_autonomo
-        @idEstudiante = @student, @idSesion = @sessionSingle, @codigoVerificacion = N'BAD',
-        @idCorrelacion = @corr, @idUsuarioEjecutor = @studentUser;
-    IF (SELECT COUNT(*) FROM #attendanceResult WHERE idCorrelacion = @corr AND estadoResultado = 0
-        AND mensajeUsuarioResultado = @userMsg
-        AND mensajeTecnicoResultado = CONCAT(@techMsg, ' Correlacion: ', @corr)) <> 1
-        THROW 51807, 'TEST FAILED: ATTENDANCE_AUTO_INVALID wrong canonical result.', 1;
-    IF EXISTS (SELECT 1 FROM dbo.Asistencia WHERE sesion = @sessionSingle)
-        THROW 51808, 'TEST FAILED: ATTENDANCE_AUTO_INVALID wrote attendance.', 1;
+    -- CULM-001 D.7: el registro individual autonomo (usp_registrar_asistencia_estudiante_autonomo) se retiro (TD-009);
+    -- su ausencia la prueba test_culm001_d7_retiro.sql. El lote cubre toda escritura de este archivo.
 END TRY
 BEGIN CATCH
     IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
     THROW;
 END CATCH;
 ROLLBACK TRANSACTION;
-IF EXISTS (SELECT 1 FROM dbo.Sesion WHERE id IN (@sessionBulk, @sessionAuto, @sessionSingle, @sessionSjc, @sessionEx, @sessionInvalid, @sessionNoExec, @sessionNonOwner, @sessionAtomic, @sessionPartial, @sessionOmitted, @sessionIdempotent, @sessionUpdate))
+IF EXISTS (SELECT 1 FROM dbo.Sesion WHERE id IN (@sessionBulk, @sessionSingle, @sessionSjc, @sessionEx, @sessionInvalid, @sessionNoExec, @sessionNonOwner, @sessionAtomic, @sessionPartial, @sessionOmitted, @sessionIdempotent, @sessionUpdate))
     THROW 51813, 'TEST FAILED: ATTENDANCE leaked sessions.', 1;
-IF EXISTS (SELECT 1 FROM dbo.Asistencia WHERE sesion IN (@sessionBulk, @sessionAuto, @sessionSingle, @sessionSjc, @sessionEx, @sessionInvalid, @sessionNoExec, @sessionNonOwner, @sessionAtomic, @sessionPartial, @sessionOmitted, @sessionIdempotent, @sessionUpdate))
+IF EXISTS (SELECT 1 FROM dbo.Asistencia WHERE sesion IN (@sessionBulk, @sessionSingle, @sessionSjc, @sessionEx, @sessionInvalid, @sessionNoExec, @sessionNonOwner, @sessionAtomic, @sessionPartial, @sessionOmitted, @sessionIdempotent, @sessionUpdate))
     THROW 51814, 'TEST FAILED: ATTENDANCE leaked rows.', 1;
 IF (SELECT COUNT(*) FROM dbo.RazonCausa WHERE codigo = 'ABC') <> 0
     THROW 51849, 'TEST FAILED: ATTENDANCE leaked RazonCausa ABC.', 1;
@@ -504,8 +473,6 @@ PRINT 'TEST_PASS:ATTENDANCE_BULK_EXECUTOR_REQUIRED';
 PRINT 'TEST_PASS:ATTENDANCE_BULK_NON_OWNER';
 PRINT 'TEST_PASS:ATTENDANCE_HELPER_CLOSED_CATALOG';
 PRINT 'TEST_PASS:ATTENDANCE_NO_LEGACY_PUBLIC_STATE';
-PRINT 'TEST_PASS:ATTENDANCE_AUTO_SUCCESS';
-PRINT 'TEST_PASS:ATTENDANCE_AUTO_INVALID';
 PRINT 'TEST_PASS:ATTENDANCE_SINGLE_SUCCESS';
 PRINT 'TEST_PASS:ATTENDANCE_SINGLE_INVALID';
 -- ATTENDANCE_BULK_STUDENT_NOT_IN_GROUP y ATTENDANCE_BULK_ATOMIC: TEST_PASS lo emite test_summary.ps1 (result set + estado).

@@ -61,17 +61,44 @@ WHEN NOT MATCHED THEN
     VALUES (TRY_CAST(Source.id AS UNIQUEIDENTIFIER), TRY_CAST(Source.planEstudio AS UNIQUEIDENTIFIER), Source.semestre);
 GO
 
--- 5. Sembrado Idempotente: Asignatura
+-- 5. Sembrado Idempotente: Asignatura (CULM-001 B2NM: sin semestrePlanEstudio; el vinculo vive en AsignaturaPlanEstudio)
 MERGE INTO [dbo].[Asignatura] AS Target
 USING (VALUES
-    ('E2F3A4B5-0000-0000-0000-000000000001', 'ARQ-402', 'Arquitectura de Software', 3, 'C1D2E3F4-0000-0000-0000-000000000001', '04ED2BC1-2C56-4116-855F-E2789125FBD2', 'D2E3F4A5-0000-0000-0000-000000000001', 1)
-) AS Source (id, codigo, nombre, credito, area, componente, semestrePlanEstudio, estado)
+    ('E2F3A4B5-0000-0000-0000-000000000001', 'ARQ-402', 'Arquitectura de Software', 3, 'C1D2E3F4-0000-0000-0000-000000000001', '04ED2BC1-2C56-4116-855F-E2789125FBD2', 1)
+) AS Source (id, codigo, nombre, credito, area, componente, estado)
 ON (Target.id = TRY_CAST(Source.id AS UNIQUEIDENTIFIER))
 WHEN MATCHED THEN
     UPDATE SET Target.nombre = Source.nombre, Target.codigo = Source.codigo, Target.estado = Source.estado
 WHEN NOT MATCHED THEN
-    INSERT (id, codigo, nombre, credito, area, componente, semestrePlanEstudio, estado)
-    VALUES (TRY_CAST(Source.id AS UNIQUEIDENTIFIER), Source.codigo, Source.nombre, Source.credito, TRY_CAST(Source.area AS UNIQUEIDENTIFIER), TRY_CAST(Source.componente AS UNIQUEIDENTIFIER), TRY_CAST(Source.semestrePlanEstudio AS UNIQUEIDENTIFIER), Source.estado);
+    INSERT (id, codigo, nombre, credito, area, componente, estado)
+    VALUES (TRY_CAST(Source.id AS UNIQUEIDENTIFIER), Source.codigo, Source.nombre, Source.credito, TRY_CAST(Source.area AS UNIQUEIDENTIFIER), TRY_CAST(Source.componente AS UNIQUEIDENTIFIER), Source.estado);
+GO
+
+-- 5b. Catalogo de caracter (mismo MERGE que 37_caracter_asignatura_plan.sql: esta semilla corre antes) y vinculo ARQ-402 <-> SPE, caracter OBL por codigo.
+MERGE INTO [dbo].[CaracterAsignaturaPlan] AS Target
+USING (VALUES
+    ('E1B2C3D4-0001-4B2A-9A00-000000000001', N'OBL', N'Obligatoria', 1, 1),
+    ('E1B2C3D4-0001-4B2A-9A00-000000000002', N'OPT', N'Optativa', 2, 1)
+) AS Source (id, codigo, nombre, orden, estado)
+ON (Target.codigo = Source.codigo)
+WHEN NOT MATCHED THEN
+    INSERT (id, codigo, nombre, orden, estado)
+    VALUES (CAST(Source.id AS UNIQUEIDENTIFIER), Source.codigo, Source.nombre, Source.orden, Source.estado);
+GO
+
+MERGE INTO [dbo].[AsignaturaPlanEstudio] AS Target
+USING (SELECT id = CAST('E2F3A4B5-0001-0000-0000-000000000001' AS UNIQUEIDENTIFIER),
+              asignatura = CAST('E2F3A4B5-0000-0000-0000-000000000001' AS UNIQUEIDENTIFIER),
+              semestrePlanEstudio = CAST('D2E3F4A5-0000-0000-0000-000000000001' AS UNIQUEIDENTIFIER),
+              caracter = (SELECT id FROM [dbo].[CaracterAsignaturaPlan] WHERE codigo = N'OBL'),
+              -- Vigencia S1 (CONTRACT B2 §2.1): el vinculo sembrado se fecha al inicio del periodo sembrado (2026-2, 2026-08-01),
+              -- igual que el backfill de la migracion 17 (MIN(fechaInicio) de los periodos). Con el DEFAULT (hoy) un despliegue
+              -- desde cero dejaba fuera de ambito los grupos de periodos ya vencidos y divergia de una BD migrada.
+              fechaVinculacionUtc = CAST('2026-08-01' AS DATETIME2(3))) AS Source
+ON (Target.asignatura = Source.asignatura AND Target.semestrePlanEstudio = Source.semestrePlanEstudio)
+WHEN NOT MATCHED THEN
+    INSERT (id, asignatura, semestrePlanEstudio, caracter, estaActivo, fechaVinculacionUtc)
+    VALUES (Source.id, Source.asignatura, Source.semestrePlanEstudio, Source.caracter, 1, Source.fechaVinculacionUtc);
 GO
 
 -- 6. Sembrado Idempotente: PeriodoAcademico

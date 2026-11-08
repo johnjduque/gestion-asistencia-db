@@ -13,7 +13,7 @@ DECLARE @tipoCC UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_tipo_identificac
 DECLARE @idAsig UNIQUEIDENTIFIER, @idProg UNIQUEIDENTIFIER, @uCoord UNIQUEIDENTIFIER;
 SELECT TOP 1 @idAsig = a.id, @idProg = pe.idPrograma
 FROM dbo.uv_asignatura a
-INNER JOIN dbo.uv_semestre_plan_estudio spe ON a.idSemestrePlanEstudio = spe.id
+INNER JOIN dbo.uv_asignatura_plan_estudio apx ON apx.idAsignatura = a.id INNER JOIN dbo.uv_semestre_plan_estudio spe ON apx.idSemestrePlanEstudio = spe.id
 INNER JOIN dbo.uv_plan_estudio pe ON spe.idPlanEstudio = pe.id
 INNER JOIN dbo.uv_programa pr ON pe.idPrograma = pr.id AND pr.idCoordinador IS NOT NULL;
 SELECT @uCoord = ci.idUsuario FROM dbo.uv_programa pr INNER JOIN dbo.uv_coordinador_identidad ci ON ci.id = pr.idCoordinador WHERE pr.id = @idProg;
@@ -233,7 +233,7 @@ DECLARE @tipoCC UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_tipo_identificac
 DECLARE @idAsig UNIQUEIDENTIFIER, @idProg UNIQUEIDENTIFIER, @uCoord UNIQUEIDENTIFIER;
 SELECT TOP 1 @idAsig = a.id, @idProg = pe.idPrograma
 FROM dbo.uv_asignatura a
-INNER JOIN dbo.uv_semestre_plan_estudio spe ON a.idSemestrePlanEstudio = spe.id
+INNER JOIN dbo.uv_asignatura_plan_estudio apx ON apx.idAsignatura = a.id INNER JOIN dbo.uv_semestre_plan_estudio spe ON apx.idSemestrePlanEstudio = spe.id
 INNER JOIN dbo.uv_plan_estudio pe ON spe.idPlanEstudio = pe.id
 INNER JOIN dbo.uv_programa pr ON pe.idPrograma = pr.id AND pr.idCoordinador IS NOT NULL;
 SELECT @uCoord = ci.idUsuario FROM dbo.uv_programa pr INNER JOIN dbo.uv_coordinador_identidad ci ON ci.id = pr.idCoordinador WHERE pr.id = @idProg;
