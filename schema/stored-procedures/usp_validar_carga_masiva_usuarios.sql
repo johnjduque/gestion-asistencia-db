@@ -12,6 +12,8 @@ GO
 -- Valida jerarquia de autorizacion (JerarquiaAltaUsuario), limite maximo de filas
 -- (CARGA_MASIVA/MAXIMO_FILAS) y devuelve un resultset con una fila por cada fila
 -- de entrada analizando duplicados, catalogos, ambito, consistencia de identidad y yaExiste.
+-- DEC-058: codigoPrograma/codigoFacultad se resuelven por nombre (el modelo no tiene codigo).
+-- Comparacion UPPER(LTRIM(RTRIM(nombre))) dentro del ambito del ejecutor; estaActivo -> estado = 1.
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_carga_masiva_usuarios]
 (
@@ -123,7 +125,7 @@ BEGIN
     END
 
     -- PASO 6: Validar maximo de filas
-    DECLARE @maxFilas INT = dbo.ufn_obtener_parametro_int(@idCorrelacionDefecto, 'CARGA_MASIVA', 'MAXIMO_FILAS');
+    DECLARE @maxFilas INT = dbo.ufn_obtener_parametro_int(NULL, 'CARGA_MASIVA', 'MAXIMO_FILAS');
     IF @maxFilas IS NULL OR @maxFilas <= 0 SET @maxFilas = 100;
 
     DECLARE @totalFilas INT = (SELECT COUNT(*) FROM #filasEntrada);
@@ -142,24 +144,24 @@ BEGIN
     DECLARE @codPerfilDestino VARCHAR(20) = (SELECT UPPER(codigo) FROM dbo.Perfil WHERE id = @idPerfilDestino);
 
     IF OBJECT_ID('tempdb..#programasCoordinador') IS NOT NULL DROP TABLE #programasCoordinador;
-    CREATE TABLE #programasCoordinador (id UNIQUEIDENTIFIER, codigo NVARCHAR(50));
+    CREATE TABLE #programasCoordinador (id UNIQUEIDENTIFIER, nombre NVARCHAR(50));
 
     IF OBJECT_ID('tempdb..#programasDecano') IS NOT NULL DROP TABLE #programasDecano;
-    CREATE TABLE #programasDecano (idFacultad UNIQUEIDENTIFIER, codigoFacultad NVARCHAR(50), idPrograma UNIQUEIDENTIFIER, codigoPrograma NVARCHAR(50));
+    CREATE TABLE #programasDecano (idFacultad UNIQUEIDENTIFIER, nombreFacultad NVARCHAR(50), idPrograma UNIQUEIDENTIFIER, nombrePrograma NVARCHAR(50));
 
     IF OBJECT_ID('tempdb..#facultadesAdmin') IS NOT NULL DROP TABLE #facultadesAdmin;
-    CREATE TABLE #facultadesAdmin (idFacultad UNIQUEIDENTIFIER, codigoFacultad NVARCHAR(50));
+    CREATE TABLE #facultadesAdmin (idFacultad UNIQUEIDENTIFIER, nombreFacultad NVARCHAR(50));
 
     DECLARE @totalProgsCoord INT = 0;
     DECLARE @idProgUnico UNIQUEIDENTIFIER = NULL;
 
     IF @codPerfilEjecutor = 'CD'
     BEGIN
-        INSERT INTO #programasCoordinador (id, codigo)
-        SELECT p.id, p.codigo
+        INSERT INTO #programasCoordinador (id, nombre)
+        SELECT p.id, UPPER(LTRIM(RTRIM(p.nombre)))
         FROM dbo.Programa p
         INNER JOIN dbo.Coordinador c ON c.id = p.coordinador
-        WHERE c.usuario = @idUsuarioEjecutor AND p.estaActivo = 1;
+        WHERE c.usuario = @idUsuarioEjecutor AND p.estado = 1;
 
         SELECT @totalProgsCoord = COUNT(*) FROM #programasCoordinador;
         IF @totalProgsCoord = 1
@@ -167,20 +169,20 @@ BEGIN
     END
     ELSE IF @codPerfilEjecutor = 'DE'
     BEGIN
-        INSERT INTO #programasDecano (idFacultad, codigoFacultad, idPrograma, codigoPrograma)
-        SELECT f.id, f.codigo, p.id, p.codigo
+        INSERT INTO #programasDecano (idFacultad, nombreFacultad, idPrograma, nombrePrograma)
+        SELECT f.id, UPPER(LTRIM(RTRIM(f.nombre))), p.id, UPPER(LTRIM(RTRIM(p.nombre)))
         FROM dbo.Facultad f
         INNER JOIN dbo.Decano d ON d.id = f.decano
-        LEFT JOIN dbo.Programa p ON p.facultad = f.id AND p.estaActivo = 1
-        WHERE d.usuario = @idUsuarioEjecutor;
+        LEFT JOIN dbo.Programa p ON p.facultad = f.id AND p.estado = 1
+        WHERE d.usuario = @idUsuarioEjecutor AND f.estado = 1;
     END
     ELSE IF @codPerfilEjecutor = 'AD'
     BEGIN
-        INSERT INTO #facultadesAdmin (idFacultad, codigoFacultad)
-        SELECT f.id, f.codigo
+        INSERT INTO #facultadesAdmin (idFacultad, nombreFacultad)
+        SELECT f.id, UPPER(LTRIM(RTRIM(f.nombre)))
         FROM dbo.Facultad f
         INNER JOIN dbo.Administrador a ON a.institucion = f.institucion
-        WHERE a.usuario = @idUsuarioEjecutor;
+        WHERE a.usuario = @idUsuarioEjecutor AND f.estado = 1;
     END
 
     -- PASO 8: Evaluacion fila por fila
@@ -295,7 +297,7 @@ BEGIN
             BEGIN
                 IF @curCodProg IS NOT NULL AND @curCodProg <> N''
                 BEGIN
-                    SELECT @idProg = id FROM #programasCoordinador WHERE codigo = @curCodProg;
+                    SELECT @idProg = id FROM #programasCoordinador WHERE nombre = UPPER(LTRIM(RTRIM(@curCodProg)));
                     IF @idProg IS NULL
                     BEGIN
                         SET @esValida = 0;
@@ -333,7 +335,7 @@ BEGIN
                 END
                 ELSE
                 BEGIN
-                    SELECT @idProg = idPrograma, @idFac = idFacultad FROM #programasDecano WHERE codigoPrograma = @curCodProg;
+                    SELECT @idProg = idPrograma, @idFac = idFacultad FROM #programasDecano WHERE nombrePrograma = UPPER(LTRIM(RTRIM(@curCodProg)));
                     IF @idProg IS NULL
                     BEGIN
                         SET @esValida = 0;
@@ -348,7 +350,7 @@ BEGIN
             BEGIN
                 IF @curCodFac IS NOT NULL AND @curCodFac <> N''
                 BEGIN
-                    SELECT @idFac = idFacultad FROM #facultadesAdmin WHERE codigoFacultad = @curCodFac;
+                    SELECT @idFac = idFacultad FROM #facultadesAdmin WHERE nombreFacultad = UPPER(LTRIM(RTRIM(@curCodFac)));
                     IF @idFac IS NULL
                     BEGIN
                         SET @esValida = 0;
