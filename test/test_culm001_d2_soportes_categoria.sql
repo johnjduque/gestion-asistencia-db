@@ -120,6 +120,11 @@ BEGIN TRY
     SET @max = dbo.ufn_obtener_parametro_int(NULL, 'ARCHIVOS', 'MAXIMO_SOPORTES_POR_RECLAMO');
     SET @ok = IIF(@max = 3 AND EXISTS (SELECT 1 FROM dbo.CatalogoParametro WHERE grupo = 'ARCHIVO' AND clave = 'ESTADO_BORRADOR' AND valor = N'DRAFT'), 1, 0);
     EXEC #d2_expect 'SEMILLA_PARAMETROS', @ok;
+    -- D.3: fila de edicion de ARCHIVOS/MAXIMO_SOPORTES_POR_RECLAMO con rango [1, 10]
+    SET @ok = IIF(EXISTS (SELECT 1 FROM dbo.CatalogoParametroEdicion e INNER JOIN dbo.CatalogoParametro p ON p.id = e.parametro
+                          WHERE p.grupo = 'ARCHIVOS' AND p.clave = 'MAXIMO_SOPORTES_POR_RECLAMO' AND e.esEditable = 1
+                            AND e.valorMinimo = 1 AND e.valorMaximo = 10), 1, 0);
+    EXEC #d2_expect 'SEMILLA_EDICION_MAXIMO_SOPORTES_1_10', @ok;
 
     -- ---------------------------------------------------------------- D2-01 tres soportes propios, categoria CAL
     EXEC #d2_draft @f1, @userA, N'uno.pdf'; EXEC #d2_draft @f2, @userA, N'dos.pdf'; EXEC #d2_draft @f3, @userA, N'tres.pdf';

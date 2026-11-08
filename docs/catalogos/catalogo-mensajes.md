@@ -12,7 +12,18 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **202**.
+Total de códigos: **222**.
+
+## ADS
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `ADS_001` | SUCCESS | BAJO | Estudiante admitido. | HU156: estudiante admitido en el programa; Usuario, Estudiante y EstudiantePrograma confirmados. | `54_culm001_d4_mensajes.sql` |
+| `ADS_002` | BUSINESS_ERROR | BAJO | El estudiante ya está admitido en este programa. | HU156: EstudiantePrograma ya existe para el estudiante y el programa; sin escrituras. | `54_culm001_d4_mensajes.sql` |
+| `ADS_003` | BUSINESS_ERROR | MEDIO | El programa no existe o no pertenece a tu institución. | Ambito: el programa no existe, esta inactivo o no es de la institucion del administrador; sin escrituras. | `54_culm001_d4_mensajes.sql` |
+| `ADS_004` | BUSINESS_ERROR | MEDIO | El documento y el correo corresponden a personas distintas. | Regla: el documento y el correo no pertenecen al mismo Usuario (SUPUESTO-D-11); sin escrituras. | `54_culm001_d4_mensajes.sql` |
+| `ADS_005` | VALIDATION_ERROR | BAJO | El correo debe ser institucional ({}). | Regla: el correo de un alta nueva no cumple REGISTRO/DOMINIO_CORREO_ESTUDIANTE ({}); sin escrituras. | `54_culm001_d4_mensajes.sql` |
+| `ADS_006` | VALIDATION_ERROR | BAJO | Indica una contraseña inicial para el estudiante nuevo. | Regla: un alta nueva exige el hash de la contrasena inicial; sin escrituras. | `54_culm001_d4_mensajes.sql` |
 
 ## AQR
 
@@ -61,6 +72,13 @@ Total de códigos: **202**.
 | `ATT_001` | BUSINESS_ERROR | MEDIO | El payload JSON de asistencia no cumple el contrato requerido. | Payload JSON inválido: se requiere un arreglo no nulo de objetos con exactamente idEstudiante y estado. | `04_mensaje.sql` |
 | `ATT_002` | BUSINESS_ERROR | MEDIO | El lote de asistencia no puede estar vacío. | Payload JSON válido pero vacío: no hay operación de negocio que ejecutar. | `04_mensaje.sql` |
 | `ATT_003` | BUSINESS_ERROR | MEDIO | El estudiante {} aparece más de una vez en el lote de asistencia. | Duplicidad en payload JSON: idEstudiante [{}] aparece más de una vez. | `04_mensaje.sql` |
+
+## AUD
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `AUD_001` | BUSINESS_ERROR | MEDIO | La consulta de auditoría requiere una sola institución activa. | SUPUESTO-D-16: hay {} instituciones activas; la auditoría no tiene ámbito por institución. | `56_culm001_d6_mensajes.sql` |
+| `AUD_002` | VALIDATION_ERROR | BAJO | Los filtros de solo asistencia y solo administración no se pueden combinar. | @soloAsistencia = 1 y @soloAdministracion = 1 son excluyentes; el llamador debe enviar los dos parametros explicitos. | `56_culm001_d6_mensajes.sql` |
 
 ## COO
 
@@ -264,6 +282,23 @@ Total de códigos: **202**.
 | `PLA_004` | BUSINESS_ERROR | MEDIO | El semestre indicado no pertenece al plan de estudios. | Existencia: no hay dbo.SemestrePlanEstudio del plan con el numero de semestre indicado. | `17_mensajes_plan_estudio.sql` |
 | `PLA_005` | BUSINESS_ERROR | MEDIO | Solo se puede quitar el último semestre del plan de estudios. | Regla: el numero de semestre indicado no es el mayor del plan; la malla debe seguir consecutiva. | `17_mensajes_plan_estudio.sql` |
 | `PLA_006` | BUSINESS_ERROR | MEDIO | El semestre tiene asignaturas asociadas. Reubíquelas o elimínelas primero. | Regla: existe dbo.Asignatura que referencia el dbo.SemestrePlanEstudio a quitar. | `17_mensajes_plan_estudio.sql` |
+
+## PRM
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `PRM_001` | SUCCESS | BAJO | Parámetro actualizado. | CatalogoParametro actualizado y CambioParametro registrado. | `53_culm001_d3_mensajes.sql` |
+| `PRM_002` | BUSINESS_ERROR | MEDIO | El parámetro no existe. | CatalogoParametro no tiene un parametro activo con ese id. | `53_culm001_d3_mensajes.sql` |
+| `PRM_003` | BUSINESS_ERROR | MEDIO | Este parámetro no se puede editar. | Parametro en un grupo de PARAMETROS/GRUPOS_NO_EDITABLES o sin fila editable en CatalogoParametroEdicion. | `53_culm001_d3_mensajes.sql` |
+| `PRM_004` | VALIDATION_ERROR | BAJO | El valor debe ser de tipo {}. | Valor invalido para tipoDato [{}] (no numerico, con decimales en un tipo entero, vacio o de mas de 4000 caracteres). | `53_culm001_d3_mensajes.sql` |
+| `PRM_005` | VALIDATION_ERROR | BAJO | El valor debe estar entre {} y {}. | Valor fuera del rango [{}, {}] de CatalogoParametroEdicion. | `53_culm001_d3_mensajes.sql` |
+| `PRM_006` | VALIDATION_ERROR | BAJO | El valor debe ser uno de: {}. | Valor fuera de valoresPermitidos [{}] (pertenencia exacta). | `53_culm001_d3_mensajes.sql` |
+| `PRM_007` | VALIDATION_ERROR | BAJO | «{}» debe ser menor que «{}». | Regla cruzada estricta violada: [{}] debe ser menor que [{}]. | `53_culm001_d3_mensajes.sql` |
+| `PRM_008` | BUSINESS_ERROR | MEDIO | Otro usuario modificó el parámetro. Recarga y vuelve a intentarlo. | fechaModificacionEsperada distinta de CatalogoParametro.fechaModificacion (concurrencia optimista). | `53_culm001_d3_mensajes.sql` |
+| `PRM_009` | VALIDATION_ERROR | BAJO | Indica un motivo de al menos {} caracteres. | Motivo vacio o menor que PARAMETROS/LONGITUD_MINIMA_MOTIVO ({}) tras recortar. | `53_culm001_d3_mensajes.sql` |
+| `PRM_010` | BUSINESS_ERROR | MEDIO | La edición de parámetros no está disponible con el catálogo de configuración activo. | El catalogo de parametros activo del backend no es sqlserver: la edicion en BD no es la fuente de verdad. | `53_culm001_d3_mensajes.sql` |
+| `PRM_011` | SUCCESS | BAJO | El valor no cambió. | El valor propuesto es igual al almacenado; no se escribio nada. | `53_culm001_d3_mensajes.sql` |
+| `PRM_012` | BUSINESS_ERROR | MEDIO | La edición de parámetros requiere una sola institución activa. | [SUPUESTO-D-16] La instalacion no tiene exactamente una Institucion activa; los parametros no tienen ambito por institucion. | `53_culm001_d3_mensajes.sql` |
 
 ## PROG
 

@@ -10,7 +10,8 @@ GO
 --   ARCHIVOS/MAXIMO_SOPORTES_POR_RECLAMO  tope de soportes de un reclamo (3)
 --   ARCHIVO/ESTADO_BORRADOR               estado DRAFT del soporte recien subido (TD-061: sin literal quemado en los SP)
 --   ARCHIVO/TIPOS_PERMITIDOS              tipos de contenido que acepta la subida (coincide con CK_ArchivoSoporte_TipoContenido)
--- La fila de edicion de MAXIMO_SOPORTES_POR_RECLAMO ([1, 10]) en CatalogoParametroEdicion pertenece a D.3 (tabla aun no mezclada).
+-- La fila de edicion de MAXIMO_SOPORTES_POR_RECLAMO ([1, 10]) en CatalogoParametroEdicion la siembra 53_culm001_d3_parametro_edicion.sql
+-- (corre despues de esta semilla, con el parametro ya creado); la prueba D2 la verifica.
 MERGE INTO [dbo].[CatalogoParametro] AS Target
 USING (VALUES
     ('ARCHIVOS', 'MAXIMO_SOPORTES_POR_RECLAMO', N'3',                                  'INT',    N'3'),
