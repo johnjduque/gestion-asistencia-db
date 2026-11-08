@@ -224,7 +224,9 @@ BEGIN
             SELECT @novedadesJSON = ISNULL((
                 SELECT  idAlerta = e.idAlertaNueva, codigoTipo = t.codigo, nivel = t.nivel,
                         esPrincipal = CAST(IIF(e.nivel = MAX(e.nivel) OVER (PARTITION BY e.idEstudianteGrupo), 1, 0) AS BIT),
-                        porcentajeInasistencia = e.porcentaje, umbral = e.umbral, horasFalta = e.horasFalta, horasDictadas = e.horasDictadas,
+                        porcentajeInasistencia = e.porcentaje, umbral = e.umbral,
+                        umbralPerdida = (SELECT TOP 1 dbo.ufn_umbral_alerta_inasistencia(tp.id) FROM dbo.TipoAlertaInasistencia tp WHERE tp.creaRevisionCancelacion = 1),
+                        horasFalta = e.horasFalta, horasDictadas = e.horasDictadas,
                         idEstudianteGrupo = e.idEstudianteGrupo, idGrupo = g.id, codigoGrupo = g.codigo, nombreGrupo = g.nombre, nombreAsignatura = asig.nombre,
                         tipoPlantillaEstudiante = t.tipoPlantillaEstudiante,
                         [estudiante.idEstudiante] = est.id, [estudiante.idUsuario] = ue.id,
