@@ -2,8 +2,7 @@
 -- MIGRACION DOWN 28: CULM-001 D.9-a - retira los cambios de BD de los hallazgos medios (CONTRACT D §11.2, §14.2)
 --   1. Restaura el texto anterior a D.9 (el de B2, D.1-D.7 y la base) de usp_reintentar_notificacion_saliente_interno,
 --      usp_consultar_plantilla_notificacion_activa, usp_crear_periodo_academico, usp_consultar_sesiones_facultad_paginado y
---      usp_validar_cruce_horario_estudiante_interno. usp_crear_decano vuelve al texto base solo si no contiene el texto de D.5
---      (TIPO_IDENTIFICACION_DEFECTO); si D.5 esta aplicada, se conserva y hay que reescribirlo con el down de la 24 (§14.2).
+--      usp_validar_cruce_horario_estudiante_interno. usp_crear_decano vuelve al texto de D.5 (la 28 va despues de la 24, §14.2).
 --   2. DROP de usp_consultar_periodos_academicos_paginado, usp_consultar_grupo_facultad_detalle y usp_validar_acceso_reporte_grupo.
 --   3. Borra los mensajes DEC_020, NTF_020 y NTF_021. Idempotente.
 -- ============================================================================
@@ -672,11 +671,15 @@ BEGIN
 END;
 GO
 GO
--- ---- schema/stored-procedures/usp_crear_decano.sql (texto anterior a D.9; no se restaura sobre el texto de D.5)
-IF EXISTS (SELECT 1 FROM sys.sql_modules WHERE object_id = OBJECT_ID(N'dbo.usp_crear_decano') AND definition LIKE N'%TIPO_IDENTIFICACION_DEFECTO%')
-    PRINT 'MIGRACION 28 DOWN: usp_crear_decano contiene el texto de D.5; se conserva (reescribir con el down de la 24).';
-ELSE
-    EXEC (N'CREATE OR ALTER PROCEDURE [dbo].[usp_crear_decano]
+-- ---- schema/stored-procedures/usp_crear_decano.sql (texto de D.5, anterior a D.9)
+USE [gestionasistenciadb];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+CREATE OR ALTER PROCEDURE [dbo].[usp_crear_decano]
 (
     @idDecano               UNIQUEIDENTIFIER = NULL,
     @numeroIdentificacion    INT,
@@ -689,21 +692,22 @@ ELSE
     @nombreFacultad          NVARCHAR(150)    = NULL,
     @password                NVARCHAR(500),
     @idCorrelacion           UNIQUEIDENTIFIER,
-    @idUsuarioEjecutor       UNIQUEIDENTIFIER = NULL
+    @idUsuarioEjecutor       UNIQUEIDENTIFIER = NULL,
+    @idTipoIdIdentificacion  UNIQUEIDENTIFIER = NULL
 )
 AS
-    DECLARE @idCorrelacionDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, ''GENERAL'', ''GUID_DEFECTO_CORRELACION'');
+    DECLARE @idCorrelacionDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idDecanoDefecto          UNIQUEIDENTIFIER = @idDecano;
     DECLARE @idFacultadDefecto        UNIQUEIDENTIFIER = @idFacultad;
-    DECLARE @idUsuarioEjecutorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, ''GENERAL'', ''GUID_DEFECTO_CORRELACION'');
+    DECLARE @idUsuarioEjecutorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @nombreFacultadDef        NVARCHAR(150)    = TRIM(@nombreFacultad);
 
     DECLARE @idUsuarioCreado Uniqueidentifier;
     DECLARE @idTipoIdCC      UNIQUEIDENTIFIER;
 
     -- Variables locales de respuesta
-    DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro(''GENERAL'', ''CADENA_VACIA'');
-    DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro(''GENERAL'', ''CADENA_VACIA'');
+    DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
+    DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado         BIT = 1;
 
     -- Control de ownership transaccional (ver docs/procedimiento-transacciones)
@@ -725,12 +729,12 @@ BEGIN
         IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
-                @p_codigo = ''GEN_002'',
-                @p_param1 = ''idUsuarioEjecutor'',
+                @p_codigo = 'GEN_002',
+                @p_param1 = 'idUsuarioEjecutor',
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, '' Correlacion: '', @idCorrelacionDefecto);
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
             SET @estadoResultado = 0;
         END
 
@@ -738,7 +742,7 @@ BEGIN
         BEGIN
             EXEC dbo.usp_validar_permiso_rbac_usuario_interno
                 @idUsuario = @idUsuarioEjecutorDefecto,
-                @codigoPerfilRequerido = ''ADMINISTRADOR'',
+                @codigoPerfilRequerido = 'ADMINISTRADOR',
                 @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
@@ -746,12 +750,12 @@ BEGIN
         END
 
         -- PASO 2: Resolver facultad destino si se suministra el nombre
-        IF @estadoResultado = 1 AND @idFacultadDefecto IS NULL AND @nombreFacultadDef IS NOT NULL AND @nombreFacultadDef <> ''''
+        IF @estadoResultado = 1 AND @idFacultadDefecto IS NULL AND @nombreFacultadDef IS NOT NULL AND @nombreFacultadDef <> ''
         BEGIN
             SELECT TOP 1 @idFacultadDefecto = id
             FROM [dbo].[uv_facultad]
             WHERE LOWER(nombreFacultad) = LOWER(@nombreFacultadDef)
-               OR LOWER(nombreFacultad) LIKE LOWER(CONCAT(''%'', @nombreFacultadDef, ''%''))
+               OR LOWER(nombreFacultad) LIKE LOWER(CONCAT('%', @nombreFacultadDef, '%'))
             ORDER BY nombreFacultad ASC;
         END
 
@@ -777,8 +781,16 @@ BEGIN
 
             IF @idUsuarioCreado IS NULL
             BEGIN
-                SELECT TOP 1 @idTipoIdCC = id FROM dbo.TipoIdentificacion WHERE tipoIdentificacion = ''CC'' ORDER BY id ASC;
-                IF @idTipoIdCC IS NULL SELECT TOP 1 @idTipoIdCC = id FROM dbo.TipoIdentificacion ORDER BY id ASC;
+                IF @idTipoIdIdentificacion IS NOT NULL
+                BEGIN
+                    SET @idTipoIdCC = @idTipoIdIdentificacion;
+                END
+                ELSE
+                BEGIN
+                    DECLARE @codTipoDocDefectoDec NVARCHAR(50) = dbo.ufn_obtener_parametro_texto(NULL, 'IDENTIDAD', 'TIPO_IDENTIFICACION_DEFECTO');
+                    SELECT TOP 1 @idTipoIdCC = id FROM dbo.TipoIdentificacion WHERE tipoIdentificacion = @codTipoDocDefectoDec ORDER BY id ASC;
+                    IF @idTipoIdCC IS NULL SELECT TOP 1 @idTipoIdCC = id FROM dbo.TipoIdentificacion ORDER BY id ASC;
+                END
 
                 EXEC dbo.usp_sincronizar_usuario_interno
                     @idTipoIdIdentificacion = @idTipoIdCC,
@@ -827,12 +839,12 @@ BEGIN
             END
 
             EXEC dbo.usp_obtener_mensaje_catalogo
-                @p_codigo = ''GEN_004'',
-                @p_param1 = ''Decano'',
+                @p_codigo = 'GEN_004',
+                @p_param1 = 'Decano',
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, '' Correlacion: '', @idCorrelacionDefecto);
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
         END
 
         -- PASO 5: Finalización de la transacción respetando ownership (ver docs/procedimiento-transacciones)
@@ -878,7 +890,7 @@ BEGIN
         END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = ''SYS_001'',
+            @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
@@ -892,7 +904,8 @@ BEGIN
         mensajeUsuarioResultado = @mensajeUsuarioResultado,
         mensajeTecnicoResultado = @mensajeTecnicoResultado,
         estadoResultado         = @estadoResultado;
-END;');
+END;
+GO
 GO
 IF OBJECT_ID(N'dbo.usp_consultar_periodos_academicos_paginado', N'P') IS NOT NULL DROP PROCEDURE [dbo].[usp_consultar_periodos_academicos_paginado];
 GO

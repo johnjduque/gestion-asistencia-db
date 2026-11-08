@@ -1,6 +1,6 @@
 -- ============================================================================
 -- MIGRACION UP 28: CULM-001 D.9-a - hallazgos medios y bajos de BD (CONTRACT D §11.2, DEC-044)
--- Siembra DEC_020, NTF_020 y NTF_021 (MERGE); altera usp_crear_decano (DEC_020 y @idTipoIdIdentificacion),
+-- Siembra DEC_020, NTF_020 y NTF_021 (MERGE); altera usp_crear_decano (DEC_020, sobre la firma de D.5),
 -- usp_reintentar_notificacion_saliente_interno (NTF_020), usp_consultar_plantilla_notificacion_activa (@validarExistencia, NTF_021),
 -- usp_crear_periodo_academico (devuelve idPeriodo), usp_consultar_sesiones_facultad_paginado (@idGrupo) y
 -- usp_validar_cruce_horario_estudiante_interno (solo matriculas inscritas); crea usp_consultar_periodos_academicos_paginado,
@@ -577,9 +577,7 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
--- CULM-001 D.9-a (CONTRACT D §11.2): @idTipoIdIdentificacion (al final de la firma, NULL = comportamiento anterior: CC) guarda el
--- tipo de documento elegido por el administrador en el Usuario nuevo (F-ADM-011). DEC_020 (F-ADM-024): si la persona ya es decano
--- activo (Decano.estado = 1) no se escribe nada y el backend responde 409 en lugar de un 201 enganoso.
+-- CULM-001 D.9-a (F-ADM-024): DEC_020 si la persona ya es decano activo (sobre la firma con @idTipoIdIdentificacion de D.5).
 CREATE OR ALTER PROCEDURE [dbo].[usp_crear_decano]
 (
     @idDecano               UNIQUEIDENTIFIER = NULL,
@@ -701,11 +699,18 @@ BEGIN
             FROM [dbo].[uv_usuario]
             WHERE correo = LOWER(TRIM(@correo)) OR numeroIdentificacion = CAST(@numeroIdentificacion AS VARCHAR(20));
 
-            IF @estadoResultado = 1 AND @idUsuarioCreado IS NULL
+            IF @idUsuarioCreado IS NULL
             BEGIN
-                SET @idTipoIdCC = @idTipoIdIdentificacion;
-                IF @idTipoIdCC IS NULL SELECT TOP 1 @idTipoIdCC = id FROM dbo.TipoIdentificacion WHERE tipoIdentificacion = 'CC' ORDER BY id ASC;
-                IF @idTipoIdCC IS NULL SELECT TOP 1 @idTipoIdCC = id FROM dbo.TipoIdentificacion ORDER BY id ASC;
+                IF @idTipoIdIdentificacion IS NOT NULL
+                BEGIN
+                    SET @idTipoIdCC = @idTipoIdIdentificacion;
+                END
+                ELSE
+                BEGIN
+                    DECLARE @codTipoDocDefectoDec NVARCHAR(50) = dbo.ufn_obtener_parametro_texto(NULL, 'IDENTIDAD', 'TIPO_IDENTIFICACION_DEFECTO');
+                    SELECT TOP 1 @idTipoIdCC = id FROM dbo.TipoIdentificacion WHERE tipoIdentificacion = @codTipoDocDefectoDec ORDER BY id ASC;
+                    IF @idTipoIdCC IS NULL SELECT TOP 1 @idTipoIdCC = id FROM dbo.TipoIdentificacion ORDER BY id ASC;
+                END
 
                 EXEC dbo.usp_sincronizar_usuario_interno
                     @idTipoIdIdentificacion = @idTipoIdCC,
