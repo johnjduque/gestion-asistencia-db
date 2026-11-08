@@ -122,6 +122,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_culm001_b2_qr.sql
 -- CULM-001 D.1 (plazo de excusas HU026B): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_culm001_d1_plazo_justificacion.sql
+-- CULM-001 D.7 (retiro del registro individual autonomo, TD-009): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_culm001_d7_retiro.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN
