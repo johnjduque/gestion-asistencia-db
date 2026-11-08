@@ -29,14 +29,15 @@ DECLARE @tipoTI UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_tipo_identificac
 IF @tipoTI IS NULL
     SELECT TOP 1 @tipoTI = id FROM dbo.uv_tipo_identificacion WHERE id <> @tipoCC;
 
-DECLARE @tipoVincTC UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.TipoVinculacion WHERE codigo = 'TC');
+DECLARE @tipoVincTC UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.TipoVinculacion WHERE codigo = 'PLA');
 IF @tipoVincTC IS NULL
     SELECT TOP 1 @tipoVincTC = id FROM dbo.TipoVinculacion;
 
-DECLARE @idPrograma1 UNIQUEIDENTIFIER, @codigoProg1 NVARCHAR(50), @uCoord1 UNIQUEIDENTIFIER, @idCoord1 UNIQUEIDENTIFIER, @idInstitucion UNIQUEIDENTIFIER, @idFacultad1 UNIQUEIDENTIFIER;
+DECLARE @idPrograma1 UNIQUEIDENTIFIER, @codigoProg1 NVARCHAR(50), @uCoord1 UNIQUEIDENTIFIER, @idCoord1 UNIQUEIDENTIFIER, @idInstitucion UNIQUEIDENTIFIER, @idFacultad1 UNIQUEIDENTIFIER, @idTipoPrograma1 UNIQUEIDENTIFIER;
 SELECT TOP 1 
     @idPrograma1 = p.id, 
-    @codigoProg1 = p.codigo,
+    @codigoProg1 = p.nombrePrograma, -- DEC-058: el CSV usa el nombre del programa (el modelo no tiene codigo)
+    @idTipoPrograma1 = p.idTipoPrograma,
     @uCoord1 = ci.idUsuario, 
     @idCoord1 = ci.id,
     @idInstitucion = p.idInstitucion,
@@ -73,23 +74,41 @@ CREATE TABLE #cmdCoord (
     idCorrelacion UNIQUEIDENTIFIER,
     mensajeUsuarioResultado NVARCHAR(4000),
     mensajeTecnicoResultado NVARCHAR(4000),
-    estadoResultado BIT,
-    idCoordinador UNIQUEIDENTIFIER
+    estadoResultado BIT
 );
 
 CREATE TABLE #cmdDec (
     idCorrelacion UNIQUEIDENTIFIER,
     mensajeUsuarioResultado NVARCHAR(4000),
     mensajeTecnicoResultado NVARCHAR(4000),
-    estadoResultado BIT,
-    idDecano UNIQUEIDENTIFIER
+    estadoResultado BIT
 );
 
 DECLARE @corr UNIQUEIDENTIFIER, @ok BIT, @filasJson NVARCHAR(MAX), @errCode INT, @errMsg NVARCHAR(4000);
 DECLARE @uDocExistente UNIQUEIDENTIFIER, @docExistenteNum INT = 815000050;
 DECLARE @docenteId UNIQUEIDENTIFIER;
-DECLARE @idPrograma2 UNIQUEIDENTIFIER, @codigoProg2 NVARCHAR(50) = N'QA-PROG-2';
+DECLARE @idPrograma2 UNIQUEIDENTIFIER, @codigoProg2 NVARCHAR(50) = N'QA Programa 2 D5';
 DECLARE @idFacultad2 UNIQUEIDENTIFIER, @idDecano2 UNIQUEIDENTIFIER, @uDecano2 UNIQUEIDENTIFIER;
+
+-- (fuera de la transaccion de la prueba, ver nota al final)
+-- ---------------------------------------------------------------- D5-03 Administrador con destino DOCENTE -> THROW CMA_009
+SET @corr = NEWID();
+SET @errCode = 0;
+SET @errMsg = N'';
+BEGIN TRY
+    EXEC dbo.usp_validar_carga_masiva_usuarios
+        @idUsuarioEjecutor = @uAdmin,
+        @idCorrelacion = @corr,
+        @codigoPerfilDestino = 'DOCENTE',
+        @filasJson = N'[{"numeroFila": 2, "tipoDocumento": "CC", "numeroDocumento": 815000011, "correo": "doc.admin@test.local"}]';
+END TRY
+BEGIN CATCH
+    SET @errCode = ERROR_NUMBER();
+    SET @errMsg = ERROR_MESSAGE();
+END CATCH;
+SET @ok = IIF(@errMsg LIKE '%CMA_009%', 1, 0);
+EXEC #d5_expect 'D5_03_ADMIN_DESTINO_DOCENTE_CMA_009', @ok;
+PRINT 'TEST_PASS:CULM001_D5_03_JERARQUIA_NO_PERMITIDA';
 
 BEGIN TRANSACTION;
 BEGIN TRY
@@ -107,9 +126,9 @@ BEGIN TRY
     TRUNCATE TABLE #res;
     SET @corr = NEWID();
     SET @filasJson = N'[
-        {"numeroFila": 2, "tipoDocumento": "CC", "numeroDocumento": 815000001, "correo": "doc1.d5@test.local", "codigoTipoVinculacion": "TC", "codigoPrograma": "' + @codigoProg1 + N'", "codigoFacultad": null},
-        {"numeroFila": 3, "tipoDocumento": "CC", "numeroDocumento": 815000002, "correo": "doc2.d5@test.local", "codigoTipoVinculacion": "TC", "codigoPrograma": "' + @codigoProg1 + N'", "codigoFacultad": null},
-        {"numeroFila": 4, "tipoDocumento": "CC", "numeroDocumento": 815000003, "correo": "doc3.d5@test.local", "codigoTipoVinculacion": "TC", "codigoPrograma": "' + @codigoProg1 + N'", "codigoFacultad": null}
+        {"numeroFila": 2, "tipoDocumento": "CC", "numeroDocumento": 815000001, "correo": "doc1.d5@test.local", "codigoTipoVinculacion": "PLA", "codigoPrograma": "' + @codigoProg1 + N'", "codigoFacultad": null},
+        {"numeroFila": 3, "tipoDocumento": "CC", "numeroDocumento": 815000002, "correo": "doc2.d5@test.local", "codigoTipoVinculacion": "PLA", "codigoPrograma": "' + @codigoProg1 + N'", "codigoFacultad": null},
+        {"numeroFila": 4, "tipoDocumento": "CC", "numeroDocumento": 815000003, "correo": "doc3.d5@test.local", "codigoTipoVinculacion": "PLA", "codigoPrograma": "' + @codigoProg1 + N'", "codigoFacultad": null}
     ]';
     
     INSERT #res
@@ -128,12 +147,32 @@ BEGIN TRY
     -- ---------------------------------------------------------------- D5-02 Decano con programa de otra facultad -> CMA_007
     -- Crear una segunda facultad con su programa
     SET @idFacultad2 = NEWID();
-    INSERT dbo.Facultad (id, nombre, institucion, decano, codigo) 
-    VALUES (@idFacultad2, N'QA Facultad 2 D5', @idInstitucion, NULL, N'QA-FAC-2');
+    -- Fixtures: el seed solo trae un decano y un coordinador; se crean un segundo decano y un segundo coordinador (rollback al final).
+    DECLARE @uDecano2Fix UNIQUEIDENTIFIER, @uCoord2Fix UNIQUEIDENTIFIER, @idCoord2 UNIQUEIDENTIFIER = NEWID();
+    SET @corr = NEWID();
+    EXEC dbo.usp_sincronizar_usuario_interno
+        @idTipoIdIdentificacion = @tipoCC, @numeroIdentificacion = 815000201,
+        @primerApellido = N'DecanoDos', @segundoApellido = NULL, @primerNombre = N'QA', @segundoNombre = NULL,
+        @correo = N'decano2.d5@test.local', @password = N'HashTest123', @idCorrelacion = @corr,
+        @mensajeUsuarioResultado = @errMsg OUTPUT, @mensajeTecnicoResultado = @errMsg OUTPUT, @estadoResultado = @ok OUTPUT;
+    EXEC #d5_expect 'FIXTURE_DECANO2_USUARIO', @ok;
+    EXEC dbo.usp_sincronizar_usuario_interno
+        @idTipoIdIdentificacion = @tipoCC, @numeroIdentificacion = 815000202,
+        @primerApellido = N'CoordDos', @segundoApellido = NULL, @primerNombre = N'QA', @segundoNombre = NULL,
+        @correo = N'coord2.d5@test.local', @password = N'HashTest123', @idCorrelacion = @corr,
+        @mensajeUsuarioResultado = @errMsg OUTPUT, @mensajeTecnicoResultado = @errMsg OUTPUT, @estadoResultado = @ok OUTPUT;
+    EXEC #d5_expect 'FIXTURE_COORD2_USUARIO', @ok;
+    SELECT @uDecano2Fix = id FROM dbo.Usuario WHERE numeroIdentificacion = 815000201;
+    SELECT @uCoord2Fix = id FROM dbo.Usuario WHERE numeroIdentificacion = 815000202;
+    SET @idDecano2 = NEWID();
+    INSERT dbo.Decano (id, usuario) VALUES (@idDecano2, @uDecano2Fix);
+    INSERT dbo.Coordinador (id, usuario) VALUES (@idCoord2, @uCoord2Fix);
+    INSERT dbo.Facultad (id, nombre, institucion, decano, estado)
+    VALUES (@idFacultad2, N'QA Facultad 2 D5', @idInstitucion, @idDecano2, 1);
 
     SET @idPrograma2 = NEWID();
-    INSERT dbo.Programa (id, nombre, facultad, coordinador, codigo, estaActivo, fechaCreacionUtc, idInstitucion)
-    VALUES (@idPrograma2, N'QA Programa 2 D5', @idFacultad2, NULL, @codigoProg2, 1, SYSUTCDATETIME(), @idInstitucion);
+    INSERT dbo.Programa (id, facultad, tipoDePrograma, nombre, coordinador, estado)
+    VALUES (@idPrograma2, @idFacultad2, @idTipoPrograma1, @codigoProg2, @idCoord2, 1);
 
     TRUNCATE TABLE #res;
     SET @corr = NEWID();
@@ -152,32 +191,13 @@ BEGIN TRY
     EXEC #d5_expect 'D5_02_DECANO_PROGRAMA_OTRA_FACULTAD', @ok;
     PRINT 'TEST_PASS:CULM001_D5_02_DECANO_PROGRAMA_OTRA_FACULTAD';
 
-    -- ---------------------------------------------------------------- D5-03 Administrador con destino DOCENTE -> THROW CMA_009
-    SET @corr = NEWID();
-    SET @errCode = 0;
-    SET @errMsg = N'';
-    BEGIN TRY
-        EXEC dbo.usp_validar_carga_masiva_usuarios
-            @idUsuarioEjecutor = @uAdmin,
-            @idCorrelacion = @corr,
-            @codigoPerfilDestino = 'DOCENTE',
-            @filasJson = N'[{"numeroFila": 2, "tipoDocumento": "CC", "numeroDocumento": 815000011, "correo": "doc.admin@test.local"}]';
-    END TRY
-    BEGIN CATCH
-        SET @errCode = ERROR_NUMBER();
-        SET @errMsg = ERROR_MESSAGE();
-    END CATCH;
-    SET @ok = IIF(@errMsg LIKE '%CMA_009%', 1, 0);
-    EXEC #d5_expect 'D5_03_ADMIN_DESTINO_DOCENTE_CMA_009', @ok;
-    PRINT 'TEST_PASS:CULM001_D5_03_JERARQUIA_NO_PERMITIDA';
-
     -- ---------------------------------------------------------------- D5-04 Duplicado en el archivo por documento y por correo -> CMA_010
     TRUNCATE TABLE #res;
     SET @corr = NEWID();
     SET @filasJson = N'[
-        {"numeroFila": 2, "tipoDocumento": "CC", "numeroDocumento": 815000021, "correo": "dup1@test.local", "codigoTipoVinculacion": "TC", "codigoPrograma": "' + @codigoProg1 + N'", "codigoFacultad": null},
-        {"numeroFila": 3, "tipoDocumento": "CC", "numeroDocumento": 815000021, "correo": "otro@test.local", "codigoTipoVinculacion": "TC", "codigoPrograma": "' + @codigoProg1 + N'", "codigoFacultad": null},
-        {"numeroFila": 4, "tipoDocumento": "CC", "numeroDocumento": 815000022, "correo": "dup1@test.local", "codigoTipoVinculacion": "TC", "codigoPrograma": "' + @codigoProg1 + N'", "codigoFacultad": null}
+        {"numeroFila": 2, "tipoDocumento": "CC", "numeroDocumento": 815000021, "correo": "dup1@test.local", "codigoTipoVinculacion": "PLA", "codigoPrograma": "' + @codigoProg1 + N'", "codigoFacultad": null},
+        {"numeroFila": 3, "tipoDocumento": "CC", "numeroDocumento": 815000021, "correo": "otro@test.local", "codigoTipoVinculacion": "PLA", "codigoPrograma": "' + @codigoProg1 + N'", "codigoFacultad": null},
+        {"numeroFila": 4, "tipoDocumento": "CC", "numeroDocumento": 815000022, "correo": "dup1@test.local", "codigoTipoVinculacion": "PLA", "codigoPrograma": "' + @codigoProg1 + N'", "codigoFacultad": null}
     ]';
 
     INSERT #res
@@ -208,16 +228,16 @@ BEGIN TRY
 
     SELECT @uDocExistente = id FROM dbo.Usuario WHERE numeroIdentificacion = @docExistenteNum;
     SET @docenteId = NEWID();
-    INSERT dbo.Docente (id, usuario, tipoVinculacion, institucion)
-    VALUES (@docenteId, @uDocExistente, @tipoVincTC, @idInstitucion);
+    INSERT dbo.Docente (id, usuario)
+    VALUES (@docenteId, @uDocExistente);
 
-    INSERT dbo.DocentePrograma (id, docente, programa)
-    VALUES (NEWID(), @docenteId, @idPrograma1);
+    INSERT dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc)
+    VALUES (NEWID(), @docenteId, @idPrograma1, @tipoVincTC, 1, SYSUTCDATETIME());
 
     TRUNCATE TABLE #res;
     SET @corr = NEWID();
     SET @filasJson = N'[
-        {"numeroFila": 2, "tipoDocumento": "CC", "numeroDocumento": ' + CAST(@docExistenteNum AS NVARCHAR(20)) + N', "correo": "carlos.docente.existente@test.local", "codigoTipoVinculacion": "TC", "codigoPrograma": "' + @codigoProg1 + N'", "codigoFacultad": null}
+        {"numeroFila": 2, "tipoDocumento": "CC", "numeroDocumento": ' + CAST(@docExistenteNum AS NVARCHAR(20)) + N', "correo": "carlos.docente.existente@test.local", "codigoTipoVinculacion": "PLA", "codigoPrograma": "' + @codigoProg1 + N'", "codigoFacultad": null}
     ]';
 
     INSERT #res
@@ -252,7 +272,7 @@ BEGIN TRY
     SET @corr = NEWID();
     -- Mezcla: doc de A con correo de B
     SET @filasJson = N'[
-        {"numeroFila": 2, "tipoDocumento": "CC", "numeroDocumento": 815000061, "correo": "personaB.d5@test.local", "codigoTipoVinculacion": "TC", "codigoPrograma": "' + @codigoProg1 + N'", "codigoFacultad": null}
+        {"numeroFila": 2, "tipoDocumento": "CC", "numeroDocumento": 815000061, "correo": "personaB.d5@test.local", "codigoTipoVinculacion": "PLA", "codigoPrograma": "' + @codigoProg1 + N'", "codigoFacultad": null}
     ]';
 
     INSERT #res
@@ -270,7 +290,7 @@ BEGIN TRY
     TRUNCATE TABLE #res;
     SET @corr = NEWID();
     SET @filasJson = N'[
-        {"numeroFila": 2, "tipoDocumento": "XYZ_NO_EXISTE", "numeroDocumento": 815000071, "correo": "cat1@test.local", "codigoTipoVinculacion": "TC", "codigoPrograma": "' + @codigoProg1 + N'", "codigoFacultad": null},
+        {"numeroFila": 2, "tipoDocumento": "XYZ_NO_EXISTE", "numeroDocumento": 815000071, "correo": "cat1@test.local", "codigoTipoVinculacion": "PLA", "codigoPrograma": "' + @codigoProg1 + N'", "codigoFacultad": null},
         {"numeroFila": 3, "tipoDocumento": "CC", "numeroDocumento": 815000072, "correo": "cat2@test.local", "codigoTipoVinculacion": "VINC_INVENTADA", "codigoPrograma": "' + @codigoProg1 + N'", "codigoFacultad": null}
     ]';
 
@@ -293,7 +313,7 @@ BEGIN TRY
     TRUNCATE TABLE #res;
     SET @corr = NEWID();
     SET @filasJson = N'[
-        {"numeroFila": 2, "tipoDocumento": "CC", "numeroDocumento": 815000081, "correo": "multi.coord@test.local", "codigoTipoVinculacion": "TC", "codigoPrograma": null, "codigoFacultad": null}
+        {"numeroFila": 2, "tipoDocumento": "CC", "numeroDocumento": 815000081, "correo": "multi.coord@test.local", "codigoTipoVinculacion": "PLA", "codigoPrograma": null, "codigoFacultad": null}
     ]';
 
     INSERT #res
@@ -306,39 +326,6 @@ BEGIN TRY
     SET @ok = IIF(EXISTS (SELECT 1 FROM #res WHERE numeroFila = 2 AND esValida = 0 AND codigoMensaje = 'CMA_007'), 1, 0);
     EXEC #d5_expect 'D5_08_MULTI_PROGRAMA_SIN_PROGRAMA_CMA_007', @ok;
     PRINT 'TEST_PASS:CULM001_D5_08_MULTI_PROGRAMA_SIN_PROGRAMA';
-
-    -- ---------------------------------------------------------------- D5-09 Mas filas que el parametro -> THROW CMA_001
-    UPDATE dbo.CatalogoParametro 
-    SET valor = N'2' 
-    WHERE grupo = 'CARGA_MASIVA' AND clave = 'MAXIMO_FILAS';
-
-    SET @corr = NEWID();
-    SET @errCode = 0;
-    SET @errMsg = N'';
-    SET @filasJson = N'[
-        {"numeroFila": 2, "tipoDocumento": "CC", "numeroDocumento": 815000091, "correo": "f1@test.local", "codigoTipoVinculacion": "TC", "codigoPrograma": "' + @codigoProg1 + N'"},
-        {"numeroFila": 3, "tipoDocumento": "CC", "numeroDocumento": 815000092, "correo": "f2@test.local", "codigoTipoVinculacion": "TC", "codigoPrograma": "' + @codigoProg1 + N'"},
-        {"numeroFila": 4, "tipoDocumento": "CC", "numeroDocumento": 815000093, "correo": "f3@test.local", "codigoTipoVinculacion": "TC", "codigoPrograma": "' + @codigoProg1 + N'"}
-    ]';
-    BEGIN TRY
-        EXEC dbo.usp_validar_carga_masiva_usuarios
-            @idUsuarioEjecutor = @uCoord1,
-            @idCorrelacion = @corr,
-            @codigoPerfilDestino = 'DOCENTE',
-            @filasJson = @filasJson;
-    END TRY
-    BEGIN CATCH
-        SET @errCode = ERROR_NUMBER();
-        SET @errMsg = ERROR_MESSAGE();
-    END CATCH;
-    SET @ok = IIF(@errMsg LIKE '%CMA_001%', 1, 0);
-    EXEC #d5_expect 'D5_09_MAXIMO_FILAS_EXCEDIDO_CMA_001', @ok;
-    PRINT 'TEST_PASS:CULM001_D5_09_MAXIMO_FILAS';
-
-    -- Restaurar parametro
-    UPDATE dbo.CatalogoParametro 
-    SET valor = N'100' 
-    WHERE grupo = 'CARGA_MASIVA' AND clave = 'MAXIMO_FILAS';
 
     -- ---------------------------------------------------------------- D5-10 usp_crear_coordinador con @idTipoIdIdentificacion
     TRUNCATE TABLE #cmdCoord;
@@ -359,7 +346,7 @@ BEGIN TRY
         @idUsuarioEjecutor = @uDecano1,
         @idTipoIdIdentificacion = @tipoTI;
 
-    DECLARE @tipoGuardadoCoord UNIQUEIDENTIFIER = (SELECT tipoIdentificacion FROM dbo.Usuario WHERE numeroIdentificacion = 815000101);
+    DECLARE @tipoGuardadoCoord UNIQUEIDENTIFIER = (SELECT tipoIdIdentificacion FROM dbo.Usuario WHERE numeroIdentificacion = 815000101);
     DECLARE @defCoord NVARCHAR(MAX) = OBJECT_DEFINITION(OBJECT_ID('dbo.usp_crear_coordinador'));
     DECLARE @defDec NVARCHAR(MAX) = OBJECT_DEFINITION(OBJECT_ID('dbo.usp_crear_decano'));
 
@@ -388,7 +375,7 @@ BEGIN TRY
         @idCorrelacion = @corr,
         @idUsuarioEjecutor = @uDecano1;
 
-    DECLARE @tipoDefectoCoord UNIQUEIDENTIFIER = (SELECT tipoIdentificacion FROM dbo.Usuario WHERE numeroIdentificacion = 815000121);
+    DECLARE @tipoDefectoCoord UNIQUEIDENTIFIER = (SELECT tipoIdIdentificacion FROM dbo.Usuario WHERE numeroIdentificacion = 815000121);
 
     TRUNCATE TABLE #cmdDec;
     SET @corr = NEWID();
@@ -407,7 +394,7 @@ BEGIN TRY
         @idCorrelacion = @corr,
         @idUsuarioEjecutor = @uAdmin;
 
-    DECLARE @tipoDefectoDec UNIQUEIDENTIFIER = (SELECT tipoIdentificacion FROM dbo.Usuario WHERE numeroIdentificacion = 815000122);
+    DECLARE @tipoDefectoDec UNIQUEIDENTIFIER = (SELECT tipoIdIdentificacion FROM dbo.Usuario WHERE numeroIdentificacion = 815000122);
 
     SET @ok = IIF(EXISTS (SELECT 1 FROM #cmdCoord WHERE estadoResultado = 1)
               AND EXISTS (SELECT 1 FROM #cmdDec WHERE estadoResultado = 1)
@@ -415,6 +402,37 @@ BEGIN TRY
               AND @tipoDefectoDec = @tipoCC, 1, 0);
     EXEC #d5_expect 'D5_12_LLAMADAS_LEGACY_DEFAULT_CC', @ok;
     PRINT 'TEST_PASS:CULM001_D5_12_LLAMADAS_LEGACY_COMPATIBLES';
+
+    -- Los THROW del SP (XACT_ABORT ON) condenan la transaccion abierta (XACT_STATE = -1): D5-09 corre al final de la
+    -- transaccion y D5-03 antes de abrirla; las demas verificaciones no necesitan escribir despues de ellos.
+    -- ---------------------------------------------------------------- D5-09 Mas filas que el parametro -> THROW CMA_001
+    UPDATE dbo.CatalogoParametro 
+    SET valor = N'2' 
+    WHERE grupo = 'CARGA_MASIVA' AND clave = 'MAXIMO_FILAS';
+
+    SET @corr = NEWID();
+    SET @errCode = 0;
+    SET @errMsg = N'';
+    SET @filasJson = N'[
+        {"numeroFila": 2, "tipoDocumento": "CC", "numeroDocumento": 815000091, "correo": "f1@test.local", "codigoTipoVinculacion": "PLA", "codigoPrograma": "' + @codigoProg1 + N'"},
+        {"numeroFila": 3, "tipoDocumento": "CC", "numeroDocumento": 815000092, "correo": "f2@test.local", "codigoTipoVinculacion": "PLA", "codigoPrograma": "' + @codigoProg1 + N'"},
+        {"numeroFila": 4, "tipoDocumento": "CC", "numeroDocumento": 815000093, "correo": "f3@test.local", "codigoTipoVinculacion": "PLA", "codigoPrograma": "' + @codigoProg1 + N'"}
+    ]';
+    BEGIN TRY
+        EXEC dbo.usp_validar_carga_masiva_usuarios
+            @idUsuarioEjecutor = @uCoord1,
+            @idCorrelacion = @corr,
+            @codigoPerfilDestino = 'DOCENTE',
+            @filasJson = @filasJson;
+    END TRY
+    BEGIN CATCH
+        SET @errCode = ERROR_NUMBER();
+        SET @errMsg = ERROR_MESSAGE();
+    END CATCH;
+    SET @ok = IIF(@errMsg LIKE '%CMA_001%', 1, 0);
+    EXEC #d5_expect 'D5_09_MAXIMO_FILAS_EXCEDIDO_CMA_001', @ok;
+    PRINT 'TEST_PASS:CULM001_D5_09_MAXIMO_FILAS';
+    -- El parametro se restaura con el ROLLBACK final de la prueba.
 
     PRINT 'TEST_PASS:CULM001_D5_TRANCOUNT_ZERO';
 END TRY
