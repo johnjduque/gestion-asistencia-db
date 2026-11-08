@@ -59,7 +59,8 @@ GO
 
 -- CULM-001 D.2 ([SUPUESTO-D-02], DEC-042): varios soportes por solicitud (hasta ARCHIVOS/MAXIMO_SOPORTES_POR_RECLAMO; un fileId
 -- pertenece a una sola solicitud por la PK). El indice unico filtrado UX_ArchivoSoporte_Solicitud se reemplaza por este indice
--- no unico y no filtrado, que ademas cierra TD-059 (el indice filtrado exigia QUOTED_IDENTIFIER ON hasta para borrar una solicitud).
+-- no unico y no filtrado, que ademas cierra TD-059 (con el indice unico filtrado y la FK habilitada, cualquier DELETE sobre
+-- SolicitudRevisionAsistencia fallaba con Msg 8624/8622 del procesador de consultas; verificado por D2-14).
 IF EXISTS (
     SELECT 1 FROM sys.indexes
     WHERE object_id = OBJECT_ID('dbo.ArchivoSoporte') AND name = 'UX_ArchivoSoporte_Solicitud'

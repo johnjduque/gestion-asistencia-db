@@ -399,9 +399,10 @@ BEGIN TRY
     EXEC #d2_expect 'D2_16_SIN_INSERT_EXEC', @ok;
     PRINT 'TEST_PASS:CULM001_D2_16_SIN_INSERT_EXEC';
 
-    -- ---------------------------------------------------------------- D2-14 (TD-059) borrar una solicitud sin soportes con QUOTED_IDENTIFIER OFF
-    -- Con QUOTED_IDENTIFIER OFF (sqlcmd/clientes antiguos) el indice filtrado impedia hasta el DELETE de una solicitud (Msg 1934).
-    DECLARE @solLimpia UNIQUEIDENTIFIER, @errTd059 INT = 0;
+    -- ---------------------------------------------------------------- D2-14 (TD-059) borrar una solicitud con la FK habilitada
+    -- Con el indice unico filtrado UX_ArchivoSoporte_Solicitud y la FK habilitada, cualquier DELETE sobre SolicitudRevisionAsistencia
+    -- fallaba con Msg 8624 (8622 con pistas de join) del procesador de consultas. Se prueba con QUOTED_IDENTIFIER ON y OFF.
+    DECLARE @solLimpia UNIQUEIDENTIFIER, @solLimpia2 UNIQUEIDENTIFIER, @errTd059 INT = 0, @errTd059b INT = 0;
     TRUNCATE TABLE #w3;
     SET @corr = NEWID();
     INSERT INTO #w3 EXEC dbo.usp_radicar_solicitud_revision_asistencia_v3 @idEstudiante = @studentA, @idSesion = @s6,
@@ -414,7 +415,19 @@ BEGIN TRY
     BEGIN CATCH
         SET @errTd059 = ERROR_NUMBER();
     END CATCH
-    SET @ok = IIF(@solLimpia IS NOT NULL AND @errTd059 = 0 AND NOT EXISTS (SELECT 1 FROM dbo.SolicitudRevisionAsistencia WHERE id = @solLimpia), 1, 0);
+    TRUNCATE TABLE #w3;
+    SET @corr = NEWID();
+    INSERT INTO #w3 EXEC dbo.usp_radicar_solicitud_revision_asistencia_v3 @idEstudiante = @studentA, @idSesion = @s6,
+        @categoria = N'OTR', @justificacion = N'QA D2-14 b', @idsArchivoSoporte = NULL, @idCorrelacion = @corr, @idUsuarioEjecutor = @userA;
+    SELECT @solLimpia2 = idSolicitudRevision FROM #w3 WHERE idCorrelacion = @corr AND estadoResultado = 1;
+    BEGIN TRY
+        DELETE FROM dbo.SolicitudRevisionAsistencia WHERE id = @solLimpia2;
+    END TRY
+    BEGIN CATCH
+        SET @errTd059b = ERROR_NUMBER();
+    END CATCH
+    SET @ok = IIF(@solLimpia IS NOT NULL AND @errTd059 = 0 AND NOT EXISTS (SELECT 1 FROM dbo.SolicitudRevisionAsistencia WHERE id = @solLimpia)
+                  AND @solLimpia2 IS NOT NULL AND @errTd059b = 0 AND NOT EXISTS (SELECT 1 FROM dbo.SolicitudRevisionAsistencia WHERE id = @solLimpia2), 1, 0);
     EXEC #d2_expect 'D2_14_TD_059_DELETE_SIN_INDICE_FILTRADO', @ok;
     PRINT 'TEST_PASS:CULM001_D2_14_TD_059';
 
