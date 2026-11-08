@@ -36,8 +36,11 @@ DECLARE @estA UNIQUEIDENTIFIER = (SELECT id FROM dbo.EstadoEstudianteGrupo WHERE
 DECLARE @an UNIQUEIDENTIFIER = (SELECT id FROM dbo.RazonCausa WHERE codigo = 'AN');
 DECLARE @sjc UNIQUEIDENTIFIER = (SELECT id FROM dbo.RazonCausa WHERE codigo = 'SJC');
 DECLARE @recP UNIQUEIDENTIFIER = (SELECT id FROM dbo.Estado WHERE codigo = 'P');
-DECLARE @dia UNIQUEIDENTIFIER = (SELECT id FROM dbo.Dia WHERE codigo = N'MI');
 DECLARE @hoy DATE = CAST(SYSUTCDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE CAST(dbo.ufn_obtener_parametro('TIEMPO', 'ZONA_HORARIA_SQLSERVER') AS NVARCHAR(100)) AS DATE);
+-- CULM-001 D.9-a (F-EST-S06, F-DOC-021): la franja semanal cae el mismo dia de la semana que la sesion vencida (ayer, 07:00-09:00
+-- hora local = 12:00-14:00 UTC); 1900-01-01 es lunes, asi que (dias % 7) va de 0 (LU) a 6 (DO) sin depender de DATEFIRST.
+DECLARE @dia UNIQUEIDENTIFIER = (SELECT id FROM dbo.Dia WHERE codigo = CHOOSE(DATEDIFF(DAY, '1900-01-01', DATEADD(DAY, -1, @hoy)) % 7 + 1,
+                                                                             N'LU', N'MA', N'MI', N'JU', N'VI', N'SA', N'DO'));
 DECLARE @periodo UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.PeriodoAcademico WHERE institucion = @inst AND fechaInicio <= @hoy AND fechaFin >= @hoy ORDER BY fechaFin DESC, id);
 IF @periodo IS NULL SET @periodo = (SELECT TOP 1 id FROM dbo.PeriodoAcademico WHERE institucion = @inst ORDER BY fechaFin DESC, id);
 IF @inst IS NULL OR @tipoCC IS NULL OR @tipoProg IS NULL OR @semestre IS NULL OR @area IS NULL OR @esp IS NULL OR @estA IS NULL
