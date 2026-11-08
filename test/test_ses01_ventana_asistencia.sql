@@ -27,10 +27,6 @@ IF @group IS NULL OR @student IS NULL OR @student2 IS NULL OR @owner IS NULL OR 
 DECLARE @sFuture UNIQUEIDENTIFIER = NEWID(), @sExactStart UNIQUEIDENTIFIER = NEWID(), @sDuring UNIQUEIDENTIFIER = NEWID();
 DECLARE @sJustBeforeEnd UNIQUEIDENTIFIER = NEWID(), @sExactEnd UNIQUEIDENTIFIER = NEWID(), @sTwoHoursAfter UNIQUEIDENTIFIER = NEWID();
 DECLARE @sIndeterminate UNIQUEIDENTIFIER = NEWID(), @sHistory UNIQUEIDENTIFIER = NEWID();
-DECLARE @sAutoClosed UNIQUEIDENTIFIER = NEWID(), @sAutoFuture UNIQUEIDENTIFIER = NEWID(), @sAutoIndeterminate UNIQUEIDENTIFIER = NEWID();
-DECLARE @codeAutoClosed NVARCHAR(50) = LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8);
-DECLARE @codeAutoFuture NVARCHAR(50) = LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8);
-DECLARE @codeAutoIndeterminate NVARCHAR(50) = LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8);
 DECLARE @firstNumber INT = 1 + (SELECT ISNULL(MAX(numero), 0) FROM dbo.Sesion WHERE grupo = @group);
 DECLARE @corr UNIQUEIDENTIFIER, @userMsg NVARCHAR(4000), @techMsg NVARCHAR(4000), @json NVARCHAR(MAX), @jsonTwo NVARCHAR(MAX);
 DECLARE @tranBefore INT;
@@ -74,10 +70,7 @@ BEGIN TRY
         (@sJustBeforeEnd, N'SES01 Antes cierre',   @firstNumber + 2, LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8), 1, @group, DATEADD(HOUR, -2, SYSUTCDATETIME()), DATEADD(SECOND, 30, SYSUTCDATETIME()),  N'UTC_V2'),
         (@sTwoHoursAfter, N'SES01 Dos horas',      @firstNumber + 3, LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8), 1, @group, DATEADD(HOUR, -4, SYSUTCDATETIME()), DATEADD(HOUR, -2, SYSUTCDATETIME()),    N'UTC_V2'),
         (@sIndeterminate, N'SES01 Indeterminada',  @firstNumber + 4, LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8), 1, @group, DATEADD(HOUR, -1, SYSUTCDATETIME()), DATEADD(HOUR, 1, SYSUTCDATETIME()),     NULL),
-        (@sHistory,       N'SES01 Historica',      @firstNumber + 5, LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8), 1, @group, DATEADD(HOUR, -4, SYSUTCDATETIME()), DATEADD(HOUR, -2, SYSUTCDATETIME()),    N'UTC_V2'),
-        (@sAutoClosed,    N'SES01 Auto cerrada',   @firstNumber + 6, @codeAutoClosed,                                         1, @group, DATEADD(HOUR, -4, SYSUTCDATETIME()), DATEADD(HOUR, -2, SYSUTCDATETIME()),    N'UTC_V2'),
-        (@sAutoFuture,    N'SES01 Auto futura',    @firstNumber + 7, @codeAutoFuture,                                         1, @group, DATEADD(HOUR, 1, SYSUTCDATETIME()),  DATEADD(HOUR, 2, SYSUTCDATETIME()),     N'UTC_V2'),
-        (@sAutoIndeterminate, N'SES01 Auto indet', @firstNumber + 8, @codeAutoIndeterminate,                                  1, @group, DATEADD(HOUR, -1, SYSUTCDATETIME()), DATEADD(HOUR, 1, SYSUTCDATETIME()),     NULL);
+        (@sHistory,       N'SES01 Historica',      @firstNumber + 5, LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8), 1, @group, DATEADD(HOUR, -4, SYSUTCDATETIME()), DATEADD(HOUR, -2, SYSUTCDATETIME()),    N'UTC_V2');
 
     -- B. Antes del inicio (07:59:59 de una sesion 08:00-10:00): SES_007, sin escritura.
     SET @corr = NEWID();
@@ -193,51 +186,8 @@ BEGIN TRY
         THROW 53110, 'TEST FAILED: SES01_BULK_CLOSED_HISTORY_PRESERVED el registro ordinario altero el historico de una sesion cerrada.', 1;
     PRINT 'TEST_STATE_PASS:SES01_BULK_CLOSED_HISTORY_PRESERVED';
 
-    -- J. Registro autonomo del estudiante: ninguna ruta alternativa escribe fuera de la ventana.
-    SET @corr = NEWID();
-    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SES_008', @p_param1 = @sAutoClosed,
-        @mensajeUsuarioResultado = @userMsg OUTPUT, @mensajeTecnicoResultado = @techMsg OUTPUT;
-    PRINT CONCAT('TEST_EXPECTED_USER:SES01_AUTO_CLOSED|', @userMsg);
-    -- El mensaje de usuario (con tildes) se parte en varias lineas en la salida de sqlcmd; a veces quedan bytes sueltos
-    -- al inicio de la linea siguiente. Esta linea vacia los absorbe y deja limpio el marcador TECH (gate local 2026-11-04).
-    PRINT '';
-    PRINT CONCAT('TEST_EXPECTED_TECH:SES01_AUTO_CLOSED|', @techMsg, ' Correlacion: ', @corr);
-    PRINT 'TEST_RESULT_BEGIN:SES01_AUTO_CLOSED';
-    EXEC dbo.usp_registrar_asistencia_estudiante_autonomo
-        @idEstudiante = @student, @idSesion = @sAutoClosed, @codigoVerificacion = @codeAutoClosed,
-        @idCorrelacion = @corr, @idUsuarioEjecutor = @studentUser;
-    PRINT 'TEST_RESULT_END:SES01_AUTO_CLOSED';
-    IF EXISTS (SELECT 1 FROM dbo.Asistencia WHERE sesion = @sAutoClosed) OR @@TRANCOUNT <> @tranBefore
-        THROW 53111, 'TEST FAILED: SES01_AUTO_CLOSED el registro autonomo escribio despues del cierre.', 1;
-    PRINT 'TEST_STATE_PASS:SES01_AUTO_CLOSED';
-
-    SET @corr = NEWID();
-    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SES_007', @p_param1 = @sAutoFuture,
-        @mensajeUsuarioResultado = @userMsg OUTPUT, @mensajeTecnicoResultado = @techMsg OUTPUT;
-    PRINT CONCAT('TEST_EXPECTED_USER:SES01_AUTO_BEFORE_START|', @userMsg);
-    PRINT CONCAT('TEST_EXPECTED_TECH:SES01_AUTO_BEFORE_START|', @techMsg, ' Correlacion: ', @corr);
-    PRINT 'TEST_RESULT_BEGIN:SES01_AUTO_BEFORE_START';
-    EXEC dbo.usp_registrar_asistencia_estudiante_autonomo
-        @idEstudiante = @student, @idSesion = @sAutoFuture, @codigoVerificacion = @codeAutoFuture,
-        @idCorrelacion = @corr, @idUsuarioEjecutor = @studentUser;
-    PRINT 'TEST_RESULT_END:SES01_AUTO_BEFORE_START';
-    IF EXISTS (SELECT 1 FROM dbo.Asistencia WHERE sesion = @sAutoFuture) OR @@TRANCOUNT <> @tranBefore
-        THROW 53112, 'TEST FAILED: SES01_AUTO_BEFORE_START el registro autonomo escribio antes del inicio.', 1;
-    PRINT 'TEST_STATE_PASS:SES01_AUTO_BEFORE_START';
-
-    SET @corr = NEWID();
-    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SES_009', @p_param1 = @sAutoIndeterminate,
-        @mensajeUsuarioResultado = @userMsg OUTPUT, @mensajeTecnicoResultado = @techMsg OUTPUT;
-    PRINT CONCAT('TEST_EXPECTED_USER:SES01_AUTO_INDETERMINATE|', @userMsg);
-    PRINT CONCAT('TEST_EXPECTED_TECH:SES01_AUTO_INDETERMINATE|', @techMsg, ' Correlacion: ', @corr);
-    PRINT 'TEST_RESULT_BEGIN:SES01_AUTO_INDETERMINATE';
-    EXEC dbo.usp_registrar_asistencia_estudiante_autonomo
-        @idEstudiante = @student, @idSesion = @sAutoIndeterminate, @codigoVerificacion = @codeAutoIndeterminate,
-        @idCorrelacion = @corr, @idUsuarioEjecutor = @studentUser;
-    PRINT 'TEST_RESULT_END:SES01_AUTO_INDETERMINATE';
-    IF EXISTS (SELECT 1 FROM dbo.Asistencia WHERE sesion = @sAutoIndeterminate) OR @@TRANCOUNT <> @tranBefore
-        THROW 53113, 'TEST FAILED: SES01_AUTO_INDETERMINATE el registro autonomo escribio con procedencia indeterminada.', 1;
-    PRINT 'TEST_STATE_PASS:SES01_AUTO_INDETERMINATE';
+    -- CULM-001 D.7: el bloque J (registro autonomo del estudiante) se retiro con el SP (TD-009). La garantia "ninguna ruta
+    -- alternativa escribe fuera de la ventana" la cubren B2-TOM-03/09, B2-QR-01/10 y D7-04 (registro por token con ventana vencida).
 END TRY
 BEGIN CATCH
     IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
@@ -246,6 +196,6 @@ END CATCH;
 ROLLBACK TRANSACTION;
 DROP TABLE #ses01Result;
 -- SES01_BULK_BEFORE_START, SES01_BULK_EXACT_END, SES01_BULK_TWO_HOURS_AFTER, SES01_BULK_INDETERMINATE,
--- SES01_BULK_CLOSED_HISTORY_PRESERVED y SES01_AUTO_*: TEST_PASS lo emite test_summary.ps1 (result set + estado).
+-- SES01_BULK_CLOSED_HISTORY_PRESERVED: TEST_PASS lo emite test_summary.ps1 (result set + estado).
 PRINT 'TEST END: test_ses01_ventana_asistencia';
 GO
