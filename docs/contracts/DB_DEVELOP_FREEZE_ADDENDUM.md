@@ -134,3 +134,12 @@ NEXT AUTHORIZED PHASE:                 LB-002.1C-B1 - BACKEND AS-IS CONTRACT ANA
 - **LB-004D:** cambian `ArchivoSoporte.sql`, `usp_radicar_solicitud_revision_asistencia_v2.sql`, `usp_consultar_archivo_soporte_autorizado.sql`, `usp_consultar_solicitudes_revision_docente.sql`, `test_lb004d_support_binding.sql` y `test_lb004d_concurrency.ps1`; sus líneas se regeneran en el mismo commit que cambia cada archivo (DEC-044 (11)).
 - **Rollback:** el `down` de la 21 aborta con `THROW 50021` sin `CONFIRMAR_COLAPSO_SOPORTES = 1` si hay solicitudes con más de un soporte, archiva categorías y soportes colapsados en `zz_archivo_*` y deja v2 en el texto de D.1; el `down` de la 20 aborta con `50020` mientras exista el interno (D-RB-01).
 - **Pruebas:** `test/test_culm001_d2_soportes_categoria.sql` (D2-01…D2-10, D2-12, D2-14…D2-16), `test/test_culm001_d2.ps1` (D2-13 up→down→up, down sin confirmación, D-RB-01), D2-11 en `test/test_lb004d_concurrency.ps1`.
+
+## CULM-001 C.1 — cancelacion por inasistencia (HU026C)
+
+- `EstudianteGrupo` pasa a `CI` unicamente al aprobar una `RevisionCancelacion` (`usp_resolver_revision_cancelacion`); el cierre masivo (`usp_ejecutar_cierre_masivo_periodo`) ya no cancela por conteo de faltas.
+- Cierre masivo con el motor habilitado y umbrales validos: responde `RCN_012` (una sola fila) si hay revisiones que esperan al docente o al resolutor, o perdidas por horas sin revision; no crea revisiones ni evalua alertas (lo hace el backend antes). Con el motor apagado o umbrales invalidos no bloquea y `AuditoriaEvento` registra `motorHabilitado`, `umbralesValidos`, `perdidasSinRevision` y `revisionesPendientes`.
+- Unicidad: una `AlertaInasistencia` por (matricula, tipo) y una `RevisionCancelacion` por matricula.
+- Escalamiento: el resolutor es el coordinador activo del programa del estudiante (excluido quien propuso); sin coordinador, el decano de la facultad (`ufn_revision_cancelacion_resolutores`).
+- `Grupo.cantidadEstudiantesCancelaronAutomaticamente` significa "matriculas en CI al cierre".
+- Migracion 19 (`up|down`), semillas 40/41 y permisos `rol_asistencias_runtime_culm001_c.sql`.
