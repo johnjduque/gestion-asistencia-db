@@ -315,16 +315,17 @@ BEGIN TRY
     SET @corr = NEWID();
     SET @errCode = 0;
     SET @errMsg = N'';
+    SET @filasJson = N'[
+        {"numeroFila": 2, "tipoDocumento": "CC", "numeroDocumento": 815000091, "correo": "f1@test.local", "codigoTipoVinculacion": "TC", "codigoPrograma": "' + @codigoProg1 + N'"},
+        {"numeroFila": 3, "tipoDocumento": "CC", "numeroDocumento": 815000092, "correo": "f2@test.local", "codigoTipoVinculacion": "TC", "codigoPrograma": "' + @codigoProg1 + N'"},
+        {"numeroFila": 4, "tipoDocumento": "CC", "numeroDocumento": 815000093, "correo": "f3@test.local", "codigoTipoVinculacion": "TC", "codigoPrograma": "' + @codigoProg1 + N'"}
+    ]';
     BEGIN TRY
         EXEC dbo.usp_validar_carga_masiva_usuarios
             @idUsuarioEjecutor = @uCoord1,
             @idCorrelacion = @corr,
             @codigoPerfilDestino = 'DOCENTE',
-            @filasJson = N'[
-                {"numeroFila": 2, "tipoDocumento": "CC", "numeroDocumento": 815000091, "correo": "f1@test.local", "codigoTipoVinculacion": "TC", "codigoPrograma": "' + @codigoProg1 + N'"},
-                {"numeroFila": 3, "tipoDocumento": "CC", "numeroDocumento": 815000092, "correo": "f2@test.local", "codigoTipoVinculacion": "TC", "codigoPrograma": "' + @codigoProg1 + N'"},
-                {"numeroFila": 4, "tipoDocumento": "CC", "numeroDocumento": 815000093, "correo": "f3@test.local", "codigoTipoVinculacion": "TC", "codigoPrograma": "' + @codigoProg1 + N'"}
-            ]';
+            @filasJson = @filasJson;
     END TRY
     BEGIN CATCH
         SET @errCode = ERROR_NUMBER();
