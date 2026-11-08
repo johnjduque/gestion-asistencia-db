@@ -70,7 +70,7 @@ BEGIN TRY
         (@sJustBeforeEnd, N'SES01 Antes cierre',   @firstNumber + 2, LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8), 1, @group, DATEADD(HOUR, -2, SYSUTCDATETIME()), DATEADD(SECOND, 30, SYSUTCDATETIME()),  N'UTC_V2'),
         (@sTwoHoursAfter, N'SES01 Dos horas',      @firstNumber + 3, LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8), 1, @group, DATEADD(HOUR, -4, SYSUTCDATETIME()), DATEADD(HOUR, -2, SYSUTCDATETIME()),    N'UTC_V2'),
         (@sIndeterminate, N'SES01 Indeterminada',  @firstNumber + 4, LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8), 1, @group, DATEADD(HOUR, -1, SYSUTCDATETIME()), DATEADD(HOUR, 1, SYSUTCDATETIME()),     NULL),
-        (@sHistory,       N'SES01 Historica',      @firstNumber + 5, LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8), 1, @group, DATEADD(HOUR, -4, SYSUTCDATETIME()), DATEADD(HOUR, -2, SYSUTCDATETIME()),    N'UTC_V2';
+        (@sHistory,       N'SES01 Historica',      @firstNumber + 5, LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8), 1, @group, DATEADD(HOUR, -4, SYSUTCDATETIME()), DATEADD(HOUR, -2, SYSUTCDATETIME()),    N'UTC_V2');
 
     -- B. Antes del inicio (07:59:59 de una sesion 08:00-10:00): SES_007, sin escritura.
     SET @corr = NEWID();
