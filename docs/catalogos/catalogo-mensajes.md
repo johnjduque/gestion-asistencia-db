@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **198**.
+Total de códigos: **202**.
 
 ## AQR
 
@@ -307,6 +307,10 @@ Total de códigos: **198**.
 | `REV_007` | BUSINESS_ERROR | MEDIO | Solo se puede retirar una solicitud de revisión pendiente. | Regla: la solicitud de revision [{}] no esta en el estado de RECLAMO/ESTADO_PENDIENTE; sin escrituras. | `33_culm001_a_mensajes.sql` |
 | `REV_008` | SUCCESS | BAJO | La solicitud de revisión fue retirada. | Actualizacion: la solicitud de revision [{}] paso al estado de RECLAMO/ESTADO_RETIRADO. | `33_culm001_a_mensajes.sql` |
 | `REV_020` | BUSINESS_ERROR | MEDIO | El plazo para justificar esta inasistencia venció el {}. | HU026B: instante {} >= límite {} (ASISTENCIA/DIAS_LIMITE_JUSTIFICACION={}). | `51_culm001_d1_mensajes.sql` |
+| `REV_021` | BUSINESS_ERROR | MEDIO | La categoría de justificación no es válida. | HU015: la categoría [{}] no existe en CategoriaJustificacion (ni por código ni por nombre). | `52_culm001_d2_parametros_mensajes.sql` |
+| `REV_022` | BUSINESS_ERROR | MEDIO | La categoría «{}» exige adjuntar al menos un soporte. | HU014: la categoría [{}] tiene requiereSoporte = 1 y la solicitud llegó sin soportes. | `52_culm001_d2_parametros_mensajes.sql` |
+| `REV_023` | BUSINESS_ERROR | MEDIO | Puedes adjuntar como máximo {} soportes. | HU015: [{}] soportes superan ARCHIVOS/MAXIMO_SOPORTES_POR_RECLAMO = [{}]. | `52_culm001_d2_parametros_mensajes.sql` |
+| `REV_024` | BUSINESS_ERROR | MEDIO | Un mismo soporte no se puede adjuntar dos veces. | HU015: la lista de soportes repite al menos un idArchivoSoporte. | `52_culm001_d2_parametros_mensajes.sql` |
 | `REV_025` | TECHNICAL_ERROR | ALTO | No es posible validar el plazo de justificación en este momento. | HU026B: falta ASISTENCIA/DIAS_LIMITE_JUSTIFICACION o TIEMPO/ZONA_HORARIA_SQLSERVER. | `51_culm001_d1_mensajes.sql` |
 
 ## SEC

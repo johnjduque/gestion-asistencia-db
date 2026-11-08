@@ -72,7 +72,15 @@ $culm001DNew = @( # CULM-001 D: fuentes nuevas por subpaquete (D.x agrega las su
     'schema/stored-procedures/usp_consultar_sesiones_materia_estudiante.sql',
     'schema/security/rol_asistencias_runtime_culm001_d1.sql',
     'migrations/20_culm001_d1_plazo_justificacion_up.sql',
-    'migrations/20_culm001_d1_plazo_justificacion_down.sql'
+    'migrations/20_culm001_d1_plazo_justificacion_down.sql',
+    # D.2 varios soportes, categoria persistida y soporte obligatorio (HU014/HU015)
+    'schema/views/uv_soporte_reclamo.sql',
+    'schema/stored-procedures/usp_internal_radicar_solicitud_revision.sql',
+    'schema/stored-procedures/usp_radicar_solicitud_revision_asistencia_v3.sql',
+    'schema/stored-procedures/usp_consultar_configuracion_reclamos.sql',
+    'schema/security/rol_asistencias_runtime_culm001_d2.sql',
+    'migrations/21_culm001_d2_soportes_categoria_up.sql',
+    'migrations/21_culm001_d2_soportes_categoria_down.sql'
 )
 $expectedContractSha = '45e48c5a0ab321d0c8cbffb55ee224e3b6fd29febc39a62ca723b2b209945aec'
 
