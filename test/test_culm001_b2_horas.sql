@@ -15,11 +15,11 @@ SET XACT_ABORT OFF;
 PRINT 'TEST START: test_culm001_b2_horas (CULM-001 B.2, DEC-012, DEC-024)';
 
 IF (SELECT COUNT(*) FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.uv_resumen_asistencia_estudiante_grupo') AND name IN (
-        'idEstudianteGrupo', 'idEstudiante', 'idGrupo', 'idAsignatura', 'idPrograma', 'idPeriodoAcademico', 'codigoEstadoEstudiante',
+        'idEstudianteGrupo', 'idEstudiante', 'idGrupo', 'idAsignatura', 'idPeriodoAcademico', 'codigoEstadoEstudiante',
         'sesionesEjecutadas', 'asistencias', 'faltasSinJustaCausa', 'excusas', 'porcentajeInasistencia', 'codigoPermanencia',
         'tomasDictadas', 'horasDictadas', 'horasAsistidas', 'horasFalta', 'horasExcusa', 'horasSinRegistro', 'porcentajeAsistenciaHoras',
         'porcentajeExcusaHoras', 'porcentajeSinRegistroHoras', 'porcentajeInasistenciaSesiones', 'umbralAdvertencia', 'umbralPerdida',
-        'sesionesAsistidas', 'sesionesConFaltaSinJustaCausa', 'sesionesConExcusa')) <> 28
+        'sesionesAsistidas', 'sesionesConFaltaSinJustaCausa', 'sesionesConExcusa')) <> 27   -- CULM-001 B2NM (CONTRACT B2 fila 111): sin idPrograma
    OR (SELECT COUNT(*) FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.uv_asistencia_sesion_horas') AND name IN (
         'idAsistencia', 'idEstudianteGrupo', 'idSesion', 'idGrupo', 'totalTomasSesion', 'tomasConRegistro', 'horasSesion', 'horasAsistidas',
         'horasFalta', 'horasExcusa', 'horasSinRegistro', 'codigoRazonCausaConsolidado', 'esParcial', 'tieneFaltaSinJustaCausa')) <> 14
@@ -54,7 +54,7 @@ DECLARE @idAsig UNIQUEIDENTIFIER, @idProg UNIQUEIDENTIFIER, @idFac UNIQUEIDENTIF
 DECLARE @uCoord UNIQUEIDENTIFIER, @uDec UNIQUEIDENTIFIER, @uAdm UNIQUEIDENTIFIER;
 SELECT TOP 1 @idAsig = a.id, @idProg = pr.id, @idFac = pr.idFacultad, @idInst = pr.idInstitucion, @uCoord = ci.idUsuario, @uDec = di.idUsuario, @uAdm = ad.idUsuario
 FROM dbo.uv_asignatura a
-INNER JOIN dbo.uv_semestre_plan_estudio spe ON a.idSemestrePlanEstudio = spe.id
+INNER JOIN dbo.uv_asignatura_plan_estudio apx ON apx.idAsignatura = a.id INNER JOIN dbo.uv_semestre_plan_estudio spe ON apx.idSemestrePlanEstudio = spe.id
 INNER JOIN dbo.uv_plan_estudio pe ON spe.idPlanEstudio = pe.id
 INNER JOIN dbo.uv_programa pr ON pe.idPrograma = pr.id
 INNER JOIN dbo.uv_coordinador_identidad ci ON ci.id = pr.idCoordinador

@@ -28,7 +28,7 @@ DECLARE @estI UNIQUEIDENTIFIER = (SELECT id FROM dbo.uv_estado_estudiante_grupo 
 SELECT TOP 1 @group = g.id, @teacher = g.docente, @periodo = g.periodoAcademico, @asignatura = g.asignatura, @programa = pe.programa
 FROM dbo.Grupo g
 INNER JOIN dbo.Asignatura a ON a.id = g.asignatura
-INNER JOIN dbo.SemestrePlanEstudio spe ON spe.id = a.semestrePlanEstudio
+INNER JOIN dbo.AsignaturaPlanEstudio ape_spe ON ape_spe.asignatura = a.id JOIN dbo.SemestrePlanEstudio spe ON spe.id = ape_spe.semestrePlanEstudio
 INNER JOIN dbo.PlanEstudio pe ON pe.id = spe.planEstudio
 ORDER BY g.id;
 SELECT @userT = usuario FROM dbo.Docente WHERE id = @teacher;
@@ -75,7 +75,7 @@ BEGIN TRY
         THROW 53951, 'TEST FAILED: RI-01 ESP debe matricular e inscribir en el programa.', 1;
     PRINT 'TEST_PASS:HU008_RI01_ESP_INSCRIBE_PROGRAMA';
 
-    -- RI-02: asignatura INSTITUCIONAL => matricula activa SIN inscripcion en el programa.
+    -- RI-02 (CULM-001 B2NM, CONTRACT B2 fila 112: R7 reemplaza la regla ESP): INSTITUCIONAL => matricula activa CON vinculo al programa del grupo.
     UPDATE dbo.Asignatura SET componente = @compINS WHERE id = @asignatura;
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_registrar_estudiante_en_grupo @idGrupo = @group, @numeroIdentificacion = 970008002,
@@ -83,8 +83,8 @@ BEGIN TRY
         @correo = N'qa.hu008.2@test.local', @password = N'HashBackend_R1', @idCorrelacion = @corr, @idUsuarioEjecutor = @userT;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 1)
        OR NOT EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo WHERE idGrupo = @group AND idEstudiante = @e2 AND codigoEstadoEstudiante = 'A')
-       OR EXISTS (SELECT 1 FROM dbo.EstudiantePrograma WHERE estudiante = @e2)
-        THROW 53952, 'TEST FAILED: RI-02 INS debe matricular sin inscribir en el programa.', 1;
+       OR NOT EXISTS (SELECT 1 FROM dbo.EstudiantePrograma WHERE estudiante = @e2 AND programa = @programa)
+        THROW 53952, 'TEST FAILED: RI-02 INS debe matricular e inscribir en el programa (R7).', 1;
     PRINT 'TEST_PASS:HU008_RI02_INS_NO_INSCRIBE_PROGRAMA';
 
     -- RI-03: asignatura BASICA => matricula activa SIN inscripcion en el programa.
@@ -95,8 +95,8 @@ BEGIN TRY
         @correo = N'qa.hu008.3@test.local', @password = N'HashBackend_R1', @idCorrelacion = @corr, @idUsuarioEjecutor = @userT;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 1)
        OR NOT EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo WHERE idGrupo = @group AND idEstudiante = @e3 AND codigoEstadoEstudiante = 'A')
-       OR EXISTS (SELECT 1 FROM dbo.EstudiantePrograma WHERE estudiante = @e3)
-        THROW 53953, 'TEST FAILED: RI-03 BAS debe matricular sin inscribir en el programa.', 1;
+       OR NOT EXISTS (SELECT 1 FROM dbo.EstudiantePrograma WHERE estudiante = @e3 AND programa = @programa)
+        THROW 53953, 'TEST FAILED: RI-03 BAS debe matricular e inscribir en el programa (R7).', 1;
     PRINT 'TEST_PASS:HU008_RI03_BAS_NO_INSCRIBE_PROGRAMA';
 
     -- RI-04 (T-07): reactivacion manual de una matricula retirada (I), sin EstudiantePrograma. ESP inscribe; INS y BAS no.
@@ -118,8 +118,8 @@ BEGIN TRY
         @correo = N'qa.hu008.5@test.local', @password = N'HashBackend_R1', @idCorrelacion = @corr, @idUsuarioEjecutor = @userT;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 1)
        OR NOT EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo WHERE id = @eg5 AND codigoEstadoEstudiante = 'A')
-       OR EXISTS (SELECT 1 FROM dbo.EstudiantePrograma WHERE estudiante = @e5)
-        THROW 53955, 'TEST FAILED: RI-04 INS reactivar no debe inscribir en el programa.', 1;
+       OR NOT EXISTS (SELECT 1 FROM dbo.EstudiantePrograma WHERE estudiante = @e5 AND programa = @programa)
+        THROW 53955, 'TEST FAILED: RI-04 INS reactivar debe inscribir en el programa (R7).', 1;
     UPDATE dbo.Asignatura SET componente = @compBAS WHERE id = @asignatura;
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_registrar_estudiante_en_grupo @idGrupo = @group, @numeroIdentificacion = 970008006,
@@ -127,8 +127,8 @@ BEGIN TRY
         @correo = N'qa.hu008.6@test.local', @password = N'HashBackend_R1', @idCorrelacion = @corr, @idUsuarioEjecutor = @userT;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 1)
        OR NOT EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo WHERE id = @eg6 AND codigoEstadoEstudiante = 'A')
-       OR EXISTS (SELECT 1 FROM dbo.EstudiantePrograma WHERE estudiante = @e6)
-        THROW 53956, 'TEST FAILED: RI-04 BAS reactivar no debe inscribir en el programa.', 1;
+       OR NOT EXISTS (SELECT 1 FROM dbo.EstudiantePrograma WHERE estudiante = @e6 AND programa = @programa)
+        THROW 53956, 'TEST FAILED: RI-04 BAS reactivar debe inscribir en el programa (R7).', 1;
     -- La regla vive en un solo sitio: el SP de reactivacion no inscribe en el programa ni conoce el componente ESP.
     IF OBJECT_ID('dbo.usp_internal_reactivar_matricula_retirada', 'P') IS NULL
        OR OBJECT_DEFINITION(OBJECT_ID('dbo.usp_internal_reactivar_matricula_retirada')) LIKE '%EstudiantePrograma%'

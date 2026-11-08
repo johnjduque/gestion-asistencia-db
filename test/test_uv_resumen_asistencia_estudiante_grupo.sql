@@ -54,10 +54,15 @@ BEGIN TRY
     DECLARE @a1 UNIQUEIDENTIFIER = NEWID(), @a2 UNIQUEIDENTIFIER = NEWID(), @a3 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.PlanEstudio (id, programa, inp, estado) VALUES (@pl1, @p1, 930000 + ABS(CHECKSUM(NEWID()) % 9999), 1), (@pl2, @p2, 940000 + ABS(CHECKSUM(NEWID()) % 9999), 1);
     INSERT INTO dbo.SemestrePlanEstudio (id, planEstudio, semestre) VALUES (@spe1, @pl1, @semestre), (@spe2, @pl2, @semestre);
-    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, semestrePlanEstudio, estado) VALUES
-        (@a1, CONCAT(N'K1', @sufijo), N'Asignatura Uno', 3, @area, @componente, @spe1, 1),
-        (@a2, CONCAT(N'K2', @sufijo), N'Asignatura Dos', 3, @area, @componente, @spe1, 1),
-        (@a3, CONCAT(N'K3', @sufijo), N'Asignatura Tres', 3, @area, @componente, @spe2, 1);
+    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, estado) VALUES
+        (@a1, CONCAT(N'K1', @sufijo), N'Asignatura Uno', 3, @area, @componente, 1),
+        (@a2, CONCAT(N'K2', @sufijo), N'Asignatura Dos', 3, @area, @componente, 1),
+        (@a3, CONCAT(N'K3', @sufijo), N'Asignatura Tres', 3, @area, @componente, 1);
+    -- CULM-001 B2NM (CONTRACT B2 tabla de pruebas existentes, fila 109): el vinculo asignatura-plan vive en AsignaturaPlanEstudio
+    INSERT INTO dbo.AsignaturaPlanEstudio (id, asignatura, semestrePlanEstudio, caracter, estaActivo, fechaVinculacionUtc) VALUES
+        (NEWID(), @a1, @spe1, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01'),
+        (NEWID(), @a2, @spe1, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01'),
+        (NEWID(), @a3, @spe2, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01');
     CREATE TABLE #g (k NVARCHAR(2), id UNIQUEIDENTIFIER);
     INSERT INTO #g VALUES (N'G1', NEWID()), (N'G2', NEWID()), (N'G3', NEWID());
     INSERT INTO dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron, cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)
@@ -185,7 +190,7 @@ BEGIN TRY
     IF (SELECT COUNT(*) FROM dbo.uv_cumplimiento_sesion_grupo WHERE idGrupo = @g1 AND estaVencida = 1 AND tieneRegistroAsistencia = 0) <> 1 THROW 53042, 'TEST FAILED T-DB-05: debe haber 1 vencida sin registro.', 1;
     IF (SELECT COUNT(*) FROM dbo.uv_cumplimiento_sesion_grupo WHERE idGrupo = @g1 AND procedenciaIndeterminada = 1 AND estaVencida = 0) <> 1 THROW 53043, 'TEST FAILED T-DB-07: la sesion sin procedencia no debe ser vencida.', 1;
     IF EXISTS (SELECT 1 FROM dbo.uv_cumplimiento_sesion_grupo WHERE idGrupo = @g1 AND fechaHoraFin > SYSUTCDATETIME() AND estaVencida = 1) THROW 53044, 'TEST FAILED T-DB-06: una sesion futura figura como vencida.', 1;
-    IF NOT EXISTS (SELECT 1 FROM dbo.uv_cumplimiento_sesion_grupo WHERE idGrupo = @g1 AND idPrograma = @p1) THROW 53045, 'TEST FAILED: la sesion no resuelve su programa.', 1;
+    IF NOT EXISTS (SELECT 1 FROM dbo.uv_cumplimiento_sesion_grupo WHERE idGrupo = @g1) OR NOT EXISTS (SELECT 1 FROM dbo.uv_grupo_programa WHERE idGrupo = @g1 AND idPrograma = @p1) THROW 53045, 'TEST FAILED: la sesion no resuelve su programa.', 1;
     PRINT 'TEST_PASS:HU065_SESIONES_CLASIFICADAS';
 
     -- T-DB-12: grupo sin sesiones ejecutadas => 0.00 sin division por cero

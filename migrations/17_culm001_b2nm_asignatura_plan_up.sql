@@ -5909,6 +5909,27 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
+        -- PASO 4.9 (CULM-001 B2NM): el semestre del plan (PLA_004) y el caracter (ASI_007) se validan ANTES de escribir; asi un rechazo
+        --          no necesita ROLLBACK (prohibido bajo INSERT ... EXEC) ni deja el catalogo a medias dentro de una transaccion ajena.
+        IF @estadoResultado = 1
+        BEGIN
+            DECLARE @codigoRechazoPlan NVARCHAR(10);
+            IF NOT EXISTS (SELECT 1 FROM dbo.SemestrePlanEstudio spe INNER JOIN dbo.Semestre sm ON sm.id = spe.semestre
+                           WHERE spe.planEstudio = @idPlanEstudioDefecto AND sm.numero = @semestreNumero)
+                SET @codigoRechazoPlan = 'PLA_004';
+            ELSE IF NOT EXISTS (SELECT 1 FROM dbo.CaracterAsignaturaPlan c
+                                WHERE c.estado = 1 AND c.codigo = COALESCE(NULLIF(TRIM(@codigoCaracter), N''),
+                                      CAST(dbo.ufn_obtener_parametro('ASIGNATURA_PLAN', 'CARACTER_DEFECTO') AS NVARCHAR(3))))
+                SET @codigoRechazoPlan = 'ASI_007';
+            IF @codigoRechazoPlan IS NOT NULL
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = @codigoRechazoPlan,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+        END
+
         -- PASO 5 (CULM-001 B2NM, R3): catalogo + primer vinculo en una sola transaccion.
         IF @estadoResultado = 1
         BEGIN
@@ -5955,6 +5976,7 @@ BEGIN
             END
             ELSE IF @transaccionPropia = 1
                 ROLLBACK TRANSACTION;
+
         END
 
     END TRY

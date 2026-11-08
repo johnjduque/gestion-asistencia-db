@@ -37,8 +37,11 @@ BEGIN TRY
     VALUES (@p1, @idFacultad, @idTipoProg, N'Programa QA REC2-1', @cC1, 1), (@p2, @idFacultad, @idTipoProg, N'Programa QA REC2-2', @cC2, 1);
     INSERT INTO dbo.PlanEstudio (id, programa, inp, estado) VALUES (@pl1, @p1, 9201, 1);
     INSERT INTO dbo.SemestrePlanEstudio (id, planEstudio, semestre) VALUES (@spe1, @pl1, @idSemestre);
-    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, semestrePlanEstudio, estado)
-    VALUES (@a1, N'QAREC2A1', N'QA REC2 Materia', 3, @idArea, @idComponente, @spe1, 1);
+    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, estado) VALUES
+        (@a1, N'QAREC2A1', N'QA REC2 Materia', 3, @idArea, @idComponente, 1);
+    -- CULM-001 B2NM (CONTRACT B2 tabla de pruebas existentes, fila 109): el vinculo asignatura-plan vive en AsignaturaPlanEstudio
+    INSERT INTO dbo.AsignaturaPlanEstudio (id, asignatura, semestrePlanEstudio, caracter, estaActivo, fechaVinculacionUtc) VALUES
+        (NEWID(), @a1, @spe1, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01');
 
     -- RA-01: sin ejecutor => GEN_002, sin cambios (actualizar y toggle)
     INSERT INTO #r EXEC dbo.usp_actualizar_asignatura @idAsignatura = @a1, @codigo = NULL, @nombre = N'QA Cambio', @creditos = 4,

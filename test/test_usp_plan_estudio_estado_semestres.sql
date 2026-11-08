@@ -135,14 +135,20 @@ BEGIN TRY
     DECLARE @spUltimo UNIQUEIDENTIFIER = (
         SELECT sp.id FROM dbo.SemestrePlanEstudio sp INNER JOIN dbo.Semestre s ON s.id = sp.semestre
         WHERE sp.planEstudio = @pl1 AND s.numero = @maxSemestres);
-    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, semestrePlanEstudio, estado)
-    VALUES (NEWID(), N'QA-HU083', N'Asignatura QA 083', 3, @idArea, @idComponente, @spUltimo, 0);
+    DECLARE @asigHU083 UNIQUEIDENTIFIER = NEWID();
+    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, estado) VALUES
+        (@asigHU083, N'QA-HU083', N'Asignatura QA 083', 3, @idArea, @idComponente, 0);
+    -- CULM-001 B2NM (CONTRACT B2 tabla de pruebas existentes, fila 109): el vinculo asignatura-plan vive en AsignaturaPlanEstudio
+    INSERT INTO dbo.AsignaturaPlanEstudio (id, asignatura, semestrePlanEstudio, caracter, estaActivo, fechaVinculacionUtc) VALUES
+        (NEWID(), @asigHU083, @spUltimo, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01');
     SELECT @msg = contenido FROM dbo.uv_mensaje_usuario WHERE codigo = 'PLA_006';
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_quitar_semestre_plan_estudio @idPlanEstudio = @pl1, @numeroSemestre = @maxSemestres, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msg) THROW 52762, 'T-083-01 FAILED: semestre con asignaturas (aunque inactivas) debio retornar PLA_006.', 1;
     IF NOT EXISTS (SELECT 1 FROM dbo.SemestrePlanEstudio WHERE id = @spUltimo) THROW 52763, 'T-083-01 FAILED: se quito un semestre con asignaturas.', 1;
-    DELETE FROM dbo.Asignatura WHERE semestrePlanEstudio = @spUltimo;
+    -- CULM-001 B2NM (CONTRACT B2 fila 110): el vinculo vive en la tabla puente.
+    DELETE FROM dbo.AsignaturaPlanEstudio WHERE semestrePlanEstudio = @spUltimo;
+    DELETE FROM dbo.Asignatura WHERE codigo = N'QA-HU083';
     PRINT 'TEST_PASS:T-083-01';
 
     -- T-083-02: quitar el ultimo semestre vacio, ambito y parametros obligatorios

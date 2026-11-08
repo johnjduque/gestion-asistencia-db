@@ -96,8 +96,12 @@ IF NOT EXISTS (SELECT 1 FROM dbo.PlanEstudio WHERE id = @plan)
 IF NOT EXISTS (SELECT 1 FROM dbo.SemestrePlanEstudio WHERE id = @spe)
     INSERT INTO dbo.SemestrePlanEstudio (id, planEstudio, semestre) VALUES (@spe, @plan, @semestre);
 IF NOT EXISTS (SELECT 1 FROM dbo.Asignatura WHERE id = @asignatura)
-    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, semestrePlanEstudio, estado)
-    VALUES (@asignatura, N'CULM1-ASG-B', N'CULM1-Asignatura B', 3, @area, @esp, @spe, 1);
+    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, estado)
+    VALUES (@asignatura, N'CULM1-ASG-B', N'CULM1-Asignatura B', 3, @area, @esp, 1);
+-- CULM-001 B2NM (CONTRACT B2 fila 109): el vinculo asignatura-plan vive en AsignaturaPlanEstudio (caracter OBL por codigo).
+IF NOT EXISTS (SELECT 1 FROM dbo.AsignaturaPlanEstudio WHERE asignatura = @asignatura AND semestrePlanEstudio = @spe)
+    INSERT INTO dbo.AsignaturaPlanEstudio (id, asignatura, semestrePlanEstudio, caracter, estaActivo, fechaVinculacionUtc)
+    VALUES (CAST(@p + '1B' AS UNIQUEIDENTIFIER), @asignatura, @spe, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01');
 IF NOT EXISTS (SELECT 1 FROM dbo.Grupo WHERE id = @grupo)
     INSERT INTO dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron,
         cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)

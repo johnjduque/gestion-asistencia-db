@@ -53,7 +53,7 @@ SELECT TOP 1 @uAdmin = a.usuario, @idInstitucion = a.institucion
 FROM dbo.Administrador a JOIN dbo.uv_usuario u ON u.id = a.usuario WHERE u.estaActivoUsuario = 1 ORDER BY a.id;
 DECLARE @idAsig UNIQUEIDENTIFIER = (
     SELECT TOP 1 a.id FROM dbo.uv_asignatura a
-    INNER JOIN dbo.uv_semestre_plan_estudio spe ON a.idSemestrePlanEstudio = spe.id
+    INNER JOIN dbo.uv_asignatura_plan_estudio apx ON apx.idAsignatura = a.id INNER JOIN dbo.uv_semestre_plan_estudio spe ON apx.idSemestrePlanEstudio = spe.id
     INNER JOIN dbo.uv_plan_estudio pe ON spe.idPlanEstudio = pe.id
     INNER JOIN dbo.uv_programa pr ON pe.idPrograma = pr.id
     WHERE pr.idInstitucion = @idInstitucion AND a.estaActivaAsignatura = 1 ORDER BY a.id);
