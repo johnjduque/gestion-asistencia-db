@@ -74,10 +74,10 @@ function Invoke-ResultParserSelfTests {
     $id = 'SES01_AUTO_CLOSED'
     $correlation = 'f7f690e0-68cc-45bc-a50e-622056bf23a1'
     $otherCorrelation = '03f3a4c8-1c6e-4bb4-86b9-f968acbda92d'
-    $technical = "DBCODE=SES_008|La sesión está cerrada. Correlacion: $correlation"
-    $row = "$correlation|La sesión ya finalizó.|$technical|0"
+    $technical = "DBCODE=SES_008|La sesiÃ³n estÃ¡ cerrada. Correlacion: $correlation"
+    $row = "$correlation|La sesiÃ³n ya finalizÃ³.|$technical|0"
     $base = @(
-        "TEST_EXPECTED_USER:$id|La sesión ya finalizó."
+        "TEST_EXPECTED_USER:$id|La sesiÃ³n ya finalizÃ³."
         "TEST_EXPECTED_TECH:$id|$technical"
         "TEST_RESULT_BEGIN:$id"
         $row
@@ -92,9 +92,9 @@ function Invoke-ResultParserSelfTests {
         @{ Name = 'STATE_ONLY_FORGERY'; Text = "TEST_STATE_PASS:$id"; Expected = $false; Code = 'SES_008' },
         @{ Name = 'DUPLICATE_ROW'; Text = $base.Replace("$row`nTEST_RESULT_END", "$row`n$row`nTEST_RESULT_END"); Expected = $false; Code = 'SES_008' },
         @{ Name = 'INCOMPLETE_BLOCK'; Text = $base.Replace("TEST_RESULT_END:$id`n", ''); Expected = $false; Code = 'SES_008' },
-        @{ Name = 'WRONG_CATALOG_MESSAGE'; Text = $base.Replace("TEST_EXPECTED_USER:$id|La sesión ya finalizó.", "TEST_EXPECTED_USER:$id|Mensaje de catálogo incorrecto."); Expected = $false; Code = 'SES_008' },
+        @{ Name = 'WRONG_CATALOG_MESSAGE'; Text = $base.Replace("TEST_EXPECTED_USER:$id|La sesiÃ³n ya finalizÃ³.", "TEST_EXPECTED_USER:$id|Mensaje de catÃ¡logo incorrecto."); Expected = $false; Code = 'SES_008' },
         @{ Name = 'WRONG_ERROR_CODE'; Text = $base; Expected = $false; Code = 'SES_007' },
-        @{ Name = 'CORRELATION_MISMATCH'; Text = $base.Replace("$correlation|La sesión ya finalizó.", "$otherCorrelation|La sesión ya finalizó."); Expected = $false; Code = 'SES_008' },
+        @{ Name = 'CORRELATION_MISMATCH'; Text = $base.Replace("$correlation|La sesiÃ³n ya finalizÃ³.", "$otherCorrelation|La sesiÃ³n ya finalizÃ³."); Expected = $false; Code = 'SES_008' },
         @{ Name = 'DUPLICATE_TECH_MARKER'; Text = "$base`nTEST_EXPECTED_TECH:$id|$technical"; Expected = $false; Code = 'SES_008' }
     )
 
@@ -583,6 +583,7 @@ try {
 }
 catch {
     $resultFailures += "CULM001_D3_RUNNER $($_.Exception.Message)"
+}
 # CULM-001 D.4: migracion 23 (up/down/up) en test/test_culm001_d4.ps1.
 $culm001D4Ids = @('CULM001_D4_12_UP_DOWN_UP')
 try {
@@ -595,6 +596,7 @@ try {
 }
 catch {
     $resultFailures += "CULM001_D4_RUNNER $($_.Exception.Message)"
+}
 # CULM-001 D.1: migracion 20 (up/down/up) y proteccion del down (D-RB-01) en test/test_culm001_d1.ps1.
 $culm001D1Ids = @('CULM001_D1_11_UP_DOWN_UP', 'CULM001_D1_RB_01_DOWN_GUARD')
 try {
@@ -607,6 +609,19 @@ try {
 }
 catch {
     $resultFailures += "CULM001_D1_RUNNER $($_.Exception.Message)"
+}
+# CULM-001 D.2: migracion 21 (up/down/up), down sin confirmacion y orden de rollback D-RB-01 en test/test_culm001_d2.ps1.
+$culm001D2Ids = @('CULM001_D2_13_UP_DOWN_UP', 'CULM001_D2_13_DOWN_SIN_CONFIRMACION', 'CULM001_D_RB_01_ORDEN_DE_DOWN')
+try {
+    $culm001D2Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d2.ps1') -ContainerName $ContainerName -Password $Password 2>&1 | ForEach-Object { "$_" })
+    foreach ($line in $culm001D2Output) { Write-Host $line }
+    foreach ($id in $culm001D2Ids) {
+        if ($culm001D2Output -contains "TEST_PASS:$id") { $clientPassed += $id }
+        else { $resultFailures += "$id not reported by test_culm001_d2.ps1" }
+    }
+}
+catch {
+    $resultFailures += "CULM001_D2_RUNNER $($_.Exception.Message)"
 }
 # CULM-001 D.7: migracion 26 (up/down/up, D7-03) en test/test_culm001_d7.ps1.
 try {
@@ -857,6 +872,11 @@ $criticalIds = @(
     'CULM001_D1_05_V1', 'CULM001_D1_06_PROPIEDAD_ANTES_QUE_PLAZO', 'CULM001_D1_08_PARAMETRO_AUSENTE', 'CULM001_D1_09_FECHA_LOCAL',
     'CULM001_D1_12_REINTENTO_IDEMPOTENTE', 'CULM001_D1_10_SESIONES_MATERIA_ESTUDIANTE', 'CULM001_D1_10_ERRORES_DE_VALIDACION', 'CULM001_D1_SEG_PERMISOS',
     'CULM001_D1_03_AUTOCOMMIT', 'CULM001_D1_11_UP_DOWN_UP', 'CULM001_D1_RB_01_DOWN_GUARD',
+    # CULM-001 D.2 (test/test_culm001_d2_soportes_categoria.sql, test/test_culm001_d2.ps1)
+    'CULM001_D2_01_TRES_SOPORTES', 'CULM001_D2_02_MAXIMO', 'CULM001_D2_03_DUPLICADO', 'CULM001_D2_04_SOPORTE_NO_UTILIZABLE', 'CULM001_D2_05_SOPORTE_OBLIGATORIO',
+    'CULM001_D2_06_CODIGO_Y_NOMBRE', 'CULM001_D2_07_CATEGORIA_INEXISTENTE', 'CULM001_D2_08_V2', 'CULM001_D2_09_DESCARGA_DE_CADA_SOPORTE', 'CULM001_D2_10_CONSULTAS',
+    'CULM001_D2_12_PLAZO_VENCIDO', 'CULM001_D2_15_REINTENTO_IDEMPOTENTE', 'CULM001_D2_CFG_CONFIGURACION', 'CULM001_D2_16_SIN_INSERT_EXEC', 'CULM001_D2_14_TD_059',
+    'CULM001_D2_SEG_PERMISOS', 'CULM001_D2_13_UP_DOWN_UP', 'CULM001_D2_13_DOWN_SIN_CONFIRMACION', 'CULM001_D_RB_01_ORDEN_DE_DOWN',
     # CULM-001 D.7 (test/test_culm001_d7_retiro.sql, test/test_culm001_d7.ps1)
     'CULM001_D7_01_SP_RETIRADO', 'CULM001_D7_02_SIN_PERMISOS', 'CULM001_D7_05_LOTE_Y_TOMA_INTACTOS', 'CULM001_D7_04_TOKEN_VENTANA_VENCIDA',
     'CULM001_D7_TRANCOUNT_ZERO', 'CULM001_D7_03_UP_DOWN_UP'

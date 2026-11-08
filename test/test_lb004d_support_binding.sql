@@ -92,7 +92,8 @@ CREATE TABLE #r2 (idSolicitudRevisionAsistencia UNIQUEIDENTIFIER, nombreSolicitu
     fechaHoraInicioSesion DATETIME2(7), procedenciaTemporalSesion NVARCHAR(24), idGrupo UNIQUEIDENTIFIER, codigoGrupo INT,
     nombreGrupo NVARCHAR(100), idAsignatura UNIQUEIDENTIFIER, codigoAsignatura NVARCHAR(100), nombreAsignatura NVARCHAR(100),
     idArchivoSoporte UNIQUEIDENTIFIER, nombreSoporte NVARCHAR(250), tipoContenidoSoporte VARCHAR(50),
-    tamanioSoporteBytes BIGINT, fechaRegistroSoporteUtc DATETIME2(7), totalRegistros INT);
+    tamanioSoporteBytes BIGINT, fechaRegistroSoporteUtc DATETIME2(7), totalRegistros INT,
+    codigoCategoria NVARCHAR(5), nombreCategoria NVARCHAR(50), totalSoportes INT);
 
 BEGIN TRANSACTION;
 BEGIN TRY
@@ -111,8 +112,11 @@ BEGIN TRY
         AND (SELECT COUNT(*) FROM sys.foreign_keys WHERE parent_object_id = OBJECT_ID('dbo.ArchivoSoporte')
              AND name IN ('FK_ArchivoSoporte_Usuario', 'FK_ArchivoSoporte_SolicitudRevisionAsistencia')
              AND delete_referential_action = 0) = 2
-        AND EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.ArchivoSoporte') AND name = 'UX_ArchivoSoporte_Solicitud'
-                    AND is_unique = 1 AND has_filter = 1)
+        -- CULM-001 D.2 (CONTRACT §3.2, [SUPUESTO-D-02], TD-059): varios soportes por solicitud (hasta ARCHIVOS/MAXIMO_SOPORTES_POR_RECLAMO):
+        -- el indice unico filtrado UX_ArchivoSoporte_Solicitud pasa a IX_ArchivoSoporte_Solicitud, no unico y no filtrado.
+        AND EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.ArchivoSoporte') AND name = 'IX_ArchivoSoporte_Solicitud'
+                    AND is_unique = 0 AND has_filter = 0)
+        AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.ArchivoSoporte') AND name = 'UX_ArchivoSoporte_Solicitud')
         AND NOT EXISTS (SELECT 1 FROM sys.tables WHERE name LIKE 'ArchivoSoporte%' AND name <> 'ArchivoSoporte'), 1, 0);
     EXEC #lb4d_expect 'SCHEMA_SHAPE', @ok;
 
@@ -242,7 +246,7 @@ BEGIN TRY
     EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_004', @p_param1 = 'SolicitudRevisionAsistencia',
         @mensajeUsuarioResultado = @userMsg OUTPUT, @mensajeTecnicoResultado = @techMsg OUTPUT;
     INSERT INTO #w EXEC dbo.usp_radicar_solicitud_revision_asistencia_v2 @idEstudiante = @studentA, @idSesion = @session,
-        @categoria = N'ASISTENCIA', @justificacion = N'Sin soporte QA', @idArchivoSoporte = NULL, @idCorrelacion = @corr,
+        @categoria = N'CAL', @justificacion = N'Sin soporte QA', @idArchivoSoporte = NULL, @idCorrelacion = @corr,
         @idUsuarioEjecutor = @userA;
     SET @ok = IIF((SELECT COUNT(*) FROM #w WHERE idCorrelacion = @corr AND estadoResultado = 1 AND mensajeUsuarioResultado = @userMsg
         AND mensajeTecnicoResultado = CONCAT(@techMsg, ' Correlacion: ', @corr)) = 1, 1, 0);
@@ -270,7 +274,7 @@ BEGIN TRY
     DECLARE @corrAttach UNIQUEIDENTIFIER = NEWID();
     SET @t0 = SYSUTCDATETIME();
     INSERT INTO #w EXEC dbo.usp_radicar_solicitud_revision_asistencia_v2 @idEstudiante = @studentA, @idSesion = @session,
-        @categoria = N'ASISTENCIA', @justificacion = N'Con soporte QA', @idArchivoSoporte = @file1, @idCorrelacion = @corrAttach,
+        @categoria = N'CAL', @justificacion = N'Con soporte QA', @idArchivoSoporte = @file1, @idCorrelacion = @corrAttach,
         @idUsuarioEjecutor = @userA;
     SET @t1 = SYSUTCDATETIME();
     SET @ok = IIF((SELECT COUNT(*) FROM #w WHERE idCorrelacion = @corrAttach AND estadoResultado = 1 AND mensajeUsuarioResultado = @userMsg) = 1, 1, 0);
@@ -285,7 +289,7 @@ BEGIN TRY
     -- reintento con la MISMA correlacion => idempotente, sin segunda solicitud
     TRUNCATE TABLE #w;
     INSERT INTO #w EXEC dbo.usp_radicar_solicitud_revision_asistencia_v2 @idEstudiante = @studentA, @idSesion = @session,
-        @categoria = N'ASISTENCIA', @justificacion = N'Con soporte QA', @idArchivoSoporte = @file1, @idCorrelacion = @corrAttach,
+        @categoria = N'CAL', @justificacion = N'Con soporte QA', @idArchivoSoporte = @file1, @idCorrelacion = @corrAttach,
         @idUsuarioEjecutor = @userA;
     SET @ok = IIF(EXISTS (SELECT 1 FROM #w WHERE estadoResultado = 1)
         AND (SELECT COUNT(*) FROM dbo.SolicitudRevisionAsistencia WHERE justificacionSolicitud = N'Con soporte QA') = 1, 1, 0);
@@ -297,7 +301,7 @@ BEGIN TRY
     TRUNCATE TABLE #w;
     SET @corr = NEWID();
     INSERT INTO #w EXEC dbo.usp_radicar_solicitud_revision_asistencia_v2 @idEstudiante = @studentA, @idSesion = @session,
-        @categoria = N'ASISTENCIA', @justificacion = N'Doble QA', @idArchivoSoporte = @file1, @idCorrelacion = @corr,
+        @categoria = N'CAL', @justificacion = N'Doble QA', @idArchivoSoporte = @file1, @idCorrelacion = @corr,
         @idUsuarioEjecutor = @userA;
     SET @ok = IIF((SELECT COUNT(*) FROM #w WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @userMsg
         AND mensajeTecnicoResultado = CONCAT(@techMsg, ' Correlacion: ', @corr)) = 1
@@ -309,7 +313,7 @@ BEGIN TRY
     TRUNCATE TABLE #w;
     SET @corr = NEWID();
     INSERT INTO #w EXEC dbo.usp_radicar_solicitud_revision_asistencia_v2 @idEstudiante = @studentA, @idSesion = @session,
-        @categoria = N'ASISTENCIA', @justificacion = N'Ajeno QA', @idArchivoSoporte = @fileB, @idCorrelacion = @corr,
+        @categoria = N'CAL', @justificacion = N'Ajeno QA', @idArchivoSoporte = @fileB, @idCorrelacion = @corr,
         @idUsuarioEjecutor = @userA;
     SET @ok = IIF((SELECT COUNT(*) FROM #w WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @userMsg) = 1
         AND NOT EXISTS (SELECT 1 FROM dbo.SolicitudRevisionAsistencia WHERE justificacionSolicitud = N'Ajeno QA')
@@ -318,7 +322,7 @@ BEGIN TRY
     TRUNCATE TABLE #w;
     SET @corr = NEWID();
     INSERT INTO #w EXEC dbo.usp_radicar_solicitud_revision_asistencia_v2 @idEstudiante = @studentA, @idSesion = @session,
-        @categoria = N'ASISTENCIA', @justificacion = N'Inexistente QA', @idArchivoSoporte = @nid, @idCorrelacion = @corr,
+        @categoria = N'CAL', @justificacion = N'Inexistente QA', @idArchivoSoporte = @nid, @idCorrelacion = @corr,
         @idUsuarioEjecutor = @userA;
     SET @ok = IIF((SELECT COUNT(*) FROM #w WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @userMsg) = 1
         AND NOT EXISTS (SELECT 1 FROM dbo.SolicitudRevisionAsistencia WHERE justificacionSolicitud = N'Inexistente QA'), 1, 0);
@@ -330,7 +334,7 @@ BEGIN TRY
     TRUNCATE TABLE #w;
     SET @corr = NEWID();
     INSERT INTO #w EXEC dbo.usp_radicar_solicitud_revision_asistencia_v2 @idEstudiante = @studentB, @idSesion = @session,
-        @categoria = N'ASISTENCIA', @justificacion = N'Suplantacion QA', @idArchivoSoporte = @file2, @idCorrelacion = @corr,
+        @categoria = N'CAL', @justificacion = N'Suplantacion QA', @idArchivoSoporte = @file2, @idCorrelacion = @corr,
         @idUsuarioEjecutor = @userA;
     SET @ok = IIF((SELECT COUNT(*) FROM #w WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @userMsg) = 1
         AND NOT EXISTS (SELECT 1 FROM dbo.SolicitudRevisionAsistencia WHERE justificacionSolicitud = N'Suplantacion QA')
@@ -340,7 +344,7 @@ BEGIN TRY
     TRUNCATE TABLE #w;
     SET @corr = NEWID();
     INSERT INTO #w EXEC dbo.usp_radicar_solicitud_revision_asistencia_v2 @idEstudiante = @studentA, @idSesion = @nid,
-        @categoria = N'ASISTENCIA', @justificacion = N'Sesion inexistente QA', @idArchivoSoporte = @file2, @idCorrelacion = @corr,
+        @categoria = N'CAL', @justificacion = N'Sesion inexistente QA', @idArchivoSoporte = @file2, @idCorrelacion = @corr,
         @idUsuarioEjecutor = @userA;
     SET @ok = IIF(EXISTS (SELECT 1 FROM #w WHERE estadoResultado = 0)
         AND NOT EXISTS (SELECT 1 FROM dbo.SolicitudRevisionAsistencia WHERE justificacionSolicitud = N'Sesion inexistente QA')
@@ -349,7 +353,7 @@ BEGIN TRY
     TRUNCATE TABLE #w;
     SET @corr = NEWID();
     INSERT INTO #w EXEC dbo.usp_radicar_solicitud_revision_asistencia_v2 @idEstudiante = @studentA, @idSesion = @session2,
-        @categoria = N'ASISTENCIA', @justificacion = N'Sin matricula QA', @idArchivoSoporte = @file2, @idCorrelacion = @corr,
+        @categoria = N'CAL', @justificacion = N'Sin matricula QA', @idArchivoSoporte = @file2, @idCorrelacion = @corr,
         @idUsuarioEjecutor = @userA;
     SET @ok = IIF(EXISTS (SELECT 1 FROM #w WHERE estadoResultado = 0)
         AND NOT EXISTS (SELECT 1 FROM dbo.SolicitudRevisionAsistencia WHERE justificacionSolicitud = N'Sin matricula QA')
@@ -358,7 +362,7 @@ BEGIN TRY
     TRUNCATE TABLE #w;
     SET @corr = NEWID();
     INSERT INTO #w EXEC dbo.usp_radicar_solicitud_revision_asistencia_v2 @idEstudiante = @studentA, @idSesion = @session,
-        @categoria = N'ASISTENCIA', @justificacion = N'Docente QA', @idArchivoSoporte = @file2, @idCorrelacion = @corr,
+        @categoria = N'CAL', @justificacion = N'Docente QA', @idArchivoSoporte = @file2, @idCorrelacion = @corr,
         @idUsuarioEjecutor = @userT;
     SET @ok = IIF(EXISTS (SELECT 1 FROM #w WHERE estadoResultado = 0)
         AND NOT EXISTS (SELECT 1 FROM dbo.SolicitudRevisionAsistencia WHERE justificacionSolicitud = N'Docente QA'), 1, 0);
@@ -520,7 +524,8 @@ BEGIN TRY
         SET @i += 1;
     END
 
-    -- un segundo soporte sobre la misma solicitud viola el indice unico filtrado
+    -- CULM-001 D.2 ([SUPUESTO-D-02], CONTRACT §3.2): el indice ya no es unico; un segundo soporte sobre la misma solicitud es valido a nivel de
+    -- tabla (el tope ARCHIVOS/MAXIMO_SOPORTES_POR_RECLAMO lo impone el SP, cubierto por D2-02).
     SET @err = 0;
     BEGIN TRY
         INSERT dbo.ArchivoSoporte (id, usuarioPropietario, solicitudRevisionAsistencia, nombreOriginal, tipoContenido, tamanioBytes,
@@ -530,8 +535,8 @@ BEGIN TRY
     BEGIN CATCH
         SET @err = ERROR_NUMBER();
     END CATCH
-    SET @ok = IIF(@err IN (2601, 2627), 1, 0);
-    EXEC #lb4d_expect 'INTEGRITY_ONE_SUPPORT_PER_REQUEST', @ok;
+    SET @ok = IIF(@err = 0 AND (SELECT COUNT(*) FROM dbo.ArchivoSoporte WHERE solicitudRevisionAsistencia = @req2 AND estado = 'ATTACHED') = 2, 1, 0);
+    EXEC #lb4d_expect 'INTEGRITY_SECOND_SUPPORT_ALLOWED_BY_NON_UNIQUE_INDEX', @ok;
 
     -- ---------------------------------------------------------------- rollback atomico tras crear la solicitud
     -- Un trigger INSTEAD OF que anula el UPDATE de vinculo hace que @@ROWCOUNT <> 1 DESPUES de insertar la solicitud:
@@ -551,7 +556,7 @@ BEGIN TRY
     -- EXEC directo: ROLLBACK (savepoint) esta prohibido dentro de INSERT ... EXEC; el resultset (estadoResultado = 0, ARC_001)
     -- sale por el cliente y el estado se verifica por lectura.
     EXEC dbo.usp_radicar_solicitud_revision_asistencia_v2 @idEstudiante = @studentA, @idSesion = @session,
-        @categoria = N'ASISTENCIA', @justificacion = N'Rollback QA', @idArchivoSoporte = @file3, @idCorrelacion = @corr,
+        @categoria = N'CAL', @justificacion = N'Rollback QA', @idArchivoSoporte = @file3, @idCorrelacion = @corr,
         @idUsuarioEjecutor = @userA;
     SET @ok = IIF(NOT EXISTS (SELECT 1 FROM dbo.SolicitudRevisionAsistencia WHERE justificacionSolicitud = N'Rollback QA')
         AND EXISTS (SELECT 1 FROM dbo.ArchivoSoporte WHERE id = @file3 AND estado = 'DRAFT' AND solicitudRevisionAsistencia IS NULL), 1, 0);

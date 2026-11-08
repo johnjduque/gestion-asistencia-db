@@ -22,6 +22,8 @@ GO
 --                   sesion de la asistencia de la solicitud
 -- Cualquier otro caso (inexistente, otro estudiante incluso del mismo grupo, docente no titular,
 -- administrador, decano, coordinador, ORPHAN) => 0 filas, sin senal que distinga los casos.
+-- CULM-001 D.2 (TD-061, CONTRACT §3.2): un reclamo tiene varios soportes y CADA uno se autoriza por separado con estas mismas reglas;
+-- los estados DRAFT/ATTACHED salen de ARCHIVO/ESTADO_BORRADOR y ARCHIVO/ESTADO_ADJUNTO (sin literales quemados).
 -- Une tablas base: NO usa SESSION_CONTEXT ni uv_auth_* (que exponen reclamos a companeros/roles
 -- administrativos, hallazgo H-03).
 -- ============================================================================
@@ -40,6 +42,8 @@ BEGIN
     DECLARE @idUsuarioDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idArchivoDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idArchivoSoporte, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @guidVacio            UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(NULL, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @estadoBorrador       VARCHAR(10)      = CAST(dbo.ufn_obtener_parametro('ARCHIVO', 'ESTADO_BORRADOR') AS VARCHAR(10));
+    DECLARE @estadoAdjunto        VARCHAR(10)      = CAST(dbo.ufn_obtener_parametro('ARCHIVO', 'ESTADO_ADJUNTO') AS VARCHAR(10));
 
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -89,14 +93,14 @@ BEGIN
         idSolicitudRevisionAsistencia = a.solicitudRevisionAsistencia,
         relacionAcceso                = CAST(CASE
                                             WHEN a.usuarioPropietario = @idUsuarioDefecto
-                                                 AND a.estado IN ('DRAFT', 'ATTACHED') THEN 'PROPIETARIO'
+                                                 AND a.estado IN (@estadoBorrador, @estadoAdjunto) THEN 'PROPIETARIO'
                                             ELSE 'DOCENTE_TITULAR'
                                         END AS VARCHAR(20))
     FROM dbo.ArchivoSoporte a
     WHERE a.id = @idArchivoDefecto
       AND (
-            (a.usuarioPropietario = @idUsuarioDefecto AND a.estado IN ('DRAFT', 'ATTACHED'))
-         OR (a.estado = 'ATTACHED'
+            (a.usuarioPropietario = @idUsuarioDefecto AND a.estado IN (@estadoBorrador, @estadoAdjunto))
+         OR (a.estado = @estadoAdjunto
              AND EXISTS (
                 SELECT 1
                 FROM dbo.SolicitudRevisionAsistencia sra

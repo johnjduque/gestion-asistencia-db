@@ -57,14 +57,23 @@ BEGIN
 END
 GO
 
--- A lo sumo un soporte por solicitud (un fileId solo puede estar en una solicitud por la PK).
-IF NOT EXISTS (
+-- CULM-001 D.2 ([SUPUESTO-D-02], DEC-042): varios soportes por solicitud (hasta ARCHIVOS/MAXIMO_SOPORTES_POR_RECLAMO; un fileId
+-- pertenece a una sola solicitud por la PK). El indice unico filtrado UX_ArchivoSoporte_Solicitud se reemplaza por este indice
+-- no unico y no filtrado, que ademas cierra TD-059 (con el indice unico filtrado y la FK habilitada, cualquier DELETE sobre
+-- SolicitudRevisionAsistencia fallaba con Msg 8624/8622 del procesador de consultas; verificado por D2-14).
+IF EXISTS (
     SELECT 1 FROM sys.indexes
     WHERE object_id = OBJECT_ID('dbo.ArchivoSoporte') AND name = 'UX_ArchivoSoporte_Solicitud'
 )
-    CREATE UNIQUE NONCLUSTERED INDEX [UX_ArchivoSoporte_Solicitud]
+    DROP INDEX [UX_ArchivoSoporte_Solicitud] ON [dbo].[ArchivoSoporte];
+GO
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes
+    WHERE object_id = OBJECT_ID('dbo.ArchivoSoporte') AND name = 'IX_ArchivoSoporte_Solicitud'
+)
+    CREATE NONCLUSTERED INDEX [IX_ArchivoSoporte_Solicitud]
     ON [dbo].[ArchivoSoporte] ([solicitudRevisionAsistencia])
-    WHERE [solicitudRevisionAsistencia] IS NOT NULL;
+    INCLUDE ([estado], [nombreOriginal], [tipoContenido], [tamanioBytes], [fechaAdjuncionUtc]);
 GO
 
 IF NOT EXISTS (

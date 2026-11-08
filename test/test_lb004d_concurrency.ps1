@@ -38,6 +38,8 @@ if ($precheck -notmatch '^gestionasistenciadb\|Developer Edition') { throw 'BLOC
 
 $marker = "LB004D-CONC-$([guid]::NewGuid().ToString('N'))"
 $fileAttach = [guid]::NewGuid(); $fileRegister = [guid]::NewGuid()
+$markerD2 = "$marker-d2"
+$fileShared = [guid]::NewGuid(); $fileOnlyA = [guid]::NewGuid(); $fileOnlyB = [guid]::NewGuid()
 $sha = ([System.BitConverter]::ToString((New-Object System.Security.Cryptography.SHA256Managed).ComputeHash([Text.Encoding]::UTF8.GetBytes($marker))) -replace '-', '').ToLower()
 $failures = @()
 $asistenciasAntes = @()
@@ -69,9 +71,25 @@ $callW2 = {
     $c.Open()
     try {
         $cmd = $c.CreateCommand(); $cmd.CommandTimeout = 60
-        $cmd.CommandText = 'EXEC dbo.usp_radicar_solicitud_revision_asistencia_v2 @idEstudiante=@e, @idSesion=@s, @categoria=N''ASISTENCIA'', @justificacion=@j, @idArchivoSoporte=@f, @idCorrelacion=@c, @idUsuarioEjecutor=@u'
+        $cmd.CommandText = 'EXEC dbo.usp_radicar_solicitud_revision_asistencia_v2 @idEstudiante=@e, @idSesion=@s, @categoria=N''CAL'', @justificacion=@j, @idArchivoSoporte=@f, @idCorrelacion=@c, @idUsuarioEjecutor=@u'
         [void]$cmd.Parameters.AddWithValue('@e', [guid]$estudiante); [void]$cmd.Parameters.AddWithValue('@s', [guid]$sesion)
         [void]$cmd.Parameters.AddWithValue('@j', $marker); [void]$cmd.Parameters.AddWithValue('@f', [guid]$file)
+        [void]$cmd.Parameters.AddWithValue('@c', [guid]$corr); [void]$cmd.Parameters.AddWithValue('@u', [guid]$usuario)
+        while ([DateTime]::UtcNow -lt $startAt) { Start-Sleep -Milliseconds 5 }
+        $r = $cmd.ExecuteReader(); [void]$r.Read()
+        "$([int]$r['estadoResultado'])|$($r['mensajeTecnicoResultado'])"
+    } finally { $c.Close() }
+}
+# CULM-001 D.2 (D2-11): dos radicaciones v3 concurrentes con el MISMO fileId (mas un segundo archivo distinto en cada una).
+$callW3 = {
+    param($cs, $sesion, $estudiante, $usuario, $json, $corr, $marker, $startAt)
+    $c = New-Object System.Data.SqlClient.SqlConnection $cs
+    $c.Open()
+    try {
+        $cmd = $c.CreateCommand(); $cmd.CommandTimeout = 60
+        $cmd.CommandText = 'EXEC dbo.usp_radicar_solicitud_revision_asistencia_v3 @idEstudiante=@e, @idSesion=@s, @categoria=N''CAL'', @justificacion=@j, @idsArchivoSoporte=@f, @idCorrelacion=@c, @idUsuarioEjecutor=@u'
+        [void]$cmd.Parameters.AddWithValue('@e', [guid]$estudiante); [void]$cmd.Parameters.AddWithValue('@s', [guid]$sesion)
+        [void]$cmd.Parameters.AddWithValue('@j', $marker); [void]$cmd.Parameters.AddWithValue('@f', $json)
         [void]$cmd.Parameters.AddWithValue('@c', [guid]$corr); [void]$cmd.Parameters.AddWithValue('@u', [guid]$usuario)
         while ([DateTime]::UtcNow -lt $startAt) { Start-Sleep -Milliseconds 5 }
         $r = $cmd.ExecuteReader(); [void]$r.Read()
@@ -117,6 +135,26 @@ try {
     if ($win -ne 1 -or $lose -ne 1 -or $solicitudes -ne 1 -or $estado -ne 'ATTACHED' -or $vinculadas -ne 1) {
         $failures += "W2 concurrente: ganadoras=$win ARC_001=$lose solicitudes=$solicitudes estado=$estado vinculadas=$vinculadas (esperado 1,1,1,ATTACHED,1)"
     }
+
+    # ---- D2-11 (concurrencia v3): dos radicaciones con el MISMO fileId compartido => exactamente una gana; sin deadlock
+    foreach ($f in @($fileShared, $fileOnlyA, $fileOnlyB)) {
+        $reg = Invoke-Sql "EXEC dbo.usp_registrar_archivo_soporte @idArchivoSoporte=@f, @nombreOriginal=N'conc.pdf', @tipoContenido='application/pdf', @tamanioBytes=10, @checksumSha256=@h, @idCorrelacion=@c, @idUsuarioEjecutor=@u" @{ '@f' = $f; '@h' = $sha; '@c' = [guid]::NewGuid(); '@u' = $usuario }
+        if ($reg.Rows[0]['estadoResultado'] -ne $true) { throw 'No se pudo registrar un DRAFT del fixture D2-11.' }
+    }
+    $jsonA = "[""$fileShared"",""$fileOnlyA""]"; $jsonB = "[""$fileOnlyB"",""$fileShared""]"
+    $startAt = [DateTime]::UtcNow.AddSeconds(4)
+    $jobs = @(
+        (Start-Job -ScriptBlock $callW3 -ArgumentList $cs, $sesion, $estudiante, $usuario, $jsonA, ([guid]::NewGuid()), $markerD2, $startAt),
+        (Start-Job -ScriptBlock $callW3 -ArgumentList $cs, $sesion, $estudiante, $usuario, $jsonB, ([guid]::NewGuid()), $markerD2, $startAt))
+    $res = $jobs | Wait-Job | Receive-Job; $jobs | Remove-Job
+    $win = @($res | Where-Object { $_ -like '1|*' }).Count
+    $lose = @($res | Where-Object { $_ -like '0|*ARC_001*' }).Count
+    $solicitudes = (Invoke-Sql "SELECT COUNT(*) FROM dbo.SolicitudRevisionAsistencia WHERE justificacionSolicitud = @j" @{ '@j' = $markerD2 }).Rows[0][0]
+    $adjuntos = (Invoke-Sql "SELECT COUNT(*) FROM dbo.ArchivoSoporte a JOIN dbo.SolicitudRevisionAsistencia s ON s.id = a.solicitudRevisionAsistencia WHERE s.justificacionSolicitud = @j AND a.estado = 'ATTACHED'" @{ '@j' = $markerD2 }).Rows[0][0]
+    $draftRestantes = (Invoke-Sql "SELECT COUNT(*) FROM dbo.ArchivoSoporte WHERE id IN (@a, @b) AND estado = 'DRAFT'" @{ '@a' = $fileOnlyA; '@b' = $fileOnlyB }).Rows[0][0]
+    if ($win -ne 1 -or $lose -ne 1 -or $solicitudes -ne 1 -or $adjuntos -ne 2 -or $draftRestantes -ne 1) {
+        $failures += "D2-11 concurrente: ganadoras=$win ARC_001=$lose solicitudes=$solicitudes adjuntos=$adjuntos drafts_restantes=$draftRestantes (esperado 1,1,1,2,1)"
+    }
 }
 finally {
     # Limpieza acotada a los ids/marcador de esta ejecucion (orden de FK: archivo -> solicitud -> asistencia creada).
@@ -124,8 +162,8 @@ finally {
     try {
         $cmd = $c.CreateCommand()
         $cmd.CommandText = @"
-DELETE FROM dbo.ArchivoSoporte WHERE id IN (@a, @r);
-DELETE FROM dbo.SolicitudRevisionAsistencia WHERE justificacionSolicitud = @j;
+DELETE FROM dbo.ArchivoSoporte WHERE id IN (@a, @r, @d1, @d2, @d3);
+DELETE FROM dbo.SolicitudRevisionAsistencia WHERE justificacionSolicitud IN (@j, @j2);
 DELETE a FROM dbo.Asistencia a
 WHERE a.sesion = @s AND NOT EXISTS (SELECT 1 FROM STRING_SPLIT(@antes, ',') x WHERE TRY_CAST(x.value AS UNIQUEIDENTIFIER) = a.id)
   AND NOT EXISTS (SELECT 1 FROM dbo.SolicitudRevisionAsistencia s WHERE s.asistencia = a.id)
@@ -134,12 +172,14 @@ DELETE FROM dbo.Sesion WHERE id = @s AND nombre = N'LB004D-CONC';
 "@
         [void]$cmd.Parameters.AddWithValue('@a', $fileAttach); [void]$cmd.Parameters.AddWithValue('@r', $fileRegister)
         [void]$cmd.Parameters.AddWithValue('@j', $marker); [void]$cmd.Parameters.AddWithValue('@s', $sesion)
+        [void]$cmd.Parameters.AddWithValue('@j2', $markerD2); [void]$cmd.Parameters.AddWithValue('@d1', $fileShared)
+        [void]$cmd.Parameters.AddWithValue('@d2', $fileOnlyA); [void]$cmd.Parameters.AddWithValue('@d3', $fileOnlyB)
         [void]$cmd.Parameters.AddWithValue('@antes', ($asistenciasAntes -join ','))
         [void]$cmd.ExecuteNonQuery()
     } finally { $c.Close() }
 }
 
-$left = (Invoke-Sql "SELECT (SELECT COUNT(*) FROM dbo.ArchivoSoporte WHERE id IN (@a, @r)) + (SELECT COUNT(*) FROM dbo.SolicitudRevisionAsistencia WHERE justificacionSolicitud = @j)" @{ '@a' = $fileAttach; '@r' = $fileRegister; '@j' = $marker }).Rows[0][0]
+$left = (Invoke-Sql "SELECT (SELECT COUNT(*) FROM dbo.ArchivoSoporte WHERE id IN (@a, @r, @d1, @d2, @d3)) + (SELECT COUNT(*) FROM dbo.SolicitudRevisionAsistencia WHERE justificacionSolicitud IN (@j, @j2))" @{ '@a' = $fileAttach; '@r' = $fileRegister; '@j' = $marker; '@j2' = $markerD2; '@d1' = $fileShared; '@d2' = $fileOnlyA; '@d3' = $fileOnlyB }).Rows[0][0]
 if ($left -ne 0) { $failures += "Limpieza incompleta: $left filas de fixture restantes" }
 if ($failures.Count -gt 0) {
     $failures | ForEach-Object { Write-Host "TEST FAILED: LB004D_CONCURRENCY $_" -ForegroundColor Red }
@@ -148,3 +188,4 @@ if ($failures.Count -gt 0) {
 Write-Host 'TEST_PASS:LB004D_W1_CONCURRENT_IDEMPOTENT'
 Write-Host 'TEST_PASS:LB004D_W2_CONCURRENT_SINGLE_WINNER'
 Write-Host 'TEST_PASS:LB004D_CONCURRENCY_FIXTURE_CLEANED'
+Write-Host 'TEST_PASS:CULM001_D2_11_CONCURRENCIA_V3'

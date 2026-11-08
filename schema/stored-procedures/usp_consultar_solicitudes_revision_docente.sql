@@ -24,6 +24,10 @@ GO
 -- consumidor decide segun esa procedencia (contrato UTC v2); la DB no afirma UTC cuando no lo sabe.
 -- fechaRegistroSoporteUtc es un instante UTC DATETIME2(7) generado con SYSUTCDATETIME().
 -- Datos personales minimos: nombre del estudiante, sin correo.
+--
+-- CULM-001 D.2 (CONTRACT §3.2, HU015/TD-060/TD-061): un reclamo puede tener varios soportes. Las columnas de soporte siguen siendo las
+-- del PRIMER soporte adjuntado (contrato posicional) y se agregan AL FINAL codigoCategoria, nombreCategoria (NULL si el reclamo es anterior a
+-- la categoria persistida) y totalSoportes. El estado adjunto sale de ARCHIVO/ESTADO_ADJUNTO (sin literal 'quemado').
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_solicitudes_revision_docente]
 (
@@ -47,6 +51,7 @@ BEGIN
     DECLARE @tamano INT = IIF(@tamanoPagina IS NULL OR @tamanoPagina < 1, 10, IIF(@tamanoPagina > 100, 100, @tamanoPagina));
     DECLARE @offset INT = (@pagina - 1) * @tamano;
     DECLARE @estadoFiltro NVARCHAR(5) = NULLIF(TRIM(@codigoEstado), '');
+    DECLARE @estadoAdjunto VARCHAR(10) = CAST(dbo.ufn_obtener_parametro('ARCHIVO', 'ESTADO_ADJUNTO') AS VARCHAR(10));
 
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -102,7 +107,10 @@ BEGIN
         tipoContenidoSoporte          = arc.tipoContenido,
         tamanioSoporteBytes           = arc.tamanioBytes,
         fechaRegistroSoporteUtc       = arc.fechaRegistroUtc,
-        totalRegistros                = COUNT(*) OVER()
+        totalRegistros                = COUNT(*) OVER(),
+        codigoCategoria               = cat.codigo,
+        nombreCategoria               = cat.nombre,
+        totalSoportes                 = (SELECT COUNT(*) FROM dbo.uv_soporte_reclamo s WHERE s.idSolicitud = sra.id)
     FROM dbo.SolicitudRevisionAsistencia sra
     INNER JOIN dbo.Estado est             ON est.id = sra.estado
     INNER JOIN dbo.Asistencia asi         ON asi.id = sra.asistencia
@@ -113,8 +121,11 @@ BEGIN
     INNER JOIN dbo.Grupo gru              ON gru.id = ses.grupo
     INNER JOIN dbo.Docente doc            ON doc.id = gru.docente
     INNER JOIN dbo.Asignatura asg         ON asg.id = gru.asignatura
-    LEFT  JOIN dbo.ArchivoSoporte arc     ON arc.solicitudRevisionAsistencia = sra.id
-                                         AND arc.estado = 'ATTACHED'
+    OUTER APPLY (SELECT TOP 1 a.id, a.nombreOriginal, a.tipoContenido, a.tamanioBytes, a.fechaRegistroUtc
+                 FROM dbo.ArchivoSoporte a
+                 WHERE a.solicitudRevisionAsistencia = sra.id AND a.estado = @estadoAdjunto
+                 ORDER BY a.fechaAdjuncionUtc, a.id) arc
+    LEFT  JOIN dbo.CategoriaJustificacion cat ON cat.id = sra.categoriaJustificacion
     WHERE doc.usuario = @idUsuarioDefecto
       AND (@estadoFiltro IS NULL OR est.codigo = @estadoFiltro)
     ORDER BY sra.fecha DESC, sra.nombre ASC, sra.id ASC
