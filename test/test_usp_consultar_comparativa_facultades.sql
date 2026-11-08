@@ -192,9 +192,9 @@ BEGIN TRY
     VALUES (@g4, @a1, @perPast, 960000 + ABS(CHECKSUM(NEWID()) % 9999), N'Grupo G4', 20, 0, 0, 0, @doc2);
     DECLARE @c UNIQUEIDENTIFIER = NEWID(), @inexistente UNIQUEIDENTIFIER = NEWID(), @err NVARCHAR(4000);
     CREATE TABLE #r2 (n INT IDENTITY(1,1), idFacultad UNIQUEIDENTIFIER, nombreFacultad NVARCHAR(50), estaActivaFacultad BIT, totalProgramas INT, totalEstudiantes INT,
-        estudiantesRiesgo INT, estudiantesPerdida INT, tasaRetencion DECIMAL(5,2), sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2));
+        estudiantesRiesgo INT, estudiantesPerdida INT, tasaRetencion DECIMAL(5,2), sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2), horasDictadas DECIMAL(12,2), horasFalta DECIMAL(12,2));
     -- T-DB-11: filas exactas, orden por ausentismo desc con nulos al final, facultad inactiva listada (D4), sin facultades de otra institucion
-    INSERT INTO #r2 (idFacultad, nombreFacultad, estaActivaFacultad, totalProgramas, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_comparativa_facultades @idUsuarioEjecutor = @uA1, @idCorrelacion = @c, @idPeriodoAcademico = NULL;
+    INSERT INTO #r2 (idFacultad, nombreFacultad, estaActivaFacultad, totalProgramas, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta) EXEC dbo.usp_consultar_comparativa_facultades @idUsuarioEjecutor = @uA1, @idCorrelacion = @c, @idPeriodoAcademico = NULL;
     IF (SELECT COUNT(*) FROM #r2) <> 3 THROW 54401, 'TEST FAILED: T-DB-11 se esperaban 3 facultades (F, F2, F3) y ninguna de I2', 1;
     IF EXISTS (SELECT 1 FROM #r2 WHERE idFacultad = @f4) THROW 54402, 'TEST FAILED: T-DB-11 F4 es de otra institucion', 1;
     IF NOT EXISTS (SELECT 1 FROM #r2 WHERE idFacultad = @f AND estaActivaFacultad = 1 AND totalProgramas = 3 AND totalEstudiantes = 6 AND estudiantesRiesgo = 1 AND estudiantesPerdida = 3 AND tasaRetencion = 50.00 AND sesionesEjecutadas = 35 AND faltasSinJustaCausa = 6 AND porcentajeAusentismo = 17.14)
@@ -211,13 +211,13 @@ BEGIN TRY
     TRUNCATE TABLE #r2;
 
     -- Aislamiento: A2 solo ve F4
-    INSERT INTO #r2 (idFacultad, nombreFacultad, estaActivaFacultad, totalProgramas, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_comparativa_facultades @idUsuarioEjecutor = @uA2, @idCorrelacion = @c;
+    INSERT INTO #r2 (idFacultad, nombreFacultad, estaActivaFacultad, totalProgramas, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta) EXEC dbo.usp_consultar_comparativa_facultades @idUsuarioEjecutor = @uA2, @idCorrelacion = @c;
     IF NOT ((SELECT COUNT(*) FROM #r2) = 1 AND EXISTS (SELECT 1 FROM #r2 WHERE idFacultad = @f4 AND totalProgramas = 1 AND totalEstudiantes = 0 AND porcentajeAusentismo IS NULL))
         THROW 54408, 'TEST FAILED: A2 debe ver solo F4', 1;
     TRUNCATE TABLE #r2;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #r2 (idFacultad, nombreFacultad, estaActivaFacultad, totalProgramas, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_comparativa_facultades @idUsuarioEjecutor = @uDec, @idCorrelacion = @c;
+        INSERT INTO #r2 (idFacultad, nombreFacultad, estaActivaFacultad, totalProgramas, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta) EXEC dbo.usp_consultar_comparativa_facultades @idUsuarioEjecutor = @uDec, @idCorrelacion = @c;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -226,7 +226,7 @@ BEGIN TRY
         THROW 54401, 'TEST FAILED: T-DB-02 decano (esperaba KPI_004).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #r2 (idFacultad, nombreFacultad, estaActivaFacultad, totalProgramas, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_comparativa_facultades @idUsuarioEjecutor = @uC1, @idCorrelacion = @c;
+        INSERT INTO #r2 (idFacultad, nombreFacultad, estaActivaFacultad, totalProgramas, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta) EXEC dbo.usp_consultar_comparativa_facultades @idUsuarioEjecutor = @uC1, @idCorrelacion = @c;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -235,7 +235,7 @@ BEGIN TRY
         THROW 54402, 'TEST FAILED: T-DB-02 coordinador (esperaba KPI_004).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #r2 (idFacultad, nombreFacultad, estaActivaFacultad, totalProgramas, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_comparativa_facultades @idUsuarioEjecutor = @uE1, @idCorrelacion = @c;
+        INSERT INTO #r2 (idFacultad, nombreFacultad, estaActivaFacultad, totalProgramas, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta) EXEC dbo.usp_consultar_comparativa_facultades @idUsuarioEjecutor = @uE1, @idCorrelacion = @c;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -244,7 +244,7 @@ BEGIN TRY
         THROW 54403, 'TEST FAILED: T-DB-02 estudiante (esperaba KPI_004).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #r2 (idFacultad, nombreFacultad, estaActivaFacultad, totalProgramas, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_comparativa_facultades @idUsuarioEjecutor = @uPlano, @idCorrelacion = @c;
+        INSERT INTO #r2 (idFacultad, nombreFacultad, estaActivaFacultad, totalProgramas, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta) EXEC dbo.usp_consultar_comparativa_facultades @idUsuarioEjecutor = @uPlano, @idCorrelacion = @c;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -253,7 +253,7 @@ BEGIN TRY
         THROW 54404, 'TEST FAILED: T-DB-02 usuario sin perfil (esperaba KPI_004).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #r2 (idFacultad, nombreFacultad, estaActivaFacultad, totalProgramas, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_comparativa_facultades @idUsuarioEjecutor = @uA1, @idCorrelacion = @c, @idPeriodoAcademico = @inexistente;
+        INSERT INTO #r2 (idFacultad, nombreFacultad, estaActivaFacultad, totalProgramas, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta) EXEC dbo.usp_consultar_comparativa_facultades @idUsuarioEjecutor = @uA1, @idCorrelacion = @c, @idPeriodoAcademico = @inexistente;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -262,7 +262,7 @@ BEGIN TRY
         THROW 54405, 'TEST FAILED: periodo inexistente (esperaba PER_001).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #r2 (idFacultad, nombreFacultad, estaActivaFacultad, totalProgramas, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_comparativa_facultades @idUsuarioEjecutor = @uA1, @idCorrelacion = NULL;
+        INSERT INTO #r2 (idFacultad, nombreFacultad, estaActivaFacultad, totalProgramas, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta) EXEC dbo.usp_consultar_comparativa_facultades @idUsuarioEjecutor = @uA1, @idCorrelacion = NULL;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
