@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **251**.
+Total de códigos: **275**.
 
 ## ADS
 
@@ -24,6 +24,20 @@ Total de códigos: **251**.
 | `ADS_004` | BUSINESS_ERROR | MEDIO | El documento y el correo corresponden a personas distintas. | Regla: el documento y el correo no pertenecen al mismo Usuario (SUPUESTO-D-11); sin escrituras. | `54_culm001_d4_mensajes.sql` |
 | `ADS_005` | VALIDATION_ERROR | BAJO | El correo debe ser institucional ({}). | Regla: el correo de un alta nueva no cumple REGISTRO/DOMINIO_CORREO_ESTUDIANTE ({}); sin escrituras. | `54_culm001_d4_mensajes.sql` |
 | `ADS_006` | VALIDATION_ERROR | BAJO | Indica una contraseña inicial para el estudiante nuevo. | Regla: un alta nueva exige el hash de la contrasena inicial; sin escrituras. | `54_culm001_d4_mensajes.sql` |
+
+## ALR
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `ALR_001` | SUCCESS | BAJO | Las alertas de inasistencia están deshabilitadas. | ALERTA_INASISTENCIA/HABILITADA != true; grupo [{}] sin escrituras. | `40_culm001_c_mensajes.sql` |
+| `ALR_002` | TECHNICAL_ERROR | CRITICO | No fue posible evaluar las alertas de inasistencia. | Umbral [{}] del tipo [{}] ausente o no numérico. | `40_culm001_c_mensajes.sql` |
+| `ALR_003` | SUCCESS | BAJO | Evaluación de alertas completada. | Grupo [{}]: {} nuevas, {} superadas o reactivadas; revisiones creadas en novedadesJSON. | `40_culm001_c_mensajes.sql` |
+| `ALR_004` | VALIDATION_ERROR | BAJO | La lista de alertas no es válida. | @alertasJSON vacío, inválido, con duplicados o con más de {}. | `40_culm001_c_mensajes.sql` |
+| `ALR_005` | SUCCESS | BAJO | Se marcaron {} alertas como leídas. | Lectura de alertas del estudiante [{}]. | `40_culm001_c_mensajes.sql` |
+| `ALR_006` | VALIDATION_ERROR | BAJO | La matrícula indicada no pertenece al grupo. | EstudianteGrupo [{}] no es del grupo [{}]. | `40_culm001_c_mensajes.sql` |
+| `ALR_007` | SUCCESS | BAJO | Actualización de resolutores completada. | {} reasignadas, {} escaladas, {} sin resolutor. | `40_culm001_c_mensajes.sql` |
+| `ALR_010` | INFO | BAJO | Llevas {}% de inasistencia en {}. Si llegas al {}% podrías perder la asignatura. | Texto ADVERTENCIA. | `40_culm001_c_mensajes.sql` |
+| `ALR_011` | INFO | MEDIO | Alcanzaste {}% de inasistencia en {} (límite {}%). Tu docente revisará tu caso. | Texto PERDIDA. | `40_culm001_c_mensajes.sql` |
 
 ## AQR
 
@@ -352,6 +366,26 @@ Total de códigos: **251**.
 | Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
 |---|---|---|---|---|---|
 | `RC_001` | BUSINESS_ERROR | MEDIO | El estado de asistencia {} no corresponde a una razón de causa válida. | RazonCausa.codigo = [{}] no existe o no es válido para el contrato de asistencia. | `04_mensaje.sql` |
+
+## RCN
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `RCN_001` | BUSINESS_ERROR | BAJO | La revisión de cancelación no existe. | Revisión [{}] inexistente o fuera del ámbito de [{}]. | `40_culm001_c_mensajes.sql` |
+| `RCN_002` | VALIDATION_ERROR | BAJO | La decisión no es válida. | @codigoDecision/@codigoEstado [{}] no existe para este actor. | `40_culm001_c_mensajes.sql` |
+| `RCN_003` | VALIDATION_ERROR | BAJO | El motivo debe tener entre {} y {} caracteres. | @motivo fuera de REVISION_CANCELACION/MOTIVO_LONGITUD_*. | `40_culm001_c_mensajes.sql` |
+| `RCN_004` | BUSINESS_ERROR | MEDIO | La revisión está en estado «{}» y no admite esa decisión. | Sin transición para ({}, {}). | `40_culm001_c_mensajes.sql` |
+| `RCN_005` | BUSINESS_ERROR | MEDIO | La matrícula del estudiante ya no está activa en el grupo. | EstudianteGrupo [{}] con estado [{}]. | `40_culm001_c_mensajes.sql` |
+| `RCN_006` | BUSINESS_ERROR | MEDIO | El estudiante ya no supera el límite de inasistencia ({}% de {}%); no se puede proponer ni aprobar la cancelación. | Porcentaje [{}] < umbral [{}]. | `40_culm001_c_mensajes.sql` |
+| `RCN_007` | SUCCESS | BAJO | Decisión registrada: el estudiante se mantiene en el grupo. | Revisión [{}] → MANTENIDA. | `40_culm001_c_mensajes.sql` |
+| `RCN_008` | SUCCESS | BAJO | Se envió la propuesta de cancelación a la coordinación del programa. | Revisión [{}] → PROPUESTA (COORDINADOR). | `40_culm001_c_mensajes.sql` |
+| `RCN_009` | SUCCESS | BAJO | Cancelación aprobada: el estudiante quedó cancelado por inasistencia. | Revisión [{}] → APROBADA; matrícula [{}] → CI. | `40_culm001_c_mensajes.sql` |
+| `RCN_010` | SUCCESS | BAJO | Cancelación rechazada: el estudiante sigue activo en el grupo. | Revisión [{}] → RECHAZADA. | `40_culm001_c_mensajes.sql` |
+| `RCN_011` | SUCCESS | BAJO | La decisión ya estaba registrada. | Revisión [{}] ya en [{}]; sin escrituras. | `40_culm001_c_mensajes.sql` |
+| `RCN_012` | BUSINESS_ERROR | ALTO | Hay {} casos de pérdida por inasistencia pendientes de decisión del docente o de resolución en el periodo; resuélvelos antes del cierre. | Cierre de [{}] bloqueado: {} revisiones pendientes (incluye las de pérdida ya superada que esperan decisión), {} pérdidas sin revisión. | `40_culm001_c_mensajes.sql` |
+| `RCN_013` | BUSINESS_ERROR | MEDIO | No hay un coordinador ni un decano activo que pueda resolver la propuesta para el programa del estudiante. | ufn_revision_cancelacion_resolutores vacío para [{}]. | `40_culm001_c_mensajes.sql` |
+| `RCN_014` | BUSINESS_ERROR | MEDIO | No puedes resolver una propuesta de cancelación que hiciste como docente. | Ejecutor [{}] = proponente de [{}]. | `40_culm001_c_mensajes.sql` |
+| `RCN_015` | SUCCESS | BAJO | El programa no tiene un coordinador disponible: la propuesta se envió a la decanatura de la facultad. | Revisión [{}] → PROPUESTA escalada a DECANO. | `40_culm001_c_mensajes.sql` |
 
 ## RET
 

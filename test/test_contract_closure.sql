@@ -260,6 +260,11 @@ DECLARE @badResultSets TABLE (
 --   CULM-001 D.2 (CONTRACT §3.2): usp_consultar_configuracion_reclamos
 --                                            READ_QUERY_RESULTSET: configuracion de reclamos de una fila. usp_radicar_solicitud_revision_asistencia_v3
 --                                            es un comando con 6 columnas: las 4 canonicas + idSolicitudRevision, totalSoportes (verificadas en D2-01).
+--   CULM-001 C.1 (CONTRACT §2.5): usp_evaluar_alertas_inasistencia_grupo / usp_decidir_revision_cancelacion / usp_resolver_revision_cancelacion /
+--   usp_actualizar_resolutores_revisiones_cancelacion  comando canonico + columnas de datos documentadas (NULL si estadoResultado = 0);
+--   usp_consultar_grupos_pendientes_evaluacion_alertas / usp_consultar_alertas_estudiante / usp_consultar_revisiones_cancelacion_coordinador_paginado /
+--   usp_consultar_revisiones_cancelacion_decano_paginado / usp_consultar_destinatarios_revision_cancelacion / usp_consultar_audiencias_realtime_grupo
+--                                            READ_QUERY_RESULTSET (THROW 51000 si la validacion falla); NON_GOLDEN_PATH_EXTENSION.
 -- El resultset canonico de 4 columnas es exclusivo de los SP de comando/mutacion del Golden Path.
 INSERT @badResultSets (procedureName, reason)
 SELECT sp.name, CONCAT('describe_error=', COALESCE(CONVERT(NVARCHAR(20), d.error_number), N'NULL'), ': ', COALESCE(d.error_message, N''))
@@ -285,7 +290,7 @@ WHERE SCHEMA_NAME(sp.schema_id) = 'dbo'
   AND sp.name NOT IN ('usp_establecer_contexto_usuario_ejecutor', 'usp_consultar_token_verificacion_correo', 'usp_consultar_reenvio_verificacion_correo', 'usp_abrir_ventana_matricula_grupo', 'usp_rotar_token_matricula_grupo', 'usp_rotar_token_matricula_automatico', 'usp_matricular_estudiante_por_token', 'usp_registrar_estudiante_por_token_publico', 'usp_consultar_ventanas_matricula_por_rotar', 'usp_validar_token_matricula_publico')
   AND sp.name NOT IN ('usp_abrir_toma_asistencia', 'usp_cerrar_toma_asistencia', 'usp_cerrar_tomas_vencidas', 'usp_registrar_asistencias_toma', 'usp_abrir_qr_toma', 'usp_rotar_token_asistencia_toma', 'usp_rotar_token_asistencia_automatico', 'usp_consultar_tomas_qr_por_rotar', 'usp_cerrar_qr_toma', 'usp_registrar_asistencia_por_token', 'usp_consultar_tomas_sesion', 'usp_consultar_faltantes_toma_paginado', 'usp_consultar_asistencias_toma_paginado', 'usp_consultar_resumen_asistencia_grupo_docente_paginado', 'usp_consultar_resumen_asistencia_estudiante')
   AND sp.name <> 'usp_consultar_sesiones_materia_estudiante'
-  AND sp.name NOT IN ('usp_consultar_configuracion_reclamos')
+  AND sp.name NOT IN ('usp_consultar_configuracion_reclamos', 'usp_evaluar_alertas_inasistencia_grupo', 'usp_consultar_grupos_pendientes_evaluacion_alertas', 'usp_consultar_alertas_estudiante', 'usp_decidir_revision_cancelacion', 'usp_resolver_revision_cancelacion', 'usp_consultar_revisiones_cancelacion_coordinador_paginado', 'usp_consultar_revisiones_cancelacion_decano_paginado', 'usp_consultar_destinatarios_revision_cancelacion', 'usp_consultar_audiencias_realtime_grupo', 'usp_actualizar_resolutores_revisiones_cancelacion')
   AND d.error_number IS NOT NULL;
 
 INSERT @badResultSets (procedureName, reason)
@@ -314,7 +319,7 @@ WHERE SCHEMA_NAME(sp.schema_id) = 'dbo'
   AND sp.name NOT IN ('usp_actualizar_parametro', 'usp_cancelar_sesion', 'usp_cargar_dias_festivos', 'usp_cargar_dias_festivos_automatico', 'usp_aplicar_festivos_grupo', 'usp_aplicar_festivos_periodo', 'usp_aplicar_festivos_automatico', 'usp_generar_sesiones_grupo_v2', 'usp_consultar_destinatarios_sesion_cancelada', 'usp_consultar_sesiones_festivo_con_asistencia_paginado', 'usp_consultar_dias_festivos', 'usp_consultar_carga_festivos_anio')
   AND sp.name NOT IN ('usp_abrir_toma_asistencia', 'usp_cerrar_toma_asistencia', 'usp_cerrar_tomas_vencidas', 'usp_registrar_asistencias_toma', 'usp_abrir_qr_toma', 'usp_rotar_token_asistencia_toma', 'usp_rotar_token_asistencia_automatico', 'usp_consultar_tomas_qr_por_rotar', 'usp_cerrar_qr_toma', 'usp_registrar_asistencia_por_token', 'usp_consultar_tomas_sesion', 'usp_consultar_faltantes_toma_paginado', 'usp_consultar_asistencias_toma_paginado', 'usp_consultar_resumen_asistencia_grupo_docente_paginado', 'usp_consultar_resumen_asistencia_estudiante')
   AND sp.name <> 'usp_consultar_sesiones_materia_estudiante'
-  AND sp.name NOT IN ('usp_consultar_configuracion_reclamos', 'usp_radicar_solicitud_revision_asistencia_v3')
+  AND sp.name NOT IN ('usp_consultar_configuracion_reclamos', 'usp_evaluar_alertas_inasistencia_grupo', 'usp_consultar_grupos_pendientes_evaluacion_alertas', 'usp_consultar_alertas_estudiante', 'usp_decidir_revision_cancelacion', 'usp_resolver_revision_cancelacion', 'usp_consultar_revisiones_cancelacion_coordinador_paginado', 'usp_consultar_revisiones_cancelacion_decano_paginado', 'usp_consultar_destinatarios_revision_cancelacion', 'usp_consultar_audiencias_realtime_grupo', 'usp_actualizar_resolutores_revisiones_cancelacion', 'usp_radicar_solicitud_revision_asistencia_v3')
   AND d.error_number IS NULL
 GROUP BY sp.name
 HAVING COUNT(d.column_ordinal) <> 4;
@@ -344,7 +349,7 @@ WHERE SCHEMA_NAME(sp.schema_id) = 'dbo'
   AND sp.name NOT IN ('usp_actualizar_parametro', 'usp_cancelar_sesion', 'usp_cargar_dias_festivos', 'usp_cargar_dias_festivos_automatico', 'usp_aplicar_festivos_grupo', 'usp_aplicar_festivos_periodo', 'usp_aplicar_festivos_automatico', 'usp_generar_sesiones_grupo_v2', 'usp_consultar_destinatarios_sesion_cancelada', 'usp_consultar_sesiones_festivo_con_asistencia_paginado', 'usp_consultar_dias_festivos', 'usp_consultar_carga_festivos_anio')
   AND sp.name NOT IN ('usp_abrir_toma_asistencia', 'usp_cerrar_toma_asistencia', 'usp_cerrar_tomas_vencidas', 'usp_registrar_asistencias_toma', 'usp_abrir_qr_toma', 'usp_rotar_token_asistencia_toma', 'usp_rotar_token_asistencia_automatico', 'usp_consultar_tomas_qr_por_rotar', 'usp_cerrar_qr_toma', 'usp_registrar_asistencia_por_token', 'usp_consultar_tomas_sesion', 'usp_consultar_faltantes_toma_paginado', 'usp_consultar_asistencias_toma_paginado', 'usp_consultar_resumen_asistencia_grupo_docente_paginado', 'usp_consultar_resumen_asistencia_estudiante')
   AND sp.name <> 'usp_consultar_sesiones_materia_estudiante'
-  AND sp.name NOT IN ('usp_consultar_configuracion_reclamos')
+  AND sp.name NOT IN ('usp_consultar_configuracion_reclamos', 'usp_evaluar_alertas_inasistencia_grupo', 'usp_consultar_grupos_pendientes_evaluacion_alertas', 'usp_consultar_alertas_estudiante', 'usp_decidir_revision_cancelacion', 'usp_resolver_revision_cancelacion', 'usp_consultar_revisiones_cancelacion_coordinador_paginado', 'usp_consultar_revisiones_cancelacion_decano_paginado', 'usp_consultar_destinatarios_revision_cancelacion', 'usp_consultar_audiencias_realtime_grupo', 'usp_actualizar_resolutores_revisiones_cancelacion')
   AND d.error_number IS NULL
   AND (
        (d.column_ordinal = 1 AND (d.name <> 'idCorrelacion' OR d.system_type_name <> 'uniqueidentifier'))

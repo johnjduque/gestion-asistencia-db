@@ -142,6 +142,15 @@ NEXT AUTHORIZED PHASE:                 LB-002.1C-B1 - BACKEND AS-IS CONTRACT ANA
 - **Desviaciones del contrato:** (1) `NTF_021` es opt-in (`@validarExistencia = 1`): el despachador de correos usa el mismo SP con tipos sin fila en BD y debe seguir recibiendo 0 filas para usar su plantilla por defecto; (2) el reporte Excel no tenía SP, por eso `usp_validar_acceso_reporte_grupo` es nuevo; (3) `usp_consultar_periodos_academicos_paginado` es nuevo porque el listado del coordinador es un HQL sobre `uv_periodo_academico`, no un SP; (4) el `down` de la 28 no reescribe `usp_crear_decano` si contiene el texto de D.5 (`TIPO_IDENTIFICACION_DEFECTO`).
 - **Datos:** `schema/seed/14_grupos_sesiones.sql` siembra la franja `LU 08:00-10:00` del grupo sembrado (coherente con SES-01/SES-02) y `test/fixtures/culm1_segundo_ambito.sql` calcula el día de su franja desde la sesión vencida. El fixture de datos limpios (`seed-clean-data.ps1`) vive en Infra y no se tocó (D.9-d).
 - **Pruebas:** `test/test_culm001_d9_hallazgos.sql` (D9-DEC-01…05, D9-NTF-01/02, D9-MSG-01, D9-PER-01/02, D9-HOR-01, D9-TRX-01…03, D9-CRU-01), `test/test_culm001_d9.ps1` (migración 28 up→down→up y D-RB-03; el contrato la ubicaba en `test_culm001_d_rollback.sql`, compartido con D.5). `test_contract_closure.sql` excluye de la regla canónica a los dos SP de lectura nuevos y a `usp_validar_acceso_reporte_grupo` (fija `SESSION_CONTEXT`) y admite la columna `idPeriodo`.
+
+## CULM-001 C.1 — cancelacion por inasistencia (HU026C)
+
+- `EstudianteGrupo` pasa a `CI` unicamente al aprobar una `RevisionCancelacion` (`usp_resolver_revision_cancelacion`); el cierre masivo (`usp_ejecutar_cierre_masivo_periodo`) ya no cancela por conteo de faltas.
+- Cierre masivo con el motor habilitado y umbrales validos: responde `RCN_012` (una sola fila) si hay revisiones que esperan al docente o al resolutor, o perdidas por horas sin revision; no crea revisiones ni evalua alertas (lo hace el backend antes). Con el motor apagado o umbrales invalidos no bloquea y `AuditoriaEvento` registra `motorHabilitado`, `umbralesValidos`, `perdidasSinRevision` y `revisionesPendientes`.
+- Unicidad: una `AlertaInasistencia` por (matricula, tipo) y una `RevisionCancelacion` por matricula.
+- Escalamiento: el resolutor es el coordinador activo del programa del estudiante (excluido quien propuso); sin coordinador, el decano de la facultad (`ufn_revision_cancelacion_resolutores`).
+- `Grupo.cantidadEstudiantesCancelaronAutomaticamente` significa "matriculas en CI al cierre".
+- Migracion 19 (`up|down`), semillas 40/41 y permisos `rol_asistencias_runtime_culm001_c.sql`.
 ## CULM-001 D.8 — comparativas, tendencia y consolidado por horas (HU061/HU103/HU134/HU139) (2026-11-08)
 
 - **Objetos que cambian (sin objetos nuevos):** `usp_consultar_comparativa_facultades`, `usp_consultar_comparativa_programas_facultad`, `usp_consultar_tendencia_ausentismo` y `usp_consultar_consolidado_asistencia_grupos_paginado`, más la migración `27_culm001_d8_kpis_horas` (el `down` restaura el texto de B2 + B.2 y el `up` es idempotente). No se tocan archivos congelados ni de LB-004D.
