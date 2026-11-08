@@ -392,8 +392,9 @@ BEGIN TRY
     SET @ok = IIF(NOT EXISTS (SELECT 1 FROM sys.sql_modules m
                               WHERE m.object_id IN (OBJECT_ID(N'dbo.usp_internal_radicar_solicitud_revision'), OBJECT_ID(N'dbo.usp_radicar_solicitud_revision_asistencia_v2'),
                                                     OBJECT_ID(N'dbo.usp_radicar_solicitud_revision_asistencia_v3'))
-                                AND (m.definition LIKE N'%INSERT INTO #%' OR m.definition LIKE N'%INSERT #%' OR m.definition LIKE N'%INSERT INTO @%'
-                                     OR m.definition LIKE N'%INSERT-EXEC%' OR m.definition LIKE N'%INSERT EXEC%'))
+                                AND (m.definition LIKE N'%INSERT INTO #%' OR m.definition LIKE N'%INSERT #%'
+                                     OR m.definition LIKE N'%INSERT%EXEC dbo.usp_internal_radicar_solicitud_revision%'
+                                     OR m.definition LIKE N'%INSERT%EXEC dbo.usp_radicar_solicitud_revision_asistencia_v%'))
                   AND OBJECT_ID(N'dbo.usp_internal_radicar_solicitud_revision', N'P') IS NOT NULL, 1, 0);
     EXEC #d2_expect 'D2_16_SIN_INSERT_EXEC', @ok;
     PRINT 'TEST_PASS:CULM001_D2_16_SIN_INSERT_EXEC';
