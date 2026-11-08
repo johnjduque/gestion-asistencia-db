@@ -1,7 +1,7 @@
 -- CULM-001 D.9-a (CONTRACT D §11.2, §14.2, D-RB-03): migracion 28 (hallazgos medios de BD) up -> down -> up.
 -- Lo ejecuta test/test_culm001_d9.ps1 con sqlcmd y la variable MIGDIR (copia de migrations/). Todo ocurre dentro de UNA
 -- transaccion que se revierte al final: la BD queda como estaba.
---   MIG_D9_DOWN_OK     el down quita los 3 SP nuevos y los mensajes DEC_020/NTF_020/NTF_021 y restaura los 6 SP modificados
+--   MIG_D9_DOWN_OK     el down quita los 3 SP nuevos y los mensajes DEC_020/NTF_020/NTF_021 y restaura los 7 SP modificados
 --                      (D-RB-03: usp_consultar_sesiones_facultad_paginado vuelve al texto de B2, sin @idGrupo)
 --   MIG_D9_UP1_OK      el up crea todo
 --   MIG_D9_UP2_OK      el up dos veces no cambia nada (mismos textos)
@@ -33,6 +33,7 @@ IF EXISTS (SELECT 1 FROM sys.sql_modules WHERE object_id = OBJECT_ID(N'dbo.usp_c
    OR EXISTS (SELECT 1 FROM sys.sql_modules WHERE object_id = OBJECT_ID(N'dbo.usp_consultar_plantilla_notificacion_activa') AND definition LIKE N'%validarExistencia%')
    OR EXISTS (SELECT 1 FROM sys.sql_modules WHERE object_id = OBJECT_ID(N'dbo.usp_crear_periodo_academico') AND definition LIKE N'%idPeriodo               = IIF%')
    OR EXISTS (SELECT 1 FROM sys.sql_modules WHERE object_id = OBJECT_ID(N'dbo.usp_validar_cruce_horario_estudiante_interno') AND definition LIKE N'%ESTADO_INSCRITA%')
+   OR EXISTS (SELECT 1 FROM sys.sql_modules WHERE object_id = OBJECT_ID(N'dbo.usp_consultar_materias_estudiante') AND definition LIKE N'%creditos%')
     THROW 57952, 'TEST FAILED: CULM001_D9_MIG el down no restauro algun SP modificado.', 1;
 PRINT 'MIG_D9_DOWN_OK';
 GO
@@ -50,8 +51,8 @@ INSERT #d9mig SELECT o.name, HASHBYTES('SHA2_256', m.definition)
 FROM sys.sql_modules m INNER JOIN sys.objects o ON o.object_id = m.object_id
 WHERE o.name IN (N'usp_crear_decano', N'usp_reintentar_notificacion_saliente_interno', N'usp_consultar_plantilla_notificacion_activa', N'usp_crear_periodo_academico',
                  N'usp_consultar_sesiones_facultad_paginado', N'usp_validar_cruce_horario_estudiante_interno', N'usp_consultar_periodos_academicos_paginado',
-                 N'usp_consultar_grupo_facultad_detalle', N'usp_validar_acceso_reporte_grupo');
-IF (SELECT COUNT(*) FROM #d9mig) <> 9 THROW 57954, 'TEST FAILED: CULM001_D9_MIG faltan SP tras el up.', 1;
+                 N'usp_consultar_grupo_facultad_detalle', N'usp_validar_acceso_reporte_grupo', N'usp_consultar_materias_estudiante');
+IF (SELECT COUNT(*) FROM #d9mig) <> 10 THROW 57954, 'TEST FAILED: CULM001_D9_MIG faltan SP tras el up.', 1;
 PRINT 'MIG_D9_UP1_OK';
 GO
 :r $(MIGDIR)/28_culm001_d9_hallazgos_up.sql
