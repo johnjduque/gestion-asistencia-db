@@ -18,7 +18,8 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_crear_coordinador]
     @idFacultad              UNIQUEIDENTIFIER,
     @password                NVARCHAR(500),
     @idCorrelacion           UNIQUEIDENTIFIER,
-    @idUsuarioEjecutor       UNIQUEIDENTIFIER = NULL
+    @idUsuarioEjecutor       UNIQUEIDENTIFIER = NULL,
+    @idTipoIdIdentificacion  UNIQUEIDENTIFIER = NULL
 )
 AS
     DECLARE @idCorrelacionDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
@@ -162,8 +163,16 @@ BEGIN
 
             IF @idUsuarioCreado IS NULL
             BEGIN
-                SELECT TOP 1 @idTipoIdCC = id FROM dbo.TipoIdentificacion WHERE tipoIdentificacion = 'CC' ORDER BY id ASC;
-                IF @idTipoIdCC IS NULL SELECT TOP 1 @idTipoIdCC = id FROM dbo.TipoIdentificacion ORDER BY id ASC;
+                IF @idTipoIdIdentificacion IS NOT NULL
+                BEGIN
+                    SET @idTipoIdCC = @idTipoIdIdentificacion;
+                END
+                ELSE
+                BEGIN
+                    DECLARE @codTipoDocDefectoCoord NVARCHAR(50) = dbo.ufn_obtener_parametro_texto(NULL, 'IDENTIDAD', 'TIPO_IDENTIFICACION_DEFECTO');
+                    SELECT TOP 1 @idTipoIdCC = id FROM dbo.TipoIdentificacion WHERE tipoIdentificacion = @codTipoDocDefectoCoord ORDER BY id ASC;
+                    IF @idTipoIdCC IS NULL SELECT TOP 1 @idTipoIdCC = id FROM dbo.TipoIdentificacion ORDER BY id ASC;
+                END
 
                 EXEC dbo.usp_sincronizar_usuario_interno
                     @idTipoIdIdentificacion = @idTipoIdCC,
