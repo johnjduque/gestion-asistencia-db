@@ -75,7 +75,8 @@ CREATE TABLE #r (idSolicitudRevisionAsistencia UNIQUEIDENTIFIER, nombreSolicitud
     fechaHoraInicioSesion DATETIME2(7), procedenciaTemporalSesion NVARCHAR(24), idGrupo UNIQUEIDENTIFIER, codigoGrupo INT,
     nombreGrupo NVARCHAR(100), idAsignatura UNIQUEIDENTIFIER, codigoAsignatura NVARCHAR(100), nombreAsignatura NVARCHAR(100),
     idArchivoSoporte UNIQUEIDENTIFIER, nombreSoporte NVARCHAR(250), tipoContenidoSoporte VARCHAR(50),
-    tamanioSoporteBytes BIGINT, fechaRegistroSoporteUtc DATETIME2(7), totalRegistros INT);
+    tamanioSoporteBytes BIGINT, fechaRegistroSoporteUtc DATETIME2(7), totalRegistros INT,
+    codigoCategoria NVARCHAR(5), nombreCategoria NVARCHAR(50), soportesJson NVARCHAR(MAX));
 
 BEGIN TRANSACTION;
 BEGIN TRY
@@ -170,11 +171,17 @@ BEGIN TRY
     PRINT 'TEST_PASS:E-07';
 
     -- -------------------------------------------------------- E-08a mismas columnas y orden que R2 (docente)
+    -- CULM-001 D.2 (CONTRACT §3.2): las 27 primeras columnas (hasta nombreCategoria) coinciden; R2 termina en totalSoportes y la lista
+    -- del estudiante en soportesJson.
     SELECT @cols = STRING_AGG(CAST(name AS NVARCHAR(MAX)), N',') WITHIN GROUP (ORDER BY column_ordinal)
-    FROM sys.dm_exec_describe_first_result_set_for_object(OBJECT_ID('dbo.usp_consultar_solicitudes_revision_estudiante'), NULL);
+    FROM sys.dm_exec_describe_first_result_set_for_object(OBJECT_ID('dbo.usp_consultar_solicitudes_revision_estudiante'), NULL)
+    WHERE column_ordinal <= 27;
     SELECT @colsR2 = STRING_AGG(CAST(name AS NVARCHAR(MAX)), N',') WITHIN GROUP (ORDER BY column_ordinal)
-    FROM sys.dm_exec_describe_first_result_set_for_object(OBJECT_ID('dbo.usp_consultar_solicitudes_revision_docente'), NULL);
-    SET @ok = IIF(@cols IS NOT NULL AND @cols = @colsR2, 1, 0);
+    FROM sys.dm_exec_describe_first_result_set_for_object(OBJECT_ID('dbo.usp_consultar_solicitudes_revision_docente'), NULL)
+    WHERE column_ordinal <= 27;
+    SET @ok = IIF(@cols IS NOT NULL AND @cols = @colsR2
+                  AND EXISTS (SELECT 1 FROM sys.dm_exec_describe_first_result_set_for_object(OBJECT_ID('dbo.usp_consultar_solicitudes_revision_estudiante'), NULL) WHERE column_ordinal = 28 AND name = 'soportesJson')
+                  AND EXISTS (SELECT 1 FROM sys.dm_exec_describe_first_result_set_for_object(OBJECT_ID('dbo.usp_consultar_solicitudes_revision_docente'), NULL) WHERE column_ordinal = 28 AND name = 'totalSoportes'), 1, 0);
     EXEC #hu10_expect 'E08_SAME_COLUMNS_AS_R2', @ok;
 END TRY
 BEGIN CATCH

@@ -431,6 +431,19 @@ IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_AsignaturaPlanEst
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_TokenMatriculaGrupo_Programa')
     ALTER TABLE dbo.TokenMatriculaGrupo ADD CONSTRAINT FK_TokenMatriculaGrupo_Programa FOREIGN KEY (programaPorDefecto) REFERENCES dbo.Programa (id);
 GO
+-- CULM-001 D.2 (TD-060): SolicitudRevisionAsistencia -> CategoriaJustificacion (sin ON DELETE CASCADE; el catalogo es de solo consulta)
+IF COL_LENGTH('dbo.SolicitudRevisionAsistencia', 'categoriaJustificacion') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_SolicitudRevisionAsistencia_CategoriaJustificacion')
+BEGIN
+    ALTER TABLE [dbo].[SolicitudRevisionAsistencia] ADD CONSTRAINT [FK_SolicitudRevisionAsistencia_CategoriaJustificacion]
+    FOREIGN KEY ([categoriaJustificacion]) REFERENCES [dbo].[CategoriaJustificacion] ([id]);
+END
+GO
+IF COL_LENGTH('dbo.SolicitudRevisionAsistencia', 'categoriaJustificacion') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.SolicitudRevisionAsistencia') AND name = 'IX_SolicitudRevisionAsistencia_Categoria')
+    CREATE NONCLUSTERED INDEX [IX_SolicitudRevisionAsistencia_Categoria] ON [dbo].[SolicitudRevisionAsistencia] ([categoriaJustificacion]);
+GO
+
 -- CULM-001 D.3 (CONTRACT v2 §4.2): edicion de parametros por el administrador (HU168).
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_CatalogoParametroEdicion_CatalogoParametro')
 BEGIN

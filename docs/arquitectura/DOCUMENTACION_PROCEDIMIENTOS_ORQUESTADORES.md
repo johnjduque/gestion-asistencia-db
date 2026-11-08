@@ -220,16 +220,7 @@ Esta documentación especifica la arquitectura, reglas de negocio, contrato de f
 ---
 
 ### 11. `dbo.usp_registrar_asistencia_estudiante_autonomo`
-- **Propósito**: Permite el auto-registro de asistencia del estudiante con validación de ventana temporal y código QR / Token de sesión.
-- **Parámetros de Entrada**:
-  - `@idSesion UNIQUEIDENTIFIER`, `@idEstudiante UNIQUEIDENTIFIER`, `@tokenSesion NVARCHAR(100)`
-  - `@idCorrelacion UNIQUEIDENTIFIER`
-- **Conjunto de Resultados Retornado**: `idCorrelacion`, `mensajeUsuarioResultado`, `mensajeTecnicoResultado`, `estadoResultado`.
-- **Flujo de Ejecución**:
-  1. Validar `@idCorrelacionDefecto`.
-  2. Validar token y ventana horaria de la sesión en `dbo.uv_sesion`.
-  3. Delega en `usp_sincronizar_asistencia_estudiante_interno`.
-  4. Retornar bloque final `SELECT`.
+> **ELIMINADO (CULM-001 D.7, 2026-11-08):** este objeto se retiró de `schema/` (migración `migrations/26_culm001_d7_retiro_registro_autonomo_up.sql`, cierra TD-009 y retira `POST /api/v1/asistencias`). La asistencia se registra con `usp_registrar_asistencias_sesion` (lote), `usp_registrar_asistencias_toma` y `usp_registrar_asistencia_por_token` (B.2).
 
 ---
 
