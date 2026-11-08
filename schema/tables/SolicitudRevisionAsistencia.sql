@@ -20,3 +20,9 @@ CREATE TABLE [dbo].[SolicitudRevisionAsistencia] (
 ALTER TABLE [dbo].[SolicitudRevisionAsistencia] ADD CONSTRAINT [PK__Solicitu__3213E83F81F5487B] PRIMARY KEY CLUSTERED ([id]);
 END
 GO
+
+-- CULM-001 D.2 (TD-060, HU014/HU015): categoria con la que el estudiante justifico el reclamo (FK a CategoriaJustificacion en
+-- zz_foreign_keys.sql). Sin backfill: los reclamos anteriores quedan con NULL (el formulario anterior no la persistia).
+IF COL_LENGTH('dbo.SolicitudRevisionAsistencia', 'categoriaJustificacion') IS NULL
+    ALTER TABLE [dbo].[SolicitudRevisionAsistencia] ADD [categoriaJustificacion] uniqueidentifier NULL;
+GO
