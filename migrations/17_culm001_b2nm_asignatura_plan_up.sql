@@ -4933,6 +4933,8 @@ BEGIN
         nombrePrograma        = pe.nombrePrograma,
         inp                   = pe.inp,
         estaActivoPlanEstudio = pe.estaActivoPlanEstudio,
+        estaActivoTextoPlanEstudio = pe.estaActivoTextoPlanEstudio,
+        justificacionEstado   = pe.justificacionEstado,
         totalSemestres        = ISNULL((SELECT MAX(sp.numeroSemestre) FROM dbo.uv_semestre_plan_estudio sp WHERE sp.idPlanEstudio = pe.id), 0),
         totalAsignaturas      = (SELECT COUNT(*) FROM dbo.uv_asignatura_plan_estudio v WHERE v.idPlanEstudio = pe.id AND v.estaActivoVinculo = 1),
         totalCreditos         = ISNULL((SELECT SUM(v.credito) FROM dbo.uv_asignatura_plan_estudio v WHERE v.idPlanEstudio = pe.id AND v.estaActivoVinculo = 1), 0),

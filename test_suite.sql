@@ -15,6 +15,7 @@ PRINT '======================================================================';
 :r /tmp/test/test_culm001_b2nm_ambito_grupo_mixto.sql
 :r /tmp/test/test_culm001_b2nm_matricula.sql
 :r /tmp/test/test_culm001_b2nm_oferta_y_decano.sql
+:r /tmp/test/test_culm001_b2nm_coordinador_dos_programas.sql
 :r /tmp/test/test_public_objects.sql
 :r /tmp/test/test_contract_closure.sql
 :r /tmp/test/test_usp_crear_facultad.sql
