@@ -584,6 +584,19 @@ try {
 catch {
     $resultFailures += "CULM001_D3_RUNNER $($_.Exception.Message)"
 }
+# CULM-001 D.5: migracion 24 (up/down/up) y proteccion del down (D-RB-02) en test/test_culm001_d5.ps1.
+$culm001D5Ids = @('CULM001_D5_11_UP_DOWN_UP', 'CULM001_D_RB_02_DOWN_GUARD')
+try {
+    $culm001D5Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d5.ps1') -ContainerName $ContainerName -Password $Password 2>&1 | ForEach-Object { "$_" })
+    foreach ($line in $culm001D5Output) { Write-Host $line }
+    foreach ($id in $culm001D5Ids) {
+        if ($culm001D5Output -contains "TEST_PASS:$id") { $clientPassed += $id }
+        else { $resultFailures += "$id not reported by test_culm001_d5.ps1" }
+    }
+}
+catch {
+    $resultFailures += "CULM001_D5_RUNNER $($_.Exception.Message)"
+}
 # CULM-001 D.4: migracion 23 (up/down/up) en test/test_culm001_d4.ps1.
 $culm001D4Ids = @('CULM001_D4_12_UP_DOWN_UP')
 try {
@@ -871,7 +884,13 @@ $criticalIds = @(
     'CULM001_D3_09_CONCURRENCIA', 'CULM001_D3_16_MIG_UP_DOWN_UP',
     'CULM001_D6_00_OBJETOS_Y_SEMILLAS', 'CULM001_D6_04_SIN_FILTROS_NUEVOS', 'CULM001_D6_01_FILTRO_CORRELACION', 'CULM001_D6_02_SOLO_ADMINISTRACION',
     'CULM001_D6_03_FILTROS_EXCLUYENTES', 'CULM001_D6_05_PARAMETROS_EXPLICITOS', 'CULM001_D6_RBAC', 'CULM001_D6_06_DOS_INSTITUCIONES',
-    'CULM001_D6_TRANCOUNT_ZERO', 'CULM001_D6_MIG_01_UP_DOWN_UP'
+    'CULM001_D6_TRANCOUNT_ZERO', 'CULM001_D6_MIG_01_UP_DOWN_UP',
+    # CULM-001 D.5 (test/test_culm001_d5_carga_masiva.sql, test/test_culm001_d5.ps1)
+    'CULM001_D5_00_OBJETOS_Y_SEMILLAS', 'CULM001_D5_01_COORDINADOR_TRES_VALIDAS', 'CULM001_D5_02_DECANO_PROGRAMA_OTRA_FACULTAD',
+    'CULM001_D5_03_JERARQUIA_NO_PERMITIDA', 'CULM001_D5_04_DUPLICADO_EN_ARCHIVO', 'CULM001_D5_05_ROL_YA_EXISTE',
+    'CULM001_D5_06_PERSONAS_DISTINTAS', 'CULM001_D5_07_CATALOGO_DESCONOCIDO', 'CULM001_D5_08_MULTI_PROGRAMA_SIN_PROGRAMA',
+    'CULM001_D5_09_MAXIMO_FILAS', 'CULM001_D5_10_TIPO_DOC_PARAMETRO', 'CULM001_D5_12_LLAMADAS_LEGACY_COMPATIBLES',
+    'CULM001_D5_TRANCOUNT_ZERO', 'CULM001_D5_11_UP_DOWN_UP', 'CULM001_D_RB_02_DOWN_GUARD',
     # CULM-001 D.4 (test/test_culm001_d4_admision.sql, test/test_culm001_d4.ps1)
     'CULM001_D4_01_ALTA_NUEVA', 'CULM001_D4_02_PERSONA_EXISTENTE', 'CULM001_D4_03_YA_ADMITIDO', 'CULM001_D4_04_PERSONAS_DISTINTAS',
     'CULM001_D4_05_PROGRAMA_FUERA_DE_AMBITO', 'CULM001_D4_06_CORREO_INSTITUCIONAL', 'CULM001_D4_07_CONTRASENA_INICIAL', 'CULM001_D4_08_RBAC',
