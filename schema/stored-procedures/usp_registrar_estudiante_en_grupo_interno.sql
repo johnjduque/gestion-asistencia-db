@@ -24,7 +24,8 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_estudiante_en_grupo_interno]
     @codigoEstado            NVARCHAR(10) = 'A',
     @mensajeUsuarioResultado NVARCHAR(4000) OUTPUT,
     @mensajeTecnicoResultado NVARCHAR(4000) OUTPUT,
-    @estadoResultado         BIT OUTPUT
+    @estadoResultado         BIT OUTPUT,
+    @idProgramaElegido       UNIQUEIDENTIFIER = NULL   -- CULM-001 B2NM: programa para grupos con varios programas
 )
 AS
     -- 1. Estandarización e inicialización de variables utilizando funciones de catálogo (Sin ISNULL)
@@ -116,6 +117,21 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
+        -- PASO 3.7 (CULM-001 B2NM, DEC-020/R7): toda matricula (alta o reactivacion) tiene EstudiantePrograma en un programa del grupo.
+        IF @estadoResultado = 1
+        BEGIN
+            DECLARE @idProgramaAsegurado UNIQUEIDENTIFIER;
+            EXEC dbo.usp_internal_asegurar_estudiante_programa_grupo
+                @idEstudiante = @idEstudianteDefecto,
+                @idGrupo = @idGrupoDefecto,
+                @idProgramaElegido = @idProgramaElegido,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @idProgramaResultado = @idProgramaAsegurado OUTPUT,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
+
         -- PASO 3.8 (CULM-001 A.1, DEC-009): reactivar la matricula retirada (misma fila) si existe.
         IF @estadoResultado = 1
         BEGIN
@@ -144,22 +160,7 @@ BEGIN
         -- PASO 4: Inscripcion en el programa (comun al alta y a la reactivacion) e insercion del alta en dbo.EstudianteGrupo
         IF @estadoResultado = 1 
         BEGIN
-            DECLARE @idProgramaGrupo UNIQUEIDENTIFIER;
-            SELECT TOP 1 @idProgramaGrupo = pe.programa 
-            FROM dbo.Grupo g 
-            INNER JOIN dbo.Asignatura a ON g.asignatura = a.id
-            -- HU008 (regla de John 2026-10-27): solo una asignatura ESPECIFICA (componente ESP) inscribe al estudiante
-            -- en el programa; las transversales (BAS/INS) no crean fila en EstudiantePrograma.
-            INNER JOIN dbo.Componente comp ON comp.id = a.componente AND comp.codigo = 'ESP'
-            INNER JOIN dbo.SemestrePlanEstudio sp ON a.semestrePlanEstudio = sp.id
-            INNER JOIN dbo.PlanEstudio pe ON sp.planEstudio = pe.id
-            WHERE g.id = @idGrupoDefecto;
-
-            IF @idProgramaGrupo IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.EstudiantePrograma WHERE estudiante = @idEstudianteDefecto AND programa = @idProgramaGrupo)
-            BEGIN
-                INSERT INTO dbo.EstudiantePrograma (id, estudiante, programa)
-                VALUES (NEWID(), @idEstudianteDefecto, @idProgramaGrupo);
-            END
+            -- (La regla ESP de HU008 fue reemplazada por R7: el vinculo se garantiza en el PASO 3.7.)
 
             IF @reactivada = 0
             BEGIN

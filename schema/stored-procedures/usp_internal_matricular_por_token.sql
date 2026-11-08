@@ -153,6 +153,17 @@ BEGIN
            )
             SET @codigoRechazo = 'MQR_004';
 
+        DECLARE @programaVentana UNIQUEIDENTIFIER = (SELECT t.programaPorDefecto FROM dbo.TokenMatriculaGrupo t WHERE t.id = @idVentana);
+        -- CULM-001 B2NM (S3 minimo): grupo multiprograma sin programaPorDefecto en la ventana y sin vinculo previo -> MQR_008,
+        -- antes de crear usuario o matricula.
+        IF @estadoResultado = 1 AND @codigoRechazo IS NULL
+           AND (SELECT COUNT(*) FROM dbo.ufn_programas_grupo(@idGrupo)) > 1
+           AND (SELECT t.programaPorDefecto FROM dbo.TokenMatriculaGrupo t WHERE t.id = @idVentana) IS NULL
+           AND NOT EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep
+                           INNER JOIN dbo.ufn_programas_grupo(@idGrupo) pg ON pg.idPrograma = ep.programa
+                           WHERE ep.estudiante = @idEstudianteTarget)
+            SET @codigoRechazo = 'MQR_008';
+
         -- Cupo, antes de crear nada
         IF @estadoResultado = 1 AND @codigoRechazo IS NULL
         BEGIN
@@ -234,6 +245,7 @@ BEGIN
                     @idGrupo = @idGrupo,
                     @idCorrelacion = @idCorrelacionDefecto,
                     @codigoEstado = @codigoMatricula,
+                    @idProgramaElegido = @programaVentana,
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                     @estadoResultado = @estadoResultado OUTPUT;

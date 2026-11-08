@@ -113,7 +113,11 @@ BEGIN TRY
     DECLARE @hoy DATE = CAST(SYSUTCDATETIME() AS DATE);
     INSERT INTO dbo.PlanEstudio (id, programa, inp, estado) VALUES (@plan, @p1, 900000 + ABS(CHECKSUM(NEWID()) % 99999), 1);
     INSERT INTO dbo.SemestrePlanEstudio (id, planEstudio, semestre) VALUES (@spe, @plan, @sem);
-    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, semestrePlanEstudio, estado) VALUES (@asig, CONCAT(N'QA', @sufijo), N'Asignatura QA', 3, @area, @comp, @spe, 1);
+    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, estado) VALUES
+        (@asig, CONCAT(N'QA', @sufijo), N'Asignatura QA', 3, @area, @comp, 1);
+    -- CULM-001 B2NM (CONTRACT B2 tabla de pruebas existentes, fila 109): el vinculo asignatura-plan vive en AsignaturaPlanEstudio
+    INSERT INTO dbo.AsignaturaPlanEstudio (id, asignatura, semestrePlanEstudio, caracter, estaActivo, fechaVinculacionUtc) VALUES
+        (NEWID(), @asig, @spe, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01');
     INSERT INTO dbo.PeriodoAcademico (id, institucion, nombre, codigo, fechaInicio, fechaFin, anio) VALUES (@perVencido, @idInstitucion, N'QA vencido', 910001, DATEADD(DAY, -400, @hoy), DATEADD(DAY, -300, @hoy), YEAR(@hoy) - 1);
     INSERT INTO dbo.PeriodoAcademico (id, institucion, nombre, codigo, fechaInicio, fechaFin, anio) VALUES (@per, @idInstitucion, N'QA vigente', 910002, DATEADD(DAY, -30, @hoy), DATEADD(DAY, 60, @hoy), YEAR(@hoy));
     INSERT INTO dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron, cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)

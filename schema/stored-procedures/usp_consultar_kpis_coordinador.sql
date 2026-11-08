@@ -14,14 +14,15 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_kpis_coordinador]
     @idUsuarioEjecutor  UNIQUEIDENTIFIER,
     @idCorrelacion      UNIQUEIDENTIFIER,
     @idPeriodoAcademico UNIQUEIDENTIFIER = NULL
-)
+,
+    @idPrograma UNIQUEIDENTIFIER = NULL)
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    DECLARE @idPrograma UNIQUEIDENTIFIER, @idPeriodo UNIQUEIDENTIFIER;
+    DECLARE @idPeriodo UNIQUEIDENTIFIER;
     -- PASO 1: Resolver ambito del ejecutor (usp_resolver_programa_coordinador_interno)
-    EXEC dbo.usp_resolver_programa_coordinador_interno @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacion, @validarUmbrales = 1, @idPrograma = @idPrograma OUTPUT;
+    EXEC dbo.usp_resolver_programa_coordinador_interno @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacion, @validarUmbrales = 1, @idPrograma = @idPrograma OUTPUT, @idProgramaSolicitado = @idPrograma;
     -- PASO 2: Resolver ambito del ejecutor (usp_resolver_periodo_kpi_interno)
     EXEC dbo.usp_resolver_periodo_kpi_interno @idPrograma = @idPrograma, @idPeriodoSolicitado = @idPeriodoAcademico, @idPeriodo = @idPeriodo OUTPUT;
 
@@ -38,7 +39,7 @@ BEGIN
         FROM (
                 SELECT  r.idEstudiante,
                         peor = MAX(CASE r.codigoPermanencia WHEN N'PERDIDA' THEN 3 WHEN N'RIESGO' THEN 2 ELSE 1 END)
-                FROM    dbo.uv_resumen_asistencia_estudiante_grupo r
+                FROM    dbo.uv_resumen_asistencia_estudiante_programa_grupo r
                 WHERE   r.idPrograma = @idPrograma AND r.idPeriodoAcademico = @idPeriodo AND r.codigoEstadoEstudiante = N'A'
                 GROUP BY r.idEstudiante
              ) x;
@@ -49,7 +50,7 @@ BEGIN
                 @sinRegistro = ISNULL(SUM(IIF(c.estaVencida = 1 AND c.tieneRegistroAsistencia = 0, 1, 0)), 0),
                 @sinProcedencia = ISNULL(SUM(IIF(c.procedenciaIndeterminada = 1, 1, 0)), 0)
         FROM    dbo.uv_cumplimiento_sesion_grupo c
-        WHERE   c.idPrograma = @idPrograma AND c.idPeriodoAcademico = @idPeriodo;
+        WHERE   EXISTS (SELECT 1 FROM dbo.uv_grupo_programa gp WHERE gp.idGrupo = c.idGrupo AND gp.idPrograma = @idPrograma) AND c.idPeriodoAcademico = @idPeriodo;
     END
 
     -- PASO 4: Consulta y retorno de resultados

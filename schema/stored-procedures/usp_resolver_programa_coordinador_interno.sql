@@ -15,7 +15,8 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_resolver_programa_coordinador_interno]
     @idUsuarioEjecutor UNIQUEIDENTIFIER,
     @idCorrelacion     UNIQUEIDENTIFIER,
     @validarUmbrales   BIT = 1,
-    @idPrograma        UNIQUEIDENTIFIER OUTPUT
+    @idPrograma        UNIQUEIDENTIFIER OUTPUT,
+    @idProgramaSolicitado UNIQUEIDENTIFIER = NULL
 )
 AS
 BEGIN
@@ -48,11 +49,31 @@ BEGIN
         THROW 51000, @mensajeTecnicoResultado, 1;
     END
 
-    SELECT TOP 1 @idPrograma = p.id
-    FROM dbo.uv_programa p
-    INNER JOIN dbo.uv_coordinador_identidad ci ON ci.id = p.idCoordinador
-    WHERE ci.idUsuario = @idUsuarioEjecutor
-    ORDER BY p.estaActivoPrograma DESC, p.nombrePrograma ASC, p.id ASC;
+    -- CULM-001 B2NM (R8, S4): sin TOP 1. Con @idProgramaSolicitado se valida que sea de su coordinacion (COO_003); sin el:
+    -- un programa -> ese; varios -> COO_002; ninguno -> KPI_001.
+    DECLARE @totalProgramasCoordinador INT = (SELECT COUNT(*) FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutor));
+    IF @idProgramaSolicitado IS NOT NULL
+    BEGIN
+        SELECT @idPrograma = x.idPrograma FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutor) x WHERE x.idPrograma = @idProgramaSolicitado;
+        IF @idPrograma IS NULL AND @totalProgramasCoordinador > 0
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'COO_003',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            THROW 51000, @mensajeTecnicoResultado, 1;
+        END
+    END
+    ELSE IF @totalProgramasCoordinador = 1
+        SELECT @idPrograma = x.idPrograma FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutor) x;
+    ELSE IF @totalProgramasCoordinador > 1
+    BEGIN
+        EXEC dbo.usp_obtener_mensaje_catalogo
+            @p_codigo = 'COO_002',
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+        THROW 51000, @mensajeTecnicoResultado, 1;
+    END
 
     IF @idPrograma IS NULL
     BEGIN

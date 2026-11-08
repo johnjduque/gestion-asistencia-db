@@ -87,7 +87,7 @@ BEGIN TRY
     DECLARE @idAsig UNIQUEIDENTIFIER, @idProgAsig UNIQUEIDENTIFIER, @uCoordAsig UNIQUEIDENTIFIER;
     SELECT TOP 1 @idAsig = a.id, @idProgAsig = pe.idPrograma
     FROM dbo.uv_asignatura a
-    INNER JOIN dbo.uv_semestre_plan_estudio spe ON a.idSemestrePlanEstudio = spe.id
+    INNER JOIN dbo.uv_asignatura_plan_estudio apx ON apx.idAsignatura = a.id INNER JOIN dbo.uv_semestre_plan_estudio spe ON apx.idSemestrePlanEstudio = spe.id
     INNER JOIN dbo.uv_plan_estudio pe ON spe.idPlanEstudio = pe.id
     INNER JOIN dbo.uv_programa pr ON pe.idPrograma = pr.id AND pr.idCoordinador IS NOT NULL;
     SELECT @uCoordAsig = ci.idUsuario FROM dbo.uv_programa pr INNER JOIN dbo.uv_coordinador_identidad ci ON ci.id = pr.idCoordinador WHERE pr.id = @idProgAsig;

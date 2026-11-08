@@ -20,11 +20,11 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_resumen_docentes_programa]
 (
     @idUsuarioEjecutor UNIQUEIDENTIFIER,
     @idCorrelacion     UNIQUEIDENTIFIER
-)
+,
+    @idPrograma UNIQUEIDENTIFIER = NULL)
 AS
 
     -- REC4 (estilo): variables declaradas en la cabecera; las que dependen de un paso previo se asignan con SET en ese paso.
-    DECLARE @idPrograma UNIQUEIDENTIFIER;
 
 BEGIN
     SET NOCOUNT ON;
@@ -34,7 +34,7 @@ BEGIN
         @idUsuarioEjecutor = @idUsuarioEjecutor,
         @idCorrelacion = @idCorrelacion,
         @validarUmbrales = 0,
-        @idPrograma = @idPrograma OUTPUT;
+        @idPrograma = @idPrograma OUTPUT, @idProgramaSolicitado = @idPrograma;
 
     -- PASO 2: Consulta y retorno de resultados
     SELECT

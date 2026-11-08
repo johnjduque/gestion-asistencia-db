@@ -12,7 +12,7 @@ DECLARE @tipoCC UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_tipo_identificac
 DECLARE @idAsig UNIQUEIDENTIFIER, @idProg UNIQUEIDENTIFIER, @uCoord UNIQUEIDENTIFIER;
 SELECT TOP 1 @idAsig = a.id, @idProg = pe.idPrograma
 FROM dbo.uv_asignatura a
-INNER JOIN dbo.uv_semestre_plan_estudio spe ON a.idSemestrePlanEstudio = spe.id
+INNER JOIN dbo.uv_asignatura_plan_estudio apx ON apx.idAsignatura = a.id INNER JOIN dbo.uv_semestre_plan_estudio spe ON apx.idSemestrePlanEstudio = spe.id
 INNER JOIN dbo.uv_plan_estudio pe ON spe.idPlanEstudio = pe.id AND pe.estaActivoPlanEstudio = 1
 INNER JOIN dbo.uv_programa pr ON pe.idPrograma = pr.id AND pr.idCoordinador IS NOT NULL
 WHERE a.estaActivaAsignatura = 1;
@@ -34,13 +34,13 @@ BEGIN TRY
     VALUES (NEWID(), @d1, @idProg, @tvCat, 1, SYSUTCDATETIME());
 
     CREATE TABLE #o (idDocente UNIQUEIDENTIFIER, idAsignatura UNIQUEIDENTIFIER, codigoAsignatura NVARCHAR(50), nombreAsignatura NVARCHAR(200),
-                     idPrograma UNIQUEIDENTIFIER, nombrePrograma NVARCHAR(200));
+                     programas NVARCHAR(1000));   -- CULM-001 B2NM (CONTRACT B2 fila 16): 1 fila por asignatura con programas
 
     -- 1. El docente vinculado ve las asignaturas activas del programa y su propio idDocente
     INSERT INTO #o EXEC dbo.usp_consultar_oferta_creacion_grupo_docente @idUsuarioEjecutor = @uD1, @idCorrelacion = @corr;
-    IF NOT EXISTS (SELECT 1 FROM #o WHERE idAsignatura = @idAsig AND idDocente = @d1 AND idPrograma = @idProg)
+    IF NOT EXISTS (SELECT 1 FROM #o WHERE idAsignatura = @idAsig AND idDocente = @d1 AND programas IS NOT NULL)
         THROW 53301, 'TEACHER_OFFER_LINKED FAILED: debio incluir la asignatura activa de su programa con su idDocente.', 1;
-    IF EXISTS (SELECT 1 FROM #o WHERE idPrograma <> @idProg OR idDocente <> @d1)
+    IF EXISTS (SELECT 1 FROM #o WHERE idDocente <> @d1)
         THROW 53302, 'TEACHER_OFFER_LINKED FAILED: solo debe devolver asignaturas de sus programas y su idDocente.', 1;
     IF EXISTS (SELECT 1 FROM #o o INNER JOIN dbo.uv_asignatura a ON a.id = o.idAsignatura WHERE a.estaActivaAsignatura = 0)
         THROW 53303, 'TEACHER_OFFER_LINKED FAILED: no debe devolver asignaturas inactivas.', 1;

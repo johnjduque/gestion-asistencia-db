@@ -75,12 +75,11 @@ BEGIN
         OR EXISTS (
             SELECT 1
             FROM dbo.Grupo g
-            INNER JOIN dbo.Asignatura a ON a.id = g.asignatura
-            INNER JOIN dbo.SemestrePlanEstudio spe ON spe.id = a.semestrePlanEstudio
-            INNER JOIN dbo.PlanEstudio pe ON pe.id = spe.planEstudio
-            INNER JOIN dbo.Programa pr ON pr.id = pe.programa
+            INNER JOIN dbo.uv_grupo_programa gpx ON gpx.idGrupo = g.id   -- CULM-001 B2NM: vigencia S1
+            INNER JOIN dbo.Programa pr ON pr.id = gpx.idPrograma
             INNER JOIN dbo.Coordinador c ON c.id = pr.coordinador
             WHERE g.id = @idGrupo AND c.usuario = @idUsuarioEjecutor
+              AND EXISTS (SELECT 1 FROM dbo.EstudiantePrograma epx WHERE epx.estudiante = @idEstudiante AND epx.programa = pr.id)
         )
             SET @enAmbito = 1;
 

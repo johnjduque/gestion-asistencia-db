@@ -25,6 +25,7 @@ BEGIN
         fechaExpiracionUtc DATETIME2(0)     NOT NULL,
         fechaCierreUtc     DATETIME2(0)     NULL,
         totalMatriculas    INT              NOT NULL CONSTRAINT DF_TokenMatriculaGrupo_total DEFAULT 0,
+        programaPorDefecto UNIQUEIDENTIFIER NULL,
         CONSTRAINT PK_TokenMatriculaGrupo PRIMARY KEY CLUSTERED (id),
         CONSTRAINT UQ_TokenMatriculaGrupo_tokenHash UNIQUE (tokenHash),
         CONSTRAINT CK_TokenMatriculaGrupo_pin CHECK (pin NOT LIKE N'%[^0-9]%' AND LEN(pin) = 6)
@@ -59,3 +60,7 @@ BEGIN
     WHERE estado = N'ACTIVA';
 END
 GO
+
+-- CULM-001 B2NM (S3 minimo): programa por defecto de la ventana de matricula en grupos multiprograma.
+IF COL_LENGTH('dbo.TokenMatriculaGrupo', 'programaPorDefecto') IS NULL
+    ALTER TABLE dbo.TokenMatriculaGrupo ADD programaPorDefecto UNIQUEIDENTIFIER NULL;

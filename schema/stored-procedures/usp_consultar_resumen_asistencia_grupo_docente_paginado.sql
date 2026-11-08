@@ -82,7 +82,6 @@ BEGIN
         idEstudiante                   = r.idEstudiante,
         idGrupo                        = r.idGrupo,
         idAsignatura                   = r.idAsignatura,
-        idPrograma                     = r.idPrograma,
         idPeriodoAcademico             = r.idPeriodoAcademico,
         codigoEstadoEstudiante         = r.codigoEstadoEstudiante,
         sesionesEjecutadas             = r.sesionesEjecutadas,

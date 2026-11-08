@@ -98,20 +98,20 @@ BEGIN
         -- COORDINADOR: titular del programa de la asignatura del grupo
         IF @estadoResultado = 1 AND @ejecutorEsCoordinador = 1
         BEGIN
-            SELECT TOP 1 @idPrograma = pe.idPrograma
-            FROM dbo.uv_asignatura a
-            INNER JOIN dbo.uv_semestre_plan_estudio spe ON a.idSemestrePlanEstudio = spe.id
-            INNER JOIN dbo.uv_plan_estudio pe ON spe.idPlanEstudio = pe.id
-            WHERE a.id = @idAsignatura;
-
-            EXEC dbo.usp_validar_titularidad_jerarquica_interno
-                @idUsuario = @idUsuarioEjecutorDefecto,
-                @idEntidadPadre = @idPrograma,
-                @tipoEntidadPadre = 'PROGRAMA',
-                @idCorrelacion = @idCorrelacionDefecto,
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-                @estadoResultado = @estadoResultado OUTPUT;
+            -- CULM-001 B2NM (R8, O-N7): sin TOP 1. En un grupo compartido, un coordinador gestiona solo si coordina TODOS los
+            -- programas vigentes del grupo (minimo privilegio, coherente con S2); si no, SEC_002.
+            IF NOT EXISTS (SELECT 1 FROM dbo.ufn_programas_grupo(@idGrupo))
+               OR EXISTS (SELECT idPrograma FROM dbo.ufn_programas_grupo(@idGrupo)
+                          EXCEPT
+                          SELECT idPrograma FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutorDefecto))
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'SEC_002',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
         END
 
         -- DOCENTE: solo el titular del grupo

@@ -152,7 +152,7 @@ IF (SELECT COUNT(*) FROM dbo.uv_auth_grupo) = 0
 IF EXISTS (
     SELECT 1 FROM dbo.uv_auth_grupo ag
     JOIN dbo.Asignatura a ON a.id = ag.idAsignatura
-    JOIN dbo.SemestrePlanEstudio spe ON spe.id = a.semestrePlanEstudio
+    JOIN dbo.AsignaturaPlanEstudio ape_spe ON ape_spe.asignatura = a.id JOIN dbo.SemestrePlanEstudio spe ON spe.id = ape_spe.semestrePlanEstudio
     JOIN dbo.PlanEstudio pe ON pe.id = spe.planEstudio
     JOIN dbo.Programa pr ON pr.id = pe.programa
     JOIN dbo.Facultad f ON f.id = pr.facultad
@@ -257,7 +257,7 @@ IF (SELECT COUNT(*) FROM dbo.uv_auth_grupo) = 0
 IF EXISTS (
     SELECT 1 FROM dbo.uv_auth_grupo ag
     JOIN dbo.Asignatura a ON a.id = ag.idAsignatura
-    JOIN dbo.SemestrePlanEstudio spe ON spe.id = a.semestrePlanEstudio
+    JOIN dbo.AsignaturaPlanEstudio ape_spe ON ape_spe.asignatura = a.id JOIN dbo.SemestrePlanEstudio spe ON spe.id = ape_spe.semestrePlanEstudio
     JOIN dbo.PlanEstudio pe ON pe.id = spe.planEstudio
     JOIN dbo.Programa pr ON pr.id = pe.programa
     WHERE pr.coordinador <> @coordId
