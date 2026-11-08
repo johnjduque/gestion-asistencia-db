@@ -574,6 +574,43 @@ try {
 catch {
     $resultFailures += "CULM001_B2_RUNNER $($_.Exception.Message)"
 }
+# CULM-001 D.3 (D3-09 concurrencia, D3-16 migracion 22) y D.6 (migracion 25) en test/test_culm001_d3.ps1.
+$culm001D3Ids = @('CULM001_D3_09_CONCURRENCIA', 'CULM001_D3_16_MIG_UP_DOWN_UP', 'CULM001_D6_MIG_01_UP_DOWN_UP')
+try {
+    $culm001D3Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d3.ps1') -ContainerName $ContainerName -Password $Password 2>&1 | ForEach-Object { "$_" })
+    foreach ($line in $culm001D3Output) { Write-Host $line }
+    foreach ($id in $culm001D3Ids) {
+        if ($culm001D3Output -contains "TEST_PASS:$id") { $clientPassed += $id }
+        else { $resultFailures += "$id not reported by test_culm001_d3.ps1" }
+    }
+}
+catch {
+    $resultFailures += "CULM001_D3_RUNNER $($_.Exception.Message)"
+# CULM-001 D.4: migracion 23 (up/down/up) en test/test_culm001_d4.ps1.
+$culm001D4Ids = @('CULM001_D4_12_UP_DOWN_UP')
+try {
+    $culm001D4Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d4.ps1') -ContainerName $ContainerName -Password $Password 2>&1 | ForEach-Object { "$_" })
+    foreach ($line in $culm001D4Output) { Write-Host $line }
+    foreach ($id in $culm001D4Ids) {
+        if ($culm001D4Output -contains "TEST_PASS:$id") { $clientPassed += $id }
+        else { $resultFailures += "$id not reported by test_culm001_d4.ps1" }
+    }
+}
+catch {
+    $resultFailures += "CULM001_D4_RUNNER $($_.Exception.Message)"
+# CULM-001 D.1: migracion 20 (up/down/up) y proteccion del down (D-RB-01) en test/test_culm001_d1.ps1.
+$culm001D1Ids = @('CULM001_D1_11_UP_DOWN_UP', 'CULM001_D1_RB_01_DOWN_GUARD')
+try {
+    $culm001D1Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d1.ps1') -ContainerName $ContainerName -Password $Password 2>&1 | ForEach-Object { "$_" })
+    foreach ($line in $culm001D1Output) { Write-Host $line }
+    foreach ($id in $culm001D1Ids) {
+        if ($culm001D1Output -contains "TEST_PASS:$id") { $clientPassed += $id }
+        else { $resultFailures += "$id not reported by test_culm001_d1.ps1" }
+    }
+}
+catch {
+    $resultFailures += "CULM001_D1_RUNNER $($_.Exception.Message)"
+}
 # CULM-001 B.2 (B2-CON-01, NB-4): 5 grupos x 40 estudiantes por token a la vez; solo bajo demanda (-Concurrencia).
 if ($Concurrencia) {
     try {
@@ -793,7 +830,27 @@ $criticalIds = @(
     'CULM001_B2_MIG_03_DOWN_RESTAURA', 'CULM001_B2_MIG_01_UP_CON_DATOS', 'CULM001_B2_MIG_02_UP_IDEMPOTENTE',
     'CULM001_B2_MIG_05_DOBLE_DESPLIEGUE', 'CULM001_B2_MIG_04_UP_DOWN_UP_15_16', 'CULM001_B2_MIG_03_COLAPSO_SIN_CONFIRMACION',
     'CULM001_B2_MIG_03_COLAPSO_CONFIRMADO', 'CULM001_B2_SEG_02_FIXTURES_REPETIBLES', 'CULM001_B2_TOM_10_CIERRE_AUTOMATICO_CONCURRENTE',
-    'CULM001_B2_TOM_08_CIERRE_CONCURRENTE'
+    'CULM001_B2_TOM_08_CIERRE_CONCURRENTE',
+    # CULM-001 D.3 y D.6 (test/test_culm001_d3_parametros.sql, test_culm001_d6_auditoria.sql, test/test_culm001_d3.ps1)
+    'CULM001_D3_00_OBJETOS_Y_SEMILLAS', 'CULM001_D3_15_LISTA_BLANCA_COHERENTE', 'CULM001_D3_01_CAMBIO_VALIDO', 'CULM001_D3_14_EFECTO_INMEDIATO',
+    'CULM001_D3_02_RED_PROTEGIDO', 'CULM001_D3_03_GRUPOS_NO_EDITABLES', 'CULM001_D3_04_TIPOS', 'CULM001_D3_05_RANGO', 'CULM001_D3_06_VALORES_PERMITIDOS',
+    'CULM001_D3_07_REGLA_CRUZADA', 'CULM001_D3_08_VERSION_ANTIGUA', 'CULM001_D3_10_MOTIVO_CORTO', 'CULM001_D3_11_VALOR_IGUAL', 'CULM001_D3_12_RBAC',
+    'CULM001_D3_18_MILISEGUNDOS_007', 'CULM001_D3_13_CONSULTA_PAGINADA', 'CULM001_D3_13_HISTORIAL_PAGINADO', 'CULM001_D3_17_DOS_INSTITUCIONES',
+    'CULM001_D3_TRANCOUNT_ZERO', 'CULM001_D3_SEG_01_PERMISOS',
+    'CULM001_D3_09_CONCURRENCIA', 'CULM001_D3_16_MIG_UP_DOWN_UP',
+    'CULM001_D6_00_OBJETOS_Y_SEMILLAS', 'CULM001_D6_04_SIN_FILTROS_NUEVOS', 'CULM001_D6_01_FILTRO_CORRELACION', 'CULM001_D6_02_SOLO_ADMINISTRACION',
+    'CULM001_D6_03_FILTROS_EXCLUYENTES', 'CULM001_D6_05_PARAMETROS_EXPLICITOS', 'CULM001_D6_RBAC', 'CULM001_D6_06_DOS_INSTITUCIONES',
+    'CULM001_D6_TRANCOUNT_ZERO', 'CULM001_D6_MIG_01_UP_DOWN_UP'
+    # CULM-001 D.4 (test/test_culm001_d4_admision.sql, test/test_culm001_d4.ps1)
+    'CULM001_D4_01_ALTA_NUEVA', 'CULM001_D4_02_PERSONA_EXISTENTE', 'CULM001_D4_03_YA_ADMITIDO', 'CULM001_D4_04_PERSONAS_DISTINTAS',
+    'CULM001_D4_05_PROGRAMA_FUERA_DE_AMBITO', 'CULM001_D4_06_CORREO_INSTITUCIONAL', 'CULM001_D4_07_CONTRASENA_INICIAL', 'CULM001_D4_08_RBAC',
+    'CULM001_D4_09_SIN_FILAS_PARCIALES', 'CULM001_D4_10_CORRECCION_POR_JERARQUIA', 'CULM001_D4_11_PROGRAMAS_PAGINADOS',
+    'CULM001_D4_11_ERRORES_DE_VALIDACION', 'CULM001_D4_12_UP_DOWN_UP',
+    # CULM-001 D.1 (test/test_culm001_d1_plazo_justificacion.sql, test/test_culm001_d1.ps1)
+    'CULM001_D1_07_FUNCION', 'CULM001_D1_01_RECIENTE', 'CULM001_D1_02_ULTIMO_DIA', 'CULM001_D1_03_VENCIDA', 'CULM001_D1_04_PARAMETRO',
+    'CULM001_D1_05_V1', 'CULM001_D1_06_PROPIEDAD_ANTES_QUE_PLAZO', 'CULM001_D1_08_PARAMETRO_AUSENTE', 'CULM001_D1_09_FECHA_LOCAL',
+    'CULM001_D1_12_REINTENTO_IDEMPOTENTE', 'CULM001_D1_10_SESIONES_MATERIA_ESTUDIANTE', 'CULM001_D1_10_ERRORES_DE_VALIDACION', 'CULM001_D1_SEG_PERMISOS',
+    'CULM001_D1_03_AUTOCOMMIT', 'CULM001_D1_11_UP_DOWN_UP', 'CULM001_D1_RB_01_DOWN_GUARD'
 )
 if ($Concurrencia) { $criticalIds += 'CULM001_B2_CON_01_5X40' }
 $sqlPasses = @([regex]::Matches($outputStr, '(?m)^TEST_PASS:([A-Z0-9_]+)\s*$') | ForEach-Object { $_.Groups[1].Value })
