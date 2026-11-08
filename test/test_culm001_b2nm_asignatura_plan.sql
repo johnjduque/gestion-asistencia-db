@@ -11,6 +11,7 @@ BEGIN TRY
     DECLARE @coord UNIQUEIDENTIFIER = (SELECT c.usuario FROM dbo.Coordinador c WHERE c.id = 'F1A2B3C4-0000-0000-0000-000000000002');
     DECLARE @corr UNIQUEIDENTIFIER = NEWID(), @programa UNIQUEIDENTIFIER = 'B2C3D4E5-0000-0000-0000-000000000001';
     IF @coord IS NULL THROW 53820, 'TEST FAILED: B2NM semilla de coordinador ausente.', 1;
+    DECLARE @planInexistente UNIQUEIDENTIFIER = NEWID(), @asigNueva UNIQUEIDENTIFIER = NEWID();
     DECLARE @r TABLE (idCorrelacion UNIQUEIDENTIFIER, mu NVARCHAR(4000), mt NVARCHAR(4000), estado BIT);
 
     -- B2NM-01: la asignatura sembrada tiene exactamente 1 vinculo activo OBL y uv_asignatura 1 fila
@@ -21,11 +22,11 @@ BEGIN TRY
     -- B2NM-02: doble asociacion al mismo plan -> ASI_003; caracter invalido -> ASI_007 (se valida primero el vinculo existente)
     DELETE FROM @r; INSERT INTO @r EXEC dbo.usp_asociar_asignatura_plan @idAsignatura = @asig, @idPlanEstudio = @plan, @semestreNumero = 8, @codigoCaracter = N'OPT', @idCorrelacion = @corr, @idUsuarioEjecutor = @coord;
     IF NOT EXISTS (SELECT 1 FROM @r WHERE estado = 0 AND mt LIKE N'%ASI_003%') THROW 53823, 'TEST FAILED: B2NM-02 doble asociacion debe dar ASI_003.', 1;
-    DELETE FROM @r; INSERT INTO @r EXEC dbo.usp_asociar_asignatura_plan @idAsignatura = @asig, @idPlanEstudio = NEWID(), @semestreNumero = 8, @idCorrelacion = @corr, @idUsuarioEjecutor = @coord;
+    DELETE FROM @r; INSERT INTO @r EXEC dbo.usp_asociar_asignatura_plan @idAsignatura = @asig, @idPlanEstudio = @planInexistente, @semestreNumero = 8, @idCorrelacion = @corr, @idUsuarioEjecutor = @coord;
     IF NOT EXISTS (SELECT 1 FROM @r WHERE estado = 0 AND mt LIKE N'%PLA_002%') THROW 53824, 'TEST FAILED: B2NM-02 plan inexistente debe dar PLA_002.', 1;
 
     -- B2NM-02: crear con codigo existente -> ASI_002
-    DELETE FROM @r; INSERT INTO @r EXEC dbo.usp_crear_asignatura @idAsignatura = NEWID(), @codigo = N'ARQ-402', @nombre = N'Duplicada', @creditos = 3, @idPlanEstudio = @plan,
+    DELETE FROM @r; INSERT INTO @r EXEC dbo.usp_crear_asignatura @idAsignatura = @asigNueva, @codigo = N'ARQ-402', @nombre = N'Duplicada', @creditos = 3, @idPlanEstudio = @plan,
         @semestreNumero = 8, @nombreArea = N'x', @nombreComponente = N'x', @idCorrelacion = @corr, @idUsuarioEjecutor = @coord, @codigoCaracter = N'OBL';
     IF NOT EXISTS (SELECT 1 FROM @r WHERE estado = 0 AND mt LIKE N'%ASI_002%') THROW 53825, 'TEST FAILED: B2NM-02 codigo existente debe dar ASI_002.', 1;
 
@@ -52,7 +53,7 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
     IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
-    DECLARE @msg NVARCHAR(2000) = ERROR_MESSAGE();
+    DECLARE @msg NVARCHAR(2000) = CONCAT(ERROR_MESSAGE(), N' [', ISNULL(ERROR_PROCEDURE(), N'lote'), N':', ERROR_LINE(), N']');
     THROW 53899, @msg, 1;
 END CATCH
 IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
