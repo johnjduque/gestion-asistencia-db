@@ -97,7 +97,17 @@ $culm001DNew = @( # CULM-001 D: fuentes nuevas por subpaquete (D.x agrega las su
     'migrations/22_culm001_d3_parametros_editables_down.sql',
     # D.6 auditoria mutaciones admin (HU172)
     'migrations/25_culm001_d6_auditoria_admin_up.sql',
-    'migrations/25_culm001_d6_auditoria_admin_down.sql'
+    'migrations/25_culm001_d6_auditoria_admin_down.sql',
+    # D.5 carga masiva CSV (HU171)
+    'schema/tables/JerarquiaAltaUsuario.sql',
+    'schema/views/uv_jerarquia_alta_usuario.sql',
+    'schema/stored-procedures/usp_validar_carga_masiva_usuarios.sql',
+    'schema/security/rol_asistencias_runtime_culm001_d5.sql',
+    'schema/seed/55_culm001_d5_mensajes.sql',
+    'schema/seed/55_culm001_d5_parametros.sql',
+    'schema/seed/55_culm001_d5_jerarquia.sql',
+    'migrations/24_culm001_d5_carga_masiva_up.sql',
+    'migrations/24_culm001_d5_carga_masiva_down.sql'
 )
 $expectedContractSha = '45e48c5a0ab321d0c8cbffb55ee224e3b6fd29febc39a62ca723b2b209945aec'
 
