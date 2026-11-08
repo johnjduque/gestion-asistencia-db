@@ -234,7 +234,7 @@ CREATE TABLE #eg (id UNIQUEIDENTIFIER, idEstudiante UNIQUEIDENTIFIER, documento 
     codigoEstado NVARCHAR(10), nombreEstado NVARCHAR(100), totalRegistros INT);
 CREATE TABLE #as (asistencia UNIQUEIDENTIFIER, estudiante UNIQUEIDENTIFIER, grupo UNIQUEIDENTIFIER, sesion UNIQUEIDENTIFIER, presente BIT,
     estado NVARCHAR(10), observacion NVARCHAR(500), totalRegistros INT);
-CREATE TABLE #mat (idAsignatura UNIQUEIDENTIFIER, nombreAsignatura NVARCHAR(100), idGrupo UNIQUEIDENTIFIER, nombreGrupo NVARCHAR(100));
+CREATE TABLE #mat (idAsignatura UNIQUEIDENTIFIER, nombreAsignatura NVARCHAR(100), idGrupo UNIQUEIDENTIFIER, nombreGrupo NVARCHAR(100), creditos INT);  -- CULM-001 D.9-a (F-EST-006, CONTRACT §11.1): quinta columna
 CREATE TABLE #hor (id UNIQUEIDENTIFIER, idEstudiante UNIQUEIDENTIFIER, idGrupo UNIQUEIDENTIFIER, codigoMateria NVARCHAR(50), nombreMateria NVARCHAR(100),
     grupo NVARCHAR(100), dia NVARCHAR(50), horaInicio VARCHAR(5), horaFin VARCHAR(5), docente NVARCHAR(400));
 CREATE TABLE #o (idGrupo UNIQUEIDENTIFIER, codigoGrupo INT, nombreGrupo NVARCHAR(50), idAsignatura UNIQUEIDENTIFIER, codigoAsignatura NVARCHAR(50),
