@@ -587,6 +587,19 @@ try {
 catch {
     $resultFailures += "CULM001_D1_RUNNER $($_.Exception.Message)"
 }
+# CULM-001 D.2: migracion 21 (up/down/up), down sin confirmacion y orden de rollback D-RB-01 en test/test_culm001_d2.ps1.
+$culm001D2Ids = @('CULM001_D2_13_UP_DOWN_UP', 'CULM001_D2_13_DOWN_SIN_CONFIRMACION', 'CULM001_D_RB_01_ORDEN_DE_DOWN')
+try {
+    $culm001D2Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d2.ps1') -ContainerName $ContainerName -Password $Password 2>&1 | ForEach-Object { "$_" })
+    foreach ($line in $culm001D2Output) { Write-Host $line }
+    foreach ($id in $culm001D2Ids) {
+        if ($culm001D2Output -contains "TEST_PASS:$id") { $clientPassed += $id }
+        else { $resultFailures += "$id not reported by test_culm001_d2.ps1" }
+    }
+}
+catch {
+    $resultFailures += "CULM001_D2_RUNNER $($_.Exception.Message)"
+}
 # CULM-001 B.2 (B2-CON-01, NB-4): 5 grupos x 40 estudiantes por token a la vez; solo bajo demanda (-Concurrencia).
 if ($Concurrencia) {
     try {
@@ -811,7 +824,12 @@ $criticalIds = @(
     'CULM001_D1_07_FUNCION', 'CULM001_D1_01_RECIENTE', 'CULM001_D1_02_ULTIMO_DIA', 'CULM001_D1_03_VENCIDA', 'CULM001_D1_04_PARAMETRO',
     'CULM001_D1_05_V1', 'CULM001_D1_06_PROPIEDAD_ANTES_QUE_PLAZO', 'CULM001_D1_08_PARAMETRO_AUSENTE', 'CULM001_D1_09_FECHA_LOCAL',
     'CULM001_D1_12_REINTENTO_IDEMPOTENTE', 'CULM001_D1_10_SESIONES_MATERIA_ESTUDIANTE', 'CULM001_D1_10_ERRORES_DE_VALIDACION', 'CULM001_D1_SEG_PERMISOS',
-    'CULM001_D1_03_AUTOCOMMIT', 'CULM001_D1_11_UP_DOWN_UP', 'CULM001_D1_RB_01_DOWN_GUARD'
+    'CULM001_D1_03_AUTOCOMMIT', 'CULM001_D1_11_UP_DOWN_UP', 'CULM001_D1_RB_01_DOWN_GUARD',
+    # CULM-001 D.2 (test/test_culm001_d2_soportes_categoria.sql, test/test_culm001_d2.ps1)
+    'CULM001_D2_01_TRES_SOPORTES', 'CULM001_D2_02_MAXIMO', 'CULM001_D2_03_DUPLICADO', 'CULM001_D2_04_SOPORTE_NO_UTILIZABLE', 'CULM001_D2_05_SOPORTE_OBLIGATORIO',
+    'CULM001_D2_06_CODIGO_Y_NOMBRE', 'CULM001_D2_07_CATEGORIA_INEXISTENTE', 'CULM001_D2_08_V2', 'CULM001_D2_09_DESCARGA_DE_CADA_SOPORTE', 'CULM001_D2_10_CONSULTAS',
+    'CULM001_D2_12_PLAZO_VENCIDO', 'CULM001_D2_15_REINTENTO_IDEMPOTENTE', 'CULM001_D2_CFG_CONFIGURACION', 'CULM001_D2_16_SIN_INSERT_EXEC', 'CULM001_D2_14_TD_059',
+    'CULM001_D2_SEG_PERMISOS', 'CULM001_D2_13_UP_DOWN_UP', 'CULM001_D2_13_DOWN_SIN_CONFIRMACION', 'CULM001_D_RB_01_ORDEN_DE_DOWN'
 )
 if ($Concurrencia) { $criticalIds += 'CULM001_B2_CON_01_5X40' }
 $sqlPasses = @([regex]::Matches($outputStr, '(?m)^TEST_PASS:([A-Z0-9_]+)\s*$') | ForEach-Object { $_.Groups[1].Value })
