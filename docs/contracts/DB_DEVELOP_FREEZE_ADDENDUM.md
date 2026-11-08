@@ -124,3 +124,13 @@ NEXT AUTHORIZED PHASE:                 LB-002.1C-B1 - BACKEND AS-IS CONTRACT ANA
 - **Cambio de comportamiento de lectura (DEC-022 §3):** la lista de sesiones de la materia del estudiante solo devuelve grupos con la matrícula `MATRICULA/ESTADO_INSCRITA`; con `I`, `CI`, `CVP` o `F` devuelve 0 filas.
 - **LB-004D:** cambian `usp_radicar_solicitud_revision_asistencia_v2.sql`, `test_lb004d_support_binding.sql` (la fixture usa «ayer» en lugar de una fecha fija ya vencida) y `test_lb004d_concurrency.ps1` (crea y elimina una sesión reciente propia); sus líneas del manifiesto se regeneran en el mismo commit (DEC-044 (11)).
 - **Pruebas:** `test/test_culm001_d1_plazo_justificacion.sql` (D1-01…D1-10, D1-12), `test/test_culm001_d1.ps1` (D1-11 up→down→up y D-RB-01).
+
+## CULM-001 — Sincronización y regeneración de drift previo post-freeze (2026-11-08)
+
+- **Objetos:** `schema/stored-procedures/usp_generar_sesiones_grupo.sql` y `schema/stored-procedures/usp_registrar_asistencias_sesion.sql`.
+- **Aprobación:** Decisiones DEC-036, DEC-042 y DEC-054 del proyecto CULM-001.
+- **Justificación:** Se armonizan y regeneran en `DB_DEVELOP_FREEZE_MANIFEST.sha256` las firmas criptográficas de los dos procedimientos almacenados con drift previo a CULM-001 provenientes de REC3 (`ef9de7e924642d1a1bdbc4ad99f5404f71e194493e6547f67c26d3b3dfbe1af3`, `XACT_STATE() <> 0` y `XACT_ABORT ON`) y SES-01 (`7217604b12e60c96cc1a212f579ff14e9334581a3b5ddcaf5ad353912d927a44`, ventana estricta de registro de asistencia), alineando el manifiesto base con la paridad cruzada verificada por `AsistenciasUCO-Infra/scripts/quality/verify-contracts.ps1`.
+- **Manifiesto:** `DB_DEVELOP_FREEZE_MANIFEST.sha256` actualiza:
+  - `schema/stored-procedures/usp_generar_sesiones_grupo.sql` -> `ef9de7e924642d1a1bdbc4ad99f5404f71e194493e6547f67c26d3b3dfbe1af3`
+  - `schema/stored-procedures/usp_registrar_asistencias_sesion.sql` -> `7217604b12e60c96cc1a212f579ff14e9334581a3b5ddcaf5ad353912d927a44`
+
