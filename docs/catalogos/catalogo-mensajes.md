@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **272**.
+Total de códigos: **275**.
 
 ## ADS
 
@@ -141,6 +141,7 @@ Total de códigos: **272**.
 | `DEC_001` | BUSINESS_ERROR | MEDIO | El decano especificado no existe en el sistema. | Error de búsqueda: No se encontró el decano en uv_decano_identidad: {}. | `04_mensaje.sql` |
 | `DEC_002` | BUSINESS_ERROR | ALTO | No se puede desactivar al decano de una facultad con programas activos. | Regla: el decano [{}] dirige una facultad con el programa activo [{}]; no se desactiva. | `33_culm001_a_mensajes.sql` |
 | `DEC_003` | SUCCESS | BAJO | Se actualizó el estado del decano. | Actualizacion: Decano.estado del decano [{}] actualizado (regla D1 aplicada a Usuario.estado). | `33_culm001_a_mensajes.sql` |
+| `DEC_020` | BUSINESS_ERROR | MEDIO | La persona ya está registrada como decano. | Regla: la persona ya tiene un registro de Decano activo (Decano.estado = 1); sin escrituras. | `59_culm001_d9_mensajes.sql` |
 
 ## DOC
 
@@ -300,6 +301,8 @@ Total de códigos: **272**.
 | `NTF_007` | SUCCESS | BAJO | La notificación fallida fue reencolada exitosamente para un nuevo intento de envío. | La notificación fallida fue reencolada exitosamente para un nuevo intento de envío. | `04_mensaje.sql` |
 | `NTF_008` | BUSINESS_ERROR | MEDIO | Solo se pueden reencolar notificaciones en estado fallido definitivo o reintentable. | Solo se pueden reencolar notificaciones en estado fallido definitivo o reintentable. | `04_mensaje.sql` |
 | `NTF_009` | SUCCESS | BAJO | Correo de prueba encolado correctamente. | Correo de prueba encolado correctamente. | `04_mensaje.sql` |
+| `NTF_020` | BUSINESS_ERROR | MEDIO | La notificación no existe. | Ambito: NotificacionSaliente no tiene una fila con el identificador recibido; sin escrituras. | `59_culm001_d9_mensajes.sql` |
+| `NTF_021` | BUSINESS_ERROR | MEDIO | El tipo de plantilla no existe. | Regla: PlantillaNotificacion no tiene el tipo recibido; sin escrituras. | `59_culm001_d9_mensajes.sql` |
 
 ## PAG
 

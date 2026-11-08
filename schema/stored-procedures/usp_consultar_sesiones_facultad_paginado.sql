@@ -10,6 +10,8 @@ GO
 --
 -- Sesiones programadas en los grupos de la facultad del decano ejecutor, ordenadas por fecha, con filtro
 -- opcional por rango de fechas (dias completos, ambos inclusive) y programa.
+-- CULM-001 D.9-a (F-DEC-014): @idGrupo = NULL filtra por grupo en el SP; un grupo inexistente o sin programas en la facultad del
+-- decano devuelve SEC_002 (403) por THROW, igual que usp_consultar_grupo_facultad_detalle.
 --
 -- Resultset: READ_QUERY_RESULTSET (filas + totalRegistros), NO el resultset canonico de 4 columnas
 -- de los comandos. Las fallas de paginacion se propagan con THROW (DBCODE=PAG_001).
@@ -25,7 +27,8 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_sesiones_facultad_paginado]
     @tamanoPagina       INT,
     @fechaDesde         DATE             = NULL,
     @fechaHasta         DATE             = NULL,
-    @idPrograma         UNIQUEIDENTIFIER = NULL
+    @idPrograma         UNIQUEIDENTIFIER = NULL,
+    @idGrupo            UNIQUEIDENTIFIER = NULL
 )
 AS
 BEGIN
@@ -78,6 +81,21 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        IF @estadoResultado = 1 AND @idGrupo IS NOT NULL
+           AND NOT EXISTS (SELECT 1
+                           FROM dbo.uv_grupo_programa gp
+                           INNER JOIN dbo.uv_programa x ON x.id = gp.idPrograma
+                           WHERE gp.idGrupo = @idGrupo
+                             AND x.idFacultad IN (SELECT f.id FROM dbo.Facultad f INNER JOIN dbo.Decano d ON d.id = f.decano WHERE d.usuario = @idUsuarioDefecto))
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'SEC_002',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @estadoResultado = 0;
+        END
+
         IF @estadoResultado = 0
         BEGIN
             THROW 51000, @mensajeTecnicoResultado, 1;
@@ -111,7 +129,8 @@ BEGIN
         INNER JOIN dbo.uv_sesion_estado se ON se.idSesion = s.id
         INNER JOIN dbo.uv_auth_grupo g ON g.id = s.idGrupo
         -- CULM-001 B2NM (R5): 1 fila por sesion; el ambito es un EXISTS sobre los programas del grupo en la facultad del decano.
-        WHERE EXISTS (SELECT 1
+        WHERE (@idGrupo IS NULL OR s.idGrupo = @idGrupo)
+          AND EXISTS (SELECT 1
                       FROM dbo.uv_grupo_programa gp
                       INNER JOIN dbo.uv_programa x ON x.id = gp.idPrograma
                       WHERE gp.idGrupo = s.idGrupo
