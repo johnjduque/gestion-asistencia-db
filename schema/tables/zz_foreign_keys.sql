@@ -450,3 +450,15 @@ BEGIN
     ALTER TABLE [dbo].[CambioParametro] ADD CONSTRAINT [FK_CambioParametro_Usuario] FOREIGN KEY ([idUsuarioEjecutor]) REFERENCES [dbo].[Usuario] ([id]);
 END
 GO
+
+-- CULM-001 D.5 (CONTRACT §6.3, HU171): JerarquiaAltaUsuario -> Perfil
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_JerarquiaAltaUsuario_PerfilEjecutor')
+BEGIN
+    ALTER TABLE [dbo].[JerarquiaAltaUsuario] ADD CONSTRAINT [FK_JerarquiaAltaUsuario_PerfilEjecutor] FOREIGN KEY ([perfilEjecutor]) REFERENCES [dbo].[Perfil] ([id]);
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_JerarquiaAltaUsuario_PerfilDestino')
+BEGIN
+    ALTER TABLE [dbo].[JerarquiaAltaUsuario] ADD CONSTRAINT [FK_JerarquiaAltaUsuario_PerfilDestino] FOREIGN KEY ([perfilDestino]) REFERENCES [dbo].[Perfil] ([id]);
+END
+GO
