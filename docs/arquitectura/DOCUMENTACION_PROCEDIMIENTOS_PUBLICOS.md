@@ -130,24 +130,7 @@ Esta documentación especifica la arquitectura, reglas de negocio, contrato de f
 ---
 
 ### 4. `dbo.usp_registrar_asistencia_estudiante_autonomo`
-- **Caso de Uso de Negocio**: Endpoint público para la auto-gestión de asistencia estudiantil mediante código dinámico. Permite que un estudiante confirme de forma autónoma su asistencia a una sesión de clase validando el código temporal emitido.
-- **Parámetros de Entrada**:
-  - `@idEstudiante UNIQUEIDENTIFIER`: ID del estudiante.
-  - `@idSesion UNIQUEIDENTIFIER`: ID de la sesión de clase.
-  - `@codigoVerificacion NVARCHAR(50)`: Código dinámico ingresado por el estudiante.
-  - `@idCorrelacion UNIQUEIDENTIFIER`: ID de correlación de trazabilidad.
-- **Resultset Devuelto**:
-  - `idCorrelacion UNIQUEIDENTIFIER`
-  - `mensajeUsuarioResultado NVARCHAR(4000)`
-  - `mensajeTecnicoResultado NVARCHAR(4000)`
-  - `estadoResultado BIT`
-- **Procedimientos Internos y Vistas Invocados**:
-  - `dbo.usp_validar_id_correlacion_esta_presente_interno`
-  - `dbo.usp_validar_sesion_exista_por_id_interno`
-  - `dbo.usp_validar_estudiante_pertenece_a_grupo_de_sesion_interno`
-  - `dbo.Sesion`
-  - `dbo.usp_sincronizar_asistencia_estudiante_interno`
-- **Códigos del Catálogo Consumidos**: `VAL_007`, `GEN_004`, `SYS_001`.
+> **ELIMINADO (CULM-001 D.7, 2026-11-08):** este objeto se retiró de `schema/` (migración `migrations/26_culm001_d7_retiro_registro_autonomo_up.sql`, cierra TD-009 y retira `POST /api/v1/asistencias`). La asistencia se registra con `usp_registrar_asistencias_sesion` (lote), `usp_registrar_asistencias_toma` y `usp_registrar_asistencia_por_token` (B.2).
 
 ---
 

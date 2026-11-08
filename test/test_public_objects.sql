@@ -159,16 +159,14 @@ PRINT 'TEST_PASS:CULM001_B1_SEG_01_PERMISOS';
 GO
 
 -- CULM-001 B.2 (CONTRACT §2.13, B2-SEG-01): los SP publicos de B.2 tienen EXECUTE para rol_asistencias_runtime; los nucleos
--- usp_internal_* no; las vistas nuevas de B.2 tienen SELECT; usp_registrar_asistencia_estudiante_autonomo CONSERVA su
--- EXECUTE (B no lo revoca: el REVOKE/DROP pasa al paquete D, [SUPUESTO-B-18]).
+-- usp_internal_* no; las vistas nuevas de B.2 tienen SELECT. (usp_registrar_asistencia_estudiante_autonomo se retiro en CULM-001 D.7.)
 DECLARE @b2Faltantes NVARCHAR(MAX) = (
     SELECT STRING_AGG(o.nombre, N',')
     FROM (VALUES (N'usp_abrir_toma_asistencia'), (N'usp_cerrar_toma_asistencia'), (N'usp_cerrar_tomas_vencidas'), (N'usp_registrar_asistencias_toma'),
                  (N'usp_abrir_qr_toma'), (N'usp_rotar_token_asistencia_toma'), (N'usp_rotar_token_asistencia_automatico'),
                  (N'usp_consultar_tomas_qr_por_rotar'), (N'usp_cerrar_qr_toma'), (N'usp_registrar_asistencia_por_token'),
                  (N'usp_consultar_tomas_sesion'), (N'usp_consultar_faltantes_toma_paginado'), (N'usp_consultar_asistencias_toma_paginado'),
-                 (N'usp_consultar_resumen_asistencia_grupo_docente_paginado'), (N'usp_consultar_resumen_asistencia_estudiante'),
-                 (N'usp_registrar_asistencia_estudiante_autonomo')) o(nombre)
+                 (N'usp_consultar_resumen_asistencia_grupo_docente_paginado'), (N'usp_consultar_resumen_asistencia_estudiante')) o(nombre)
     WHERE NOT EXISTS (
         SELECT 1 FROM sys.database_permissions dp
         WHERE dp.major_id = OBJECT_ID(N'dbo.' + o.nombre) AND dp.permission_name = N'EXECUTE' AND dp.state IN ('G', 'W')

@@ -307,16 +307,7 @@ Contiene la documentación oficial de:
 ---
 
 ### [SP-020] - `dbo.usp_registrar_asistencia_estudiante_autonomo`
-- **Módulo / Alcance:** Control de Asistencia - Registro QR / Token
-- **Propósito de Negocio:** Permite la auto-registración de asistencia por parte del estudiante escaneando un QR/token dinámico de sesión.
-- **Entidades del MER Involucradas:** `Asistencia`, `DetalleAsistencia`, `Sesion`, `Estudiante`.
-- **Flujo Paso a Paso (Paso Reactivo Atómico):**
-  1. Validar la vigencia del token/QR de la sesión.
-  2. Validar que la sesión esté en curso.
-  3. Registrar la asistencia del estudiante con código `AN`.
-- **Reglas de Negocio y Validaciones Específicas:**
-  * Falla si el token ha expirado.
-- **Estado Resultante en la BD:** Registro de asistencia confirmado.
+> **ELIMINADO (CULM-001 D.7, 2026-11-08):** este objeto se retiró de `schema/` (migración `migrations/26_culm001_d7_retiro_registro_autonomo_up.sql`, cierra TD-009 y retira `POST /api/v1/asistencias`). La asistencia se registra con `usp_registrar_asistencias_sesion` (lote), `usp_registrar_asistencias_toma` y `usp_registrar_asistencia_por_token` (B.2).
 
 ---
 

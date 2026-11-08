@@ -51,7 +51,6 @@ DECLARE procedimientos CURSOR LOCAL FAST_FORWARD FOR
         (N'usp_ejecutar_cierre_masivo_periodo'),
         (N'usp_generar_sesiones_grupo'),
         (N'usp_radicar_solicitud_revision_asistencia'),
-        (N'usp_registrar_asistencia_estudiante_autonomo'),
         (N'usp_registrar_asistencias_sesion'),
         (N'usp_registrar_estudiante_en_grupo'),
         (N'usp_resolver_solicitud_revision_asistencia'),

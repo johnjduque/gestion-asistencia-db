@@ -1,3 +1,12 @@
+-- ============================================================================
+-- MIGRACION DOWN 26: CULM-001 D.7 - recrea usp_registrar_asistencia_estudiante_autonomo (CONTRACT D 8.2)
+-- Restaura el texto literal del SP anterior a D.7 (schema/stored-procedures/usp_registrar_asistencia_estudiante_autonomo.sql
+-- en integracion/CULM-001 con A, B.1, B.2 y D.1) y su GRANT EXECUTE para rol_asistencias_runtime. Idempotente (CREATE OR ALTER).
+-- ============================================================================
+:on error exit
+PRINT 'MIGRACION 26 DOWN: recrea el registro autonomo (D.7)';
+GO
+-- ---- schema/stored-procedures/usp_registrar_asistencia_estudiante_autonomo.sql (texto anterior a D.7)
 USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
@@ -214,4 +223,8 @@ BEGIN
         mensajeTecnicoResultado = @mensajeTecnicoResultado,
         estadoResultado = @estadoResultado;
 END;
+GO
+GO
+IF DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime') IS NOT NULL
+    GRANT EXECUTE ON [dbo].[usp_registrar_asistencia_estudiante_autonomo] TO [rol_asistencias_runtime];
 GO

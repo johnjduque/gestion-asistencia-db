@@ -28,7 +28,7 @@ ALTER ROLE [rol_asistencias_runtime] ADD MEMBER [$escapedLogin];
         'usp_cerrar_sesion', 'usp_crear_asignatura', 'usp_crear_coordinador', 'usp_crear_decano',
         'usp_crear_grupo', 'usp_crear_sesion', 'usp_crear_sesion_v2', 'usp_ejecutar_cierre_masivo_periodo',
         'usp_generar_sesiones_grupo', 'usp_radicar_solicitud_revision_asistencia',
-        'usp_registrar_asistencia_estudiante_autonomo', 'usp_registrar_asistencias_sesion',
+        'usp_registrar_asistencias_sesion',
         'usp_registrar_estudiante_en_grupo', 'usp_resolver_solicitud_revision_asistencia',
         'usp_toggle_estado_asignatura'
     )
@@ -39,6 +39,12 @@ ALTER ROLE [rol_asistencias_runtime] ADD MEMBER [$escapedLogin];
     $missing = @($permissionOutput | Where-Object { $_ -match '\|0$' })
     if ($missing.Count -gt 0) {
         throw 'Runtime login lacks an explicit EXECUTE grant for one or more required procedures.'
+    }
+
+    # CULM-001 D.7 (TD-009): el SP autonomo retirado no existe y el login runtime no puede ejecutarlo.
+    $retired = Invoke-SqlCmdInContainer -User $login -Password $loginPassword -Query 'EXEC dbo.usp_registrar_asistencia_estudiante_autonomo;'
+    if ($LASTEXITCODE -eq 0) {
+        throw 'Runtime login unexpectedly executes the retired dbo.usp_registrar_asistencia_estudiante_autonomo.'
     }
 
     Invoke-SqlCmdInContainer -User 'sa' -Password $AdminPassword -Query "IF EXISTS (SELECT 1 FROM sys.database_permissions WHERE grantee_principal_id = DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime') AND class_desc = 'SCHEMA' AND permission_name = 'EXECUTE' AND state_desc LIKE 'GRANT%') THROW 52121, 'Schema-wide EXECUTE grant remains.', 1;" | Out-Null

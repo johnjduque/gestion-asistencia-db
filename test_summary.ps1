@@ -74,10 +74,10 @@ function Invoke-ResultParserSelfTests {
     $id = 'SES01_AUTO_CLOSED'
     $correlation = 'f7f690e0-68cc-45bc-a50e-622056bf23a1'
     $otherCorrelation = '03f3a4c8-1c6e-4bb4-86b9-f968acbda92d'
-    $technical = "DBCODE=SES_008|La sesión está cerrada. Correlacion: $correlation"
-    $row = "$correlation|La sesión ya finalizó.|$technical|0"
+    $technical = "DBCODE=SES_008|La sesiÃ³n estÃ¡ cerrada. Correlacion: $correlation"
+    $row = "$correlation|La sesiÃ³n ya finalizÃ³.|$technical|0"
     $base = @(
-        "TEST_EXPECTED_USER:$id|La sesión ya finalizó."
+        "TEST_EXPECTED_USER:$id|La sesiÃ³n ya finalizÃ³."
         "TEST_EXPECTED_TECH:$id|$technical"
         "TEST_RESULT_BEGIN:$id"
         $row
@@ -92,9 +92,9 @@ function Invoke-ResultParserSelfTests {
         @{ Name = 'STATE_ONLY_FORGERY'; Text = "TEST_STATE_PASS:$id"; Expected = $false; Code = 'SES_008' },
         @{ Name = 'DUPLICATE_ROW'; Text = $base.Replace("$row`nTEST_RESULT_END", "$row`n$row`nTEST_RESULT_END"); Expected = $false; Code = 'SES_008' },
         @{ Name = 'INCOMPLETE_BLOCK'; Text = $base.Replace("TEST_RESULT_END:$id`n", ''); Expected = $false; Code = 'SES_008' },
-        @{ Name = 'WRONG_CATALOG_MESSAGE'; Text = $base.Replace("TEST_EXPECTED_USER:$id|La sesión ya finalizó.", "TEST_EXPECTED_USER:$id|Mensaje de catálogo incorrecto."); Expected = $false; Code = 'SES_008' },
+        @{ Name = 'WRONG_CATALOG_MESSAGE'; Text = $base.Replace("TEST_EXPECTED_USER:$id|La sesiÃ³n ya finalizÃ³.", "TEST_EXPECTED_USER:$id|Mensaje de catÃ¡logo incorrecto."); Expected = $false; Code = 'SES_008' },
         @{ Name = 'WRONG_ERROR_CODE'; Text = $base; Expected = $false; Code = 'SES_007' },
-        @{ Name = 'CORRELATION_MISMATCH'; Text = $base.Replace("$correlation|La sesión ya finalizó.", "$otherCorrelation|La sesión ya finalizó."); Expected = $false; Code = 'SES_008' },
+        @{ Name = 'CORRELATION_MISMATCH'; Text = $base.Replace("$correlation|La sesiÃ³n ya finalizÃ³.", "$otherCorrelation|La sesiÃ³n ya finalizÃ³."); Expected = $false; Code = 'SES_008' },
         @{ Name = 'DUPLICATE_TECH_MARKER'; Text = "$base`nTEST_EXPECTED_TECH:$id|$technical"; Expected = $false; Code = 'SES_008' }
     )
 
@@ -175,7 +175,7 @@ $resultIds = @('STUDENT_DUPLICATE', 'STUDENT_GROUP_NOT_FOUND', 'STUDENT_GROUP_DI
     'GROUP_SCHEDULE_TEACHER_CONFLICT_SAVEPOINT', 'GROUP_SCHEDULE_TEACHER_CONFLICT_OWN_TRANSACTION',
     # SES-01: rechazos por ventana de registro (el SP revierte su savepoint/transaccion)
     'SES01_BULK_BEFORE_START', 'SES01_BULK_EXACT_END', 'SES01_BULK_TWO_HOURS_AFTER', 'SES01_BULK_INDETERMINATE',
-    'SES01_BULK_CLOSED_HISTORY_PRESERVED', 'SES01_AUTO_CLOSED', 'SES01_AUTO_BEFORE_START', 'SES01_AUTO_INDETERMINATE',
+    'SES01_BULK_CLOSED_HISTORY_PRESERVED',
     # CULM-001 B.1 (B1-VEN-04): el lote congelado rechaza una sesion cancelada con SES_010 (revierte su savepoint)
     'CULM001_B1_VEN_04_LOTE_CONGELADO')
 $resultFailures = @()
@@ -186,9 +186,6 @@ $ses01ExpectedErrorCodes = @{
     SES01_BULK_TWO_HOURS_AFTER = 'SES_008'
     SES01_BULK_INDETERMINATE = 'SES_009'
     SES01_BULK_CLOSED_HISTORY_PRESERVED = 'SES_008'
-    SES01_AUTO_CLOSED = 'SES_008'
-    SES01_AUTO_BEFORE_START = 'SES_007'
-    SES01_AUTO_INDETERMINATE = 'SES_009'
     CULM001_B1_VEN_04_LOTE_CONGELADO = 'SES_010'
 }
 foreach ($id in $resultIds) {
@@ -586,6 +583,7 @@ try {
 }
 catch {
     $resultFailures += "CULM001_D3_RUNNER $($_.Exception.Message)"
+}
 # CULM-001 D.4: migracion 23 (up/down/up) en test/test_culm001_d4.ps1.
 $culm001D4Ids = @('CULM001_D4_12_UP_DOWN_UP')
 try {
@@ -598,6 +596,7 @@ try {
 }
 catch {
     $resultFailures += "CULM001_D4_RUNNER $($_.Exception.Message)"
+}
 # CULM-001 D.1: migracion 20 (up/down/up) y proteccion del down (D-RB-01) en test/test_culm001_d1.ps1.
 $culm001D1Ids = @('CULM001_D1_11_UP_DOWN_UP', 'CULM001_D1_RB_01_DOWN_GUARD')
 try {
@@ -623,6 +622,16 @@ try {
 }
 catch {
     $resultFailures += "CULM001_D2_RUNNER $($_.Exception.Message)"
+}
+# CULM-001 D.7: migracion 26 (up/down/up, D7-03) en test/test_culm001_d7.ps1.
+try {
+    $culm001D7Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d7.ps1') -ContainerName $ContainerName -Password $Password 2>&1 | ForEach-Object { "$_" })
+    foreach ($line in $culm001D7Output) { Write-Host $line }
+    if ($culm001D7Output -contains 'TEST_PASS:CULM001_D7_03_UP_DOWN_UP') { $clientPassed += 'CULM001_D7_03_UP_DOWN_UP' }
+    else { $resultFailures += 'CULM001_D7_03_UP_DOWN_UP not reported by test_culm001_d7.ps1' }
+}
+catch {
+    $resultFailures += "CULM001_D7_RUNNER $($_.Exception.Message)"
 }
 # CULM-001 B.2 (B2-CON-01, NB-4): 5 grupos x 40 estudiantes por token a la vez; solo bajo demanda (-Concurrencia).
 if ($Concurrencia) {
@@ -765,11 +774,10 @@ $criticalIds = @(
     'ATTENDANCE_BULK_INVALID_STATE', 'ATTENDANCE_BULK_EXECUTOR_REQUIRED', 'ATTENDANCE_BULK_NON_OWNER',
     'ATTENDANCE_HELPER_CLOSED_CATALOG', 'ATTENDANCE_NO_LEGACY_PUBLIC_STATE',
     'ATTENDANCE_BULK_STUDENT_NOT_IN_GROUP', 'ATTENDANCE_BULK_ATOMIC',
-    'ATTENDANCE_AUTO_SUCCESS', 'ATTENDANCE_AUTO_INVALID',
     # SES-01 (test/test_ses01_ventana_asistencia.sql): ventana [inicio, fin) con reloj del motor y procedencia confirmada
     'SES01_WINDOW_LOCK_HELD', 'SES01_BULK_EXACT_START', 'SES01_BULK_DURING', 'SES01_BULK_JUST_BEFORE_END',
     'SES01_BULK_BEFORE_START', 'SES01_BULK_EXACT_END', 'SES01_BULK_TWO_HOURS_AFTER', 'SES01_BULK_INDETERMINATE',
-    'SES01_BULK_CLOSED_HISTORY_PRESERVED', 'SES01_AUTO_CLOSED', 'SES01_AUTO_BEFORE_START', 'SES01_AUTO_INDETERMINATE',
+    'SES01_BULK_CLOSED_HISTORY_PRESERVED',
     'COORDINATOR_SUCCESS', 'COORDINATOR_PROGRAM_MISSING', 'COORDINATOR_FACULTY_MISSING', 'COORDINATOR_SCOPE_MISMATCH',
     'SUITE_TRANCOUNT_ZERO',
     'USP_CONSULTAR_GRUPOS_PAGINADO_SUCCESS', 'USP_CONSULTAR_GRUPOS_PAGINADO_FILTER_AND_PAGINATION',
@@ -868,7 +876,10 @@ $criticalIds = @(
     'CULM001_D2_01_TRES_SOPORTES', 'CULM001_D2_02_MAXIMO', 'CULM001_D2_03_DUPLICADO', 'CULM001_D2_04_SOPORTE_NO_UTILIZABLE', 'CULM001_D2_05_SOPORTE_OBLIGATORIO',
     'CULM001_D2_06_CODIGO_Y_NOMBRE', 'CULM001_D2_07_CATEGORIA_INEXISTENTE', 'CULM001_D2_08_V2', 'CULM001_D2_09_DESCARGA_DE_CADA_SOPORTE', 'CULM001_D2_10_CONSULTAS',
     'CULM001_D2_12_PLAZO_VENCIDO', 'CULM001_D2_15_REINTENTO_IDEMPOTENTE', 'CULM001_D2_CFG_CONFIGURACION', 'CULM001_D2_16_SIN_INSERT_EXEC', 'CULM001_D2_14_TD_059',
-    'CULM001_D2_SEG_PERMISOS', 'CULM001_D2_13_UP_DOWN_UP', 'CULM001_D2_13_DOWN_SIN_CONFIRMACION', 'CULM001_D_RB_01_ORDEN_DE_DOWN'
+    'CULM001_D2_SEG_PERMISOS', 'CULM001_D2_13_UP_DOWN_UP', 'CULM001_D2_13_DOWN_SIN_CONFIRMACION', 'CULM001_D_RB_01_ORDEN_DE_DOWN',
+    # CULM-001 D.7 (test/test_culm001_d7_retiro.sql, test/test_culm001_d7.ps1)
+    'CULM001_D7_01_SP_RETIRADO', 'CULM001_D7_02_SIN_PERMISOS', 'CULM001_D7_05_LOTE_Y_TOMA_INTACTOS', 'CULM001_D7_04_TOKEN_VENTANA_VENCIDA',
+    'CULM001_D7_TRANCOUNT_ZERO', 'CULM001_D7_03_UP_DOWN_UP'
 )
 if ($Concurrencia) { $criticalIds += 'CULM001_B2_CON_01_5X40' }
 $sqlPasses = @([regex]::Matches($outputStr, '(?m)^TEST_PASS:([A-Z0-9_]+)\s*$') | ForEach-Object { $_.Groups[1].Value })
