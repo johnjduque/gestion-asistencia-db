@@ -5,6 +5,9 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
+-- CULM-001 D.9-a (CONTRACT D §11.2): @idTipoIdIdentificacion (al final de la firma, NULL = comportamiento anterior: CC) guarda el
+-- tipo de documento elegido por el administrador en el Usuario nuevo (F-ADM-011). DEC_020 (F-ADM-024): si la persona ya es decano
+-- activo (Decano.estado = 1) no se escribe nada y el backend responde 409 en lugar de un 201 enganoso.
 CREATE OR ALTER PROCEDURE [dbo].[usp_crear_decano]
 (
     @idDecano               UNIQUEIDENTIFIER = NULL,
@@ -18,7 +21,8 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_crear_decano]
     @nombreFacultad          NVARCHAR(150)    = NULL,
     @password                NVARCHAR(500),
     @idCorrelacion           UNIQUEIDENTIFIER,
-    @idUsuarioEjecutor       UNIQUEIDENTIFIER = NULL
+    @idUsuarioEjecutor       UNIQUEIDENTIFIER = NULL,
+    @idTipoIdIdentificacion  UNIQUEIDENTIFIER = NULL
 )
 AS
     DECLARE @idCorrelacionDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
@@ -84,6 +88,27 @@ BEGIN
             ORDER BY nombreFacultad ASC;
         END
 
+        -- PASO 2.5 (D.9-a, F-ADM-024): la persona ya es decano activo. Se decide ANTES de abrir la transaccion o el savepoint:
+        -- no hay escrituras que revertir y el SP puede invocarse con INSERT ... EXEC sin ROLLBACK interno (DEC-036).
+        IF @estadoResultado = 1
+        BEGIN
+            DECLARE @idUsuarioExistente UNIQUEIDENTIFIER;
+            SELECT TOP 1 @idUsuarioExistente = id
+            FROM [dbo].[uv_usuario]
+            WHERE correo = LOWER(TRIM(@correo)) OR numeroIdentificacion = CAST(@numeroIdentificacion AS VARCHAR(20));
+
+            IF @idUsuarioExistente IS NOT NULL AND EXISTS (SELECT 1 FROM dbo.Decano d WHERE d.usuario = @idUsuarioExistente AND d.estado = 1)
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'DEC_020',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+        END
+
         -- PASO 3: GESTIÓN REACTIVA DE USUARIO (Consulta en uv_usuario y delegación a usp_sincronizar_usuario_interno)
         IF @estadoResultado = 1
         BEGIN
@@ -104,9 +129,10 @@ BEGIN
             FROM [dbo].[uv_usuario]
             WHERE correo = LOWER(TRIM(@correo)) OR numeroIdentificacion = CAST(@numeroIdentificacion AS VARCHAR(20));
 
-            IF @idUsuarioCreado IS NULL
+            IF @estadoResultado = 1 AND @idUsuarioCreado IS NULL
             BEGIN
-                SELECT TOP 1 @idTipoIdCC = id FROM dbo.TipoIdentificacion WHERE tipoIdentificacion = 'CC' ORDER BY id ASC;
+                SET @idTipoIdCC = @idTipoIdIdentificacion;
+                IF @idTipoIdCC IS NULL SELECT TOP 1 @idTipoIdCC = id FROM dbo.TipoIdentificacion WHERE tipoIdentificacion = 'CC' ORDER BY id ASC;
                 IF @idTipoIdCC IS NULL SELECT TOP 1 @idTipoIdCC = id FROM dbo.TipoIdentificacion ORDER BY id ASC;
 
                 EXEC dbo.usp_sincronizar_usuario_interno
