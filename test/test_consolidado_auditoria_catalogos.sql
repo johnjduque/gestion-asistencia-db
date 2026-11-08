@@ -31,7 +31,7 @@ CREATE TABLE #consolidado (
     idAsignatura UNIQUEIDENTIFIER, nombreAsignatura NVARCHAR(100), idDocente UNIQUEIDENTIFIER, nombreDocente NVARCHAR(250),
     estudiantesActivos INT, sesionesEjecutadas INT, asistencias INT, faltasSinJustaCausa INT, excusas INT,
     porcentajeAsistencia DECIMAL(5,2), porcentajeInasistencia DECIMAL(5,2), estudiantesRiesgo INT, estudiantesPerdida INT,
-    totalRegistros INT);
+    totalRegistros INT, horasDictadas DECIMAL(12,2), porcentajeExcusa DECIMAL(5,2), porcentajeSinRegistro DECIMAL(5,2));
 CREATE TABLE #auditoria (
     id UNIQUEIDENTIFIER, occurredAt DATETIMEOFFSET(7), actorId NVARCHAR(120), actorType VARCHAR(20), nombreActor NVARCHAR(250),
     action VARCHAR(120), resourceType VARCHAR(120), resourceId NVARCHAR(120), result VARCHAR(20), correlationId UNIQUEIDENTIFIER,
