@@ -1013,6 +1013,11 @@ GO
 DELETE FROM [dbo].[CatalogoMensajeUsuario] WHERE codigo IN ('REV_021', 'REV_022', 'REV_023', 'REV_024');
 DELETE FROM [dbo].[CatalogoMensajeTecnico] WHERE codigo IN ('REV_021', 'REV_022', 'REV_023', 'REV_024');
 GO
+-- D.3 (CatalogoParametroEdicion, CambioParametro) referencia estos parametros: se retiran sus filas antes que los parametros
+IF OBJECT_ID(N'dbo.CatalogoParametroEdicion', N'U') IS NOT NULL
+    EXEC sys.sp_executesql N'DELETE e FROM dbo.CatalogoParametroEdicion e INNER JOIN dbo.CatalogoParametro p ON p.id = e.parametro
+        WHERE ((p.grupo = ''ARCHIVOS'' AND p.clave = ''MAXIMO_SOPORTES_POR_RECLAMO'') OR (p.grupo = ''ARCHIVO'' AND p.clave IN (''ESTADO_BORRADOR'', ''TIPOS_PERMITIDOS''))) AND p.valor = p.valorDefecto;';
+GO
 DELETE FROM [dbo].[CatalogoParametro]
 WHERE ((grupo = 'ARCHIVOS' AND clave = 'MAXIMO_SOPORTES_POR_RECLAMO') OR (grupo = 'ARCHIVO' AND clave IN ('ESTADO_BORRADOR', 'TIPOS_PERMITIDOS')))
   AND valor = valorDefecto;
