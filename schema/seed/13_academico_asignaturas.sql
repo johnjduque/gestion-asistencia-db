@@ -90,11 +90,15 @@ MERGE INTO [dbo].[AsignaturaPlanEstudio] AS Target
 USING (SELECT id = CAST('E2F3A4B5-0001-0000-0000-000000000001' AS UNIQUEIDENTIFIER),
               asignatura = CAST('E2F3A4B5-0000-0000-0000-000000000001' AS UNIQUEIDENTIFIER),
               semestrePlanEstudio = CAST('D2E3F4A5-0000-0000-0000-000000000001' AS UNIQUEIDENTIFIER),
-              caracter = (SELECT id FROM [dbo].[CaracterAsignaturaPlan] WHERE codigo = N'OBL')) AS Source
+              caracter = (SELECT id FROM [dbo].[CaracterAsignaturaPlan] WHERE codigo = N'OBL'),
+              -- Vigencia S1 (CONTRACT B2 §2.1): el vinculo sembrado se fecha al inicio del periodo sembrado (2026-2, 2026-08-01),
+              -- igual que el backfill de la migracion 17 (MIN(fechaInicio) de los periodos). Con el DEFAULT (hoy) un despliegue
+              -- desde cero dejaba fuera de ambito los grupos de periodos ya vencidos y divergia de una BD migrada.
+              fechaVinculacionUtc = CAST('2026-08-01' AS DATETIME2(3))) AS Source
 ON (Target.asignatura = Source.asignatura AND Target.semestrePlanEstudio = Source.semestrePlanEstudio)
 WHEN NOT MATCHED THEN
-    INSERT (id, asignatura, semestrePlanEstudio, caracter, estaActivo)
-    VALUES (Source.id, Source.asignatura, Source.semestrePlanEstudio, Source.caracter, 1);
+    INSERT (id, asignatura, semestrePlanEstudio, caracter, estaActivo, fechaVinculacionUtc)
+    VALUES (Source.id, Source.asignatura, Source.semestrePlanEstudio, Source.caracter, 1, Source.fechaVinculacionUtc);
 GO
 
 -- 6. Sembrado Idempotente: PeriodoAcademico
