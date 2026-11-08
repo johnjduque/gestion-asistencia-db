@@ -126,6 +126,11 @@ PRINT '======================================================================';
 :r /tmp/test/test_culm001_b2_tomas.sql
 :r /tmp/test/test_culm001_b2_horas.sql
 :r /tmp/test/test_culm001_b2_qr.sql
+-- CULM-001 C.1 (alertas de inasistencia, revision de cancelacion, cierre masivo por horas y audiencias SSE): nombre exacto (DEC-028)
+:r /tmp/test/test_culm001_c_alertas.sql
+:r /tmp/test/test_culm001_c_revisiones.sql
+:r /tmp/test/test_culm001_c_cierre_masivo.sql
+:r /tmp/test/test_culm001_c_realtime_audiencias.sql
 -- CULM-001 D.3 y D.6 (parametros editables y auditoria de /admin/**): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_culm001_d3_parametros.sql
 :r /tmp/test/test_culm001_d6_auditoria.sql
