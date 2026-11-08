@@ -15,12 +15,16 @@ GO
 --   Result set 1 (canonico): (idCorrelacion, mensajeUsuarioResultado, mensajeTecnicoResultado, estadoResultado)
 --   Result set 2 (cuando estadoResultado=1): 0 o 1 fila (version, asunto, cuerpo)
 --   Result set 3 (cuando estadoResultado=1): lista de marcadores (marcador, obligatorio)
+-- CULM-001 D.9-a (F-ADM-027): con @validarExistencia = 1 (vista previa del administrador) un tipo que no existe en
+-- PlantillaNotificacion ni en PlantillaNotificacionMarcador devuelve NTF_021 (404). Con 0 (defecto: el despachador de correos) un
+-- tipo sin plantilla sigue devolviendo 0 filas y el backend usa su plantilla por defecto.
 -- =============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_plantilla_notificacion_activa]
 (
     @tipo          NVARCHAR(100)    = NULL,
     @idioma        CHAR(2)          = 'es',
-    @idCorrelacion UNIQUEIDENTIFIER = NULL
+    @idCorrelacion UNIQUEIDENTIFIER = NULL,
+    @validarExistencia BIT          = 0
 )
 AS
 BEGIN
@@ -47,7 +51,18 @@ BEGIN
         IF @estadoResultado = 1
         BEGIN
             DECLARE @tipoRaw NVARCHAR(100) = UPPER(TRIM(@tipo));
-            IF @tipoRaw IS NULL OR LEN(@tipoRaw) < 3 OR LEN(@tipoRaw) > 60 OR @tipoRaw LIKE '%[^A-Z0-9_]%'
+            IF @validarExistencia = 1
+               AND NOT EXISTS (SELECT 1 FROM dbo.PlantillaNotificacion p WHERE p.tipo = @tipoRaw)
+               AND NOT EXISTS (SELECT 1 FROM dbo.PlantillaNotificacionMarcador m WHERE m.tipo = @tipoRaw)
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'NTF_021',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+            ELSE IF @tipoRaw IS NULL OR LEN(@tipoRaw) < 3 OR LEN(@tipoRaw) > 60 OR @tipoRaw LIKE '%[^A-Z0-9_]%'
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
                     @p_codigo = 'NTF_001',

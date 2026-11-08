@@ -57,7 +57,9 @@ BEGIN
         idAsignatura     = a.id,
         nombreAsignatura = a.nombre,
         idGrupo          = g.id,
-        nombreGrupo      = g.nombre
+        nombreGrupo      = g.nombre,
+        -- CULM-001 D.9-a (F-EST-006): creditos de la asignatura (quinta columna).
+        creditos         = a.credito
     FROM dbo.Estudiante e
     INNER JOIN dbo.uv_estudiante_grupo eg ON eg.idEstudiante = e.id
     INNER JOIN dbo.uv_grupo g ON g.id = eg.idGrupo

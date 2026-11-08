@@ -5,6 +5,8 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
+-- CULM-001 D.9-a (R-8 de A, DEC-020): el cruce solo cuenta las matriculas inscritas (MATRICULA/ESTADO_INSCRITA); una matricula
+-- inactiva, finalizada o cancelada de otro grupo ya no bloquea la nueva inscripcion.
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_cruce_horario_estudiante_interno]
 (
     @idEstudiante            UNIQUEIDENTIFIER,
@@ -22,6 +24,7 @@ AS
 
     DECLARE @nombreGrupoConflicto NVARCHAR(200);
     DECLARE @diaConflicto         NVARCHAR(50);
+    DECLARE @codigoMatriculaActiva NVARCHAR(10) = CAST(dbo.ufn_obtener_parametro('MATRICULA', 'ESTADO_INSCRITA') AS NVARCHAR(10));
 
     -- Inicialización de respuesta desde parámetros del catálogo
     SELECT 
@@ -71,7 +74,7 @@ BEGIN
             FROM dbo.uv_horario hNuevo
             INNER JOIN dbo.uv_horario hExistente ON hNuevo.idDia = hExistente.idDia 
                 AND hNuevo.idPeriodoAcademico = hExistente.idPeriodoAcademico
-            INNER JOIN dbo.uv_estudiante_grupo eg ON hExistente.idGrupo = eg.idGrupo
+            INNER JOIN dbo.uv_estudiante_grupo eg ON hExistente.idGrupo = eg.idGrupo AND eg.codigoEstadoEstudiante = @codigoMatriculaActiva
             INNER JOIN dbo.uv_grupo gExistente ON eg.idGrupo = gExistente.id
             WHERE hNuevo.idGrupo = @idGrupoDefecto
                 AND eg.idEstudiante = @idEstudianteDefecto

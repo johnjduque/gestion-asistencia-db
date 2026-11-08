@@ -73,3 +73,17 @@ FROM (SELECT eg.estudiante, programa = MIN(pe.programa)
       GROUP BY eg.estudiante) x
 WHERE NOT EXISTS (SELECT 1 FROM [dbo].[EstudiantePrograma] ep WHERE ep.estudiante = x.estudiante AND ep.programa = x.programa);
 GO
+
+-- 5. Sembrado Idempotente: Horario (franjas semanales) del grupo sembrado (CULM-001 D.9-a, F-EST-S06 / F-DOC-021).
+-- Coherente con las sesiones de arriba: SES-01 y SES-02 caen en lunes (2026-08-17 y 2026-08-24) de 08:00 a 10:00 hora local
+-- (America/Bogota), que son las 13:00-15:00 UTC sembradas. Horario guarda el reloj local (TIME), no un instante UTC.
+MERGE INTO [dbo].[Horario] AS Target
+USING (VALUES
+    ('C1D2E3F4-0000-0000-0000-000000000001', 'A1B2C3D4-E5F6-7A8B-9C0D-1E2F3A4B5C6D', 'LU', '08:00', '10:00')
+) AS Source (id, grupo, codigoDia, horaInicio, horaFin)
+ON (Target.id = TRY_CAST(Source.id AS UNIQUEIDENTIFIER))
+WHEN NOT MATCHED THEN
+    INSERT (id, grupo, dia, horaInicio, horaFin)
+    VALUES (TRY_CAST(Source.id AS UNIQUEIDENTIFIER), TRY_CAST(Source.grupo AS UNIQUEIDENTIFIER),
+            (SELECT TOP 1 d.id FROM [dbo].[Dia] d WHERE d.codigo = Source.codigoDia), CAST(Source.horaInicio AS TIME), CAST(Source.horaFin AS TIME));
+GO
