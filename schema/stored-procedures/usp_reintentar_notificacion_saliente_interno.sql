@@ -9,6 +9,7 @@ GO
 -- Procedimiento: [dbo].[usp_reintentar_notificacion_saliente_interno]
 -- Capacidad: Monitor de Cola Outbox (TD-069)
 -- Ambito: Operacion atomica de transicion de estado a PENDIENTE para reintento manual.
+-- CULM-001 D.9-a (F-ADM-027): una notificacion inexistente devuelve NTF_020 ("La notificacion no existe.", 404).
 -- =============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_reintentar_notificacion_saliente_interno]
 (
@@ -38,7 +39,7 @@ BEGIN
         IF NOT EXISTS (SELECT 1 FROM dbo.NotificacionSaliente WHERE id = @idNotificacion)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
-                @p_codigo = 'NTF_002',
+                @p_codigo = 'NTF_020',
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
             SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' IdNotificacion: ', @idNotificacion, ' Correlacion: ', @idCorrelacionDefecto);
