@@ -348,6 +348,13 @@ GO
 $checkUp
 PRINT 'MIG_UP1_OK';
 GO
+-- Composabilidad (F3): D.3 (migracion 22) registra los parametros de B.1 en CatalogoParametroEdicion (FK a CatalogoParametro).
+-- El orden de rollback real retira D.3 antes que B.1 (D-RB); aqui se simula esa precondicion DENTRO de la transaccion que se
+-- revierte al final, para que el down de 15 se pruebe en una BD con paquetes posteriores desplegados.
+IF OBJECT_ID(N'dbo.CatalogoParametroEdicion', N'U') IS NOT NULL
+    DELETE e FROM dbo.CatalogoParametroEdicion e INNER JOIN dbo.CatalogoParametro p ON p.id = e.parametro
+    WHERE p.grupo = 'FESTIVOS' OR (p.grupo = 'SESION' AND p.clave LIKE 'MOTIVO_CANCELACION%');
+GO
 :r $remoteDir/15_culm001_b1_sesion_cancelada_festivos_down.sql
 GO
 IF OBJECT_ID(N'dbo.SesionCancelacion', N'U') IS NOT NULL OR OBJECT_ID(N'dbo.TipoCancelacionSesion', N'U') IS NOT NULL

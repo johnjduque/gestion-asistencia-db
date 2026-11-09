@@ -66,7 +66,8 @@ BEGIN
                     totalAsignaturas = COUNT(a.id),
                     totalCreditos = SUM(a.credito)
             FROM    dbo.uv_semestre_plan_estudio sp
-            LEFT JOIN dbo.uv_asignatura a ON a.idSemestrePlanEstudio = sp.id
+            LEFT JOIN dbo.AsignaturaPlanEstudio ape ON ape.semestrePlanEstudio = sp.id AND ape.estaActivo = 1   -- CULM-001 B2NM: vinculos activos de la tabla puente
+            LEFT JOIN dbo.uv_asignatura a ON a.id = ape.asignatura
             GROUP BY sp.idPlanEstudio
         )
         SELECT

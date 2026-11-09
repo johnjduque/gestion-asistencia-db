@@ -5,6 +5,8 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
+-- CULM-001 B2NM (DEC-019): catalogo de asignaturas, 1 fila por asignatura. La pertenencia a planes vive en
+-- uv_asignatura_plan_estudio (tabla puente AsignaturaPlanEstudio).
 CREATE OR ALTER  VIEW [dbo].[uv_asignatura]
 AS
 SELECT		id = a.id,
@@ -15,24 +17,13 @@ SELECT		id = a.id,
 			nombreArea = ar.nombre,
 			idComponente = co.id,
 			nombreComponente = co.nombre,
-			idSemestrePlanEstudio = a.semestrePlanEstudio,
-			inp = pe.inp,
-			nombrePrograma = pr.nombrePrograma,
-			codigoSemestre = s.codigo,
 			estaActivaAsignatura = a.estado,
-			estaActivaTextoAsignatura = IIF(a.estado = 1, 'SI', 'NO')
+			estaActivaTextoAsignatura = IIF(a.estado = 1, 'SI', 'NO'),
+			totalPlanesActivos = (SELECT COUNT(*) FROM AsignaturaPlanEstudio x WHERE x.asignatura = a.id AND x.estaActivo = 1)
 
 FROM		Asignatura a
 INNER JOIN	uv_area ar
 ON			a.area = ar.id
 INNER JOIN	uv_componente co
 ON			a.componente = co.id
-INNER JOIN	uv_semestre_plan_estudio sp
-ON			a.SemestrePlanEstudio = sp.id
-INNER JOIN	uv_semestre s
-ON			sp.idsemestre = s.id
-INNER JOIN	uv_plan_estudio pe
-ON			sp.idPlanEstudio = pe.id
-INNER JOIN	uv_programa pr
-ON			pe.Idprograma = pr.id
 GO

@@ -127,7 +127,7 @@ BEGIN TRY
     -- ---------------------------------------------------------------- D1-01 falta reciente: se admite
     SET @corr = NEWID();
     INSERT INTO #w EXEC dbo.usp_radicar_solicitud_revision_asistencia_v2 @idEstudiante = @studentA, @idSesion = @sReciente,
-        @categoria = N'ASISTENCIA', @justificacion = N'QA D1-01', @idArchivoSoporte = NULL, @idCorrelacion = @corr, @idUsuarioEjecutor = @userA;
+        @categoria = N'CAL', @justificacion = N'QA D1-01', @idArchivoSoporte = NULL, @idCorrelacion = @corr, @idUsuarioEjecutor = @userA;
     SET @ok = IIF(EXISTS (SELECT 1 FROM #w WHERE idCorrelacion = @corr AND estadoResultado = 1)
                   AND EXISTS (SELECT 1 FROM dbo.SolicitudRevisionAsistencia r INNER JOIN dbo.Asistencia a ON a.id = r.asistencia
                               WHERE a.sesion = @sReciente AND r.justificacionSolicitud = N'QA D1-01'), 1, 0);
@@ -138,13 +138,13 @@ BEGIN TRY
     TRUNCATE TABLE #w;
     SET @corr = NEWID();
     INSERT INTO #w EXEC dbo.usp_radicar_solicitud_revision_asistencia_v2 @idEstudiante = @studentA, @idSesion = @sDentro,
-        @categoria = N'ASISTENCIA', @justificacion = N'QA D1-02', @idArchivoSoporte = NULL, @idCorrelacion = @corr, @idUsuarioEjecutor = @userA;
+        @categoria = N'CAL', @justificacion = N'QA D1-02', @idArchivoSoporte = NULL, @idCorrelacion = @corr, @idUsuarioEjecutor = @userA;
     SET @ok = IIF(EXISTS (SELECT 1 FROM #w WHERE idCorrelacion = @corr AND estadoResultado = 1), 1, 0);
     EXEC #d1_expect 'D1_02_ULTIMO_DIA_SE_ADMITE', @ok;
     TRUNCATE TABLE #w;
     SET @corr = NEWID();
     INSERT INTO #w EXEC dbo.usp_radicar_solicitud_revision_asistencia_v2 @idEstudiante = @studentA, @idSesion = @sNoche,
-        @categoria = N'ASISTENCIA', @justificacion = N'QA D1-07', @idArchivoSoporte = NULL, @idCorrelacion = @corr, @idUsuarioEjecutor = @userA;
+        @categoria = N'CAL', @justificacion = N'QA D1-07', @idArchivoSoporte = NULL, @idCorrelacion = @corr, @idUsuarioEjecutor = @userA;
     SET @ok = IIF(EXISTS (SELECT 1 FROM #w WHERE idCorrelacion = @corr AND estadoResultado = 1), 1, 0);
     EXEC #d1_expect 'D1_07_FIN_23_30_SE_ADMITE_EL_ULTIMO_DIA', @ok;
     PRINT 'TEST_PASS:CULM001_D1_02_ULTIMO_DIA';
@@ -158,7 +158,7 @@ BEGIN TRY
     TRUNCATE TABLE #w;
     SET @corr = NEWID();
     INSERT INTO #w EXEC dbo.usp_radicar_solicitud_revision_asistencia_v2 @idEstudiante = @studentA, @idSesion = @sVencida,
-        @categoria = N'ASISTENCIA', @justificacion = N'QA D1-03', @idArchivoSoporte = @file1, @idCorrelacion = @corr, @idUsuarioEjecutor = @userA;
+        @categoria = N'CAL', @justificacion = N'QA D1-03', @idArchivoSoporte = @file1, @idCorrelacion = @corr, @idUsuarioEjecutor = @userA;
     SELECT @filasDespues = COUNT(*) FROM dbo.SolicitudRevisionAsistencia;
     SET @ok = IIF(EXISTS (SELECT 1 FROM #w WHERE idCorrelacion = @corr AND estadoResultado = 0
                           AND mensajeUsuarioResultado LIKE N'El plazo para justificar esta inasistencia venci%')
@@ -174,7 +174,7 @@ BEGIN TRY
     TRUNCATE TABLE #w;
     SET @corr = NEWID();
     INSERT INTO #w EXEC dbo.usp_radicar_solicitud_revision_asistencia_v2 @idEstudiante = @studentA, @idSesion = @sIdem,
-        @categoria = N'ASISTENCIA', @justificacion = N'QA D1-04', @idArchivoSoporte = NULL, @idCorrelacion = @corr, @idUsuarioEjecutor = @userA;
+        @categoria = N'CAL', @justificacion = N'QA D1-04', @idArchivoSoporte = NULL, @idCorrelacion = @corr, @idUsuarioEjecutor = @userA;
     SET @ok = IIF(@n <= 1 OR EXISTS (SELECT 1 FROM #w WHERE idCorrelacion = @corr AND estadoResultado = 0
                           AND mensajeUsuarioResultado LIKE N'El plazo para justificar esta inasistencia venci%'), 1, 0);
     EXEC #d1_expect 'D1_04_PARAMETRO_EN_1_VENCE', @ok;
@@ -185,7 +185,7 @@ BEGIN TRY
     TRUNCATE TABLE #w;
     SET @corr = NEWID();
     INSERT INTO #w EXEC dbo.usp_radicar_solicitud_revision_asistencia @idEstudiante = @studentA, @idSesion = @sVencida2,
-        @categoria = N'ASISTENCIA', @justificacion = N'QA D1-05', @soporteNombre = NULL, @soporteUrl = NULL,
+        @categoria = N'CAL', @justificacion = N'QA D1-05', @soporteNombre = NULL, @soporteUrl = NULL,
         @idCorrelacion = @corr, @idUsuarioEjecutor = @userA;
     SET @ok = IIF(EXISTS (SELECT 1 FROM #w WHERE idCorrelacion = @corr AND estadoResultado = 0
                           AND mensajeUsuarioResultado LIKE N'El plazo para justificar esta inasistencia venci%')
@@ -198,7 +198,7 @@ BEGIN TRY
     TRUNCATE TABLE #w;
     SET @corr = NEWID();
     INSERT INTO #w EXEC dbo.usp_radicar_solicitud_revision_asistencia_v2 @idEstudiante = @studentA, @idSesion = @sAjena,
-        @categoria = N'ASISTENCIA', @justificacion = N'QA D1-06', @idArchivoSoporte = NULL, @idCorrelacion = @corr, @idUsuarioEjecutor = @userA;
+        @categoria = N'CAL', @justificacion = N'QA D1-06', @idArchivoSoporte = NULL, @idCorrelacion = @corr, @idUsuarioEjecutor = @userA;
     SET @ok = IIF(EXISTS (SELECT 1 FROM #w WHERE idCorrelacion = @corr AND estadoResultado = 0
                           AND mensajeTecnicoResultado LIKE N'DBCODE=EST_004|%'), 1, 0);
     EXEC #d1_expect 'D1_06_AJENA_NO_ES_REV_020', @ok;
@@ -210,7 +210,7 @@ BEGIN TRY
     TRUNCATE TABLE #w;
     SET @corr = NEWID();
     INSERT INTO #w EXEC dbo.usp_radicar_solicitud_revision_asistencia_v2 @idEstudiante = @studentA, @idSesion = @sIdem,
-        @categoria = N'ASISTENCIA', @justificacion = N'QA D1-08', @idArchivoSoporte = NULL, @idCorrelacion = @corr, @idUsuarioEjecutor = @userA;
+        @categoria = N'CAL', @justificacion = N'QA D1-08', @idArchivoSoporte = NULL, @idCorrelacion = @corr, @idUsuarioEjecutor = @userA;
     SELECT @filasDespues = COUNT(*) FROM dbo.SolicitudRevisionAsistencia;
     SET @ok = IIF(EXISTS (SELECT 1 FROM #w WHERE idCorrelacion = @corr AND estadoResultado = 0
                           AND mensajeUsuarioResultado LIKE N'No es posible validar el plazo de justificaci%')
@@ -237,7 +237,7 @@ BEGIN TRY
     TRUNCATE TABLE #w;
     SET @corr = NEWID();
     INSERT INTO #w EXEC dbo.usp_radicar_solicitud_revision_asistencia_v2 @idEstudiante = @studentA, @idSesion = @sIdem,
-        @categoria = N'ASISTENCIA', @justificacion = N'QA D1-12', @idArchivoSoporte = @fileIdem, @idCorrelacion = @corr, @idUsuarioEjecutor = @userA;
+        @categoria = N'CAL', @justificacion = N'QA D1-12', @idArchivoSoporte = @fileIdem, @idCorrelacion = @corr, @idUsuarioEjecutor = @userA;
     SET @ok = IIF(EXISTS (SELECT 1 FROM #w WHERE idCorrelacion = @corr AND estadoResultado = 1), 1, 0);
     EXEC #d1_expect 'D1_12_PRIMER_ENVIO_EXITOSO', @ok;
     SELECT @filasAntes = COUNT(*) FROM dbo.SolicitudRevisionAsistencia;
@@ -245,7 +245,7 @@ BEGIN TRY
     UPDATE dbo.Sesion SET fechaHoraInicio = DATEADD(DAY, -60, fechaHoraInicio), fechaHoraFin = DATEADD(DAY, -60, fechaHoraFin), procedenciaTemporal = procedenciaTemporal WHERE id = @sIdem;
     TRUNCATE TABLE #w;
     INSERT INTO #w EXEC dbo.usp_radicar_solicitud_revision_asistencia_v2 @idEstudiante = @studentA, @idSesion = @sIdem,
-        @categoria = N'ASISTENCIA', @justificacion = N'QA D1-12', @idArchivoSoporte = @fileIdem, @idCorrelacion = @corr, @idUsuarioEjecutor = @userA;
+        @categoria = N'CAL', @justificacion = N'QA D1-12', @idArchivoSoporte = @fileIdem, @idCorrelacion = @corr, @idUsuarioEjecutor = @userA;
     SELECT @filasDespues = COUNT(*) FROM dbo.SolicitudRevisionAsistencia;
     SET @ok = IIF(EXISTS (SELECT 1 FROM #w WHERE idCorrelacion = @corr AND estadoResultado = 1) AND @filasAntes = @filasDespues, 1, 0);
     EXEC #d1_expect 'D1_12_REINTENTO_VENCIDO_ES_IDEMPOTENTE', @ok;
@@ -392,7 +392,7 @@ BEGIN
     CREATE TABLE #w2 (idCorrelacion UNIQUEIDENTIFIER NULL, mensajeUsuarioResultado NVARCHAR(MAX),
         mensajeTecnicoResultado NVARCHAR(MAX), estadoResultado INT NOT NULL);
     INSERT INTO #w2 EXEC dbo.usp_radicar_solicitud_revision_asistencia_v2 @idEstudiante = @ex, @idSesion = @sx,
-        @categoria = N'ASISTENCIA', @justificacion = N'QA D1-03 autocommit', @idArchivoSoporte = NULL, @idCorrelacion = @cx, @idUsuarioEjecutor = @ux;
+        @categoria = N'CAL', @justificacion = N'QA D1-03 autocommit', @idArchivoSoporte = NULL, @idCorrelacion = @cx, @idUsuarioEjecutor = @ux;
     IF NOT (@@TRANCOUNT = 0 AND EXISTS (SELECT 1 FROM #w2 WHERE idCorrelacion = @cx AND estadoResultado = 0
                                         AND mensajeUsuarioResultado LIKE N'El plazo para justificar esta inasistencia venci%')
             AND NOT EXISTS (SELECT 1 FROM dbo.SolicitudRevisionAsistencia WHERE justificacionSolicitud = N'QA D1-03 autocommit'))

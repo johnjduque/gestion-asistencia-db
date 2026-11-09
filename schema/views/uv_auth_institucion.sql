@@ -5,6 +5,7 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
+-- CULM-001 B2NM: programa del grupo por uv_grupo_programa (tabla puente, S1) en lugar de Asignatura.semestrePlanEstudio.
 CREATE OR ALTER VIEW [dbo].[uv_auth_institucion]
 AS
 SELECT  i.id,
@@ -31,10 +32,8 @@ WHERE   dbo.ufn_obtener_usuario_ejecutor_contexto() IS NOT NULL   -- fail closed
    OR   EXISTS (
             SELECT 1 FROM dbo.Docente doc
             INNER JOIN dbo.Grupo g ON doc.id = g.docente
-            INNER JOIN dbo.Asignatura a ON g.asignatura = a.id
-            INNER JOIN dbo.SemestrePlanEstudio spe ON a.semestrePlanEstudio = spe.id
-            INNER JOIN dbo.PlanEstudio pe ON spe.planEstudio = pe.id
-            INNER JOIN dbo.Programa pr ON pe.programa = pr.id
+            INNER JOIN dbo.uv_grupo_programa gp ON gp.idGrupo = g.id
+            INNER JOIN dbo.Programa pr ON gp.idPrograma = pr.id
             INNER JOIN dbo.Facultad f ON pr.facultad = f.id
             WHERE doc.usuario = dbo.ufn_obtener_usuario_ejecutor_contexto() AND f.institucion = i.id
         )
@@ -42,10 +41,8 @@ WHERE   dbo.ufn_obtener_usuario_ejecutor_contexto() IS NOT NULL   -- fail closed
             SELECT 1 FROM dbo.Estudiante e
             INNER JOIN dbo.EstudianteGrupo eg ON e.id = eg.estudiante
             INNER JOIN dbo.Grupo g ON eg.grupo = g.id
-            INNER JOIN dbo.Asignatura a ON g.asignatura = a.id
-            INNER JOIN dbo.SemestrePlanEstudio spe ON a.semestrePlanEstudio = spe.id
-            INNER JOIN dbo.PlanEstudio pe ON spe.planEstudio = pe.id
-            INNER JOIN dbo.Programa pr ON pe.programa = pr.id
+            INNER JOIN dbo.uv_grupo_programa gp ON gp.idGrupo = g.id
+            INNER JOIN dbo.Programa pr ON gp.idPrograma = pr.id
             INNER JOIN dbo.Facultad f ON pr.facultad = f.id
             WHERE e.usuario = dbo.ufn_obtener_usuario_ejecutor_contexto() AND f.institucion = i.id
         )

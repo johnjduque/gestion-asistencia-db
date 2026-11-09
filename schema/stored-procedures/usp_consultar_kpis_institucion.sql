@@ -62,8 +62,7 @@ BEGIN
                 SELECT  r.idEstudiante,
                         peor = MAX(CASE r.codigoPermanencia WHEN N'PERDIDA' THEN 3 WHEN N'RIESGO' THEN 2 ELSE 1 END)
                 FROM    dbo.uv_resumen_asistencia_estudiante_grupo r
-                INNER JOIN dbo.uv_programa p ON p.id = r.idPrograma
-                WHERE   p.idInstitucion = @idInstitucion AND r.idPeriodoAcademico = @idPeriodo AND r.codigoEstadoEstudiante = N'A'
+                WHERE   EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo_programa egp INNER JOIN dbo.uv_programa p ON p.id = egp.idPrograma WHERE egp.id = r.idEstudianteGrupo AND p.idInstitucion = @idInstitucion) AND r.idPeriodoAcademico = @idPeriodo AND r.codigoEstadoEstudiante = N'A'
                 GROUP BY r.idEstudiante
              ) x;
 
@@ -73,14 +72,12 @@ BEGIN
                 @horasDictadas = ISNULL(SUM(r.horasDictadas), 0),
                 @horasFalta = ISNULL(SUM(r.horasFalta), 0)
         FROM    dbo.uv_resumen_asistencia_estudiante_grupo r
-        INNER JOIN dbo.uv_programa p ON p.id = r.idPrograma
-        WHERE   p.idInstitucion = @idInstitucion AND r.idPeriodoAcademico = @idPeriodo AND r.codigoEstadoEstudiante = N'A';
+        WHERE   EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo_programa egp INNER JOIN dbo.uv_programa p ON p.id = egp.idPrograma WHERE egp.id = r.idEstudianteGrupo AND p.idInstitucion = @idInstitucion) AND r.idPeriodoAcademico = @idPeriodo AND r.codigoEstadoEstudiante = N'A';
 
         SELECT  @vencidas = ISNULL(SUM(IIF(c.estaVencida = 1, 1, 0)), 0),
                 @conRegistro = ISNULL(SUM(IIF(c.estaVencida = 1 AND c.tieneRegistroAsistencia = 1, 1, 0)), 0)
         FROM    dbo.uv_cumplimiento_sesion_grupo c
-        INNER JOIN dbo.uv_programa p ON p.id = c.idPrograma
-        WHERE   p.idInstitucion = @idInstitucion AND c.idPeriodoAcademico = @idPeriodo;
+        WHERE   EXISTS (SELECT 1 FROM dbo.uv_grupo_programa gp INNER JOIN dbo.uv_programa p ON p.id = gp.idPrograma WHERE gp.idGrupo = c.idGrupo AND p.idInstitucion = @idInstitucion) AND c.idPeriodoAcademico = @idPeriodo;
 
         SELECT  @docentesActivos = COUNT(DISTINCT g.idDocente)
         FROM    dbo.uv_grupo g

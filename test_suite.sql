@@ -10,6 +10,12 @@ PRINT '======================================================================';
 -- CULM-001 B.2 ([SUPUESTO-B-20]): helper de pruebas (procedimientos temporales de la sesion) para la columna obligatoria
 -- DetalleAsistencia.toma; lo usan las pruebas que insertan detalles o borran sesiones directamente.
 :r /tmp/test/fixtures/culm001_b2_toma_fixture.sql
+:r /tmp/test/test_culm001_b2nm_compilacion.sql
+:r /tmp/test/test_culm001_b2nm_asignatura_plan.sql
+:r /tmp/test/test_culm001_b2nm_ambito_grupo_mixto.sql
+:r /tmp/test/test_culm001_b2nm_matricula.sql
+:r /tmp/test/test_culm001_b2nm_oferta_y_decano.sql
+:r /tmp/test/test_culm001_b2nm_coordinador_dos_programas.sql
 :r /tmp/test/test_public_objects.sql
 :r /tmp/test/test_contract_closure.sql
 :r /tmp/test/test_usp_crear_facultad.sql
@@ -120,8 +126,26 @@ PRINT '======================================================================';
 :r /tmp/test/test_culm001_b2_tomas.sql
 :r /tmp/test/test_culm001_b2_horas.sql
 :r /tmp/test/test_culm001_b2_qr.sql
+-- CULM-001 C.1 (alertas de inasistencia, revision de cancelacion, cierre masivo por horas y audiencias SSE): nombre exacto (DEC-028)
+:r /tmp/test/test_culm001_c_alertas.sql
+:r /tmp/test/test_culm001_c_revisiones.sql
+:r /tmp/test/test_culm001_c_cierre_masivo.sql
+:r /tmp/test/test_culm001_c_realtime_audiencias.sql
+-- CULM-001 D.3 y D.6 (parametros editables y auditoria de /admin/**): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_culm001_d3_parametros.sql
+:r /tmp/test/test_culm001_d6_auditoria.sql
+-- CULM-001 D.5 (carga masiva por CSV de roles no estudiantes HU171): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_culm001_d5_carga_masiva.sql
+-- CULM-001 D.4 (admision de estudiantes HU156): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_culm001_d4_admision.sql
 -- CULM-001 D.1 (plazo de excusas HU026B): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_culm001_d1_plazo_justificacion.sql
+-- CULM-001 D.2 (varios soportes, categoria persistida y soporte obligatorio): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_culm001_d2_soportes_categoria.sql
+-- CULM-001 D.7 (retiro del registro individual autonomo, TD-009): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_culm001_d7_retiro.sql
+-- CULM-001 D.8 (comparativas, tendencia y consolidado por horas): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_culm001_d8_kpis_horas.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN

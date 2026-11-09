@@ -142,7 +142,7 @@ BEGIN
                 CASE
                     WHEN @idSemestrePlan IS NULL THEN 'PLA_004'
                     WHEN @numeroSemestre <> @numeroUltimo THEN 'PLA_005'
-                    WHEN EXISTS (SELECT 1 FROM dbo.Asignatura a WHERE a.semestrePlanEstudio = @idSemestrePlan) THEN 'PLA_006'
+                    WHEN EXISTS (SELECT 1 FROM dbo.AsignaturaPlanEstudio ape WHERE ape.semestrePlanEstudio = @idSemestrePlan) THEN 'PLA_006'   -- CULM-001 B2NM: vinculos de la tabla puente (los inactivos tambien bloquean por la FK)
                 END;
 
             IF @codigoRechazo IS NOT NULL

@@ -5,6 +5,7 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
+-- CULM-001 B2NM: programa del grupo por uv_grupo_programa (tabla puente, S1) en lugar de Asignatura.semestrePlanEstudio.
 CREATE OR ALTER VIEW [dbo].[uv_auth_programa]
 AS
 SELECT  p.id,
@@ -39,10 +40,8 @@ WHERE   dbo.ufn_obtener_usuario_ejecutor_contexto() IS NOT NULL   -- fail closed
    OR   EXISTS (
             SELECT 1 FROM dbo.Docente doc
             INNER JOIN dbo.Grupo g ON doc.id = g.docente
-            INNER JOIN dbo.Asignatura a ON g.asignatura = a.id
-            INNER JOIN dbo.SemestrePlanEstudio spe ON a.semestrePlanEstudio = spe.id
-            INNER JOIN dbo.PlanEstudio pe ON spe.planEstudio = pe.id
-            WHERE doc.usuario = dbo.ufn_obtener_usuario_ejecutor_contexto() AND pe.programa = p.id
+            INNER JOIN dbo.uv_grupo_programa gp ON gp.idGrupo = g.id
+            WHERE doc.usuario = dbo.ufn_obtener_usuario_ejecutor_contexto() AND gp.idPrograma = p.id
         )
         );
 GO

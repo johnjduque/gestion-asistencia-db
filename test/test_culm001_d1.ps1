@@ -14,6 +14,7 @@ if (-not $Password) { throw 'SQL password is required for test_culm001_d1.ps1.' 
 $tag = [guid]::NewGuid().ToString('N').Substring(0, 12)
 $remoteDir = "/tmp/culm001_d1_$tag"
 $dbRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot 'lib_componible.ps1')
 $failures = @()
 $null = & docker exec -u 0 $ContainerName mkdir -p "$remoteDir/migrations" 2>&1
 $copy = @(& docker cp (Join-Path $dbRoot 'migrations/.') "${ContainerName}:$remoteDir/migrations" 2>&1)
@@ -24,9 +25,12 @@ foreach ($f in @('test_culm001_d1_migraciones.sql', 'test_culm001_d1_down_guard.
 }
 $null = & docker exec -u 0 $ContainerName chmod -R a+rX $remoteDir 2>&1
 
+# Componible (lib_componible.ps1): cada archivo se ejecuta tras bajar, dentro de su transaccion, las migraciones posteriores a la 20.
 function Invoke-Sqlcmd-File([string]$file) {
+    $wrapper = "wrapper_$file"
+    Send-TextToContainer -ContainerName $ContainerName -RemotePath "$remoteDir/$wrapper" -Text (New-ComposableWrapperText -DbRoot $dbRoot -RemoteMigrationsDir "$remoteDir/migrations" -Despues 20 -RemoteTestFile "$remoteDir/$file")
     $sqlArgs = @('exec', $ContainerName, '/opt/mssql-tools18/bin/sqlcmd', '-S', 'localhost', '-d', 'gestionasistenciadb', '-U', 'sa', '-P', $Password,
-                 '-C', '-I', '-h', '-1', '-W', '-s', '|', '-w', '65535', '-t', '600', '-v', "MIGDIR=$remoteDir/migrations", '-i', "$remoteDir/$file")
+                 '-C', '-I', '-h', '-1', '-W', '-s', '|', '-w', '65535', '-t', '600', '-v', "MIGDIR=$remoteDir/migrations", '-i', "$remoteDir/$wrapper")
     $lines = @(& docker @sqlArgs 2>&1 | ForEach-Object { "$_".Trim() })
     return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Lines = $lines; Text = ($lines -join "`n") }
 }

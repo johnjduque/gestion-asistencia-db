@@ -58,10 +58,15 @@ BEGIN TRY
     DECLARE @a1 UNIQUEIDENTIFIER = NEWID(), @a2 UNIQUEIDENTIFIER = NEWID(), @a3 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.PlanEstudio (id, programa, inp, estado) VALUES (@pl1, @p1, 930000 + ABS(CHECKSUM(NEWID()) % 9999), 1), (@pl2, @p2, 940000 + ABS(CHECKSUM(NEWID()) % 9999), 1);
     INSERT INTO dbo.SemestrePlanEstudio (id, planEstudio, semestre) VALUES (@spe1, @pl1, @semestre), (@spe2, @pl2, @semestre);
-    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, semestrePlanEstudio, estado) VALUES
-        (@a1, CONCAT(N'K1', @sufijo), N'Asignatura Uno', 3, @area, @componente, @spe1, 1),
-        (@a2, CONCAT(N'K2', @sufijo), N'Asignatura Dos', 3, @area, @componente, @spe1, 1),
-        (@a3, CONCAT(N'K3', @sufijo), N'Asignatura Tres', 3, @area, @componente, @spe2, 1);
+    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, estado) VALUES
+        (@a1, CONCAT(N'K1', @sufijo), N'Asignatura Uno', 3, @area, @componente, 1),
+        (@a2, CONCAT(N'K2', @sufijo), N'Asignatura Dos', 3, @area, @componente, 1),
+        (@a3, CONCAT(N'K3', @sufijo), N'Asignatura Tres', 3, @area, @componente, 1);
+    -- CULM-001 B2NM (CONTRACT B2 tabla de pruebas existentes, fila 109): el vinculo asignatura-plan vive en AsignaturaPlanEstudio
+    INSERT INTO dbo.AsignaturaPlanEstudio (id, asignatura, semestrePlanEstudio, caracter, estaActivo, fechaVinculacionUtc) VALUES
+        (NEWID(), @a1, @spe1, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01'),
+        (NEWID(), @a2, @spe1, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01'),
+        (NEWID(), @a3, @spe2, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01');
     CREATE TABLE #g (k NVARCHAR(2), id UNIQUEIDENTIFIER);
     INSERT INTO #g VALUES (N'G1', NEWID()), (N'G2', NEWID()), (N'G3', NEWID());
     INSERT INTO dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron, cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)
@@ -205,9 +210,9 @@ BEGIN TRY
         (N'G3', 2, CAST('2026-04-30T17:00:00' AS DATETIME2))
     ) v(k, n, inicio) ON v.k = x.k AND v.n = x.n;
     IF @@ROWCOUNT <> 12 THROW 54500, 'TEST FAILED: se esperaba reubicar 12 sesiones del fixture', 1;
-    CREATE TABLE #t (n INT IDENTITY(1,1), inicioIntervalo DATE, finIntervalo DATE, sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2));
+    CREATE TABLE #t (n INT IDENTITY(1,1), inicioIntervalo DATE, finIntervalo DATE, sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2), horasDictadasEstudiante DECIMAL(14,2), horasFalta DECIMAL(14,2));
     -- T-DB-13: SEMANA (lunes a domingo, hora local): 5 intervalos con datos; el G1 n7 (vencida sin registro) no genera intervalo
-    INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uA1, @idCorrelacion = @c, @idPeriodoAcademico = NULL, @granularidad = N'SEMANA';
+    INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadasEstudiante, horasFalta) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uA1, @idCorrelacion = @c, @idPeriodoAcademico = NULL, @granularidad = N'SEMANA';
     IF (SELECT COUNT(*) FROM #t) <> 5 THROW 54501, 'TEST FAILED: T-DB-13 se esperaban 5 semanas con datos', 1;
     IF NOT EXISTS (SELECT 1 FROM #t WHERE n = 1 AND inicioIntervalo = '2026-03-02' AND finIntervalo = '2026-03-08' AND sesionesEjecutadas = 20 AND faltasSinJustaCausa = 3 AND porcentajeAusentismo = 15.00)
         THROW 54502, 'TEST FAILED: T-DB-13 semana 02-mar distinta de la calculada a mano (20 / 3 / 15.00; incluye los bordes domingo UTC = sabado local)', 1;
@@ -225,15 +230,15 @@ BEGIN TRY
     TRUNCATE TABLE #t;
 
     -- Por defecto = SEMANA; minusculas aceptadas
-    INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uA1, @idCorrelacion = @c;
+    INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadasEstudiante, horasFalta) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uA1, @idCorrelacion = @c;
     IF (SELECT COUNT(*) FROM #t) <> 5 THROW 54508, 'TEST FAILED: T-DB-15 sin granularidad debe ser SEMANA (5 intervalos)', 1;
     TRUNCATE TABLE #t;
-    INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uA1, @idCorrelacion = @c, @granularidad = N'mes';
+    INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadasEstudiante, horasFalta) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uA1, @idCorrelacion = @c, @granularidad = N'mes';
     IF (SELECT COUNT(*) FROM #t) <> 2 THROW 54509, 'TEST FAILED: T-DB-15 granularidad en minusculas debe aceptarse', 1;
     TRUNCATE TABLE #t;
 
     -- T-DB-14: MES
-    INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uA1, @idCorrelacion = @c, @idPeriodoAcademico = @per, @granularidad = N'MES';
+    INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadasEstudiante, horasFalta) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uA1, @idCorrelacion = @c, @idPeriodoAcademico = @per, @granularidad = N'MES';
     IF (SELECT COUNT(*) FROM #t) <> 2 THROW 54510, 'TEST FAILED: T-DB-14 se esperaban 2 meses', 1;
     IF NOT EXISTS (SELECT 1 FROM #t WHERE n = 1 AND inicioIntervalo = '2026-03-01' AND finIntervalo = '2026-03-31' AND sesionesEjecutadas = 31 AND faltasSinJustaCausa = 4 AND porcentajeAusentismo = 12.90)
         THROW 54511, 'TEST FAILED: T-DB-14 marzo distinto del calculado a mano (31 / 4 / 12.90; incluye G2 n1 = 31-mar 22:00 local)', 1;
@@ -245,13 +250,13 @@ BEGIN TRY
     TRUNCATE TABLE #t;
 
     -- T-DB-16: periodo pasado explicito => sin intervalos; A2 => sin intervalos (aislamiento)
-    INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uA1, @idCorrelacion = @c, @idPeriodoAcademico = @perPast;
+    INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadasEstudiante, horasFalta) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uA1, @idCorrelacion = @c, @idPeriodoAcademico = @perPast;
     IF EXISTS (SELECT 1 FROM #t) THROW 54514, 'TEST FAILED: T-DB-16 el periodo pasado no tiene sesiones', 1;
-    INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uA2, @idCorrelacion = @c;
+    INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadasEstudiante, horasFalta) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uA2, @idCorrelacion = @c;
     IF EXISTS (SELECT 1 FROM #t) THROW 54515, 'TEST FAILED: A2 no debe ver las sesiones de I1', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uDec, @idCorrelacion = @c;
+        INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadasEstudiante, horasFalta) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uDec, @idCorrelacion = @c;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -260,7 +265,7 @@ BEGIN TRY
         THROW 54521, 'TEST FAILED: T-DB-02 decano (esperaba KPI_004).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uC1, @idCorrelacion = @c;
+        INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadasEstudiante, horasFalta) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uC1, @idCorrelacion = @c;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -269,7 +274,7 @@ BEGIN TRY
         THROW 54522, 'TEST FAILED: T-DB-02 coordinador (esperaba KPI_004).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uE1, @idCorrelacion = @c;
+        INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadasEstudiante, horasFalta) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uE1, @idCorrelacion = @c;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -278,7 +283,7 @@ BEGIN TRY
         THROW 54523, 'TEST FAILED: T-DB-02 estudiante (esperaba KPI_004).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uPlano, @idCorrelacion = @c;
+        INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadasEstudiante, horasFalta) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uPlano, @idCorrelacion = @c;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -287,7 +292,7 @@ BEGIN TRY
         THROW 54524, 'TEST FAILED: T-DB-02 usuario sin perfil (esperaba KPI_004).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uA1, @idCorrelacion = @c, @granularidad = N'ANIO';
+        INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadasEstudiante, horasFalta) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uA1, @idCorrelacion = @c, @granularidad = N'ANIO';
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -296,7 +301,7 @@ BEGIN TRY
         THROW 54525, 'TEST FAILED: T-DB-15 granularidad invalida (esperaba GEN_002).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uA1, @idCorrelacion = @c, @idPeriodoAcademico = @inexistente;
+        INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadasEstudiante, horasFalta) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uA1, @idCorrelacion = @c, @idPeriodoAcademico = @inexistente;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -305,7 +310,7 @@ BEGIN TRY
         THROW 54526, 'TEST FAILED: periodo inexistente (esperaba PER_001).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uA1, @idCorrelacion = NULL;
+        INSERT INTO #t (inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadasEstudiante, horasFalta) EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uA1, @idCorrelacion = NULL;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();

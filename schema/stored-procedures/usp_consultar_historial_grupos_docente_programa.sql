@@ -27,14 +27,14 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_historial_grupos_docente_programa
     @idPeriodoAcademico  UNIQUEIDENTIFIER = NULL,
     @numeroPagina        INT              = 1,
     @tamanoPagina        INT              = 10
-)
+,
+    @idPrograma UNIQUEIDENTIFIER = NULL)
 AS
 
     -- REC4 (estilo): variables declaradas en la cabecera; las que dependen de un paso previo se asignan con SET en ese paso.
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @msgP1 NVARCHAR(500);
-    DECLARE @idPrograma UNIQUEIDENTIFIER;
     DECLARE @pagina INT = IIF(@numeroPagina IS NULL OR @numeroPagina < 1, 1, @numeroPagina);
     DECLARE @tamano INT = IIF(@tamanoPagina IS NULL OR @tamanoPagina < 1, 10, IIF(@tamanoPagina > 100, 100, @tamanoPagina));
     DECLARE @offset INT = (@pagina - 1) * @tamano;
@@ -49,7 +49,7 @@ BEGIN
         @idUsuarioEjecutor = @idUsuarioEjecutor,
         @idCorrelacion = @idCorrelacion,
         @validarUmbrales = 0,
-        @idPrograma = @idPrograma OUTPUT;
+        @idPrograma = @idPrograma OUTPUT, @idProgramaSolicitado = @idPrograma;
 
     -- PASO 2: Validacion de negocio (VAL_001)
     IF @idDocente IS NULL
@@ -90,11 +90,8 @@ BEGIN
             g.estudiantesCanceladosVoluntad, g.estudiantesCanceladosInasistencia
         FROM dbo.uv_grupo g
         INNER JOIN dbo.PeriodoAcademico pa ON pa.id = g.idPeriodoAcademico
-        INNER JOIN dbo.Asignatura a ON a.id = g.idAsignatura
-        INNER JOIN dbo.SemestrePlanEstudio spe ON spe.id = a.semestrePlanEstudio
-        INNER JOIN dbo.PlanEstudio pe ON pe.id = spe.planEstudio
         WHERE g.idDocente = @idDocente
-          AND pe.programa = @idPrograma
+          AND EXISTS (SELECT 1 FROM dbo.uv_grupo_programa gpx WHERE gpx.idGrupo = g.id AND gpx.idPrograma = @idPrograma)
     ),
     resumen AS (
         SELECT

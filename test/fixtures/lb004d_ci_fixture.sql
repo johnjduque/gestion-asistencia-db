@@ -114,6 +114,17 @@ ELSE
        SET estado = @activeState, estudiante = @fixtureStudent, grupo = @fixtureGroup
      WHERE id = @fixtureEnrollment;
 
+-- CULM-001 B2NM (DEC-020/R7): toda matricula activa tiene un vinculo EstudiantePrograma con un programa de su grupo; sin el, los
+-- consolidados por programa (grano grupo-programa) no cuentan al estudiante del fixture. Mismo criterio que schema/seed/14.
+INSERT dbo.EstudiantePrograma (id, estudiante, programa)
+SELECT NEWID(), @fixtureStudent, MIN(pe.programa)
+FROM dbo.AsignaturaPlanEstudio ape
+INNER JOIN dbo.SemestrePlanEstudio sp ON sp.id = ape.semestrePlanEstudio
+INNER JOIN dbo.PlanEstudio pe ON pe.id = sp.planEstudio
+WHERE ape.asignatura = @assignment AND ape.estaActivo = 1
+HAVING MIN(pe.programa) IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep WHERE ep.estudiante = @fixtureStudent AND ep.programa = MIN(pe.programa));
+
 -- HU091 R2: el docente del fixture tiene grupo, por lo tanto debe tener su vinculo docente-programa.
 INSERT dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc)
 SELECT NEWID(), par.idDocente, par.idPrograma,

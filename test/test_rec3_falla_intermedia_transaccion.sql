@@ -178,6 +178,8 @@ BEGIN TRANSACTION;
 INSERT INTO #preTX03 EXEC dbo.usp_ejecutar_cierre_masivo_periodo @codigoPeriodo = @periodCodeText, @idActor = N'QA_REC3',
         @idCorrelacion = @corr, @idUsuarioEjecutor = @adminUser;
 IF NOT EXISTS (SELECT 1 FROM #preTX03 WHERE estadoResultado = 1) SET @fallo = 'TX03 precondicion: la llamada sin falla inyectada no fue exitosa.';
+-- CULM-001 C.1 (CONTRACT §2.13.2): sin perdidas (0 %), la llamada previa no debe ser un bloqueo RCN_012; la falla sigue siendo la de contadores.
+IF EXISTS (SELECT 1 FROM #preTX03 WHERE mensajeTecnicoResultado LIKE N'%RCN_012%') SET @fallo = 'TX03 precondicion: el cierre previo fue bloqueado por RCN_012 (hay perdidas sin revision).';
 IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
 DROP TABLE #preTX03;
 SET @sql = CONCAT(N'ALTER TABLE dbo.Grupo WITH NOCHECK ADD CONSTRAINT CK_REC3_TMP_GRUPO CHECK (id <> ''',

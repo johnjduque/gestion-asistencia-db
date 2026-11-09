@@ -25,6 +25,10 @@ GO
 -- Semantica temporal: igual que R2. fechaSolicitud es DATE de calendario; fechaHoraInicioSesion es el
 -- DATETIME2(7) de dbo.Sesion TAL CUAL con procedenciaTemporalSesion (NULL = INDETERMINADA, historica);
 -- fechaRegistroSoporteUtc es un instante UTC DATETIME2(7). Datos personales minimos: sin correo.
+--
+-- CULM-001 D.2 (CONTRACT §3.2, HU015/TD-060): un reclamo puede tener varios soportes. Las columnas de soporte siguen siendo las del PRIMER
+-- soporte adjuntado y se agregan AL FINAL codigoCategoria, nombreCategoria (NULL si el reclamo es anterior a la categoria persistida) y
+-- soportesJson: arreglo JSON [{idArchivo, nombreOriginal, tipoContenido, tamanioBytes}] ordenado por adjuncion ('[]' sin soportes).
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_detalle_solicitud_revision_docente]
 (
@@ -109,7 +113,12 @@ BEGIN
         nombreSoporte                 = arc.nombreOriginal,
         tipoContenidoSoporte          = arc.tipoContenido,
         tamanioSoporteBytes           = arc.tamanioBytes,
-        fechaRegistroSoporteUtc       = arc.fechaRegistroUtc
+        fechaRegistroSoporteUtc       = arc.fechaRegistroUtc,
+        codigoCategoria               = cat.codigo,
+        nombreCategoria               = cat.nombre,
+        soportesJson                  = ISNULL((SELECT s.idArchivo AS idArchivo, s.nombreOriginal AS nombreOriginal, s.tipoContenido AS tipoContenido,
+                                                              s.tamanioBytes AS tamanioBytes
+                                                       FROM dbo.uv_soporte_reclamo s WHERE s.idSolicitud = sra.id ORDER BY s.orden FOR JSON PATH), N'[]')
     FROM dbo.SolicitudRevisionAsistencia sra
     INNER JOIN dbo.Estado est             ON est.id = sra.estado
     INNER JOIN dbo.Asistencia asi         ON asi.id = sra.asistencia
@@ -123,8 +132,11 @@ BEGIN
     -- CULM-001 B.2 (CONTRACT §2.9): estado consolidado de la sesion (una fila aunque haya varias tomas)
     OUTER APPLY (SELECT h.codigoRazonCausaConsolidado FROM dbo.uv_asistencia_sesion_horas h WHERE h.idAsistencia = asi.id) det
     LEFT  JOIN dbo.RazonCausa rzc         ON rzc.codigo = det.codigoRazonCausaConsolidado
-    LEFT  JOIN dbo.ArchivoSoporte arc     ON arc.solicitudRevisionAsistencia = sra.id
-                                         AND arc.estado = @estadoAdjunto
+    OUTER APPLY (SELECT TOP 1 a.id, a.nombreOriginal, a.tipoContenido, a.tamanioBytes, a.fechaRegistroUtc
+                 FROM dbo.ArchivoSoporte a
+                 WHERE a.solicitudRevisionAsistencia = sra.id AND a.estado = @estadoAdjunto
+                 ORDER BY a.fechaAdjuncionUtc, a.id) arc
+    LEFT  JOIN dbo.CategoriaJustificacion cat ON cat.id = sra.categoriaJustificacion
     WHERE sra.id = @idSolicitudDefecto
       AND doc.usuario = @idUsuarioDefecto;
 END;

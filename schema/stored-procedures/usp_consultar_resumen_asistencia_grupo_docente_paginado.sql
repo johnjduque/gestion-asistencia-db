@@ -6,12 +6,15 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 -- ============================================================================
--- usp_consultar_resumen_asistencia_grupo_docente_paginado (CULM-001 B.2, HU040/HU041; CONTRACT §2.8.4, §3.2.8, F-DOC-004)
+-- usp_consultar_resumen_asistencia_grupo_docente_paginado (CULM-001 B.2, HU040/HU041; CONTRACT §2.8.4, §3.2.8, F-DOC-004;
+-- CULM-001 C.1, CONTRACT §2.6)
 --
 -- Clasificacion: NON_GOLDEN_PATH_EXTENSION, READ_QUERY_RESULTSET (THROW 51000 si la validacion falla: GEN_002, SEC_001,
 -- PAG_001, GRU_*, SEC_002). RBAC DOCENTE titular del grupo. Filas: columnas de uv_resumen_asistencia_estudiante_grupo
 -- (indicadores por horas) + nombreCompletoEstudiante + totalRegistros, orden nombreCompletoEstudiante (sabana del docente:
 -- el cliente no calcula porcentajes).
+-- C.1: al final, la marca de inasistencia de la matricula (uv_marca_inasistencia_estudiante_grupo): alertas vigentes, estado de la
+-- revision de cancelacion y las decisiones que el docente puede tomar (accionesPermitidasRevision; vacio si la matricula no esta activa).
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_resumen_asistencia_grupo_docente_paginado]
 (
@@ -30,6 +33,7 @@ BEGIN
     DECLARE @idUsuarioDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idGrupoDefecto       UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idGrupo, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @tamanoMaximo         INT = dbo.ufn_obtener_parametro_int(NULL, 'PAGINACION', 'TAMANO_MAXIMO');
+    DECLARE @codigoInscrita       NVARCHAR(10) = CAST(dbo.ufn_obtener_parametro('MATRICULA', 'ESTADO_INSCRITA') AS NVARCHAR(10));
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado BIT = 1;
@@ -82,7 +86,6 @@ BEGIN
         idEstudiante                   = r.idEstudiante,
         idGrupo                        = r.idGrupo,
         idAsignatura                   = r.idAsignatura,
-        idPrograma                     = r.idPrograma,
         idPeriodoAcademico             = r.idPeriodoAcademico,
         codigoEstadoEstudiante         = r.codigoEstadoEstudiante,
         sesionesEjecutadas             = r.sesionesEjecutadas,
@@ -107,9 +110,26 @@ BEGIN
         sesionesConFaltaSinJustaCausa  = r.sesionesConFaltaSinJustaCausa,
         sesionesConExcusa              = r.sesionesConExcusa,
         nombreCompletoEstudiante       = eg.nombreCompletoEstudiante,
-        totalRegistros                 = COUNT(1) OVER()
+        totalRegistros                 = COUNT(1) OVER(),
+        tieneAdvertenciaVigente        = ISNULL(m.tieneAdvertenciaVigente, CAST(0 AS BIT)),
+        fechaAdvertenciaUtc            = m.fechaAdvertenciaUtc,
+        tienePerdidaVigente            = ISNULL(m.tienePerdidaVigente, CAST(0 AS BIT)),
+        fechaPerdidaUtc                = m.fechaPerdidaUtc,
+        idRevisionCancelacion          = m.idRevisionCancelacion,
+        codigoEstadoRevision           = m.codigoEstadoRevision,
+        nombreEstadoRevision           = m.nombreEstadoRevision,
+        requiereAccionDocente          = ISNULL(m.requiereAccionDocente, CAST(0 AS BIT)),
+        codigoPerfilResolutorActual    = m.codigoPerfilResolutorActual,
+        accionesPermitidasRevision     = CASE WHEN m.idRevisionCancelacion IS NOT NULL AND r.codigoEstadoEstudiante = @codigoInscrita THEN ISNULL(acc.acciones, N'') ELSE N'' END
     FROM dbo.uv_resumen_asistencia_estudiante_grupo r
     INNER JOIN dbo.uv_estudiante_grupo eg ON eg.id = r.idEstudianteGrupo
+    LEFT JOIN dbo.uv_marca_inasistencia_estudiante_grupo m ON m.idEstudianteGrupo = r.idEstudianteGrupo
+    OUTER APPLY (
+        SELECT acciones = STRING_AGG(t.codigoDecision, N',') WITHIN GROUP (ORDER BY t.codigoDecision ASC)
+        FROM dbo.TransicionRevisionCancelacion t
+        INNER JOIN dbo.RevisionCancelacion rc ON rc.id = m.idRevisionCancelacion AND rc.estado = t.estadoOrigen
+        WHERE t.esDecisionResolutor = 0
+    ) acc
     WHERE r.idGrupo = @idGrupoDefecto
     ORDER BY eg.nombreCompletoEstudiante ASC, r.idEstudiante ASC
     OFFSET @offset ROWS FETCH NEXT @tamanoPagina ROWS ONLY;

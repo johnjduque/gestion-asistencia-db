@@ -137,14 +137,6 @@ BEGIN
 END
 GO
 
--- 18. Asignatura -> SemestrePlanEstudio
-IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Asignatura_SemestrePlanEstudio')
-BEGIN
-    ALTER TABLE [dbo].[Asignatura] ADD CONSTRAINT [FK_Asignatura_SemestrePlanEstudio] 
-    FOREIGN KEY ([semestrePlanEstudio]) REFERENCES [dbo].[SemestrePlanEstudio] ([id]);
-END
-GO
-
 -- 19. Grupo -> Asignatura
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Grupo_Asignatura')
 BEGIN
@@ -426,5 +418,110 @@ IF COLUMNPROPERTY(OBJECT_ID('dbo.DetalleAsistencia'), 'toma', 'AllowsNull') = 0
    AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_DetalleAsistencia_TomaAsistencia')
 BEGIN
     ALTER TABLE [dbo].[DetalleAsistencia] ADD CONSTRAINT [FK_DetalleAsistencia_TomaAsistencia] FOREIGN KEY ([toma]) REFERENCES [dbo].[TomaAsistencia] ([id]);
+END
+GO
+
+-- CULM-001 B2NM: FKs de la tabla puente AsignaturaPlanEstudio y del programa por defecto del token de matricula.
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_AsignaturaPlanEstudio_Asignatura')
+    ALTER TABLE dbo.AsignaturaPlanEstudio ADD CONSTRAINT FK_AsignaturaPlanEstudio_Asignatura FOREIGN KEY (asignatura) REFERENCES dbo.Asignatura (id);
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_AsignaturaPlanEstudio_SemestrePlanEstudio')
+    ALTER TABLE dbo.AsignaturaPlanEstudio ADD CONSTRAINT FK_AsignaturaPlanEstudio_SemestrePlanEstudio FOREIGN KEY (semestrePlanEstudio) REFERENCES dbo.SemestrePlanEstudio (id);
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_AsignaturaPlanEstudio_CaracterAsignaturaPlan')
+    ALTER TABLE dbo.AsignaturaPlanEstudio ADD CONSTRAINT FK_AsignaturaPlanEstudio_CaracterAsignaturaPlan FOREIGN KEY (caracter) REFERENCES dbo.CaracterAsignaturaPlan (id);
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_TokenMatriculaGrupo_Programa')
+    ALTER TABLE dbo.TokenMatriculaGrupo ADD CONSTRAINT FK_TokenMatriculaGrupo_Programa FOREIGN KEY (programaPorDefecto) REFERENCES dbo.Programa (id);
+GO
+-- CULM-001 D.2 (TD-060): SolicitudRevisionAsistencia -> CategoriaJustificacion (sin ON DELETE CASCADE; el catalogo es de solo consulta)
+IF COL_LENGTH('dbo.SolicitudRevisionAsistencia', 'categoriaJustificacion') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_SolicitudRevisionAsistencia_CategoriaJustificacion')
+BEGIN
+    ALTER TABLE [dbo].[SolicitudRevisionAsistencia] ADD CONSTRAINT [FK_SolicitudRevisionAsistencia_CategoriaJustificacion]
+    FOREIGN KEY ([categoriaJustificacion]) REFERENCES [dbo].[CategoriaJustificacion] ([id]);
+END
+GO
+IF COL_LENGTH('dbo.SolicitudRevisionAsistencia', 'categoriaJustificacion') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.SolicitudRevisionAsistencia') AND name = 'IX_SolicitudRevisionAsistencia_Categoria')
+    CREATE NONCLUSTERED INDEX [IX_SolicitudRevisionAsistencia_Categoria] ON [dbo].[SolicitudRevisionAsistencia] ([categoriaJustificacion]);
+GO
+
+-- CULM-001 D.3 (CONTRACT v2 §4.2): edicion de parametros por el administrador (HU168).
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_CatalogoParametroEdicion_CatalogoParametro')
+BEGIN
+    ALTER TABLE [dbo].[CatalogoParametroEdicion] ADD CONSTRAINT [FK_CatalogoParametroEdicion_CatalogoParametro] FOREIGN KEY ([parametro]) REFERENCES [dbo].[CatalogoParametro] ([id]);
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_CatalogoParametroEdicion_MenorQue')
+BEGIN
+    ALTER TABLE [dbo].[CatalogoParametroEdicion] ADD CONSTRAINT [FK_CatalogoParametroEdicion_MenorQue] FOREIGN KEY ([parametroDebeSerMenorQue]) REFERENCES [dbo].[CatalogoParametro] ([id]);
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_CambioParametro_CatalogoParametro')
+BEGIN
+    ALTER TABLE [dbo].[CambioParametro] ADD CONSTRAINT [FK_CambioParametro_CatalogoParametro] FOREIGN KEY ([parametro]) REFERENCES [dbo].[CatalogoParametro] ([id]);
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_CambioParametro_Usuario')
+BEGIN
+    ALTER TABLE [dbo].[CambioParametro] ADD CONSTRAINT [FK_CambioParametro_Usuario] FOREIGN KEY ([idUsuarioEjecutor]) REFERENCES [dbo].[Usuario] ([id]);
+END
+GO
+
+-- CULM-001 C.1 (CONTRACT §2.2): claves foraneas de alertas y revisiones de cancelacion por inasistencia.
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_AlertaInasistencia_EstudianteGrupo')
+    ALTER TABLE [dbo].[AlertaInasistencia] ADD CONSTRAINT [FK_AlertaInasistencia_EstudianteGrupo] FOREIGN KEY ([estudianteGrupo]) REFERENCES [dbo].[EstudianteGrupo] ([id]);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_AlertaInasistencia_Tipo')
+    ALTER TABLE [dbo].[AlertaInasistencia] ADD CONSTRAINT [FK_AlertaInasistencia_Tipo] FOREIGN KEY ([tipo]) REFERENCES [dbo].[TipoAlertaInasistencia] ([id]);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_AlertaInasistencia_Estado')
+    ALTER TABLE [dbo].[AlertaInasistencia] ADD CONSTRAINT [FK_AlertaInasistencia_Estado] FOREIGN KEY ([estado]) REFERENCES [dbo].[EstadoAlertaInasistencia] ([id]);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_RevisionCancelacion_EstudianteGrupo')
+    ALTER TABLE [dbo].[RevisionCancelacion] ADD CONSTRAINT [FK_RevisionCancelacion_EstudianteGrupo] FOREIGN KEY ([estudianteGrupo]) REFERENCES [dbo].[EstudianteGrupo] ([id]);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_RevisionCancelacion_Estado')
+    ALTER TABLE [dbo].[RevisionCancelacion] ADD CONSTRAINT [FK_RevisionCancelacion_Estado] FOREIGN KEY ([estado]) REFERENCES [dbo].[EstadoRevisionCancelacion] ([id]);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_RevisionCancelacion_AlertaOrigen')
+    ALTER TABLE [dbo].[RevisionCancelacion] ADD CONSTRAINT [FK_RevisionCancelacion_AlertaOrigen] FOREIGN KEY ([alertaOrigen]) REFERENCES [dbo].[AlertaInasistencia] ([id]);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_RevisionCancelacion_UsuarioDecisionDocente')
+    ALTER TABLE [dbo].[RevisionCancelacion] ADD CONSTRAINT [FK_RevisionCancelacion_UsuarioDecisionDocente] FOREIGN KEY ([usuarioDecisionDocente]) REFERENCES [dbo].[Usuario] ([id]);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_RevisionCancelacion_UsuarioResolucion')
+    ALTER TABLE [dbo].[RevisionCancelacion] ADD CONSTRAINT [FK_RevisionCancelacion_UsuarioResolucion] FOREIGN KEY ([usuarioResolucion]) REFERENCES [dbo].[Usuario] ([id]);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_RevisionCancelacion_ProgramaResolucion')
+    ALTER TABLE [dbo].[RevisionCancelacion] ADD CONSTRAINT [FK_RevisionCancelacion_ProgramaResolucion] FOREIGN KEY ([programaResolucion]) REFERENCES [dbo].[Programa] ([id]);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_RevisionCancelacion_EstadoMatriculaAnterior')
+    ALTER TABLE [dbo].[RevisionCancelacion] ADD CONSTRAINT [FK_RevisionCancelacion_EstadoMatriculaAnterior] FOREIGN KEY ([estadoMatriculaAnterior]) REFERENCES [dbo].[EstadoEstudianteGrupo] ([id]);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_RevisionCancelacionHistorial_Revision')
+    ALTER TABLE [dbo].[RevisionCancelacionHistorial] ADD CONSTRAINT [FK_RevisionCancelacionHistorial_Revision] FOREIGN KEY ([revision]) REFERENCES [dbo].[RevisionCancelacion] ([id]);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_RevisionCancelacionHistorial_EstadoNuevo')
+    ALTER TABLE [dbo].[RevisionCancelacionHistorial] ADD CONSTRAINT [FK_RevisionCancelacionHistorial_EstadoNuevo] FOREIGN KEY ([estadoNuevo]) REFERENCES [dbo].[EstadoRevisionCancelacion] ([id]);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_RevisionCancelacionHistorial_UsuarioActor')
+    ALTER TABLE [dbo].[RevisionCancelacionHistorial] ADD CONSTRAINT [FK_RevisionCancelacionHistorial_UsuarioActor] FOREIGN KEY ([usuarioActor]) REFERENCES [dbo].[Usuario] ([id]);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_EvaluacionAlertaGrupo_Grupo')
+    ALTER TABLE [dbo].[EvaluacionAlertaGrupo] ADD CONSTRAINT [FK_EvaluacionAlertaGrupo_Grupo] FOREIGN KEY ([grupo]) REFERENCES [dbo].[Grupo] ([id]);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_TransicionRevisionCancelacion_Origen')
+    ALTER TABLE [dbo].[TransicionRevisionCancelacion] ADD CONSTRAINT [FK_TransicionRevisionCancelacion_Origen] FOREIGN KEY ([estadoOrigen]) REFERENCES [dbo].[EstadoRevisionCancelacion] ([id]);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_TransicionRevisionCancelacion_Destino')
+    ALTER TABLE [dbo].[TransicionRevisionCancelacion] ADD CONSTRAINT [FK_TransicionRevisionCancelacion_Destino] FOREIGN KEY ([estadoDestino]) REFERENCES [dbo].[EstadoRevisionCancelacion] ([id]);
+-- CULM-001 D.5 (CONTRACT §6.3, HU171): JerarquiaAltaUsuario -> Perfil
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_JerarquiaAltaUsuario_PerfilEjecutor')
+BEGIN
+    ALTER TABLE [dbo].[JerarquiaAltaUsuario] ADD CONSTRAINT [FK_JerarquiaAltaUsuario_PerfilEjecutor] FOREIGN KEY ([perfilEjecutor]) REFERENCES [dbo].[Perfil] ([id]);
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_JerarquiaAltaUsuario_PerfilDestino')
+BEGIN
+    ALTER TABLE [dbo].[JerarquiaAltaUsuario] ADD CONSTRAINT [FK_JerarquiaAltaUsuario_PerfilDestino] FOREIGN KEY ([perfilDestino]) REFERENCES [dbo].[Perfil] ([id]);
 END
 GO

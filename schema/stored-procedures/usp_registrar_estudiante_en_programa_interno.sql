@@ -44,9 +44,14 @@ BEGIN
         -- PASO 2: Obtención y comprobación de la consistencia institucional cruzada
         IF @estadoResultado = 1
         BEGIN
-            SELECT TOP 1 @idInstitucionEstudiante = idInstitucion 
-            FROM dbo.uv_estudiante 
-            WHERE id = @idEstudianteDefecto;
+            -- CULM-001 B2NM (O-B3): la institucion del estudiante sale de cualquiera de sus matriculas (programas del grupo);
+            -- sin matriculas se omite la comparacion y se valida solo el programa.
+            SELECT TOP 1 @idInstitucionEstudiante = pr0.idInstitucion
+            FROM dbo.EstudianteGrupo eg0
+            CROSS APPLY dbo.ufn_programas_grupo(eg0.grupo) pg0
+            INNER JOIN dbo.uv_programa pr0 ON pr0.id = pg0.idPrograma
+            WHERE eg0.estudiante = @idEstudianteDefecto
+            ORDER BY pr0.idInstitucion;
 
             SELECT TOP 1 
                 @idInstitucionPrograma = idInstitucion,
@@ -54,7 +59,7 @@ BEGIN
             FROM dbo.uv_programa 
             WHERE id = @idProgramaDefecto;
 
-            IF @idInstitucionEstudiante IS NULL OR @idInstitucionPrograma IS NULL
+            IF @idInstitucionPrograma IS NULL OR NOT EXISTS (SELECT 1 FROM dbo.Estudiante WHERE id = @idEstudianteDefecto)
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
                     @p_codigo = 'GEN_002',
@@ -67,7 +72,7 @@ BEGIN
             END
         END
 
-        IF @estadoResultado = 1 AND (@idInstitucionEstudiante <> @idInstitucionPrograma OR @idInstitucionPrograma <> @idInstitucionFacultad)
+        IF @estadoResultado = 1 AND ((@idInstitucionEstudiante IS NOT NULL AND @idInstitucionEstudiante <> @idInstitucionPrograma) OR @idInstitucionPrograma <> @idInstitucionFacultad)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'INST_001',

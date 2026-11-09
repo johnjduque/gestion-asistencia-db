@@ -80,6 +80,21 @@ BEGIN
         SET @estadoResultado = 0;
     END
 
+    -- PASO 2.1 (CULM-001 B2NM, S4/A.2): un programa fuera de la coordinacion del ejecutor -> COO_003 (403); no aplica a administrador ni docente.
+    IF @estadoResultado = 1 AND @idPrograma IS NOT NULL
+       AND EXISTS (SELECT 1 FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutor))
+       AND NOT EXISTS (SELECT 1 FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutor) cp WHERE cp.idPrograma = @idPrograma)
+       AND NOT EXISTS (SELECT 1 FROM dbo.Administrador ad WHERE ad.usuario = @idUsuarioEjecutor)
+       AND NOT EXISTS (SELECT 1 FROM dbo.Docente dd WHERE dd.usuario = @idUsuarioEjecutor)
+    BEGIN
+        EXEC dbo.usp_obtener_mensaje_catalogo
+            @p_codigo = 'COO_003',
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+        SET @estadoResultado = 0;
+    END
+
     IF @estadoResultado = 0
     BEGIN
         THROW 51000, @mensajeTecnicoResultado, 1;
@@ -98,7 +113,7 @@ BEGIN
             INNER JOIN dbo.Programa p ON p.facultad = f.id
             INNER JOIN dbo.PlanEstudio pe ON pe.programa = p.id
             INNER JOIN dbo.SemestrePlanEstudio spe ON spe.planEstudio = pe.id
-            INNER JOIN dbo.Asignatura a ON a.semestrePlanEstudio = spe.id
+            INNER JOIN dbo.AsignaturaPlanEstudio ape ON ape.semestrePlanEstudio = spe.id AND ape.estaActivo = 1 INNER JOIN dbo.Asignatura a ON a.id = ape.asignatura
             INNER JOIN dbo.Grupo g ON g.asignatura = a.id
             INNER JOIN dbo.EstudianteGrupo eg ON eg.grupo = g.id
             WHERE ad.usuario = @idUsuarioEjecutor AND @ejecutorActivo = 1
@@ -151,7 +166,7 @@ BEGIN
                 WHERE x.id = e.id
                   AND (@idInstitucion IS NULL OR x.idInstitucion = @idInstitucion)
                   AND (@idFacultad IS NULL OR x.idFacultad = @idFacultad)
-                  AND (@idPrograma IS NULL OR x.idPrograma = @idPrograma)
+                  AND (@idPrograma IS NULL OR (x.idPrograma = @idPrograma AND x.tieneVinculoPrograma = 1))
                   AND (@idGrupo IS NULL OR x.idGrupo = @idGrupo)))
         ORDER BY u.primerApellido ASC, u.primerNombre ASC, u.numeroIdentificacion ASC, e.id ASC
         OFFSET @offset ROWS
@@ -167,7 +182,7 @@ BEGIN
             INNER JOIN dbo.Programa p ON p.facultad = f.id
             INNER JOIN dbo.PlanEstudio pe ON pe.programa = p.id
             INNER JOIN dbo.SemestrePlanEstudio spe ON spe.planEstudio = pe.id
-            INNER JOIN dbo.Asignatura a ON a.semestrePlanEstudio = spe.id
+            INNER JOIN dbo.AsignaturaPlanEstudio ape ON ape.semestrePlanEstudio = spe.id AND ape.estaActivo = 1 INNER JOIN dbo.Asignatura a ON a.id = ape.asignatura
             INNER JOIN dbo.Grupo g ON g.asignatura = a.id
             INNER JOIN dbo.EstudianteGrupo eg ON eg.grupo = g.id
             WHERE ad.usuario = @idUsuarioEjecutor AND @ejecutorActivo = 1 AND eg.estudiante = @idEstudiante
@@ -201,7 +216,7 @@ BEGIN
               AND @ejecutorActivo = 1
               AND (EXISTS (SELECT 1 FROM dbo.Administrador ad WHERE ad.usuario = @idUsuarioEjecutor AND ad.institucion = x.idInstitucion)
                    OR EXISTS (SELECT 1 FROM dbo.Coordinador c INNER JOIN dbo.Programa p ON p.coordinador = c.id
-                              WHERE c.usuario = @idUsuarioEjecutor AND c.estado = 1 AND p.id = x.idPrograma)
+                              WHERE c.usuario = @idUsuarioEjecutor AND c.estado = 1 AND p.id = x.idPrograma AND x.tieneVinculoPrograma = 1)
                    OR EXISTS (SELECT 1 FROM dbo.Docente d INNER JOIN dbo.Grupo g ON g.docente = d.id
                               WHERE d.usuario = @idUsuarioEjecutor AND g.id = x.idGrupo))
         )

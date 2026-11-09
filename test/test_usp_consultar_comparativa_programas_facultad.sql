@@ -54,10 +54,15 @@ BEGIN TRY
     DECLARE @a1 UNIQUEIDENTIFIER = NEWID(), @a2 UNIQUEIDENTIFIER = NEWID(), @a3 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.PlanEstudio (id, programa, inp, estado) VALUES (@pl1, @p1, 930000 + ABS(CHECKSUM(NEWID()) % 9999), 1), (@pl2, @p2, 940000 + ABS(CHECKSUM(NEWID()) % 9999), 1);
     INSERT INTO dbo.SemestrePlanEstudio (id, planEstudio, semestre) VALUES (@spe1, @pl1, @semestre), (@spe2, @pl2, @semestre);
-    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, semestrePlanEstudio, estado) VALUES
-        (@a1, CONCAT(N'K1', @sufijo), N'Asignatura Uno', 3, @area, @componente, @spe1, 1),
-        (@a2, CONCAT(N'K2', @sufijo), N'Asignatura Dos', 3, @area, @componente, @spe1, 1),
-        (@a3, CONCAT(N'K3', @sufijo), N'Asignatura Tres', 3, @area, @componente, @spe2, 1);
+    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, estado) VALUES
+        (@a1, CONCAT(N'K1', @sufijo), N'Asignatura Uno', 3, @area, @componente, 1),
+        (@a2, CONCAT(N'K2', @sufijo), N'Asignatura Dos', 3, @area, @componente, 1),
+        (@a3, CONCAT(N'K3', @sufijo), N'Asignatura Tres', 3, @area, @componente, 1);
+    -- CULM-001 B2NM (CONTRACT B2 tabla de pruebas existentes, fila 109): el vinculo asignatura-plan vive en AsignaturaPlanEstudio
+    INSERT INTO dbo.AsignaturaPlanEstudio (id, asignatura, semestrePlanEstudio, caracter, estaActivo, fechaVinculacionUtc) VALUES
+        (NEWID(), @a1, @spe1, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01'),
+        (NEWID(), @a2, @spe1, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01'),
+        (NEWID(), @a3, @spe2, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01');
     CREATE TABLE #g (k NVARCHAR(2), id UNIQUEIDENTIFIER);
     INSERT INTO #g VALUES (N'G1', NEWID()), (N'G2', NEWID()), (N'G3', NEWID());
     INSERT INTO dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron, cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)
@@ -173,9 +178,9 @@ BEGIN TRY
     DECLARE @c UNIQUEIDENTIFIER = NEWID(), @inexistente UNIQUEIDENTIFIER = NEWID(), @err NVARCHAR(4000);
     DECLARE @g1 UNIQUEIDENTIFIER = (SELECT id FROM #g WHERE k = N'G1'), @g2 UNIQUEIDENTIFIER = (SELECT id FROM #g WHERE k = N'G2'), @g3 UNIQUEIDENTIFIER = (SELECT id FROM #g WHERE k = N'G3');
     CREATE TABLE #r2 (n INT IDENTITY(1,1), idPrograma UNIQUEIDENTIFIER, nombrePrograma NVARCHAR(50), estaActivoPrograma BIT, totalEstudiantes INT, estudiantesRiesgo INT, estudiantesPerdida INT,
-        tasaRetencion DECIMAL(5,2), sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2));
+        tasaRetencion DECIMAL(5,2), sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2), horasDictadas DECIMAL(12,2), horasFalta DECIMAL(12,2));
     -- T-DB-11/12: filas exactas, orden por ausentismo desc con nulos al final, programa inactivo listado (D5), sin programas de otra facultad
-    INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo)
+    INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta)
     EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @idPeriodoAcademico = NULL;
     IF (SELECT COUNT(*) FROM #r2) <> 3 THROW 53501, 'TEST FAILED: T-DB-11 se esperaban 3 programas (P1, P2, P4) y ninguno de F2', 1;
     IF EXISTS (SELECT 1 FROM #r2 WHERE idPrograma = @px) THROW 53502, 'TEST FAILED: T-DB-11 PX es de otra facultad', 1;
@@ -191,14 +196,14 @@ BEGIN TRY
     TRUNCATE TABLE #r2;
 
     -- Aislamiento: decano2 solo ve PX (sin datos)
-    INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo)
+    INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta)
     EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uDec2, @idCorrelacion = @c;
     IF NOT ((SELECT COUNT(*) FROM #r2) = 1 AND EXISTS (SELECT 1 FROM #r2 WHERE idPrograma = @px AND totalEstudiantes = 0 AND porcentajeAusentismo IS NULL))
         THROW 53507, 'TEST FAILED: el decano2 debe ver solo PX', 1;
     TRUNCATE TABLE #r2;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uC1, @idCorrelacion = @c;
+        INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta) EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uC1, @idCorrelacion = @c;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -207,7 +212,7 @@ BEGIN TRY
         THROW 53510, 'TEST FAILED: T-DB-02 coordinador (esperaba KPI_003).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uE1, @idCorrelacion = @c;
+        INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta) EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uE1, @idCorrelacion = @c;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -216,7 +221,7 @@ BEGIN TRY
         THROW 53511, 'TEST FAILED: T-DB-02 estudiante (esperaba KPI_003).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uPlano, @idCorrelacion = @c;
+        INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta) EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uPlano, @idCorrelacion = @c;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -225,7 +230,7 @@ BEGIN TRY
         THROW 53512, 'TEST FAILED: T-DB-02 usuario sin perfil (esperaba KPI_003).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @idPeriodoAcademico = @inexistente;
+        INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta) EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @idPeriodoAcademico = @inexistente;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -234,7 +239,7 @@ BEGIN TRY
         THROW 53513, 'TEST FAILED: periodo inexistente (esperaba PER_001).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo) EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = NULL;
+        INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta) EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = NULL;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();

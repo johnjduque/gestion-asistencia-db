@@ -36,8 +36,11 @@ DECLARE @estA UNIQUEIDENTIFIER = (SELECT id FROM dbo.EstadoEstudianteGrupo WHERE
 DECLARE @an UNIQUEIDENTIFIER = (SELECT id FROM dbo.RazonCausa WHERE codigo = 'AN');
 DECLARE @sjc UNIQUEIDENTIFIER = (SELECT id FROM dbo.RazonCausa WHERE codigo = 'SJC');
 DECLARE @recP UNIQUEIDENTIFIER = (SELECT id FROM dbo.Estado WHERE codigo = 'P');
-DECLARE @dia UNIQUEIDENTIFIER = (SELECT id FROM dbo.Dia WHERE codigo = N'MI');
 DECLARE @hoy DATE = CAST(SYSUTCDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE CAST(dbo.ufn_obtener_parametro('TIEMPO', 'ZONA_HORARIA_SQLSERVER') AS NVARCHAR(100)) AS DATE);
+-- CULM-001 D.9-a (F-EST-S06, F-DOC-021): la franja semanal cae el mismo dia de la semana que la sesion vencida (ayer, 07:00-09:00
+-- hora local = 12:00-14:00 UTC); 1900-01-01 es lunes, asi que (dias % 7) va de 0 (LU) a 6 (DO) sin depender de DATEFIRST.
+DECLARE @dia UNIQUEIDENTIFIER = (SELECT id FROM dbo.Dia WHERE codigo = CHOOSE(DATEDIFF(DAY, '1900-01-01', DATEADD(DAY, -1, @hoy)) % 7 + 1,
+                                                                             N'LU', N'MA', N'MI', N'JU', N'VI', N'SA', N'DO'));
 DECLARE @periodo UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.PeriodoAcademico WHERE institucion = @inst AND fechaInicio <= @hoy AND fechaFin >= @hoy ORDER BY fechaFin DESC, id);
 IF @periodo IS NULL SET @periodo = (SELECT TOP 1 id FROM dbo.PeriodoAcademico WHERE institucion = @inst ORDER BY fechaFin DESC, id);
 IF @inst IS NULL OR @tipoCC IS NULL OR @tipoProg IS NULL OR @semestre IS NULL OR @area IS NULL OR @esp IS NULL OR @estA IS NULL
@@ -96,8 +99,12 @@ IF NOT EXISTS (SELECT 1 FROM dbo.PlanEstudio WHERE id = @plan)
 IF NOT EXISTS (SELECT 1 FROM dbo.SemestrePlanEstudio WHERE id = @spe)
     INSERT INTO dbo.SemestrePlanEstudio (id, planEstudio, semestre) VALUES (@spe, @plan, @semestre);
 IF NOT EXISTS (SELECT 1 FROM dbo.Asignatura WHERE id = @asignatura)
-    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, semestrePlanEstudio, estado)
-    VALUES (@asignatura, N'CULM1-ASG-B', N'CULM1-Asignatura B', 3, @area, @esp, @spe, 1);
+    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, estado)
+    VALUES (@asignatura, N'CULM1-ASG-B', N'CULM1-Asignatura B', 3, @area, @esp, 1);
+-- CULM-001 B2NM (CONTRACT B2 fila 109): el vinculo asignatura-plan vive en AsignaturaPlanEstudio (caracter OBL por codigo).
+IF NOT EXISTS (SELECT 1 FROM dbo.AsignaturaPlanEstudio WHERE asignatura = @asignatura AND semestrePlanEstudio = @spe)
+    INSERT INTO dbo.AsignaturaPlanEstudio (id, asignatura, semestrePlanEstudio, caracter, estaActivo, fechaVinculacionUtc)
+    VALUES (CAST(@p + '1B' AS UNIQUEIDENTIFIER), @asignatura, @spe, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01');
 IF NOT EXISTS (SELECT 1 FROM dbo.Grupo WHERE id = @grupo)
     INSERT INTO dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron,
         cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)

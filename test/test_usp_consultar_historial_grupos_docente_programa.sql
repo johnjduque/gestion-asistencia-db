@@ -64,10 +64,15 @@ BEGIN TRY
     DECLARE @a1 UNIQUEIDENTIFIER = NEWID(), @a2 UNIQUEIDENTIFIER = NEWID(), @a3 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.PlanEstudio (id, programa, inp, estado) VALUES (@pl1, @p1, 950000 + ABS(CHECKSUM(NEWID()) % 9999), 1), (@pl2, @p2, 960000 + ABS(CHECKSUM(NEWID()) % 9999), 1);
     INSERT INTO dbo.SemestrePlanEstudio (id, planEstudio, semestre) VALUES (@spe1, @pl1, @semestre), (@spe2, @pl2, @semestre);
-    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, semestrePlanEstudio, estado) VALUES
-        (@a1, CONCAT(N'H1', @sufijo), N'Algebra QA', 3, @area, @componente, @spe1, 1),
-        (@a2, CONCAT(N'H2', @sufijo), N'Calculo QA', 3, @area, @componente, @spe1, 1),
-        (@a3, CONCAT(N'H3', @sufijo), N'Fisica QA', 3, @area, @componente, @spe2, 1);
+    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, estado) VALUES
+        (@a1, CONCAT(N'H1', @sufijo), N'Algebra QA', 3, @area, @componente, 1),
+        (@a2, CONCAT(N'H2', @sufijo), N'Calculo QA', 3, @area, @componente, 1),
+        (@a3, CONCAT(N'H3', @sufijo), N'Fisica QA', 3, @area, @componente, 1);
+    -- CULM-001 B2NM (CONTRACT B2 tabla de pruebas existentes, fila 109): el vinculo asignatura-plan vive en AsignaturaPlanEstudio
+    INSERT INTO dbo.AsignaturaPlanEstudio (id, asignatura, semestrePlanEstudio, caracter, estaActivo, fechaVinculacionUtc) VALUES
+        (NEWID(), @a1, @spe1, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01'),
+        (NEWID(), @a2, @spe1, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01'),
+        (NEWID(), @a3, @spe2, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01');
 
     -- G1 vigente (D1, P1), G2 finalizado (D1, P1), G3 proximo (D1, P1), G4 vigente de P2 (D1, excluido),
     -- G5 vigente de P1 con otro titular (D2, excluido), G6 vigente (D1, P1, segunda asignatura).

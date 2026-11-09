@@ -5,6 +5,7 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
+-- CULM-001 B2NM: programa y plan desde uv_grupo_programa. Grano 1 por (docente, grupo, programa del grupo).
 CREATE OR ALTER    VIEW	[dbo].[uv_docente]
 AS
 SELECT		di.id,
@@ -13,43 +14,36 @@ SELECT		di.id,
 			di.nombreCompleto,
 			di.estaActivoUsuario,
 
-			-- Informaci?n Institucional
 			idInstitucion = pr.idInstitucion,
 			nombreInstitucion = pr.nombreInstitucion,
 
-			-- Jerarqu?a Acad?mica
 			idFacultad = pr.idFacultad,
 			nombreFacultad = pr.nombreFacultad,
 			idPrograma = pr.id,
 			nombrePrograma = pr.nombrePrograma,
 
-			-- Detalle de la Asignatura/Grupo
-			idPlanEstudio = pe.id,
-			inpPlanEstudio = pe.inp,
+			idPlanEstudio = gp.idPlanEstudio,
+			inpPlanEstudio = gp.inpPlanEstudio,
 			idAsignatura = a.id,
 			nombreAsignatura = a.nombre,
 			idGrupo = g.id,
 			nombreGrupo = g.nombre,
 
-			-- Informaci?n del Perfil
 			idPerfil = p.id,
 			codigoPerfil = p.codigo,
 			nombrePerfil = p.nombre,
 
-			-- Estado L?gico (Docente activo + Programa activo)
 			estaActivoDocente = IIF(di.estaActivoUsuario = 1 AND pr.estaActivoPrograma = 1, 1, 0),
 			estaActivoTextoDocente = IIF(di.estaActivoUsuario = 1 AND pr.estaActivoPrograma = 1, 'SI', 'NO')
 
 FROM		uv_docente_identidad di
-INNER JOIN	uv_grupo g            
+INNER JOIN	uv_grupo g
 ON			di.id = g.idDocente
-INNER JOIN	uv_asignatura a       
+INNER JOIN	uv_asignatura a
 ON			g.idAsignatura = a.id
-INNER JOIN	uv_semestre_plan_estudio spe 
-ON			a.idSemestrePlanEstudio = spe.id
-INNER JOIN	uv_plan_estudio pe     
-ON			spe.idPlanEstudio = pe.id
-INNER JOIN	uv_programa pr     
-ON			pe.idPrograma = pr.id
+INNER JOIN	uv_grupo_programa gp
+ON			gp.idGrupo = g.id
+INNER JOIN	uv_programa pr
+ON			gp.idPrograma = pr.id
 CROSS JOIN	(SELECT TOP 1 id, codigo, nombre FROM uv_perfil WHERE codigo = 'DO') p
 GO

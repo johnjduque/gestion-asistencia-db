@@ -27,6 +27,10 @@ GO
 -- consumidor decide segun esa procedencia (contrato UTC v2); la DB no afirma UTC cuando no lo sabe.
 -- fechaRegistroSoporteUtc es un instante UTC DATETIME2(7) generado con SYSUTCDATETIME().
 -- Datos personales minimos: solo el nombre del propio estudiante, sin correo.
+--
+-- CULM-001 D.2 (CONTRACT §3.2, HU015/TD-060): un reclamo puede tener varios soportes. Las columnas de soporte siguen siendo las del PRIMER
+-- soporte adjuntado y se agregan AL FINAL codigoCategoria, nombreCategoria (NULL si el reclamo es anterior a la categoria persistida) y
+-- soportesJson: arreglo JSON [{idArchivo, nombreOriginal, tipoContenido, tamanioBytes}] ordenado por adjuncion ('[]' sin soportes).
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_solicitudes_revision_estudiante]
 (
@@ -106,7 +110,12 @@ BEGIN
         tipoContenidoSoporte          = arc.tipoContenido,
         tamanioSoporteBytes           = arc.tamanioBytes,
         fechaRegistroSoporteUtc       = arc.fechaRegistroUtc,
-        totalRegistros                = COUNT(*) OVER()
+        totalRegistros                = COUNT(*) OVER(),
+        codigoCategoria               = cat.codigo,
+        nombreCategoria               = cat.nombre,
+        soportesJson                  = ISNULL((SELECT s.idArchivo AS idArchivo, s.nombreOriginal AS nombreOriginal, s.tipoContenido AS tipoContenido,
+                                                              s.tamanioBytes AS tamanioBytes
+                                                       FROM dbo.uv_soporte_reclamo s WHERE s.idSolicitud = sra.id ORDER BY s.orden FOR JSON PATH), N'[]')
     FROM dbo.SolicitudRevisionAsistencia sra
     INNER JOIN dbo.Estado est             ON est.id = sra.estado
     INNER JOIN dbo.Asistencia asi         ON asi.id = sra.asistencia
@@ -116,8 +125,11 @@ BEGIN
     INNER JOIN dbo.Sesion ses             ON ses.id = asi.sesion
     INNER JOIN dbo.Grupo gru              ON gru.id = ses.grupo
     INNER JOIN dbo.Asignatura asg         ON asg.id = gru.asignatura
-    LEFT  JOIN dbo.ArchivoSoporte arc     ON arc.solicitudRevisionAsistencia = sra.id
-                                         AND arc.estado = @estadoAdjunto
+    OUTER APPLY (SELECT TOP 1 a.id, a.nombreOriginal, a.tipoContenido, a.tamanioBytes, a.fechaRegistroUtc
+                 FROM dbo.ArchivoSoporte a
+                 WHERE a.solicitudRevisionAsistencia = sra.id AND a.estado = @estadoAdjunto
+                 ORDER BY a.fechaAdjuncionUtc, a.id) arc
+    LEFT  JOIN dbo.CategoriaJustificacion cat ON cat.id = sra.categoriaJustificacion
     WHERE estu.usuario = @idUsuarioDefecto
       AND (@estadoFiltro IS NULL OR est.codigo = @estadoFiltro)
     ORDER BY sra.fecha DESC, sra.nombre ASC, sra.id ASC

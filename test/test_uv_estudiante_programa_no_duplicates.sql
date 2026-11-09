@@ -39,8 +39,8 @@ BEGIN TRY
         THROW 53303, 'TEST FAILED: UV_ESTUDIANTE_PROGRAMA_NO_DUPLICATES one EstudiantePrograma produced several rows for a multi-group student.', 1;
     IF EXISTS (SELECT 1 FROM dbo.uv_estudiante_programa GROUP BY id HAVING COUNT(*) > 1)
         THROW 53304, 'TEST FAILED: UV_ESTUDIANTE_PROGRAMA_NO_DUPLICATES duplicated view ids.', 1;
-    IF (SELECT COUNT(*) FROM sys.columns WHERE object_id = OBJECT_ID('dbo.uv_estudiante_programa')) <> 5
-        THROW 53305, 'TEST FAILED: UV_ESTUDIANTE_PROGRAMA_NO_DUPLICATES view shape changed (expected 5 columns).', 1;
+    IF (SELECT COUNT(*) FROM sys.columns WHERE object_id = OBJECT_ID('dbo.uv_estudiante_programa')) <> 6   -- CULM-001 B2NM (CONTRACT B2 fila 117): + estaActivoUsuario
+        THROW 53305, 'TEST FAILED: UV_ESTUDIANTE_PROGRAMA_NO_DUPLICATES view shape changed (expected 6 columns).', 1;
 
     PRINT 'TEST_PASS:UV_ESTUDIANTE_PROGRAMA_NO_DUPLICATES';
 END TRY

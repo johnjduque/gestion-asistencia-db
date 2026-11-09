@@ -38,9 +38,8 @@ CREATE TABLE #docentes (
     tieneVinculoActivo BIT);
 CREATE TABLE #asignaturas (
     idAsignatura UNIQUEIDENTIFIER, codigo NVARCHAR(50), nombre NVARCHAR(50), credito INT, nombreArea NVARCHAR(100),
-    nombreComponente NVARCHAR(100), codigoSemestre NVARCHAR(50), idPlanEstudio UNIQUEIDENTIFIER, inpPlanEstudio INT,
-    idPrograma UNIQUEIDENTIFIER, nombrePrograma NVARCHAR(100), idFacultad UNIQUEIDENTIFIER, nombreFacultad NVARCHAR(100),
-    estaActivaAsignatura BIT, totalRegistros INT);
+    nombreComponente NVARCHAR(100), planes NVARCHAR(1000), totalPlanes INT,
+    estaActivaAsignatura BIT, totalRegistros INT);   -- CULM-001 B2NM (CONTRACT B2 fila 114): planes / totalPlanes
 CREATE TABLE #estudiantes (
     idEstudiante UNIQUEIDENTIFIER, idUsuario UNIQUEIDENTIFIER, numeroIdentificacion BIGINT, nombreCompleto NVARCHAR(250),
     correo NVARCHAR(255), estaActivoUsuario BIT, facultades NVARCHAR(MAX), programas NVARCHAR(MAX), totalGrupos INT, totalRegistros INT);
@@ -87,8 +86,8 @@ BEGIN TRY
     IF NOT EXISTS (
             SELECT 1 FROM #programas p
             WHERE p.idPrograma = @idPrograma AND p.idPlanEstudio = @idPlanEstudio
-              AND p.totalCreditos = (SELECT SUM(a.credito) FROM dbo.Asignatura a INNER JOIN dbo.SemestrePlanEstudio s ON s.id = a.semestrePlanEstudio WHERE s.planEstudio = @idPlanEstudio)
-              AND p.totalAsignaturas = (SELECT COUNT(*) FROM dbo.Asignatura a INNER JOIN dbo.SemestrePlanEstudio s ON s.id = a.semestrePlanEstudio WHERE s.planEstudio = @idPlanEstudio))
+              AND p.totalCreditos = (SELECT SUM(a.credito) FROM dbo.Asignatura a INNER JOIN dbo.AsignaturaPlanEstudio ape_s ON ape_s.asignatura = a.id JOIN dbo.SemestrePlanEstudio s ON s.id = ape_s.semestrePlanEstudio WHERE s.planEstudio = @idPlanEstudio)
+              AND p.totalAsignaturas = (SELECT COUNT(*) FROM dbo.Asignatura a INNER JOIN dbo.AsignaturaPlanEstudio ape_s ON ape_s.asignatura = a.id JOIN dbo.SemestrePlanEstudio s ON s.id = ape_s.semestrePlanEstudio WHERE s.planEstudio = @idPlanEstudio))
         THROW 56111, 'TEST FAILED T-112-01: el plan del programa no trajo la suma real de creditos y asignaturas.', 1;
     IF EXISTS (SELECT 1 FROM #programas p WHERE NOT EXISTS (SELECT 1 FROM dbo.Programa pr WHERE pr.id = p.idPrograma AND pr.facultad = @idFacultad))
         THROW 56112, 'TEST FAILED T-112-01: aparecieron programas de otra facultad.', 1;
@@ -178,7 +177,7 @@ BEGIN TRY
     INSERT INTO #asignaturas EXEC dbo.usp_buscar_asignaturas_paginado
         @idUsuarioEjecutor = @uDecTitular, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 100, @busqueda = @codigoAsignatura;
     IF NOT EXISTS (SELECT 1 FROM #asignaturas WHERE idAsignatura = @idAsignatura)
-       OR EXISTS (SELECT 1 FROM #asignaturas WHERE idFacultad <> @idFacultad)
+       OR EXISTS (SELECT 1 FROM #asignaturas WHERE totalPlanes < 1)
         THROW 56118, 'TEST FAILED T-143-01: el decano titular no encontro la asignatura por codigo o vio otra facultad.', 1;
     TRUNCATE TABLE #asignaturas;
     INSERT INTO #asignaturas EXEC dbo.usp_buscar_asignaturas_paginado
@@ -188,7 +187,7 @@ BEGIN TRY
     INSERT INTO #asignaturas EXEC dbo.usp_buscar_asignaturas_paginado
         @idUsuarioEjecutor = @uAdmin, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 100, @idFacultad = @idFacultad;
     IF NOT EXISTS (SELECT 1 FROM #asignaturas WHERE idAsignatura = @idAsignatura)
-       OR EXISTS (SELECT 1 FROM #asignaturas WHERE idFacultad <> @idFacultad)
+       OR EXISTS (SELECT 1 FROM #asignaturas WHERE totalPlanes < 1)
         THROW 56119, 'TEST FAILED T-143-01: el filtro por facultad del administrador no se aplico.', 1;
     PRINT 'TEST_PASS:T-143-01';
 

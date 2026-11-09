@@ -58,10 +58,15 @@ BEGIN TRY
     DECLARE @a1 UNIQUEIDENTIFIER = NEWID(), @a2 UNIQUEIDENTIFIER = NEWID(), @a3 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.PlanEstudio (id, programa, inp, estado) VALUES (@pl1, @p1, 930000 + ABS(CHECKSUM(NEWID()) % 9999), 1), (@pl2, @p2, 940000 + ABS(CHECKSUM(NEWID()) % 9999), 1);
     INSERT INTO dbo.SemestrePlanEstudio (id, planEstudio, semestre) VALUES (@spe1, @pl1, @semestre), (@spe2, @pl2, @semestre);
-    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, semestrePlanEstudio, estado) VALUES
-        (@a1, CONCAT(N'K1', @sufijo), N'Asignatura Uno', 3, @area, @componente, @spe1, 1),
-        (@a2, CONCAT(N'K2', @sufijo), N'Asignatura Dos', 3, @area, @componente, @spe1, 1),
-        (@a3, CONCAT(N'K3', @sufijo), N'Asignatura Tres', 3, @area, @componente, @spe2, 1);
+    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, estado) VALUES
+        (@a1, CONCAT(N'K1', @sufijo), N'Asignatura Uno', 3, @area, @componente, 1),
+        (@a2, CONCAT(N'K2', @sufijo), N'Asignatura Dos', 3, @area, @componente, 1),
+        (@a3, CONCAT(N'K3', @sufijo), N'Asignatura Tres', 3, @area, @componente, 1);
+    -- CULM-001 B2NM (CONTRACT B2 tabla de pruebas existentes, fila 109): el vinculo asignatura-plan vive en AsignaturaPlanEstudio
+    INSERT INTO dbo.AsignaturaPlanEstudio (id, asignatura, semestrePlanEstudio, caracter, estaActivo, fechaVinculacionUtc) VALUES
+        (NEWID(), @a1, @spe1, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01'),
+        (NEWID(), @a2, @spe1, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01'),
+        (NEWID(), @a3, @spe2, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01');
     CREATE TABLE #g (k NVARCHAR(2), id UNIQUEIDENTIFIER);
     INSERT INTO #g VALUES (N'G1', NEWID()), (N'G2', NEWID()), (N'G3', NEWID());
     INSERT INTO dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron, cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)
@@ -213,7 +218,7 @@ BEGIN TRY
     -- T-DB-10: conciliacion contra tablas
     DECLARE @faltasDirectas INT = (SELECT COUNT(*) FROM dbo.DetalleAsistencia da INNER JOIN dbo.Asistencia a ON a.id = da.asistencia
         INNER JOIN dbo.RazonCausa rc ON rc.id = da.razonCausa INNER JOIN dbo.EstudianteGrupo eg ON eg.id = a.estudianteGrupo
-        INNER JOIN dbo.Grupo g ON g.id = eg.grupo INNER JOIN dbo.Asignatura asg ON asg.id = g.asignatura INNER JOIN dbo.SemestrePlanEstudio spe ON spe.id = asg.semestrePlanEstudio
+        INNER JOIN dbo.Grupo g ON g.id = eg.grupo INNER JOIN dbo.Asignatura asg ON asg.id = g.asignatura INNER JOIN dbo.AsignaturaPlanEstudio ape_spe ON ape_spe.asignatura = asg.id JOIN dbo.SemestrePlanEstudio spe ON spe.id = ape_spe.semestrePlanEstudio
         INNER JOIN dbo.PlanEstudio pe ON pe.id = spe.planEstudio INNER JOIN dbo.Programa pr ON pr.id = pe.programa INNER JOIN dbo.Facultad fa ON fa.id = pr.facultad
         WHERE fa.institucion = @i1 AND da.asistio = 0 AND rc.codigo = N'SJC');
     IF @faltasDirectas <> 6 THROW 54308, 'TEST FAILED T-DB-10: consulta de control = 6 faltas SJC en la institucion', 1;

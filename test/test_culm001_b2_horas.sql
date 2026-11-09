@@ -15,11 +15,11 @@ SET XACT_ABORT OFF;
 PRINT 'TEST START: test_culm001_b2_horas (CULM-001 B.2, DEC-012, DEC-024)';
 
 IF (SELECT COUNT(*) FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.uv_resumen_asistencia_estudiante_grupo') AND name IN (
-        'idEstudianteGrupo', 'idEstudiante', 'idGrupo', 'idAsignatura', 'idPrograma', 'idPeriodoAcademico', 'codigoEstadoEstudiante',
+        'idEstudianteGrupo', 'idEstudiante', 'idGrupo', 'idAsignatura', 'idPeriodoAcademico', 'codigoEstadoEstudiante',
         'sesionesEjecutadas', 'asistencias', 'faltasSinJustaCausa', 'excusas', 'porcentajeInasistencia', 'codigoPermanencia',
         'tomasDictadas', 'horasDictadas', 'horasAsistidas', 'horasFalta', 'horasExcusa', 'horasSinRegistro', 'porcentajeAsistenciaHoras',
         'porcentajeExcusaHoras', 'porcentajeSinRegistroHoras', 'porcentajeInasistenciaSesiones', 'umbralAdvertencia', 'umbralPerdida',
-        'sesionesAsistidas', 'sesionesConFaltaSinJustaCausa', 'sesionesConExcusa')) <> 28
+        'sesionesAsistidas', 'sesionesConFaltaSinJustaCausa', 'sesionesConExcusa')) <> 27   -- CULM-001 B2NM (CONTRACT B2 fila 111): sin idPrograma
    OR (SELECT COUNT(*) FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.uv_asistencia_sesion_horas') AND name IN (
         'idAsistencia', 'idEstudianteGrupo', 'idSesion', 'idGrupo', 'totalTomasSesion', 'tomasConRegistro', 'horasSesion', 'horasAsistidas',
         'horasFalta', 'horasExcusa', 'horasSinRegistro', 'codigoRazonCausaConsolidado', 'esParcial', 'tieneFaltaSinJustaCausa')) <> 14
@@ -54,7 +54,7 @@ DECLARE @idAsig UNIQUEIDENTIFIER, @idProg UNIQUEIDENTIFIER, @idFac UNIQUEIDENTIF
 DECLARE @uCoord UNIQUEIDENTIFIER, @uDec UNIQUEIDENTIFIER, @uAdm UNIQUEIDENTIFIER;
 SELECT TOP 1 @idAsig = a.id, @idProg = pr.id, @idFac = pr.idFacultad, @idInst = pr.idInstitucion, @uCoord = ci.idUsuario, @uDec = di.idUsuario, @uAdm = ad.idUsuario
 FROM dbo.uv_asignatura a
-INNER JOIN dbo.uv_semestre_plan_estudio spe ON a.idSemestrePlanEstudio = spe.id
+INNER JOIN dbo.uv_asignatura_plan_estudio apx ON apx.idAsignatura = a.id INNER JOIN dbo.uv_semestre_plan_estudio spe ON apx.idSemestrePlanEstudio = spe.id
 INNER JOIN dbo.uv_plan_estudio pe ON spe.idPlanEstudio = pe.id
 INNER JOIN dbo.uv_programa pr ON pe.idPrograma = pr.id
 INNER JOIN dbo.uv_coordinador_identidad ci ON ci.id = pr.idCoordinador
@@ -89,22 +89,30 @@ CREATE TABLE #b2hCo (corrida INT, idGrupo UNIQUEIDENTIFIER, codigoGrupo INT, nom
     nombrePeriodoAcademico NVARCHAR(100), idPrograma UNIQUEIDENTIFIER, nombrePrograma NVARCHAR(100),
     idAsignatura UNIQUEIDENTIFIER, nombreAsignatura NVARCHAR(100), idDocente UNIQUEIDENTIFIER, nombreDocente NVARCHAR(250),
     estudiantesActivos INT, sesionesEjecutadas INT, asistencias INT, faltasSinJustaCausa INT, excusas INT,
-    porcentajeAsistencia DECIMAL(5,2), porcentajeInasistencia DECIMAL(5,2), estudiantesRiesgo INT, estudiantesPerdida INT, totalRegistros INT);
+    porcentajeAsistencia DECIMAL(5,2), porcentajeInasistencia DECIMAL(5,2), estudiantesRiesgo INT, estudiantesPerdida INT, totalRegistros INT,
+    horasDictadas DECIMAL(12,2), porcentajeExcusa DECIMAL(5,2), porcentajeSinRegistro DECIMAL(5,2));
 CREATE TABLE #b2hCoX (idGrupo UNIQUEIDENTIFIER, codigoGrupo INT, nombreGrupo NVARCHAR(100), idPeriodoAcademico UNIQUEIDENTIFIER,
     nombrePeriodoAcademico NVARCHAR(100), idPrograma UNIQUEIDENTIFIER, nombrePrograma NVARCHAR(100),
     idAsignatura UNIQUEIDENTIFIER, nombreAsignatura NVARCHAR(100), idDocente UNIQUEIDENTIFIER, nombreDocente NVARCHAR(250),
     estudiantesActivos INT, sesionesEjecutadas INT, asistencias INT, faltasSinJustaCausa INT, excusas INT,
-    porcentajeAsistencia DECIMAL(5,2), porcentajeInasistencia DECIMAL(5,2), estudiantesRiesgo INT, estudiantesPerdida INT, totalRegistros INT);
-CREATE TABLE #b2hTe (corrida INT, inicioIntervalo DATE, finIntervalo DATE, sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2));
-CREATE TABLE #b2hTeX (inicioIntervalo DATE, finIntervalo DATE, sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2));
+    porcentajeAsistencia DECIMAL(5,2), porcentajeInasistencia DECIMAL(5,2), estudiantesRiesgo INT, estudiantesPerdida INT, totalRegistros INT,
+    horasDictadas DECIMAL(12,2), porcentajeExcusa DECIMAL(5,2), porcentajeSinRegistro DECIMAL(5,2));
+CREATE TABLE #b2hTe (corrida INT, inicioIntervalo DATE, finIntervalo DATE, sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2),
+    horasDictadasEstudiante DECIMAL(14,2), horasFalta DECIMAL(14,2));
+CREATE TABLE #b2hTeX (inicioIntervalo DATE, finIntervalo DATE, sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2),
+    horasDictadasEstudiante DECIMAL(14,2), horasFalta DECIMAL(14,2));
 CREATE TABLE #b2hCf (corrida INT, idFacultad UNIQUEIDENTIFIER, nombreFacultad NVARCHAR(50), estaActivaFacultad BIT, totalProgramas INT, totalEstudiantes INT,
-    estudiantesRiesgo INT, estudiantesPerdida INT, tasaRetencion DECIMAL(5,2), sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2));
+    estudiantesRiesgo INT, estudiantesPerdida INT, tasaRetencion DECIMAL(5,2), sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2),
+    horasDictadas DECIMAL(12,2), horasFalta DECIMAL(12,2));
 CREATE TABLE #b2hCfX (idFacultad UNIQUEIDENTIFIER, nombreFacultad NVARCHAR(50), estaActivaFacultad BIT, totalProgramas INT, totalEstudiantes INT,
-    estudiantesRiesgo INT, estudiantesPerdida INT, tasaRetencion DECIMAL(5,2), sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2));
+    estudiantesRiesgo INT, estudiantesPerdida INT, tasaRetencion DECIMAL(5,2), sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2),
+    horasDictadas DECIMAL(12,2), horasFalta DECIMAL(12,2));
 CREATE TABLE #b2hCp (corrida INT, idPrograma UNIQUEIDENTIFIER, nombrePrograma NVARCHAR(50), estaActivoPrograma BIT, totalEstudiantes INT, estudiantesRiesgo INT, estudiantesPerdida INT,
-    tasaRetencion DECIMAL(5,2), sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2));
+    tasaRetencion DECIMAL(5,2), sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2),
+    horasDictadas DECIMAL(12,2), horasFalta DECIMAL(12,2));
 CREATE TABLE #b2hCpX (idPrograma UNIQUEIDENTIFIER, nombrePrograma NVARCHAR(50), estaActivoPrograma BIT, totalEstudiantes INT, estudiantesRiesgo INT, estudiantesPerdida INT,
-    tasaRetencion DECIMAL(5,2), sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2));
+    tasaRetencion DECIMAL(5,2), sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2),
+    horasDictadas DECIMAL(12,2), horasFalta DECIMAL(12,2));
 CREATE TABLE #b2hR (idSolicitudRevisionAsistencia UNIQUEIDENTIFIER, nombreSolicitud NVARCHAR(50), fechaSolicitud DATE,
     codigoEstado NVARCHAR(5), nombreEstado NVARCHAR(100), justificacionSolicitud NVARCHAR(MAX), justificacionRespuesta NVARCHAR(MAX),
     idEstudiante UNIQUEIDENTIFIER, nombreEstudiante NVARCHAR(400), idSesion UNIQUEIDENTIFIER, numeroSesion INT,
@@ -112,7 +120,8 @@ CREATE TABLE #b2hR (idSolicitudRevisionAsistencia UNIQUEIDENTIFIER, nombreSolici
     nombreGrupo NVARCHAR(100), idAsignatura UNIQUEIDENTIFIER, codigoAsignatura NVARCHAR(100), nombreAsignatura NVARCHAR(100),
     asistio BIT, codigoRazonCausa NVARCHAR(5), nombreRazonCausa NVARCHAR(50),
     idArchivoSoporte UNIQUEIDENTIFIER, nombreSoporte NVARCHAR(250), tipoContenidoSoporte VARCHAR(50),
-    tamanioSoporteBytes BIGINT, fechaRegistroSoporteUtc DATETIME2(7));
+    tamanioSoporteBytes BIGINT, fechaRegistroSoporteUtc DATETIME2(7),
+    codigoCategoria NVARCHAR(5), nombreCategoria NVARCHAR(50), soportesJson NVARCHAR(MAX));
 
 DECLARE @corr UNIQUEIDENTIFIER;
 
@@ -311,8 +320,9 @@ BEGIN TRY
         THROW 57629, 'TEST FAILED CULM001_B2_HOR_07: el KPI del coordinador debe usar la clasificacion por horas y el cumplimiento sin canceladas.', 1;
     PRINT 'TEST_PASS:CULM001_B2_HOR_07_KPIS_POR_HORAS';
 
-    -- Diferidos a D (consolidado, tendencia, comparativas): con 2 tomas dan el mismo resultado que con 1 toma del mismo
-    -- estado consolidado. Corrida 1 con el fixture; luego HKA (AN + SJC) colapsa a 1 toma SJC y H1S1 a 1 toma SJC.
+    -- Consolidado, tendencia y comparativas (diferidos por B, pasan a horas en CULM-001 D.8, CONTRACT D 9.2): ven el periodo del fixture y
+    -- su porcentaje de ausentismo por horas coincide con 100 x Sigma horasFalta / Sigma horasDictadas del resumen por estudiante.
+    -- (La equivalencia 2 tomas = 1 toma de la sesion ya no aplica: con horas, AN + SJC en 2 tomas son media sesion de falta.)
     INSERT INTO #b2hCoX EXEC dbo.usp_consultar_consolidado_asistencia_grupos_paginado @idUsuarioEjecutor = @uCoord, @idCorrelacion = @corr,
         @numeroPagina = 1, @tamanoPagina = 50, @idPeriodoAcademico = @per;
     INSERT INTO #b2hCo SELECT 1, * FROM #b2hCoX; TRUNCATE TABLE #b2hCoX;
@@ -325,39 +335,14 @@ BEGIN TRY
     IF NOT EXISTS (SELECT 1 FROM #b2hCo WHERE idGrupo = @gHK) OR NOT EXISTS (SELECT 1 FROM #b2hTe) OR NOT EXISTS (SELECT 1 FROM #b2hCf WHERE idFacultad = @idFac)
        OR NOT EXISTS (SELECT 1 FROM #b2hCp WHERE idPrograma = @idProg)
         THROW 57630, 'TEST FAILED CULM001_B2_HOR_07: los consumidores diferidos no ven el periodo del fixture.', 1;
-    -- colapso a 1 toma del mismo estado consolidado: se borran las tomas > 1 (y sus detalles) y el detalle de la toma 1 toma el consolidado
-    UPDATE da SET razonCausa = rcS.id, asistio = 0
-    FROM dbo.DetalleAsistencia da
-    INNER JOIN dbo.Asistencia a ON a.id = da.asistencia
-    INNER JOIN dbo.TomaAsistencia t ON t.id = da.toma AND t.numero = 1
-    INNER JOIN #b2hS s ON s.id = a.sesion AND s.k IN (N'HKA', N'H1S1')
-    INNER JOIN #b2hEG x ON x.id = a.estudianteGrupo AND x.est = 1
-    CROSS JOIN (SELECT id FROM dbo.RazonCausa WHERE codigo = N'SJC') rcS;
-    DELETE da FROM dbo.DetalleAsistencia da INNER JOIN dbo.TomaAsistencia t ON t.id = da.toma INNER JOIN #b2hS s ON s.id = t.sesion
-    WHERE s.k IN (N'HKA', N'H1S1') AND t.numero > 1;
-    DELETE t FROM dbo.TomaAsistencia t INNER JOIN #b2hS s ON s.id = t.sesion WHERE s.k IN (N'HKA', N'H1S1') AND t.numero > 1;
-    INSERT INTO #b2hCoX EXEC dbo.usp_consultar_consolidado_asistencia_grupos_paginado @idUsuarioEjecutor = @uCoord, @idCorrelacion = @corr,
-        @numeroPagina = 1, @tamanoPagina = 50, @idPeriodoAcademico = @per;
-    INSERT INTO #b2hCo SELECT 2, * FROM #b2hCoX;
-    INSERT INTO #b2hTeX EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uAdm, @idCorrelacion = @corr, @idPeriodoAcademico = @per, @granularidad = N'SEMANA';
-    INSERT INTO #b2hTe SELECT 2, * FROM #b2hTeX;
-    INSERT INTO #b2hCfX EXEC dbo.usp_consultar_comparativa_facultades @idUsuarioEjecutor = @uAdm, @idCorrelacion = @corr, @idPeriodoAcademico = @per;
-    INSERT INTO #b2hCf SELECT 2, * FROM #b2hCfX;
-    INSERT INTO #b2hCpX EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @corr, @idPeriodoAcademico = @per;
-    INSERT INTO #b2hCp SELECT 2, * FROM #b2hCpX;
-    IF EXISTS ((SELECT idGrupo, sesionesEjecutadas, asistencias, faltasSinJustaCausa, excusas, porcentajeAsistencia, porcentajeInasistencia FROM #b2hCo WHERE corrida = 1)
-               EXCEPT (SELECT idGrupo, sesionesEjecutadas, asistencias, faltasSinJustaCausa, excusas, porcentajeAsistencia, porcentajeInasistencia FROM #b2hCo WHERE corrida = 2))
-       OR EXISTS ((SELECT idGrupo, sesionesEjecutadas, asistencias, faltasSinJustaCausa, excusas, porcentajeAsistencia, porcentajeInasistencia FROM #b2hCo WHERE corrida = 2)
-               EXCEPT (SELECT idGrupo, sesionesEjecutadas, asistencias, faltasSinJustaCausa, excusas, porcentajeAsistencia, porcentajeInasistencia FROM #b2hCo WHERE corrida = 1))
-       OR EXISTS ((SELECT inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo FROM #b2hTe WHERE corrida = 1)
-               EXCEPT (SELECT inicioIntervalo, finIntervalo, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo FROM #b2hTe WHERE corrida = 2))
-       OR (SELECT COUNT(*) FROM #b2hTe WHERE corrida = 1) <> (SELECT COUNT(*) FROM #b2hTe WHERE corrida = 2)
-       OR EXISTS ((SELECT idFacultad, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo FROM #b2hCf WHERE corrida = 1)
-               EXCEPT (SELECT idFacultad, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo FROM #b2hCf WHERE corrida = 2))
-       OR EXISTS ((SELECT idPrograma, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo FROM #b2hCp WHERE corrida = 1)
-               EXCEPT (SELECT idPrograma, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo FROM #b2hCp WHERE corrida = 2))
-        THROW 57631, 'TEST FAILED CULM001_B2_HOR_07: consolidado, tendencia y comparativas (diferidos a D) deben dar con 2 tomas lo mismo que con 1 toma del mismo estado consolidado.', 1;
-    PRINT 'TEST_PASS:CULM001_B2_HOR_07_DIFERIDOS_SIN_DUPLICAR';
+    IF NOT EXISTS (SELECT 1 FROM #b2hCp p WHERE p.idPrograma = @idProg AND p.horasDictadas = CAST(@hDict AS DECIMAL(12,2)) AND p.horasFalta = CAST(@hFalta AS DECIMAL(12,2))
+                   AND p.porcentajeAusentismo = @esperado)
+       OR NOT EXISTS (SELECT 1 FROM #b2hCf f WHERE f.idFacultad = @idFac AND f.horasDictadas = CAST(@hDict AS DECIMAL(12,2)) AND f.horasFalta = CAST(@hFalta AS DECIMAL(12,2))
+                      AND f.porcentajeAusentismo = @esperado)
+       OR NOT EXISTS (SELECT 1 FROM #b2hTe WHERE horasDictadasEstudiante IS NOT NULL)
+       OR (SELECT SUM(horasFalta) FROM #b2hTe) <> CAST(@hFalta AS DECIMAL(14,2))
+        THROW 57631, 'TEST FAILED CULM001_B2_HOR_07: comparativas y tendencia (D.8) deben dar el ausentismo por horas del resumen por estudiante.', 1;
+    PRINT 'TEST_PASS:CULM001_B2_HOR_07_DIFERIDOS_POR_HORAS';
 
     -- --------------------------------------------------------------------------------------------------------
     -- B2-HOR-08: reclamo aprobado con varias tomas => todas las SJC de la asistencia pasan a EX; el detalle del reclamo

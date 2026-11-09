@@ -12,6 +12,8 @@ GO
 --   * codigo y anio se derivan de fechaInicio: anio = YEAR(fechaInicio); codigo = anio * 10 + (1 si inicia en
 --     enero-junio, 2 si inicia en julio-diciembre), igual que la semilla (2026-2 => 20262).
 -- Concurrencia: los periodos de la institucion se bloquean (UPDLOCK, HOLDLOCK) mientras se valida la unicidad.
+-- CULM-001 D.9-a (F-ADM-030): el resultset devuelve ademas idPeriodo (el creado; NULL si estadoResultado = 0) para que el backend
+-- responda 201 con el periodo creado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_crear_periodo_academico]
 (
     @idPeriodo               UNIQUEIDENTIFIER,
@@ -168,6 +170,7 @@ BEGIN
         idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,
         mensajeTecnicoResultado = @mensajeTecnicoResultado,
-        estadoResultado         = @estadoResultado;
+        estadoResultado         = @estadoResultado,
+        idPeriodo               = IIF(@estadoResultado = 1, @idPeriodoDefecto, NULL);
 END;
 GO

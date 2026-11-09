@@ -569,6 +569,16 @@ GO
 -- toma inexistente TOM_001, ejecutor no titular SEC_002, ejecutor NULL GEN_002.
 DECLARE @corr UNIQUEIDENTIFIER = NEWID(), @ok INT = 0, @msg NVARCHAR(4000);
 DECLARE @toma UNIQUEIDENTIFIER, @sesion UNIQUEIDENTIFIER, @ajeno UNIQUEIDENTIFIER;
+-- Precondicion (F3): en una BD recien desplegada no hay tomas (solo semillas). Si no existe ninguna se crea la toma 1 de una sesion
+-- sembrada con el helper del fixture y se borra al final de este bloque. Sin transaccion: los SP de consulta tienen XACT_ABORT ON y
+-- su THROW 51000 dejaria condenada una transaccion abierta (Msg 3930).
+DECLARE @tomaCreada UNIQUEIDENTIFIER = NULL;
+IF NOT EXISTS (SELECT 1 FROM dbo.TomaAsistencia)
+BEGIN
+    DECLARE @sesionSemilla UNIQUEIDENTIFIER = (SELECT TOP 1 s.id FROM dbo.Sesion s ORDER BY s.id);
+    IF @sesionSemilla IS NULL THROW 57341, 'TEST FAILED CULM001_B2_CONSULTAS_VALIDACION: faltan sesiones sembradas para crear la toma.', 1;
+    EXEC #culm001_b2_crear_toma @idSesion = @sesionSemilla, @idToma = @tomaCreada OUTPUT;
+END
 SELECT TOP 1 @toma = t.id, @sesion = t.sesion FROM dbo.TomaAsistencia t ORDER BY t.id;
 SELECT TOP 1 @ajeno = di.idUsuario FROM dbo.uv_docente_identidad di
 WHERE di.estaActivoUsuario = 1
@@ -614,6 +624,7 @@ BEGIN
 END
 ELSE SET @ok += 1;
 DROP TABLE #b2qF;
+IF @tomaCreada IS NOT NULL DELETE FROM dbo.TomaAsistencia WHERE id = @tomaCreada;
 IF @ok <> 4 OR @@TRANCOUNT <> 0
     THROW 57340, 'TEST FAILED CULM001_B2_CONSULTAS_VALIDACION: las consultas de B.2 deben lanzar 51000 con TOM_001 / SEC_002 / GEN_002 / PAG_001.', 1;
 PRINT 'TEST_PASS:CULM001_B2_TOM_CONSULTAS_VALIDACION';

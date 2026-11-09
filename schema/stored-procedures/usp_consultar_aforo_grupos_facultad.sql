@@ -58,21 +58,26 @@ BEGIN
         codigoGrupo = g.codigo,
         idAsignatura = g.idAsignatura,
         nombreAsignatura = g.nombreAsignatura,
-        idPrograma = p.id,
-        nombrePrograma = p.nombrePrograma,
+        programas = p.nombrePrograma,
         cupoMaximo = g.capacidadMaximaPermitida,
         matriculadosActivos = g.estudiantesActivos,
         cuposDisponibles = g.cuposDisponibles,
         tasaAforo = CAST(IIF(ISNULL(g.capacidadMaximaPermitida, 0) = 0, NULL, 100.0 * g.estudiantesActivos / g.capacidadMaximaPermitida) AS DECIMAL(7,2)),
         grupoEstaHabilitado = CAST(g.grupoEstaHablitado AS BIT),
         totalRegistros = COUNT(*) OVER()
-    FROM dbo.uv_grupo_programa gp
-    INNER JOIN dbo.uv_programa p ON p.id = gp.idPrograma
-    INNER JOIN dbo.uv_grupo g ON g.id = gp.idGrupo
-    WHERE p.idFacultad = @idFacultad
-      AND gp.idPeriodoAcademico = @idPeriodo
-      AND (@idPrograma IS NULL OR p.id = @idPrograma)
-      AND (ISNULL(@soloHabilitados, 1) = 0 OR gp.grupoEstaHablitado = 1)
+    -- CULM-001 B2NM (R5): 1 fila por grupo; idPrograma/nombrePrograma = primer programa del ambito, nombrePrograma lista todos.
+    FROM dbo.uv_grupo g
+    CROSS APPLY (SELECT TOP 1 id = x.id,
+                              nombrePrograma = (SELECT STRING_AGG(y.nombrePrograma, N', ') WITHIN GROUP (ORDER BY y.nombrePrograma)
+                                                FROM dbo.uv_grupo_programa gy
+                                                INNER JOIN dbo.uv_programa y ON y.id = gy.idPrograma
+                                                WHERE gy.idGrupo = g.id AND y.idFacultad = @idFacultad)
+                 FROM dbo.uv_grupo_programa gp
+                 INNER JOIN dbo.uv_programa x ON x.id = gp.idPrograma
+                 WHERE gp.idGrupo = g.id AND x.idFacultad = @idFacultad AND (@idPrograma IS NULL OR x.id = @idPrograma)
+                 ORDER BY x.nombrePrograma, x.id) p
+    WHERE g.idPeriodoAcademico = @idPeriodo
+      AND (ISNULL(@soloHabilitados, 1) = 0 OR g.grupoEstaHablitado = 1)
     ORDER BY IIF(ISNULL(g.capacidadMaximaPermitida, 0) = 0, 1, 0) ASC,
              100.0 * g.estudiantesActivos / NULLIF(g.capacidadMaximaPermitida, 0) DESC,
              g.codigo ASC, g.id ASC

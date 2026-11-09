@@ -74,10 +74,10 @@ function Invoke-ResultParserSelfTests {
     $id = 'SES01_AUTO_CLOSED'
     $correlation = 'f7f690e0-68cc-45bc-a50e-622056bf23a1'
     $otherCorrelation = '03f3a4c8-1c6e-4bb4-86b9-f968acbda92d'
-    $technical = "DBCODE=SES_008|La sesión está cerrada. Correlacion: $correlation"
-    $row = "$correlation|La sesión ya finalizó.|$technical|0"
+    $technical = "DBCODE=SES_008|La sesiÃ³n estÃ¡ cerrada. Correlacion: $correlation"
+    $row = "$correlation|La sesiÃ³n ya finalizÃ³.|$technical|0"
     $base = @(
-        "TEST_EXPECTED_USER:$id|La sesión ya finalizó."
+        "TEST_EXPECTED_USER:$id|La sesiÃ³n ya finalizÃ³."
         "TEST_EXPECTED_TECH:$id|$technical"
         "TEST_RESULT_BEGIN:$id"
         $row
@@ -92,9 +92,9 @@ function Invoke-ResultParserSelfTests {
         @{ Name = 'STATE_ONLY_FORGERY'; Text = "TEST_STATE_PASS:$id"; Expected = $false; Code = 'SES_008' },
         @{ Name = 'DUPLICATE_ROW'; Text = $base.Replace("$row`nTEST_RESULT_END", "$row`n$row`nTEST_RESULT_END"); Expected = $false; Code = 'SES_008' },
         @{ Name = 'INCOMPLETE_BLOCK'; Text = $base.Replace("TEST_RESULT_END:$id`n", ''); Expected = $false; Code = 'SES_008' },
-        @{ Name = 'WRONG_CATALOG_MESSAGE'; Text = $base.Replace("TEST_EXPECTED_USER:$id|La sesión ya finalizó.", "TEST_EXPECTED_USER:$id|Mensaje de catálogo incorrecto."); Expected = $false; Code = 'SES_008' },
+        @{ Name = 'WRONG_CATALOG_MESSAGE'; Text = $base.Replace("TEST_EXPECTED_USER:$id|La sesiÃ³n ya finalizÃ³.", "TEST_EXPECTED_USER:$id|Mensaje de catÃ¡logo incorrecto."); Expected = $false; Code = 'SES_008' },
         @{ Name = 'WRONG_ERROR_CODE'; Text = $base; Expected = $false; Code = 'SES_007' },
-        @{ Name = 'CORRELATION_MISMATCH'; Text = $base.Replace("$correlation|La sesión ya finalizó.", "$otherCorrelation|La sesión ya finalizó."); Expected = $false; Code = 'SES_008' },
+        @{ Name = 'CORRELATION_MISMATCH'; Text = $base.Replace("$correlation|La sesiÃ³n ya finalizÃ³.", "$otherCorrelation|La sesiÃ³n ya finalizÃ³."); Expected = $false; Code = 'SES_008' },
         @{ Name = 'DUPLICATE_TECH_MARKER'; Text = "$base`nTEST_EXPECTED_TECH:$id|$technical"; Expected = $false; Code = 'SES_008' }
     )
 
@@ -175,7 +175,7 @@ $resultIds = @('STUDENT_DUPLICATE', 'STUDENT_GROUP_NOT_FOUND', 'STUDENT_GROUP_DI
     'GROUP_SCHEDULE_TEACHER_CONFLICT_SAVEPOINT', 'GROUP_SCHEDULE_TEACHER_CONFLICT_OWN_TRANSACTION',
     # SES-01: rechazos por ventana de registro (el SP revierte su savepoint/transaccion)
     'SES01_BULK_BEFORE_START', 'SES01_BULK_EXACT_END', 'SES01_BULK_TWO_HOURS_AFTER', 'SES01_BULK_INDETERMINATE',
-    'SES01_BULK_CLOSED_HISTORY_PRESERVED', 'SES01_AUTO_CLOSED', 'SES01_AUTO_BEFORE_START', 'SES01_AUTO_INDETERMINATE',
+    'SES01_BULK_CLOSED_HISTORY_PRESERVED',
     # CULM-001 B.1 (B1-VEN-04): el lote congelado rechaza una sesion cancelada con SES_010 (revierte su savepoint)
     'CULM001_B1_VEN_04_LOTE_CONGELADO')
 $resultFailures = @()
@@ -186,9 +186,6 @@ $ses01ExpectedErrorCodes = @{
     SES01_BULK_TWO_HOURS_AFTER = 'SES_008'
     SES01_BULK_INDETERMINATE = 'SES_009'
     SES01_BULK_CLOSED_HISTORY_PRESERVED = 'SES_008'
-    SES01_AUTO_CLOSED = 'SES_008'
-    SES01_AUTO_BEFORE_START = 'SES_007'
-    SES01_AUTO_INDETERMINATE = 'SES_009'
     CULM001_B1_VEN_04_LOTE_CONGELADO = 'SES_010'
 }
 foreach ($id in $resultIds) {
@@ -518,7 +515,7 @@ finally {
 
 # CC-003G-01: login real de minimo privilegio (no sa) para los dos proveedores.
 try {
-    $rtOutput = @(& (Join-Path $PSScriptRoot 'test/verify_runtime_role_cc003g01.ps1') -ContainerName $ContainerName -AdminPassword $Password 2>&1 | ForEach-Object { "$_" })
+    $rtOutput = @(& (Join-Path $PSScriptRoot 'test/verify_runtime_role_cc003g01.ps1') -ContainerName $ContainerName -AdminPassword $Password *>&1 | ForEach-Object { "$_" })
     foreach ($line in $rtOutput) { Write-Host $line }
     foreach ($id in @('CC003G01_RUNTIME_EXECUTE_GRANTS', 'CC003G01_RUNTIME_INTERNAL_EXEC_DENIED', 'CC003G01_RUNTIME_DIRECT_DML_DENIED',
             'CC003G01_RUNTIME_BASE_TABLE_READ_DENIED', 'CC003G01_RUNTIME_PROVIDERS_FUNCTIONAL')) {
@@ -533,7 +530,7 @@ catch {
 # F2: dos sqlcmd independientes precargan el mismo grupo y luego se valida el reintento.
 try {
     $preloadConcurrencyOutput = @(& (Join-Path $PSScriptRoot 'test/test_usp_precargar_sesiones_concurrency.ps1') `
-        -ContainerName $ContainerName -Password $Password 2>&1 | ForEach-Object { "$_" })
+        -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
     foreach ($line in $preloadConcurrencyOutput) { Write-Host $line }
     if ($preloadConcurrencyOutput -contains 'TEST_PASS:PRELOAD_CONCURRENT_IDEMPOTENT') {
         $clientPassed += 'PRELOAD_CONCURRENT_IDEMPOTENT'
@@ -551,7 +548,7 @@ catch {
 $culm001B1Ids = @('CULM001_B1_FES_05_CARGA_CONCURRENTE', 'CULM001_B1_FES_07_TUPLA_CONTEOS', 'CULM001_B1_FES_08A_SIN_TRANSACCION_SYS001',
     'CULM001_B1_FES_08B2_SIN_TUPLA', 'CULM001_B1_FES_08B_PARIDAD_TUPLA', 'CULM001_B1_MIG_01_UP_DOWN_UP')
 try {
-    $culm001B1Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_b1.ps1') -ContainerName $ContainerName -Password $Password 2>&1 | ForEach-Object { "$_" })
+    $culm001B1Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_b1.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
     foreach ($line in $culm001B1Output) { Write-Host $line }
     foreach ($id in $culm001B1Ids) {
         if ($culm001B1Output -contains "TEST_PASS:$id") { $clientPassed += $id }
@@ -568,7 +565,7 @@ $culm001B2Ids = @('CULM001_B2_MIG_03_DOWN_RESTAURA', 'CULM001_B2_MIG_01_UP_CON_D
     'CULM001_B2_MIG_03_COLAPSO_CONFIRMADO', 'CULM001_B2_SEG_02_FIXTURES_REPETIBLES', 'CULM001_B2_TOM_10_CIERRE_AUTOMATICO_CONCURRENTE',
     'CULM001_B2_TOM_08_CIERRE_CONCURRENTE')
 try {
-    $culm001B2Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_b2.ps1') -ContainerName $ContainerName -Password $Password 2>&1 | ForEach-Object { "$_" })
+    $culm001B2Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_b2.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
     foreach ($line in $culm001B2Output) { Write-Host $line }
     foreach ($id in $culm001B2Ids) {
         if ($culm001B2Output -contains "TEST_PASS:$id") { $clientPassed += $id }
@@ -578,10 +575,62 @@ try {
 catch {
     $resultFailures += "CULM001_B2_RUNNER $($_.Exception.Message)"
 }
+# CULM-001 C.1: migracion 19 (up/down/up, C-DB-60) en test/test_culm001_c.ps1.
+$culm001CIds = @('CULM001_C_MIG_19_UP_DOWN_UP')
+try {
+    $culm001COutput = @(& (Join-Path $PSScriptRoot 'test/test_culm001_c.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $culm001COutput) { Write-Host $line }
+    foreach ($id in $culm001CIds) {
+        if ($culm001COutput -contains "TEST_PASS:$id") { $clientPassed += $id }
+        else { $resultFailures += "$id not reported by test_culm001_c.ps1" }
+    }
+}
+catch {
+    $resultFailures += "CULM001_C_RUNNER $($_.Exception.Message)"
+}
+# CULM-001 D.3 (D3-09 concurrencia, D3-16 migracion 22) y D.6 (migracion 25) en test/test_culm001_d3.ps1.
+$culm001D3Ids = @('CULM001_D3_09_CONCURRENCIA', 'CULM001_D3_16_MIG_UP_DOWN_UP', 'CULM001_D6_MIG_01_UP_DOWN_UP')
+try {
+    $culm001D3Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d3.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $culm001D3Output) { Write-Host $line }
+    foreach ($id in $culm001D3Ids) {
+        if ($culm001D3Output -contains "TEST_PASS:$id") { $clientPassed += $id }
+        else { $resultFailures += "$id not reported by test_culm001_d3.ps1" }
+    }
+}
+catch {
+    $resultFailures += "CULM001_D3_RUNNER $($_.Exception.Message)"
+}
+# CULM-001 D.5: migracion 24 (up/down/up) y proteccion del down (D-RB-02) en test/test_culm001_d5.ps1.
+$culm001D5Ids = @('CULM001_D5_11_UP_DOWN_UP', 'CULM001_D_RB_02_DOWN_GUARD')
+try {
+    $culm001D5Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d5.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $culm001D5Output) { Write-Host $line }
+    foreach ($id in $culm001D5Ids) {
+        if ($culm001D5Output -contains "TEST_PASS:$id") { $clientPassed += $id }
+        else { $resultFailures += "$id not reported by test_culm001_d5.ps1" }
+    }
+}
+catch {
+    $resultFailures += "CULM001_D5_RUNNER $($_.Exception.Message)"
+}
+# CULM-001 D.4: migracion 23 (up/down/up) en test/test_culm001_d4.ps1.
+$culm001D4Ids = @('CULM001_D4_12_UP_DOWN_UP')
+try {
+    $culm001D4Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d4.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $culm001D4Output) { Write-Host $line }
+    foreach ($id in $culm001D4Ids) {
+        if ($culm001D4Output -contains "TEST_PASS:$id") { $clientPassed += $id }
+        else { $resultFailures += "$id not reported by test_culm001_d4.ps1" }
+    }
+}
+catch {
+    $resultFailures += "CULM001_D4_RUNNER $($_.Exception.Message)"
+}
 # CULM-001 D.1: migracion 20 (up/down/up) y proteccion del down (D-RB-01) en test/test_culm001_d1.ps1.
 $culm001D1Ids = @('CULM001_D1_11_UP_DOWN_UP', 'CULM001_D1_RB_01_DOWN_GUARD')
 try {
-    $culm001D1Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d1.ps1') -ContainerName $ContainerName -Password $Password 2>&1 | ForEach-Object { "$_" })
+    $culm001D1Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d1.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
     foreach ($line in $culm001D1Output) { Write-Host $line }
     foreach ($id in $culm001D1Ids) {
         if ($culm001D1Output -contains "TEST_PASS:$id") { $clientPassed += $id }
@@ -591,10 +640,43 @@ try {
 catch {
     $resultFailures += "CULM001_D1_RUNNER $($_.Exception.Message)"
 }
+# CULM-001 D.2: migracion 21 (up/down/up), down sin confirmacion y orden de rollback D-RB-01 en test/test_culm001_d2.ps1.
+$culm001D2Ids = @('CULM001_D2_13_UP_DOWN_UP', 'CULM001_D2_13_DOWN_SIN_CONFIRMACION', 'CULM001_D_RB_01_ORDEN_DE_DOWN')
+try {
+    $culm001D2Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d2.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $culm001D2Output) { Write-Host $line }
+    foreach ($id in $culm001D2Ids) {
+        if ($culm001D2Output -contains "TEST_PASS:$id") { $clientPassed += $id }
+        else { $resultFailures += "$id not reported by test_culm001_d2.ps1" }
+    }
+}
+catch {
+    $resultFailures += "CULM001_D2_RUNNER $($_.Exception.Message)"
+}
+# CULM-001 D.7: migracion 26 (up/down/up, D7-03) en test/test_culm001_d7.ps1.
+try {
+    $culm001D7Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d7.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $culm001D7Output) { Write-Host $line }
+    if ($culm001D7Output -contains 'TEST_PASS:CULM001_D7_03_UP_DOWN_UP') { $clientPassed += 'CULM001_D7_03_UP_DOWN_UP' }
+    else { $resultFailures += 'CULM001_D7_03_UP_DOWN_UP not reported by test_culm001_d7.ps1' }
+}
+catch {
+    $resultFailures += "CULM001_D7_RUNNER $($_.Exception.Message)"
+}
+# CULM-001 D.8: migracion 27 (up/down/up, D8-08) en test/test_culm001_d8.ps1.
+try {
+    $culm001D8Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d8.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $culm001D8Output) { Write-Host $line }
+    if ($culm001D8Output -contains 'TEST_PASS:CULM001_D8_08_UP_DOWN_UP') { $clientPassed += 'CULM001_D8_08_UP_DOWN_UP' }
+    else { $resultFailures += 'CULM001_D8_08_UP_DOWN_UP not reported by test_culm001_d8.ps1' }
+}
+catch {
+    $resultFailures += "CULM001_D8_RUNNER $($_.Exception.Message)"
+}
 # CULM-001 B.2 (B2-CON-01, NB-4): 5 grupos x 40 estudiantes por token a la vez; solo bajo demanda (-Concurrencia).
 if ($Concurrencia) {
     try {
-        $culm001B2ConOutput = @(& (Join-Path $PSScriptRoot 'test/test_culm001_b2_concurrencia.ps1') -ContainerName $ContainerName -Password $Password 2>&1 | ForEach-Object { "$_" })
+        $culm001B2ConOutput = @(& (Join-Path $PSScriptRoot 'test/test_culm001_b2_concurrencia.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
         foreach ($line in $culm001B2ConOutput) { Write-Host $line }
         if ($culm001B2ConOutput -contains 'TEST_PASS:CULM001_B2_CON_01_5X40') { $clientPassed += 'CULM001_B2_CON_01_5X40' }
         else { $resultFailures += 'CULM001_B2_CON_01_5X40 not reported by test_culm001_b2_concurrencia.ps1' }
@@ -732,11 +814,10 @@ $criticalIds = @(
     'ATTENDANCE_BULK_INVALID_STATE', 'ATTENDANCE_BULK_EXECUTOR_REQUIRED', 'ATTENDANCE_BULK_NON_OWNER',
     'ATTENDANCE_HELPER_CLOSED_CATALOG', 'ATTENDANCE_NO_LEGACY_PUBLIC_STATE',
     'ATTENDANCE_BULK_STUDENT_NOT_IN_GROUP', 'ATTENDANCE_BULK_ATOMIC',
-    'ATTENDANCE_AUTO_SUCCESS', 'ATTENDANCE_AUTO_INVALID',
     # SES-01 (test/test_ses01_ventana_asistencia.sql): ventana [inicio, fin) con reloj del motor y procedencia confirmada
     'SES01_WINDOW_LOCK_HELD', 'SES01_BULK_EXACT_START', 'SES01_BULK_DURING', 'SES01_BULK_JUST_BEFORE_END',
     'SES01_BULK_BEFORE_START', 'SES01_BULK_EXACT_END', 'SES01_BULK_TWO_HOURS_AFTER', 'SES01_BULK_INDETERMINATE',
-    'SES01_BULK_CLOSED_HISTORY_PRESERVED', 'SES01_AUTO_CLOSED', 'SES01_AUTO_BEFORE_START', 'SES01_AUTO_INDETERMINATE',
+    'SES01_BULK_CLOSED_HISTORY_PRESERVED',
     'COORDINATOR_SUCCESS', 'COORDINATOR_PROGRAM_MISSING', 'COORDINATOR_FACULTY_MISSING', 'COORDINATOR_SCOPE_MISMATCH',
     'SUITE_TRANCOUNT_ZERO',
     'USP_CONSULTAR_GRUPOS_PAGINADO_SUCCESS', 'USP_CONSULTAR_GRUPOS_PAGINADO_FILTER_AND_PAGINATION',
@@ -799,9 +880,14 @@ $criticalIds = @(
     'CULM001_B2_INV_TOMA_ESTADO_CIERRE', 'CULM001_B2_TOM_TRANCOUNT_ZERO',
     'CULM001_B2_HOR_00_FUNCIONES_Y_COLUMNAS', 'CULM001_B2_HOR_01_DOS_TOMAS', 'CULM001_B2_HOR_02_DURACIONES_DISTINTAS',
     'CULM001_B2_HOR_03_SESION_CANCELADA', 'CULM001_B2_HOR_04_EXCUSA_EN_DENOMINADOR', 'CULM001_B2_HOR_05_UMBRALES',
-    'CULM001_B2_HOR_06_SIN_REGISTRO_FUERA_DEL_DENOMINADOR', 'CULM001_B2_HOR_07_KPIS_POR_HORAS', 'CULM001_B2_HOR_07_DIFERIDOS_SIN_DUPLICAR',
-    'CULM001_B2_HOR_08_RECLAMO_VARIAS_TOMAS', 'CULM001_B2_HOR_09_CABECERA_SIN_DETALLE', 'CULM001_B2_HOR_10_CIERRE_MASIVO_SESIONES_DISTINTAS',
+    'CULM001_B2_HOR_06_SIN_REGISTRO_FUERA_DEL_DENOMINADOR', 'CULM001_B2_HOR_07_KPIS_POR_HORAS',
+    # D.8 renombro HOR_07_DIFERIDOS_SIN_DUPLICAR a HOR_07_DIFERIDOS_POR_HORAS (la equivalencia 2 tomas = 1 toma deja de aplicar con horas) y
+    # C.1 movio HOR_10 a CULM001_C_HOR_10_CIERRE_POR_HORAS: el registro conserva solo los ids que la suite emite hoy.
+    'CULM001_B2_HOR_07_DIFERIDOS_POR_HORAS',
+    'CULM001_B2_HOR_08_RECLAMO_VARIAS_TOMAS', 'CULM001_B2_HOR_09_CABECERA_SIN_DETALLE', 'CULM001_C_HOR_10_CIERRE_POR_HORAS',
     'CULM001_B2_HOR_11_UNIDADES', 'CULM001_B2_HOR_TRANCOUNT_ZERO',
+    'CULM001_C_ALERTAS', 'CULM001_C_REVISIONES', 'CULM001_C_CIERRE_BLOQUEO_Y_RESOLUCION', 'CULM001_C_CIERRE_MOTOR_APAGADO_Y_UNA_FILA',
+    'CULM001_C_AUDIENCIAS_Y_PERMISOS',
     'CULM001_B2_QR_00_OBJETOS_Y_SEMILLAS', 'CULM001_B2_QR_01_ABRIR_QR_REGLAS', 'CULM001_B2_QR_02_PIN_UNICO',
     'CULM001_B2_QR_03_REGISTRO_TOKEN_Y_PIN', 'CULM001_B2_QR_04_IDEMPOTENCIA', 'CULM001_B2_QR_05_TOKEN_ANTERIOR_TOLERANCIA',
     'CULM001_B2_QR_06_OTRO_GRUPO', 'CULM001_B2_QR_07_MATRICULA_NO_ACTIVA', 'CULM001_B2_QR_08_ENTRADAS_Y_TOKEN_CERRADO',
@@ -811,11 +897,43 @@ $criticalIds = @(
     'CULM001_B2_MIG_05_DOBLE_DESPLIEGUE', 'CULM001_B2_MIG_04_UP_DOWN_UP_15_16', 'CULM001_B2_MIG_03_COLAPSO_SIN_CONFIRMACION',
     'CULM001_B2_MIG_03_COLAPSO_CONFIRMADO', 'CULM001_B2_SEG_02_FIXTURES_REPETIBLES', 'CULM001_B2_TOM_10_CIERRE_AUTOMATICO_CONCURRENTE',
     'CULM001_B2_TOM_08_CIERRE_CONCURRENTE',
+    # CULM-001 D.3 y D.6 (test/test_culm001_d3_parametros.sql, test_culm001_d6_auditoria.sql, test/test_culm001_d3.ps1)
+    'CULM001_D3_00_OBJETOS_Y_SEMILLAS', 'CULM001_D3_15_LISTA_BLANCA_COHERENTE', 'CULM001_D3_01_CAMBIO_VALIDO', 'CULM001_D3_14_EFECTO_INMEDIATO',
+    'CULM001_D3_02_RED_PROTEGIDO', 'CULM001_D3_03_GRUPOS_NO_EDITABLES', 'CULM001_D3_04_TIPOS', 'CULM001_D3_05_RANGO', 'CULM001_D3_06_VALORES_PERMITIDOS',
+    'CULM001_D3_07_REGLA_CRUZADA', 'CULM001_D3_08_VERSION_ANTIGUA', 'CULM001_D3_10_MOTIVO_CORTO', 'CULM001_D3_11_VALOR_IGUAL', 'CULM001_D3_12_RBAC',
+    'CULM001_D3_18_MILISEGUNDOS_007', 'CULM001_D3_13_CONSULTA_PAGINADA', 'CULM001_D3_13_HISTORIAL_PAGINADO', 'CULM001_D3_17_DOS_INSTITUCIONES',
+    'CULM001_D3_TRANCOUNT_ZERO', 'CULM001_D3_SEG_01_PERMISOS',
+    'CULM001_D3_09_CONCURRENCIA', 'CULM001_D3_16_MIG_UP_DOWN_UP',
+    'CULM001_D6_00_OBJETOS_Y_SEMILLAS', 'CULM001_D6_04_SIN_FILTROS_NUEVOS', 'CULM001_D6_01_FILTRO_CORRELACION', 'CULM001_D6_02_SOLO_ADMINISTRACION',
+    'CULM001_D6_03_FILTROS_EXCLUYENTES', 'CULM001_D6_05_PARAMETROS_EXPLICITOS', 'CULM001_D6_RBAC', 'CULM001_D6_06_DOS_INSTITUCIONES',
+    'CULM001_D6_TRANCOUNT_ZERO', 'CULM001_D6_MIG_01_UP_DOWN_UP',
+    # CULM-001 D.5 (test/test_culm001_d5_carga_masiva.sql, test/test_culm001_d5.ps1)
+    'CULM001_D5_00_OBJETOS_Y_SEMILLAS', 'CULM001_D5_01_COORDINADOR_TRES_VALIDAS', 'CULM001_D5_02_DECANO_PROGRAMA_OTRA_FACULTAD',
+    'CULM001_D5_03_JERARQUIA_NO_PERMITIDA', 'CULM001_D5_04_DUPLICADO_EN_ARCHIVO', 'CULM001_D5_05_ROL_YA_EXISTE',
+    'CULM001_D5_06_PERSONAS_DISTINTAS', 'CULM001_D5_07_CATALOGO_DESCONOCIDO', 'CULM001_D5_08_MULTI_PROGRAMA_SIN_PROGRAMA',
+    'CULM001_D5_09_MAXIMO_FILAS', 'CULM001_D5_10_TIPO_DOC_PARAMETRO', 'CULM001_D5_12_LLAMADAS_LEGACY_COMPATIBLES',
+    'CULM001_D5_TRANCOUNT_ZERO', 'CULM001_D5_11_UP_DOWN_UP', 'CULM001_D_RB_02_DOWN_GUARD',
+    # CULM-001 D.4 (test/test_culm001_d4_admision.sql, test/test_culm001_d4.ps1)
+    'CULM001_D4_01_ALTA_NUEVA', 'CULM001_D4_02_PERSONA_EXISTENTE', 'CULM001_D4_03_YA_ADMITIDO', 'CULM001_D4_04_PERSONAS_DISTINTAS',
+    'CULM001_D4_05_PROGRAMA_FUERA_DE_AMBITO', 'CULM001_D4_06_CORREO_INSTITUCIONAL', 'CULM001_D4_07_CONTRASENA_INICIAL', 'CULM001_D4_08_RBAC',
+    'CULM001_D4_09_SIN_FILAS_PARCIALES', 'CULM001_D4_10_CORRECCION_POR_JERARQUIA', 'CULM001_D4_11_PROGRAMAS_PAGINADOS',
+    'CULM001_D4_11_ERRORES_DE_VALIDACION', 'CULM001_D4_12_UP_DOWN_UP',
     # CULM-001 D.1 (test/test_culm001_d1_plazo_justificacion.sql, test/test_culm001_d1.ps1)
     'CULM001_D1_07_FUNCION', 'CULM001_D1_01_RECIENTE', 'CULM001_D1_02_ULTIMO_DIA', 'CULM001_D1_03_VENCIDA', 'CULM001_D1_04_PARAMETRO',
     'CULM001_D1_05_V1', 'CULM001_D1_06_PROPIEDAD_ANTES_QUE_PLAZO', 'CULM001_D1_08_PARAMETRO_AUSENTE', 'CULM001_D1_09_FECHA_LOCAL',
     'CULM001_D1_12_REINTENTO_IDEMPOTENTE', 'CULM001_D1_10_SESIONES_MATERIA_ESTUDIANTE', 'CULM001_D1_10_ERRORES_DE_VALIDACION', 'CULM001_D1_SEG_PERMISOS',
-    'CULM001_D1_03_AUTOCOMMIT', 'CULM001_D1_11_UP_DOWN_UP', 'CULM001_D1_RB_01_DOWN_GUARD'
+    'CULM001_D1_03_AUTOCOMMIT', 'CULM001_D1_11_UP_DOWN_UP', 'CULM001_D1_RB_01_DOWN_GUARD',
+    # CULM-001 D.2 (test/test_culm001_d2_soportes_categoria.sql, test/test_culm001_d2.ps1)
+    'CULM001_D2_01_TRES_SOPORTES', 'CULM001_D2_02_MAXIMO', 'CULM001_D2_03_DUPLICADO', 'CULM001_D2_04_SOPORTE_NO_UTILIZABLE', 'CULM001_D2_05_SOPORTE_OBLIGATORIO',
+    'CULM001_D2_06_CODIGO_Y_NOMBRE', 'CULM001_D2_07_CATEGORIA_INEXISTENTE', 'CULM001_D2_08_V2', 'CULM001_D2_09_DESCARGA_DE_CADA_SOPORTE', 'CULM001_D2_10_CONSULTAS',
+    'CULM001_D2_12_PLAZO_VENCIDO', 'CULM001_D2_15_REINTENTO_IDEMPOTENTE', 'CULM001_D2_CFG_CONFIGURACION', 'CULM001_D2_16_SIN_INSERT_EXEC', 'CULM001_D2_14_TD_059',
+    'CULM001_D2_SEG_PERMISOS', 'CULM001_D2_13_UP_DOWN_UP', 'CULM001_D2_13_DOWN_SIN_CONFIRMACION', 'CULM001_D_RB_01_ORDEN_DE_DOWN',
+    # CULM-001 D.7 (test/test_culm001_d7_retiro.sql, test/test_culm001_d7.ps1)
+    'CULM001_D7_01_SP_RETIRADO', 'CULM001_D7_02_SIN_PERMISOS', 'CULM001_D7_05_LOTE_Y_TOMA_INTACTOS', 'CULM001_D7_04_TOKEN_VENTANA_VENCIDA',
+    'CULM001_D7_TRANCOUNT_ZERO', 'CULM001_D7_03_UP_DOWN_UP',
+    # CULM-001 D.8 (test/test_culm001_d8_kpis_horas.sql, test/test_culm001_d8.ps1)
+    'CULM001_D8_01_COMPARATIVAS', 'CULM001_D8_02_TENDENCIA', 'CULM001_D8_03_CONSOLIDADO', 'CULM001_D8_04_REGRESION_UNA_TOMA', 'CULM001_D8_05_SIN_LITERAL_A',
+    'CULM001_D8_06_CANCELADA_NO_SUMA', 'CULM001_D8_07_GRANO_GRUPO_PROGRAMA', 'CULM001_D8_09_REDONDEO_SUMA_100', 'CULM001_D8_TRANCOUNT_ZERO', 'CULM001_D8_08_UP_DOWN_UP'
 )
 if ($Concurrencia) { $criticalIds += 'CULM001_B2_CON_01_5X40' }
 $sqlPasses = @([regex]::Matches($outputStr, '(?m)^TEST_PASS:([A-Z0-9_]+)\s*$') | ForEach-Object { $_.Groups[1].Value })

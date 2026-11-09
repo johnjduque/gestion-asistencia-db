@@ -54,10 +54,15 @@ BEGIN TRY
     DECLARE @a1 UNIQUEIDENTIFIER = NEWID(), @a2 UNIQUEIDENTIFIER = NEWID(), @a3 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.PlanEstudio (id, programa, inp, estado) VALUES (@pl1, @p1, 930000 + ABS(CHECKSUM(NEWID()) % 9999), 1), (@pl2, @p2, 940000 + ABS(CHECKSUM(NEWID()) % 9999), 1);
     INSERT INTO dbo.SemestrePlanEstudio (id, planEstudio, semestre) VALUES (@spe1, @pl1, @semestre), (@spe2, @pl2, @semestre);
-    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, semestrePlanEstudio, estado) VALUES
-        (@a1, CONCAT(N'K1', @sufijo), N'Asignatura Uno', 3, @area, @componente, @spe1, 1),
-        (@a2, CONCAT(N'K2', @sufijo), N'Asignatura Dos', 3, @area, @componente, @spe1, 1),
-        (@a3, CONCAT(N'K3', @sufijo), N'Asignatura Tres', 3, @area, @componente, @spe2, 1);
+    INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, estado) VALUES
+        (@a1, CONCAT(N'K1', @sufijo), N'Asignatura Uno', 3, @area, @componente, 1),
+        (@a2, CONCAT(N'K2', @sufijo), N'Asignatura Dos', 3, @area, @componente, 1),
+        (@a3, CONCAT(N'K3', @sufijo), N'Asignatura Tres', 3, @area, @componente, 1);
+    -- CULM-001 B2NM (CONTRACT B2 tabla de pruebas existentes, fila 109): el vinculo asignatura-plan vive en AsignaturaPlanEstudio
+    INSERT INTO dbo.AsignaturaPlanEstudio (id, asignatura, semestrePlanEstudio, caracter, estaActivo, fechaVinculacionUtc) VALUES
+        (NEWID(), @a1, @spe1, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01'),
+        (NEWID(), @a2, @spe1, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01'),
+        (NEWID(), @a3, @spe2, (SELECT id FROM dbo.CaracterAsignaturaPlan WHERE codigo = N'OBL'), 1, '2000-01-01');
     CREATE TABLE #g (k NVARCHAR(2), id UNIQUEIDENTIFIER);
     INSERT INTO #g VALUES (N'G1', NEWID()), (N'G2', NEWID()), (N'G3', NEWID());
     INSERT INTO dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron, cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)
@@ -172,40 +177,40 @@ BEGIN TRY
     VALUES (@g4, @a1, @perPast, 960000 + ABS(CHECKSUM(NEWID()) % 9999), N'Grupo G4', 20, 0, 0, 0, @doc);
     DECLARE @c UNIQUEIDENTIFIER = NEWID(), @inexistente UNIQUEIDENTIFIER = NEWID(), @err NVARCHAR(4000);
     DECLARE @g1 UNIQUEIDENTIFIER = (SELECT id FROM #g WHERE k = N'G1'), @g2 UNIQUEIDENTIFIER = (SELECT id FROM #g WHERE k = N'G2'), @g3 UNIQUEIDENTIFIER = (SELECT id FROM #g WHERE k = N'G3');
-    CREATE TABLE #a (n INT IDENTITY(1,1), idGrupo UNIQUEIDENTIFIER, codigoGrupo INT, idAsignatura UNIQUEIDENTIFIER, nombreAsignatura NVARCHAR(100), idPrograma UNIQUEIDENTIFIER, nombrePrograma NVARCHAR(50),
+    CREATE TABLE #a (n INT IDENTITY(1,1), idGrupo UNIQUEIDENTIFIER, codigoGrupo INT, idAsignatura UNIQUEIDENTIFIER, nombreAsignatura NVARCHAR(100), programas NVARCHAR(1000),
         cupoMaximo INT, matriculadosActivos INT, cuposDisponibles INT, tasaAforo DECIMAL(7,2), grupoEstaHabilitado BIT, totalRegistros INT);
     -- T-DB-13/16: filas exactas ordenadas por aforo desc
-    INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, idPrograma, nombrePrograma, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 10;
+    INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, programas, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 10;
     IF (SELECT COUNT(*) FROM #a) <> 3 OR EXISTS (SELECT 1 FROM #a WHERE totalRegistros <> 3) THROW 53601, 'TEST FAILED: T-DB-13 se esperaban 3 grupos habilitados (G1, G2, G3) con totalRegistros = 3', 1;
     IF NOT ((SELECT idGrupo FROM #a WHERE n = 1) = @g1 AND (SELECT idGrupo FROM #a WHERE n = 2) = @g2 AND (SELECT idGrupo FROM #a WHERE n = 3) = @g3)
         THROW 53608, 'TEST FAILED: T-DB-13 orden esperado G1 (50.00), G2 (20.00), G3 (2.50)', 1;
-    IF NOT EXISTS (SELECT 1 FROM #a WHERE idGrupo = @g1 AND idPrograma = @p1 AND cupoMaximo = 10 AND matriculadosActivos = 5 AND cuposDisponibles = 5 AND tasaAforo = 50.00 AND grupoEstaHabilitado = 1)
+    IF NOT EXISTS (SELECT 1 FROM #a WHERE idGrupo = @g1 AND programas = (SELECT nombre FROM dbo.Programa WHERE id = @p1) AND cupoMaximo = 10 AND matriculadosActivos = 5 AND cuposDisponibles = 5 AND tasaAforo = 50.00 AND grupoEstaHabilitado = 1)
         THROW 53602, 'TEST FAILED: T-DB-13 fila G1 distinta de la calculada a mano (10 / 5 / 5 / 50.00)', 1;
-    IF NOT EXISTS (SELECT 1 FROM #a WHERE idGrupo = @g2 AND idPrograma = @p1 AND cupoMaximo = 5 AND matriculadosActivos = 1 AND cuposDisponibles = 4 AND tasaAforo = 20.00)
+    IF NOT EXISTS (SELECT 1 FROM #a WHERE idGrupo = @g2 AND programas = (SELECT nombre FROM dbo.Programa WHERE id = @p1) AND cupoMaximo = 5 AND matriculadosActivos = 1 AND cuposDisponibles = 4 AND tasaAforo = 20.00)
         THROW 53603, 'TEST FAILED: T-DB-13 fila G2 distinta de la calculada a mano (5 / 1 / 4 / 20.00)', 1;
-    IF NOT EXISTS (SELECT 1 FROM #a WHERE idGrupo = @g3 AND idPrograma = @p2 AND cupoMaximo = 40 AND matriculadosActivos = 1 AND cuposDisponibles = 39 AND tasaAforo = 2.50)
+    IF NOT EXISTS (SELECT 1 FROM #a WHERE idGrupo = @g3 AND programas = (SELECT nombre FROM dbo.Programa WHERE id = @p2) AND cupoMaximo = 40 AND matriculadosActivos = 1 AND cuposDisponibles = 39 AND tasaAforo = 2.50)
         THROW 53604, 'TEST FAILED: T-DB-13 fila G3 distinta de la calculada a mano (40 / 1 / 39 / 2.50)', 1;
     PRINT 'TEST_PASS:HU144_AFORO_EXACTO';
     TRUNCATE TABLE #a;
 
     -- Paginacion: tamano 2 => [G1, G2] y [G3], total estable
-    INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, idPrograma, nombrePrograma, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 2;
+    INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, programas, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 2;
     IF NOT ((SELECT COUNT(*) FROM #a) = 2 AND (SELECT idGrupo FROM #a WHERE n = 1) = @g1 AND (SELECT idGrupo FROM #a WHERE n = 2) = @g2 AND NOT EXISTS (SELECT 1 FROM #a WHERE totalRegistros <> 3))
         THROW 53605, 'TEST FAILED: T-DB-13 pagina 1 (G1, G2, total 3)', 1;
     TRUNCATE TABLE #a;
-    INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, idPrograma, nombrePrograma, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 2, @tamanoPagina = 2;
+    INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, programas, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 2, @tamanoPagina = 2;
     IF NOT ((SELECT COUNT(*) FROM #a) = 1 AND EXISTS (SELECT 1 FROM #a WHERE idGrupo = @g3 AND totalRegistros = 3))
         THROW 53606, 'TEST FAILED: T-DB-13 pagina 2 (G3, total 3)', 1;
     TRUNCATE TABLE #a;
 
     -- T-DB-14: filtro por programa
-    INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, idPrograma, nombrePrograma, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 10, @idPrograma = @p2;
+    INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, programas, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 10, @idPrograma = @p2;
     IF NOT ((SELECT COUNT(*) FROM #a) = 1 AND EXISTS (SELECT 1 FROM #a WHERE idGrupo = @g3 AND totalRegistros = 1))
         THROW 53607, 'TEST FAILED: T-DB-14 filtro por P2 => solo G3', 1;
     TRUNCATE TABLE #a;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, idPrograma, nombrePrograma, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 10, @idPrograma = @px;
+        INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, programas, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 10, @idPrograma = @px;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -214,7 +219,7 @@ BEGIN TRY
         THROW 53620, 'TEST FAILED: T-DB-14 programa de otra facultad (esperaba GEN_001).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, idPrograma, nombrePrograma, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 10, @idPrograma = @inexistente;
+        INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, programas, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 10, @idPrograma = @inexistente;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -223,16 +228,16 @@ BEGIN TRY
         THROW 53621, 'TEST FAILED: T-DB-14 programa inexistente (esperaba GEN_001).', 1;
 
     -- T-DB-15: soloHabilitados en el periodo pasado (G4 no habilitado; 0/20 = 0.00 es un dato real)
-    INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, idPrograma, nombrePrograma, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 10, @idPeriodoAcademico = @perPast, @soloHabilitados = 1;
+    INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, programas, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 10, @idPeriodoAcademico = @perPast, @soloHabilitados = 1;
     IF EXISTS (SELECT 1 FROM #a) THROW 53613, 'TEST FAILED: T-DB-15 soloHabilitados = 1 no debe listar grupos de un periodo vencido', 1;
-    INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, idPrograma, nombrePrograma, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 10, @idPeriodoAcademico = @perPast, @soloHabilitados = 0;
+    INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, programas, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 10, @idPeriodoAcademico = @perPast, @soloHabilitados = 0;
     IF NOT ((SELECT COUNT(*) FROM #a) = 1 AND EXISTS (SELECT 1 FROM #a WHERE idGrupo = @g4 AND cupoMaximo = 20 AND matriculadosActivos = 0 AND cuposDisponibles = 20 AND tasaAforo = 0.00 AND grupoEstaHabilitado = 0 AND totalRegistros = 1))
         THROW 53614, 'TEST FAILED: T-DB-15 soloHabilitados = 0 debe listar G4 (20 / 0 / 20 / 0.00 / no habilitado)', 1;
     TRUNCATE TABLE #a;
 
     -- T-DB-16: cupo 0 => tasa NULL (sin division por cero)
     UPDATE dbo.Grupo SET cantidadEstudiantes = 0 WHERE id = @g3;
-    INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, idPrograma, nombrePrograma, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 10, @idPrograma = @p2;
+    INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, programas, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 10, @idPrograma = @p2;
     IF NOT EXISTS (SELECT 1 FROM #a WHERE idGrupo = @g3 AND cupoMaximo = 0 AND tasaAforo IS NULL)
         THROW 53615, 'TEST FAILED: T-DB-16 cupo 0 => tasaAforo NULL', 1;
     UPDATE dbo.Grupo SET cantidadEstudiantes = 40 WHERE id = @g3;
@@ -240,11 +245,11 @@ BEGIN TRY
     PRINT 'TEST_PASS:HU144_AFORO_FILTROS';
 
     -- Aislamiento y errores
-    INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, idPrograma, nombrePrograma, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec2, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 10;
+    INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, programas, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec2, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 10;
     IF EXISTS (SELECT 1 FROM #a) THROW 53616, 'TEST FAILED: el decano2 no debe ver grupos de F', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, idPrograma, nombrePrograma, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uC1, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 10;
+        INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, programas, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uC1, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 10;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -253,7 +258,7 @@ BEGIN TRY
         THROW 53622, 'TEST FAILED: T-DB-02 coordinador (esperaba KPI_003).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, idPrograma, nombrePrograma, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uE1, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 10;
+        INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, programas, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uE1, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 10;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -262,7 +267,7 @@ BEGIN TRY
         THROW 53623, 'TEST FAILED: T-DB-02 estudiante (esperaba KPI_003).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, idPrograma, nombrePrograma, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uPlano, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 10;
+        INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, programas, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uPlano, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 10;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -271,7 +276,7 @@ BEGIN TRY
         THROW 53624, 'TEST FAILED: T-DB-02 usuario sin perfil (esperaba KPI_003).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, idPrograma, nombrePrograma, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 0, @tamanoPagina = 10;
+        INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, programas, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 0, @tamanoPagina = 10;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -280,7 +285,7 @@ BEGIN TRY
         THROW 53625, 'TEST FAILED: T-DB-17 pagina 0 (esperaba PAG_001).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, idPrograma, nombrePrograma, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 101;
+        INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, programas, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 101;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -289,7 +294,7 @@ BEGIN TRY
         THROW 53626, 'TEST FAILED: T-DB-17 tamano sobre el maximo (esperaba PAG_001).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, idPrograma, nombrePrograma, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 10, @idPeriodoAcademico = @inexistente;
+        INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, programas, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 10, @idPeriodoAcademico = @inexistente;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -298,7 +303,7 @@ BEGIN TRY
         THROW 53627, 'TEST FAILED: periodo inexistente (esperaba PER_001).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, idPrograma, nombrePrograma, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = NULL, @numeroPagina = 1, @tamanoPagina = 10;
+        INSERT INTO #a (idGrupo, codigoGrupo, idAsignatura, nombreAsignatura, programas, cupoMaximo, matriculadosActivos, cuposDisponibles, tasaAforo, grupoEstaHabilitado, totalRegistros) EXEC dbo.usp_consultar_aforo_grupos_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = NULL, @numeroPagina = 1, @tamanoPagina = 10;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
