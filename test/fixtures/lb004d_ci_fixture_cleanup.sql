@@ -27,6 +27,7 @@ IF EXISTS (SELECT 1 FROM dbo.Asistencia a JOIN dbo.EstudianteGrupo eg ON eg.id =
 DELETE FROM dbo.EstudianteGrupo
  WHERE id = @fixtureEnrollment OR estudiante = @fixtureStudent OR grupo = @fixtureGroup;
 DELETE FROM dbo.Grupo WHERE id = @fixtureGroup;
+DELETE FROM dbo.EstudiantePrograma WHERE estudiante = @fixtureStudent;
 DELETE FROM dbo.Estudiante WHERE id = @fixtureStudent AND usuario = @fixtureStudentUser;
 DELETE FROM dbo.DocentePrograma WHERE docente = @fixtureTeacher;
 DELETE FROM dbo.Docente WHERE id = @fixtureTeacher AND usuario = @fixtureTeacherUser;
