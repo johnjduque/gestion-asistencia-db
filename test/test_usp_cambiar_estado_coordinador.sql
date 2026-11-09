@@ -10,13 +10,27 @@ SET XACT_ABORT OFF;
 PRINT 'TEST START: test_usp_cambiar_estado_coordinador';
 
 DECLARE @tipoId UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_tipo_identificacion WHERE tipoIdentificacion = 'CC');
-DECLARE @idProgramaF1 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_programa WHERE estaActivoPrograma = 1);
-DECLARE @idFacultadF1 UNIQUEIDENTIFIER = (SELECT TOP 1 idFacultad FROM dbo.uv_programa WHERE id = @idProgramaF1);
-DECLARE @idInstitucion UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_institucion);
-DECLARE @idDecanoF1 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_decano);
-DECLARE @idUsuarioD1 UNIQUEIDENTIFIER = (SELECT TOP 1 idUsuario FROM dbo.uv_decano_identidad WHERE id = @idDecanoF1);
-DECLARE @idTipoPrograma UNIQUEIDENTIFIER = (SELECT TOP 1 tipoDePrograma FROM dbo.Programa WHERE id = @idProgramaF1);
-DECLARE @idC1 UNIQUEIDENTIFIER = (SELECT TOP 1 idCoordinador FROM dbo.uv_programa WHERE id = @idProgramaF1);
+DECLARE @idProgramaF1 UNIQUEIDENTIFIER;
+DECLARE @idFacultadF1 UNIQUEIDENTIFIER;
+DECLARE @idInstitucion UNIQUEIDENTIFIER;
+DECLARE @idDecanoF1 UNIQUEIDENTIFIER;
+DECLARE @idUsuarioD1 UNIQUEIDENTIFIER;
+DECLARE @idTipoPrograma UNIQUEIDENTIFIER;
+DECLARE @idC1 UNIQUEIDENTIFIER;
+
+SELECT TOP (1)
+    @idProgramaF1 = p.id,
+    @idFacultadF1 = p.idFacultad,
+    @idInstitucion = p.idInstitucion,
+    @idDecanoF1 = f.idDecano,
+    @idTipoPrograma = p.idTipoPrograma
+FROM dbo.uv_programa p
+INNER JOIN dbo.uv_facultad f ON f.id = p.idFacultad
+INNER JOIN dbo.uv_decano d ON d.id = f.idDecano AND d.estaActivoDecano = 1
+WHERE p.estaActivoPrograma = 1 AND f.estaActivaFacultad = 1
+ORDER BY p.id;
+SELECT @idUsuarioD1 = idUsuario FROM dbo.uv_decano_identidad WHERE id = @idDecanoF1;
+SELECT @idC1 = idCoordinador FROM dbo.uv_programa WHERE id = @idProgramaF1;
 
 IF @tipoId IS NULL THROW 51500, 'TEST FAILED: no existe fixture CC.', 1;
 IF @idProgramaF1 IS NULL THROW 51501, 'TEST FAILED: no existe un programa activo fixture.', 1;
@@ -74,11 +88,11 @@ BEGIN TRY
         @idCorrelacion = @corr, @idUsuarioEjecutor = @idUsuarioD1;
     IF NOT EXISTS (SELECT 1 FROM #estado WHERE estadoResultado = 1 AND idUsuario = @idUsuarioC2 AND personaSinRolesActivos = 1)
         THROW 51510, 'TEST FAILED T-122-01: desactivar C2 no retorno exito con idUsuario y personaSinRolesActivos=1.', 1;
-    IF NOT EXISTS (SELECT 1 FROM dbo.Coordinador WHERE id = @idC2 AND estado = 0)
+    IF NOT EXISTS (SELECT 1 FROM dbo.uv_coordinador WHERE id = @idC2 AND estaActivoCoordinador = 0)
         THROW 51511, 'TEST FAILED T-122-01: Coordinador.estado no paso a 0.', 1;
     IF NOT EXISTS (SELECT 1 FROM dbo.uv_coordinador WHERE id = @idC2 AND estaActivoCoordinador = 0)
         THROW 51512, 'TEST FAILED T-122-01: uv_coordinador sigue mostrando activo a C2.', 1;
-    IF NOT EXISTS (SELECT 1 FROM dbo.Usuario WHERE id = @idUsuarioC2 AND estado = 0)
+    IF NOT EXISTS (SELECT 1 FROM dbo.uv_usuario WHERE id = @idUsuarioC2 AND estaActivoUsuario = 0)
         THROW 51513, 'TEST FAILED T-122-01: Usuario.estado no paso a 0 al quedar sin roles activos.', 1;
 
     -- T-122-05: idempotencia (desactivar otra vez)
@@ -94,8 +108,8 @@ BEGIN TRY
         @idCorrelacion = @corr, @idUsuarioEjecutor = @idUsuarioD1;
     IF NOT EXISTS (SELECT 1 FROM #estado WHERE estadoResultado = 1 AND idUsuario = @idUsuarioC2)
         THROW 51515, 'TEST FAILED T-122-04: reactivar C2 no retorno exito.', 1;
-    IF NOT EXISTS (SELECT 1 FROM dbo.Coordinador WHERE id = @idC2 AND estado = 1)
-        OR NOT EXISTS (SELECT 1 FROM dbo.Usuario WHERE id = @idUsuarioC2 AND estado = 1)
+    IF NOT EXISTS (SELECT 1 FROM dbo.uv_coordinador WHERE id = @idC2 AND estaActivoCoordinador = 1)
+        OR NOT EXISTS (SELECT 1 FROM dbo.uv_usuario WHERE id = @idUsuarioC2 AND estaActivoUsuario = 1)
         OR NOT EXISTS (SELECT 1 FROM dbo.uv_coordinador WHERE id = @idC2 AND estaActivoCoordinador = 1)
         THROW 51516, 'TEST FAILED T-122-04: la reactivacion no restauro rol, usuario y vista.', 1;
 
@@ -105,7 +119,7 @@ BEGIN TRY
         @idCorrelacion = @corr, @idUsuarioEjecutor = @idUsuarioD1;
     IF NOT EXISTS (SELECT 1 FROM #estado WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msgProgramaActivo)
         THROW 51517, 'TEST FAILED T-122-02: desactivar con programa activo no retorno COO_001.', 1;
-    IF NOT EXISTS (SELECT 1 FROM dbo.Coordinador WHERE id = @idC1 AND estado = 1)
+    IF NOT EXISTS (SELECT 1 FROM dbo.uv_coordinador WHERE id = @idC1 AND estaActivoCoordinador = 1)
         THROW 51518, 'TEST FAILED T-122-02: el rechazo COO_001 modifico el estado de C1.', 1;
     IF @@TRANCOUNT <> 1 THROW 51519, 'TEST FAILED T-122-02/T-121-11: el rechazo rompio la transaccion externa del llamador.', 1;
 
@@ -122,7 +136,7 @@ BEGIN TRY
         @idCorrelacion = @corr, @idUsuarioEjecutor = @idUsuarioD1;
     IF NOT EXISTS (SELECT 1 FROM #estado WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msgNoExiste)
         THROW 51521, 'TEST FAILED T-122-07: coordinador de otra facultad no retorno GEN_001.', 1;
-    IF NOT EXISTS (SELECT 1 FROM dbo.Coordinador WHERE id = @idC3 AND estado = 1)
+    IF NOT EXISTS (SELECT 1 FROM dbo.uv_coordinador WHERE id = @idC3 AND estaActivoCoordinador = 1)
         THROW 51522, 'TEST FAILED T-122-07: se modifico un coordinador de otra facultad.', 1;
 
     -- T-122-07b: el decano F1 no puede usar @idFacultad de F2 (titularidad)
@@ -130,7 +144,7 @@ BEGIN TRY
     INSERT INTO #estado EXEC dbo.usp_cambiar_estado_coordinador @idCoordinador = @idC3, @estaActivo = 0, @idFacultad = @idFacultadF2,
         @idCorrelacion = @corr, @idUsuarioEjecutor = @idUsuarioD1;
     IF NOT EXISTS (SELECT 1 FROM #estado WHERE estadoResultado = 0)
-        OR NOT EXISTS (SELECT 1 FROM dbo.Coordinador WHERE id = @idC3 AND estado = 1)
+        OR NOT EXISTS (SELECT 1 FROM dbo.uv_coordinador WHERE id = @idC3 AND estaActivoCoordinador = 1)
         THROW 51523, 'TEST FAILED T-122-07b: titularidad sobre la facultad ajena no fue rechazada.', 1;
 
     -- T-122-08: RBAC (ejecutor con perfil COORDINADOR) y ejecutor NULL
@@ -138,7 +152,7 @@ BEGIN TRY
     INSERT INTO #estado EXEC dbo.usp_cambiar_estado_coordinador @idCoordinador = @idC2, @estaActivo = 0, @idFacultad = @idFacultadF1,
         @idCorrelacion = @corr, @idUsuarioEjecutor = @idUsuarioC2;
     IF NOT EXISTS (SELECT 1 FROM #estado WHERE estadoResultado = 0)
-        OR NOT EXISTS (SELECT 1 FROM dbo.Coordinador WHERE id = @idC2 AND estado = 1)
+        OR NOT EXISTS (SELECT 1 FROM dbo.uv_coordinador WHERE id = @idC2 AND estaActivoCoordinador = 1)
         THROW 51524, 'TEST FAILED T-122-08: un ejecutor COORDINADOR no fue rechazado por RBAC.', 1;
     DELETE FROM #estado;
     INSERT INTO #estado EXEC dbo.usp_cambiar_estado_coordinador @idCoordinador = @idC2, @estaActivo = 0, @idFacultad = @idFacultadF1,
@@ -155,7 +169,7 @@ BEGIN CATCH
 END CATCH
 ROLLBACK TRANSACTION;
 
-IF EXISTS (SELECT 1 FROM dbo.Usuario WHERE correo LIKE N'%.qa122@test.local')
+IF EXISTS (SELECT 1 FROM dbo.uv_usuario WHERE correo LIKE N'%.qa122@test.local')
     THROW 51526, 'TEST FAILED: cambiar estado de coordinador dejo datos permanentes.', 1;
 IF @@TRANCOUNT <> 0 THROW 51527, 'TEST FAILED: cambiar estado de coordinador dejo transacciones abiertas.', 1;
 PRINT 'TEST_PASS:COORDINATOR_STATE_TOGGLE';

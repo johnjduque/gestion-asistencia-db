@@ -1,5 +1,5 @@
 param (
-    [string]$ContainerName = 'sqlserver',
+    [string]$ContainerName = 'sql_server_asistencias',
     [string]$Password = $env:MSSQL_SA_PASSWORD
 )
 
@@ -11,6 +11,20 @@ param (
 
 $ErrorActionPreference = 'Stop'
 if (-not $Password) { throw 'SQL password is required for test_culm001_b2.ps1.' }
+
+$targetSql = @'
+SET NOCOUNT ON;
+IF DB_NAME() <> N'gestionasistenciadb' OR CAST(SERVERPROPERTY('Edition') AS NVARCHAR(128)) NOT LIKE N'%Developer Edition%'
+    THROW 57700, 'BLOCKED - CULM-001 B.2 tests require gestionasistenciadb on SQL Server Developer Edition.', 1;
+IF EXISTS (SELECT 1 FROM dbo.uv_parametro WHERE grupo = N'OPERACION' AND clave = N'AMBIENTE' AND UPPER(valor) IN (N'PRODUCCION', N'PROD', N'PRODUCTION'))
+    THROW 57701, 'BLOCKED - OPERACION/AMBIENTE declares a production database.', 1;
+SELECT CONCAT(DB_NAME(), '|', CONVERT(varchar(80), SERVERPROPERTY('Edition')));
+'@
+$targetCheck = @(& docker exec $ContainerName /opt/mssql-tools18/bin/sqlcmd `
+    -S localhost -d gestionasistenciadb -U sa -P $Password -C -b -h -1 -W -Q $targetSql 2>&1)
+if ($LASTEXITCODE -ne 0 -or ($targetCheck -join '').Trim() -notmatch '^gestionasistenciadb\|Developer Edition') {
+    throw 'BLOCKED - unsafe database target for test_culm001_b2.ps1.'
+}
 
 $tag = [guid]::NewGuid().ToString('N').Substring(0, 12)
 $remoteDir = "/tmp/culm001_b2_$tag"
@@ -247,7 +261,7 @@ GO
 "@
     $res = Invoke-ContainerSql -Name 'seg02' -Sql $sql
     $text = $res.Lines -join "`n"
-    foreach ($m in @('SEG02_MAINT_OK', 'SEG02_DEV_OK', 'SEG02_RESTORED_OK')) { if ($text -notmatch $m) { throw "missing $m (exit $($res.ExitCode)): $(($res.Lines | Where-Object { $_ -match 'Msg |SEG02|Level' }) -join ' / ')" } }
+    foreach ($m in @('SEG02_MAINT_OK', 'SEG02_DEV_OK', 'SEG02_RESTORED_OK')) { if ($text -notmatch $m) { throw "missing $m (exit $($res.ExitCode)): $($res.Lines -join ' / ')" } }
     if ($res.ExitCode -ne 0) { throw "exit $($res.ExitCode)" }
     Write-Output 'TEST_PASS:CULM001_B2_SEG_02_FIXTURES_REPETIBLES'
 }
@@ -345,7 +359,20 @@ try {
     $closed = @($results | ForEach-Object { $_.Lines } | Where-Object { $_ -match '^[0-9A-Fa-f-]{36}\|' } | ForEach-Object { $_.Split('|')[0].ToLowerInvariant() })
     $mine = @($tomas[0..3] | ForEach-Object { $_.ToLowerInvariant() })
     $closedMine = @($closed | Where-Object { $_ -in $mine })
-    if ($closedMine.Count -ne 4 -or @($closedMine | Select-Object -Unique).Count -ne 4) { throw "expected each of the 4 tomas closed exactly once; got $($closedMine -join ',')" }
+    if ($closedMine.Count -ne 4 -or @($closedMine | Select-Object -Unique).Count -ne 4) {
+        $workerEvidence = ($results | ForEach-Object { 'exit=' + $_.ExitCode + ':' + ($_.Lines -join ',') }) -join ' / '
+        $stateEvidence = Invoke-ContainerSql -Name 'tom10_state_debug' -Sql @"
+SET NOCOUNT ON;
+SELECT CONCAT('TOM10_STATE|', CONVERT(VARCHAR(36), t.idToma), '|open=', t.estaAbierta,
+    '|eligible=', IIF(SYSUTCDATETIME() >= DATEADD(MINUTE, COALESCE(TRY_CONVERT(INT, p.valor), 0), t.fechaHoraFinSesion), 1, 0),
+    '|end=', CONVERT(VARCHAR(33), t.fechaHoraFinSesion, 126))
+FROM dbo.uv_toma_asistencia t
+CROSS JOIN (SELECT TOP (1) valor FROM dbo.uv_parametro WHERE grupo=N'ASISTENCIA' AND clave=N'MARGEN_RETARDO_MINUTOS') p
+WHERE t.idToma IN ('$($tomas[0])', '$($tomas[1])', '$($tomas[2])', '$($tomas[3])')
+ORDER BY t.idToma;
+"@ -AbortOnError
+        throw "expected each of the 4 tomas closed exactly once; got $($closedMine -join ','); workers=$workerEvidence; state=$($stateEvidence.Lines -join ',')"
+    }
     $check = Invoke-ContainerSql -Name 'tom10_check' -Sql @"
 SET NOCOUNT ON;
 SELECT CONCAT('TOM10|', (SELECT COUNT(*) FROM dbo.TomaAsistencia t INNER JOIN dbo.Sesion s ON s.id = t.sesion INNER JOIN dbo.Grupo g ON g.id = s.grupo WHERE g.nombre = N'$fixtureTag' AND t.fechaCierreUtc IS NULL),

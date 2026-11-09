@@ -4,12 +4,17 @@ SET NOCOUNT ON;
 SET XACT_ABORT OFF;
 
 DECLARE @student UNIQUEIDENTIFIER, @faculty UNIQUEIDENTIFIER, @institution UNIQUEIDENTIFIER;
-SELECT TOP 1 @student = id, @faculty = idFacultad, @institution = idInstitucion
-FROM dbo.uv_estudiante WHERE estaActivoEstudiante = 1 ORDER BY id;
+DECLARE @deanUser UNIQUEIDENTIFIER = (SELECT TOP 1 idUsuario FROM dbo.uv_decano WHERE estaActivoDecano = 1 AND idFacultad IS NOT NULL ORDER BY idFacultad, idUsuario);
+SELECT TOP 1 @faculty = idFacultad
+FROM dbo.uv_decano
+WHERE idUsuario = @deanUser AND estaActivoDecano = 1 AND idFacultad IS NOT NULL;
+SELECT TOP 1 @student = id, @institution = idInstitucion
+FROM dbo.uv_estudiante
+WHERE estaActivoEstudiante = 1 AND idFacultad = @faculty
+ORDER BY id;
 DECLARE @programType UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_tipo_programa);
 DECLARE @coordinator UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_coordinador_identidad WHERE estaActivoUsuario = 1);
 DECLARE @coordinatorUser UNIQUEIDENTIFIER = (SELECT TOP 1 idUsuario FROM dbo.uv_coordinador_identidad WHERE id = @coordinator);
-DECLARE @deanUser UNIQUEIDENTIFIER = (SELECT TOP 1 idUsuario FROM dbo.uv_decano_identidad WHERE estaActivoUsuario = 1);
 DECLARE @assignment UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_asignatura);
 DECLARE @period UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_periodo_academico ORDER BY anio DESC);
 DECLARE @teacher UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_docente);

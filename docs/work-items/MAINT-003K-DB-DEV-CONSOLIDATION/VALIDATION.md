@@ -152,3 +152,59 @@ Conteos de vistas antes y después: `uv_usuario=5011`, `uv_estudiante=6302`, `uv
 `uv_sesion=15`, `uv_estudiante_grupo=6302`, `uv_asistencia=6350`, `uv_detalle_asistencia=6350`.
 Residuos propios detectados: 0; restricciones QA temporales: 0. El contenedor temporal fue eliminado y el principal,
 Keycloak, PostgreSQL, MinIO, ClamAV y observabilidad permanecieron operativos.
+
+## 13. Correccion de fixtures y consolidacion de datos (2026-11-09)
+
+### Cambios de codigo
+
+- En los fixtures de asistencia, el mapeo ahora respeta el catalogo: `AN -> asistio=1`, `SJC -> asistio=0` y
+  `EX -> asistio=0`. La prueba de resumen espera cuatro presentes; los dos detalles `EX` ya no cuentan como asistencia.
+- Los escenarios D1 seleccionan un grupo realmente ajeno al estudiante y un estudiante con una sola fila de matricula
+  activa en la asignatura. D1-06 exige el error contractual `DBCODE=EST_004`; D1-10 no supone que desactivar una
+  matricula elimina resultados mientras haya otra activa.
+- Las fixtures de reclamos excluyen estudiantes con historial previo cuando afirman conteos de solicitudes nuevas.
+  Las de coordinacion seleccionan programas y decanos de la misma facultad.
+- Las limpiezas MAINT y de volumen resuelven dependencias por claves exactas y abortan si hallan reclamos. Las fixtures
+  MAINT-003G/H y runners B.2 validan DB Developer y `OPERACION/AMBIENTE` antes de escribir. Los runners locales usan
+  `sql_server_asistencias` por defecto; CI sigue pasando `sqlserver` explicitamente.
+- No cambiaron SP, vistas, funciones, tablas, migraciones ni permisos. No se ejecuto `deploy_schema.ps1`.
+
+### RED/GREEN e integridad
+
+| Comprobacion | Resultado |
+|---|---|
+| RED inicial | `CULM001_D1_D1_06_AJENA_NO_ES_REV_020` fallo porque el grupo seleccionado tambien matriculaba al estudiante A. Tras corregir ese escenario, D1-10 expuso una segunda matricula activa del mismo estudiante. |
+| D1 focalizado final | **PASS**: D1-01..D1-10 y D1-12, incluido `D1_06_PROPIEDAD_ANTES_QUE_PLAZO`, `D1_10_SESIONES_MATERIA_ESTUDIANTE`, permisos y `@@TRANCOUNT=0`. D1-11 pasó en el gate de migración. |
+| `test_summary.ps1` final | `TOTAL_EXPECTED=426`, `TOTAL_EXECUTED=595`, `PASSED=594`, `FAILED=0`, `SKIPPED=1`, `ALLOWED_SKIPPED=1`, `CRITICAL_MISSING=0`, `SQLCMD_EXIT_CODE=0`, `SQL_ERROR_COUNT=0`, `UNAUTHORIZED_SKIPS=0`, `@@TRANCOUNT=0`, **DB GATE PASS**. El unico skip es `XACT_STATE_MINUS_ONE_RUNTIME`. |
+| B.2 fixtures y concurrencia | **PASS**: `CULM001_B2_SEG_02_FIXTURES_REPETIBLES`, cierres TOM-10/TOM-08 y pruebas de concurrencia. |
+| Freeze manifest | **PASS**: `entries=10`, `post_freeze_superseded=4`, `post_freeze_work_item=11`, `culm001_d=7`. |
+| PowerShell y guardas | **PASS**: parseo de `prepare_java_integration_fixture.ps1` y `test_culm001_b2.ps1`; preflight SQL devolvio `gestionasistenciadb|Developer Edition (64-bit)|MAINT_GUARDS_OK`. |
+| Restricciones | **PASS**: `DBCC CHECKCONSTRAINTS WITH ALL_CONSTRAINTS` termino sin errores ni filas de violacion. |
+
+### Datos revisados y decision
+
+El respaldo previo a la actualizacion de MAINT-003G fue `C:\Users\josev\AsistenciasUCO\db-backups\gestionasistenciadb_copyonly_pre_maint003g_refresh_20261108.bak`;
+SHA-256 `a2befd05211e3978a9e87323354062ba63a3084f17b420fee0aef5a0a172e9cb`. Se verifico con `RESTORE VERIFYONLY WITH CHECKSUM`.
+
+| Registro | Evidencia por vistas `uv_*` | Decision |
+|---|---|---|
+| Detalles codigo 6352/6353 | `SJC/1` con un reclamo aceptado; `EX/1` con cuatro reclamos (dos aceptados y dos rechazados). Ambos estan en la sesion `B2C3D4E5-F6A7-8B9C-0D1E-2F3A4B5C6D7E`, 2026-08-17 13:00 UTC. | No se alteraron. El historial de reclamos impide corregirlos sin identificar primero el flujo y la semantica historica que los creo. |
+| Sesion futura | `B815DFC8-B813-4586-B901-CB9FD55AA590`, 2026-12-09 13:00 UTC: una toma MANUAL implicita cerrada, siete detalles (`SJC=6`, `EX=1`, todos `asistio=0`) y dos reclamos (uno aceptado y uno rechazado). | Se preserva. `esImplicita=1` es compatible con un backfill de la migracion 16, pero no prueba por si solo su procedencia; tampoco es un error que la toma este cerrada. |
+| Fixture 2040 MAINT-003G | Se retiro la sesion sintetica antigua `8244100E-8447-4FE8-B1BC-876EA7E8FAF0`. El tag queda en `E8060D7E-D564-45B3-B245-F698A2F6762B`, 2026-11-09, con una toma cerrada, dos detalles (`AN=1`, `SJC=0`) y cero reclamos. No queda sesion de ese tag en 2040. | Depurada y recreada de forma idempotente con el respaldo anterior; sus dos filas siguen siendo requeridas por la fixture de integracion. |
+| Estudiante-programa | `uv_estudiante_programa=5007`; 5007 IDs y 5007 pares estudiante-programa distintos; 5000 corresponden al set sintetico `DE0000`. | Se preserva; no se encontraron duplicados. |
+| `uco-coordinador` | Cero coincidencias de correo/nombre/identificacion en `uv_coordinador`; la vista expone dos contextos de coordinacion activos. | Sin cambio: no se pudo enlazar el nombre de usuario externo con una identidad DB verificable; una asignacion de grupo no demuestra coordinacion formal. |
+
+### Transferencia para Backend
+
+- No hay SP ni vistas corregidas en este lote; por tanto, no cambian firmas ni columnas SQL consumidas. Los consumidores
+  Java y la configuracion de despliegue no se modificaron.
+- `GET /api/v1/estudiante/materias/{materiaId}/sesiones` conserva el contrato vigente de `usp_consultar_sesiones_materia_estudiante`
+  (13 columnas: identidad/nombre/numero/codigo/semana, grupo y fechas, `fechaLimiteJustificacionUtc`,
+  `plazoJustificacionVigente` y `totalRegistros`). El endpoint existente ya pasa `pagina` y `tamano`; no se agrego paginacion
+  ni filtrado nuevo desde DB. Java debe seguir tratando las fechas `DATETIME2` como UTC literal.
+- `POST /api/v1/asistencias/revisiones` conserva `usp_radicar_solicitud_revision_asistencia_v2`, su firma y codigos de
+  catalogo. No se identifico un ajuste Java requerido por este diff. La semantica es `AN` presente, `SJC` ausencia sin
+  justificar y `EX` ausencia justificada; ambas ausencias tienen `asistio=0`.
+- En la siguiente fase, Backend/Angular debe validar visualmente historial docente/estudiante y reclamos con esos tres
+  estados, y mostrar el limite de justificacion en su fecha UTC/local contractual. La revision general de paginacion y
+  filtros sigue siendo de Backend. H-03 y `DB_PRINCIPAL_HARDENING` permanecen fuera de alcance por sus contratos vigentes.
