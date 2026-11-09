@@ -354,7 +354,9 @@ ORDER BY g.cuposDisponibles DESC;
     if ($LASTEXITCODE -ne 0 -or $d06Setup.Count -ne 1) { throw "setup failed: $($d06Setup -join '; ')" }
     $d06Group = $d06Setup[0].Split('|')[0]
     $d06Owner = $d06Setup[0].Split('|')[1]
-    $d06WorkerSql = "SET NOCOUNT ON; DECLARE @i INT = 0; WHILE @i < 5 BEGIN DECLARE @corr UNIQUEIDENTIFIER = NEWID(); EXEC dbo.usp_crear_sesion_v2 @idGrupo = '$d06Group', @nombre = N'$d06Tag', @fechaHoraInicio = '2027-01-10T13:00:00', @fechaHoraFin = '2027-01-10T14:00:00', @idCorrelacion = @corr, @idUsuarioEjecutor = '$d06Owner'; SET @i += 1; END"
+    # D.9 rechaza las sesiones que se cruzan con otra del grupo o del docente: cada sesion usa su propio dia (la variable sqlcmd WORKER
+    # separa a los dos trabajadores) para que el rechazo por cruce no oculte lo que la prueba mide, el correlativo bajo concurrencia.
+    $d06WorkerSql = "SET NOCOUNT ON; DECLARE @i INT = 0; WHILE @i < 5 BEGIN DECLARE @corr UNIQUEIDENTIFIER = NEWID(); DECLARE @ini DATETIME2 = DATEADD(DAY, `$(WORKER) * 5 + @i, '2027-01-10T13:00:00'); DECLARE @fin DATETIME2 = DATEADD(HOUR, 1, @ini); EXEC dbo.usp_crear_sesion_v2 @idGrupo = '$d06Group', @nombre = N'$d06Tag', @fechaHoraInicio = @ini, @fechaHoraFin = @fin, @idCorrelacion = @corr, @idUsuarioEjecutor = '$d06Owner'; SET @i += 1; END"
     $d06Local = Join-Path ([System.IO.Path]::GetTempPath()) "utc_d06_concurrent_worker_$([guid]::NewGuid().ToString('N')).sql"
     Set-Content -Path $d06Local -Value $d06WorkerSql -Encoding utf8 -NoNewline
     docker cp $d06Local "${ContainerName}:/tmp/utc_d06_concurrent_worker.sql" | Out-Null
@@ -362,13 +364,13 @@ ORDER BY g.cuposDisponibles DESC;
     docker exec -u 0 $ContainerName chmod a+r /tmp/utc_d06_concurrent_worker.sql | Out-Null
     Remove-Item -Path $d06Local -Force -ErrorAction SilentlyContinue
     $d06Job = {
-        param($cn, $pw)
-        $output = @(& docker exec $cn /opt/mssql-tools18/bin/sqlcmd -S localhost -d gestionasistenciadb -U sa -P $pw -C -b -h -1 -W -i /tmp/utc_d06_concurrent_worker.sql 2>&1)
+        param($cn, $pw, $worker)
+        $output = @(& docker exec $cn /opt/mssql-tools18/bin/sqlcmd -S localhost -d gestionasistenciadb -U sa -P $pw -C -I -b -h -1 -W -v "WORKER=$worker" -i /tmp/utc_d06_concurrent_worker.sql 2>&1)
         if ($LASTEXITCODE -ne 0) { throw "sqlcmd failed: $($output -join '; ')" }
     }
     $d06Jobs = @(
-        (Start-Job -ScriptBlock $d06Job -ArgumentList $ContainerName, $Password),
-        (Start-Job -ScriptBlock $d06Job -ArgumentList $ContainerName, $Password)
+        (Start-Job -ScriptBlock $d06Job -ArgumentList $ContainerName, $Password, 0),
+        (Start-Job -ScriptBlock $d06Job -ArgumentList $ContainerName, $Password, 1)
     )
     $d06Out = @(Receive-Job -Job $d06Jobs -Wait -AutoRemoveJob 2>&1)
     if ($d06Out | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] }) { throw "worker failed: $($d06Out -join '; ')" }
