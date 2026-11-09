@@ -1,5 +1,5 @@
 param (
-    [string]$ContainerName = 'sqlserver',
+    [string]$ContainerName = 'sql_server_asistencias',
     [string]$Password = $env:MSSQL_SA_PASSWORD
 )
 

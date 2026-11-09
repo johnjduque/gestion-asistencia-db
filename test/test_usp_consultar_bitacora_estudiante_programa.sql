@@ -153,7 +153,7 @@ BEGIN TRY
     DECLARE @culmb2Sesiones NVARCHAR(MAX) = (SELECT DISTINCT idSesion = sesId FROM #asi FOR JSON PATH);
     EXEC #culm001_b2_crear_tomas @sesionesJSON = @culmb2Sesiones;
     INSERT INTO dbo.DetalleAsistencia (id, codigo, asistencia, asistio, razonCausa, fechaHoraInicio, fechaHoraFin, toma)
-    SELECT NEWID(), 1, a.id, IIF(a.codigo = N'SJC', 0, 1), rc.id, @ahora, @ahora, t.id FROM #asi a INNER JOIN dbo.RazonCausa rc ON rc.codigo = a.codigo
+    SELECT NEWID(), 1, a.id, CASE WHEN a.codigo = N'AN' THEN 1 ELSE 0 END, rc.id, @ahora, @ahora, t.id FROM #asi a INNER JOIN dbo.RazonCausa rc ON rc.codigo = a.codigo
     INNER JOIN dbo.TomaAsistencia t ON t.sesion = a.sesId AND t.numero = 1;
 
     -- Usuarios ejecutores y de estudiantes por clave

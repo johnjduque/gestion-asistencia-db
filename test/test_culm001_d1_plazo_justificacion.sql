@@ -35,18 +35,22 @@ DECLARE @group UNIQUEIDENTIFIER, @group2 UNIQUEIDENTIFIER, @teacher UNIQUEIDENTI
 DECLARE @studentA UNIQUEIDENTIFIER, @studentC UNIQUEIDENTIFIER, @userA UNIQUEIDENTIFIER, @userC UNIQUEIDENTIFIER, @userT UNIQUEIDENTIFIER;
 DECLARE @asignatura UNIQUEIDENTIFIER;
 
--- Estudiante A: inscrito en @group y con TODAS sus matriculas de esa asignatura inscritas (para la paridad D1-10).
+-- Estudiante A: una sola matricula activa en la asignatura, para que D1-10 pueda volverla inactiva y esperar 0 filas.
 SELECT TOP 1 @group = g.id, @teacher = g.docente, @asignatura = ug.idAsignatura, @studentA = eg.idEstudiante
 FROM dbo.Grupo g
 INNER JOIN dbo.uv_grupo ug ON ug.id = g.id
 INNER JOIN dbo.uv_estudiante_grupo eg ON eg.idGrupo = g.id AND eg.codigoEstadoEstudiante = @codInscrita
 WHERE NOT EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo x INNER JOIN dbo.uv_grupo gx ON gx.id = x.idGrupo
                   WHERE x.idEstudiante = eg.idEstudiante AND gx.idAsignatura = ug.idAsignatura AND x.codigoEstadoEstudiante <> @codInscrita)
+  AND NOT EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo x INNER JOIN dbo.uv_grupo gx ON gx.id = x.idGrupo
+                  WHERE x.idEstudiante = eg.idEstudiante AND gx.idAsignatura = ug.idAsignatura
+                    AND x.id <> eg.id AND x.codigoEstadoEstudiante = @codInscrita)
 ORDER BY g.id, eg.idEstudiante;
 SELECT TOP 1 @group2 = eg.idGrupo, @studentC = eg.idEstudiante
 FROM dbo.uv_estudiante_grupo eg
 WHERE eg.idGrupo <> @group AND eg.codigoEstadoEstudiante = @codInscrita
   AND NOT EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo y WHERE y.idGrupo = @group AND y.idEstudiante = eg.idEstudiante)
+  AND NOT EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo x WHERE x.idGrupo = eg.idGrupo AND x.idEstudiante = @studentA)
 ORDER BY eg.idGrupo, eg.idEstudiante;
 SELECT @userA = usuario FROM dbo.Estudiante WHERE id = @studentA;
 SELECT @userC = usuario FROM dbo.Estudiante WHERE id = @studentC;
@@ -196,7 +200,7 @@ BEGIN TRY
     INSERT INTO #w EXEC dbo.usp_radicar_solicitud_revision_asistencia_v2 @idEstudiante = @studentA, @idSesion = @sAjena,
         @categoria = N'ASISTENCIA', @justificacion = N'QA D1-06', @idArchivoSoporte = NULL, @idCorrelacion = @corr, @idUsuarioEjecutor = @userA;
     SET @ok = IIF(EXISTS (SELECT 1 FROM #w WHERE idCorrelacion = @corr AND estadoResultado = 0
-                          AND mensajeUsuarioResultado NOT LIKE N'El plazo para justificar esta inasistencia venci%'), 1, 0);
+                          AND mensajeTecnicoResultado LIKE N'DBCODE=EST_004|%'), 1, 0);
     EXEC #d1_expect 'D1_06_AJENA_NO_ES_REV_020', @ok;
     PRINT 'TEST_PASS:CULM001_D1_06_PROPIEDAD_ANTES_QUE_PLAZO';
 
