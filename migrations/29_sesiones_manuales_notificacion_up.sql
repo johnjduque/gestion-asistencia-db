@@ -60,10 +60,11 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
--- CULM-001 / DEC-064: sesiones creadas manualmente por el docente (fuera de la precarga por horario). La procedencia temporal las
--- distingue: usp_crear_sesion_v2 / usp_actualizar_sesion_v2 marcan UTC_V2; la precarga y el generador marcan UTC_GENERADOR; la
--- clasificacion administrativa UTC_OWNER y la historica (NULL) no son manuales. Una sesion generada que el docente edita por la
--- via v2 pasa a UTC_V2 (limitacion conocida: se trata como manual desde ese momento).
+-- CULM-001 / DEC-064: sesiones creadas manualmente por el docente (fuera de la precarga por horario). Los dos endpoints de creacion
+-- (usp_crear_sesion v1 -> procedenciaTemporal NULL; usp_crear_sesion_v2 -> UTC_V2) son manuales; la precarga y el generador marcan
+-- UTC_GENERADOR y la clasificacion administrativa de historicos UTC_OWNER: esas NO son manuales. Limitaciones conocidas: NULL tambien
+-- es una fila historica anterior a UTC-D06 (se trata como manual; una sesion con asistencia no se puede cancelar de todos modos) y una
+-- sesion generada que el docente edita por la via v2 pasa a UTC_V2.
 CREATE OR ALTER VIEW [dbo].[uv_sesion_manual]
 AS
 SELECT  idSesion = s.id,
@@ -73,7 +74,7 @@ SELECT  idSesion = s.id,
         fechaHoraInicio = s.fechaHoraInicio,
         fechaHoraFin = s.fechaHoraFin
 FROM    dbo.Sesion s
-WHERE   s.procedenciaTemporal = N'UTC_V2';
+WHERE   s.procedenciaTemporal IS NULL OR s.procedenciaTemporal = N'UTC_V2';
 GO
 GO
 -- ---- schema/seed/60_sesiones_manuales_catalogos.sql
@@ -145,7 +146,7 @@ GO
 
 MERGE INTO [dbo].[CatalogoMensajeTecnico] AS Target
 USING (VALUES
-    ('SES_018', 'BUSINESS_ERROR',   'MEDIO', N'Regla: la sesión [{}] no es manual (procedenciaTemporal distinta de UTC_V2); el coordinador no puede cancelarla; sin escrituras.'),
+    ('SES_018', 'BUSINESS_ERROR',   'MEDIO', N'Regla: la sesión [{}] no es manual (procedencia UTC_GENERADOR o UTC_OWNER); el coordinador no puede cancelarla; sin escrituras.'),
     ('SES_019', 'VALIDATION_ERROR', 'BAJO',  N'Validación: codigoMotivo [{}] ausente o fuera de MotivoCancelacionSesion activo; sin escrituras.'),
     ('SES_020', 'SUCCESS',          'BAJO',  N'Sesión [{}] cancelada por el coordinador; tipo [{}].'),
     ('SES_021', 'VALIDATION_ERROR', 'BAJO',  N'Validación: la observación recortada supera SESION/OBSERVACION_CANCELACION_COORDINADOR_MAXIMA ({}); sin escrituras.')
@@ -436,7 +437,7 @@ GO
 -- Clasificacion: NON_GOLDEN_PATH_EXTENSION, comando con la misma tupla que usp_cancelar_sesion: canonica + idSesion, idGrupo,
 -- fechaCancelacionUtc, totalEstudiantesActivos (NULL si estadoResultado = 0).
 --
--- El coordinador del programa cancela una sesion creada manualmente por el docente (uv_sesion_manual, procedenciaTemporal UTC_V2).
+-- El coordinador del programa cancela una sesion creada manualmente por el docente (uv_sesion_manual: procedencia NULL de v1 o UTC_V2 de v2).
 -- No cambia la firma publica de usp_cancelar_sesion (docente). Reglas:
 --   * RBAC COORDINADOR (SEC_001); sesion existente (SES_001);
 --   * ambito: el coordinador coordina AL MENOS UNO de los programas vigentes del grupo (ufn_programas_grupo INTERSECT

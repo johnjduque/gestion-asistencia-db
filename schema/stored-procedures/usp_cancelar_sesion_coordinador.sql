@@ -11,7 +11,7 @@ GO
 -- Clasificacion: NON_GOLDEN_PATH_EXTENSION, comando con la misma tupla que usp_cancelar_sesion: canonica + idSesion, idGrupo,
 -- fechaCancelacionUtc, totalEstudiantesActivos (NULL si estadoResultado = 0).
 --
--- El coordinador del programa cancela una sesion creada manualmente por el docente (uv_sesion_manual, procedenciaTemporal UTC_V2).
+-- El coordinador del programa cancela una sesion creada manualmente por el docente (uv_sesion_manual: procedencia NULL de v1 o UTC_V2 de v2).
 -- No cambia la firma publica de usp_cancelar_sesion (docente). Reglas:
 --   * RBAC COORDINADOR (SEC_001); sesion existente (SES_001);
 --   * ambito: el coordinador coordina AL MENOS UNO de los programas vigentes del grupo (ufn_programas_grupo INTERSECT

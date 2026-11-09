@@ -27,7 +27,7 @@ GO
 
 MERGE INTO [dbo].[CatalogoMensajeTecnico] AS Target
 USING (VALUES
-    ('SES_018', 'BUSINESS_ERROR',   'MEDIO', N'Regla: la sesión [{}] no es manual (procedenciaTemporal distinta de UTC_V2); el coordinador no puede cancelarla; sin escrituras.'),
+    ('SES_018', 'BUSINESS_ERROR',   'MEDIO', N'Regla: la sesión [{}] no es manual (procedencia UTC_GENERADOR o UTC_OWNER); el coordinador no puede cancelarla; sin escrituras.'),
     ('SES_019', 'VALIDATION_ERROR', 'BAJO',  N'Validación: codigoMotivo [{}] ausente o fuera de MotivoCancelacionSesion activo; sin escrituras.'),
     ('SES_020', 'SUCCESS',          'BAJO',  N'Sesión [{}] cancelada por el coordinador; tipo [{}].'),
     ('SES_021', 'VALIDATION_ERROR', 'BAJO',  N'Validación: la observación recortada supera SESION/OBSERVACION_CANCELACION_COORDINADOR_MAXIMA ({}); sin escrituras.')

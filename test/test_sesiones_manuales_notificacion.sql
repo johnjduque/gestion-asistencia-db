@@ -1,6 +1,6 @@
 USE [gestionasistenciadb];
 GO
--- CULM-001 / DEC-064 / HU047: sesiones creadas manualmente por el docente (procedenciaTemporal = UTC_V2; la precarga marca UTC_GENERADOR).
+-- CULM-001 / DEC-064 / HU047: sesiones creadas manualmente por el docente (procedenciaTemporal NULL de v1 o UTC_V2 de v2; la precarga marca UTC_GENERADOR).
 --   SMN-00 objetos y semillas de la migracion 29
 --   SMN-01 destinatarios: estudiantes activos del grupo + coordinador(es) activo(s) de los programas del grupo (un coordinador de dos programas, una fila)
 --   SMN-02 una sesion no manual (UTC_GENERADOR) no tiene destinatarios
@@ -17,7 +17,7 @@ BEGIN TRANSACTION;
 BEGIN TRY
 :r /tmp/test/fixtures/culm001_b2nm_asignatura_compartida.sql
     DECLARE @c UNIQUEIDENTIFIER = NEWID();
-    DECLARE @sMan UNIQUEIDENTIFIER = NEWID(), @sGen UNIQUEIDENTIFIER = NEWID(), @sMan2 UNIQUEIDENTIFIER = NEWID();
+    DECLARE @sMan UNIQUEIDENTIFIER = NEWID(), @sGen UNIQUEIDENTIFIER = NEWID(), @sMan2 UNIQUEIDENTIFIER = NEWID(), @sV1 UNIQUEIDENTIFIER = NEWID(), @sOwner UNIQUEIDENTIFIER = NEWID();
 
     -- SMN-00: objetos y semillas
     IF OBJECT_ID(N'dbo.usp_consultar_destinatarios_sesion_manual', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_cancelar_sesion_coordinador', N'P') IS NULL
@@ -39,9 +39,12 @@ BEGIN TRY
     INSERT dbo.Sesion (id, nombre, numero, codigo, numeroSemana, grupo, fechaHoraInicio, fechaHoraFin, procedenciaTemporal)
     VALUES (@sMan,  N'SMN manual',   901, N'SMN901', 1, @grupoG, DATEADD(DAY, 3, SYSUTCDATETIME()), DATEADD(MINUTE, 3 * 1440 + 120, SYSUTCDATETIME()), N'UTC_V2'),
            (@sGen,  N'SMN generada', 902, N'SMN902', 1, @grupoG, DATEADD(DAY, 4, SYSUTCDATETIME()), DATEADD(MINUTE, 4 * 1440 + 120, SYSUTCDATETIME()), N'UTC_GENERADOR'),
-           (@sMan2, N'SMN manual 2', 903, N'SMN903', 1, @grupoG, DATEADD(DAY, 5, SYSUTCDATETIME()), DATEADD(MINUTE, 5 * 1440 + 120, SYSUTCDATETIME()), N'UTC_V2');
-    IF (SELECT COUNT(*) FROM dbo.uv_sesion_manual WHERE idGrupo = @grupoG) <> 2 OR EXISTS (SELECT 1 FROM dbo.uv_sesion_manual WHERE idSesion = @sGen)
-        THROW 58005, 'TEST FAILED CULM001_SMN_02: uv_sesion_manual debe incluir solo las sesiones UTC_V2.', 1;
+           (@sMan2, N'SMN manual 2', 903, N'SMN903', 1, @grupoG, DATEADD(DAY, 5, SYSUTCDATETIME()), DATEADD(MINUTE, 5 * 1440 + 120, SYSUTCDATETIME()), N'UTC_V2'),
+           (@sV1,   N'SMN manual v1', 904, N'SMN904', 1, @grupoG, DATEADD(DAY, 6, SYSUTCDATETIME()), DATEADD(MINUTE, 6 * 1440 + 120, SYSUTCDATETIME()), NULL),
+           (@sOwner, N'SMN owner',   905, N'SMN905', 1, @grupoG, DATEADD(DAY, 7, SYSUTCDATETIME()), DATEADD(MINUTE, 7 * 1440 + 120, SYSUTCDATETIME()), N'UTC_OWNER');
+    IF (SELECT COUNT(*) FROM dbo.uv_sesion_manual WHERE idGrupo = @grupoG) <> 3 OR EXISTS (SELECT 1 FROM dbo.uv_sesion_manual WHERE idSesion IN (@sGen, @sOwner))
+       OR NOT EXISTS (SELECT 1 FROM dbo.uv_sesion_manual WHERE idSesion = @sV1)
+        THROW 58005, 'TEST FAILED CULM001_SMN_02: uv_sesion_manual debe incluir las sesiones de v1 (NULL) y v2 (UTC_V2) y excluir UTC_GENERADOR y UTC_OWNER.', 1;
 
     CREATE TABLE #dest (tipoDestinatario NVARCHAR(20), idUsuario UNIQUEIDENTIFIER, nombreCompleto NVARCHAR(400), correo NVARCHAR(200),
         nombreAsignatura NVARCHAR(200), nombreGrupo NVARCHAR(300), nombreDocente NVARCHAR(400), fechaHoraInicio DATETIME2, fechaHoraFin DATETIME2);
@@ -61,6 +64,9 @@ BEGIN TRY
     -- SMN-02: sesion no manual => sin destinatarios
     INSERT #dest EXEC dbo.usp_consultar_destinatarios_sesion_manual @idSesion = @sGen, @idCorrelacion = @c, @idUsuarioEjecutor = @uT;
     IF EXISTS (SELECT 1 FROM #dest) THROW 58011, 'TEST FAILED CULM001_SMN_02: una sesion no manual no tiene destinatarios.', 1;
+    INSERT #dest EXEC dbo.usp_consultar_destinatarios_sesion_manual @idSesion = @sV1, @idCorrelacion = @c, @idUsuarioEjecutor = @uT;
+    IF (SELECT COUNT(*) FROM #dest) <> 5 THROW 58015, 'TEST FAILED CULM001_SMN_01: la sesion creada por v1 (procedencia NULL) tambien notifica a 3 estudiantes y 2 coordinadores.', 1;
+    TRUNCATE TABLE #dest;
     PRINT 'TEST_PASS:CULM001_SMN_02_SESION_NO_MANUAL_SIN_DESTINATARIOS';
 
     -- SMN-01b: un coordinador de dos programas es UNA fila (CA coordina A y B)
