@@ -319,9 +319,11 @@ finally {
         $cleanupErrors += 'attendance worker file cleanup raised an exception'
     }
     if ($concurrencySession) {
-        $cleanupSql = "SET NOCOUNT ON; DELETE d FROM dbo.DetalleAsistencia d JOIN dbo.Asistencia a ON a.id = d.asistencia WHERE a.sesion = '$concurrencySession'; DELETE FROM dbo.Asistencia WHERE sesion = '$concurrencySession'; DELETE FROM dbo.Sesion WHERE id = '$concurrencySession';"
+        $cleanupSql = "SET NOCOUNT ON; DELETE d FROM dbo.DetalleAsistencia d JOIN dbo.Asistencia a ON a.id = d.asistencia WHERE a.sesion = '$concurrencySession'; DELETE tk FROM dbo.TokenAsistenciaToma tk JOIN dbo.TomaAsistencia t ON t.id = tk.toma WHERE t.sesion = '$concurrencySession'; DELETE FROM dbo.TomaAsistencia WHERE sesion = '$concurrencySession'; DELETE FROM dbo.Asistencia WHERE sesion = '$concurrencySession'; DELETE FROM dbo.Sesion WHERE id = '$concurrencySession';"
         try {
-            docker exec $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -d gestionasistenciadb -U sa -P $Password -C -Q $cleanupSql | Out-Null
+            # -I (QUOTED_IDENTIFIER ON) y -b: sin ellos el DELETE falla en silencio y la sesion QA queda en la BD (B.2: tomas y tokens
+            # dependen de la sesion) contaminando las pruebas posteriores con cruces de horario
+            docker exec $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -d gestionasistenciadb -U sa -P $Password -C -I -b -Q $cleanupSql | Out-Null
             if ($LASTEXITCODE -ne 0) { $cleanupErrors += 'attendance SQL cleanup returned a non-zero exit code' }
         }
         catch {
@@ -391,7 +393,7 @@ finally {
     }
     if ($d06Group) {
         try {
-            docker exec $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -d gestionasistenciadb -U sa -P $Password -C -Q "SET NOCOUNT ON; DELETE FROM dbo.Sesion WHERE grupo = '$d06Group' AND nombre = N'$d06Tag';" | Out-Null
+            docker exec $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -d gestionasistenciadb -U sa -P $Password -C -I -b -Q "SET NOCOUNT ON; DELETE FROM dbo.Sesion WHERE grupo = '$d06Group' AND nombre = N'$d06Tag';" | Out-Null
             if ($LASTEXITCODE -ne 0) { $cleanupErrors += 'D06 SQL cleanup returned a non-zero exit code' }
         }
         catch {
