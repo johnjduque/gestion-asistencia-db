@@ -28,7 +28,7 @@ function Invoke-ContainerSqlFile {
     if ($LASTEXITCODE -ne 0) { throw "could not copy SQL fixture: $($copyOutput -join '; ')" }
     $null = & docker exec -u 0 $ContainerName chmod a+r $RemotePath 2>&1
     if ($LASTEXITCODE -ne 0) { throw 'could not set SQL fixture read permissions.' }
-    $output = @(& docker exec $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -d gestionasistenciadb -U sa -P $Password -C -b -h -1 -W -s '|' -t 60 -i $RemotePath 2>&1)
+    $output = @(& docker exec $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -d gestionasistenciadb -U sa -P $Password -C -I -b -h -1 -W -s '|' -t 60 -i $RemotePath 2>&1)
     $exitCode = $LASTEXITCODE
     if ($exitCode -ne 0) { throw "sqlcmd failed with exit code ${exitCode}: $($output -join '; ')" }
     return $output
@@ -52,22 +52,22 @@ DECLARE @codigoPeriodo INT = 1000000 + ABS(CHECKSUM(NEWID()) % 8000000);
 DECLARE @codigoGrupo INT = 1000000 + ABS(CHECKSUM(NEWID()) % 8000000);
 
 SELECT TOP (1)
-    @idAsignatura = a.id,
-    @idPrograma = pe.idPrograma,
+    @idAsignatura = a.idAsignatura,
+    @idPrograma = pr.id,
     @idInstitucion = pr.idInstitucion,
     @idCoordinador = ci.idUsuario,
     @idDocente = dp.idDocente
-FROM dbo.uv_asignatura a
-INNER JOIN dbo.uv_semestre_plan_estudio spe ON a.idSemestrePlanEstudio = spe.id
-INNER JOIN dbo.uv_plan_estudio pe ON spe.idPlanEstudio = pe.id
-INNER JOIN dbo.uv_programa pr ON pe.idPrograma = pr.id
+-- CULM-001 B2NM: la asignatura ya no tiene semestre propio; el programa sale del vinculo activo asignatura-plan (uv_asignatura_plan_estudio).
+FROM dbo.uv_asignatura_plan_estudio a
+INNER JOIN dbo.uv_programa pr ON a.idPrograma = pr.id
 INNER JOIN dbo.uv_coordinador_identidad ci ON ci.id = pr.idCoordinador
 INNER JOIN dbo.uv_docente_programa dp ON dp.idPrograma = pr.id AND dp.estaActivoDocentePrograma = 1
 WHERE pr.estaActivoPrograma = 1
   AND ci.estaActivoUsuario = 1
   AND ci.estaActivoRolCoordinador = 1
   AND a.estaActivaAsignatura = 1
-ORDER BY a.id, dp.idDocente;
+  AND a.estaActivoVinculo = 1
+ORDER BY a.idAsignatura, dp.idDocente;
 SELECT TOP (1) @idDia = id FROM dbo.uv_dia WHERE codigo = 'LU';
 IF @idAsignatura IS NULL OR @idPrograma IS NULL OR @idInstitucion IS NULL OR @idCoordinador IS NULL OR @idDocente IS NULL OR @idDia IS NULL
     THROW 53480, 'SES02_CONCURRENCY_FIXTURE_MISSING: missing active program, coordinator, teacher, subject or day.', 1;
@@ -138,7 +138,7 @@ FROM dbo.uv_sesion_v2 WHERE idGrupo = '$groupId';
 
     $jobScript = {
         param ($container, $password, $path)
-        $workerOutput = @(& docker exec $container /opt/mssql-tools18/bin/sqlcmd -S localhost -d gestionasistenciadb -U sa -P $password -C -b -h -1 -W -t 60 -i $path 2>&1)
+        $workerOutput = @(& docker exec $container /opt/mssql-tools18/bin/sqlcmd -S localhost -d gestionasistenciadb -U sa -P $password -C -I -b -h -1 -W -t 60 -i $path 2>&1)
         $workerExitCode = $LASTEXITCODE
         $workerOutput
         if ($workerExitCode -ne 0) { throw "concurrent sqlcmd failed with exit code ${workerExitCode}: $($workerOutput -join '; ')" }
@@ -155,7 +155,7 @@ FROM dbo.uv_sesion_v2 WHERE idGrupo = '$groupId';
     $firstCounts = Get-OutputRecord -Lines $validationOutput -Pattern '^8\|8\|8\|1\|8\|8$' -Description 'concurrent validation'
 
     # A third call verifies that a settled concurrent result remains idempotent.
-    $retryOutput = @(& docker exec $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -d gestionasistenciadb -U sa -P $Password -C -b -h -1 -W -t 60 -i $workerRemotePath 2>&1)
+    $retryOutput = @(& docker exec $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -d gestionasistenciadb -U sa -P $Password -C -I -b -h -1 -W -t 60 -i $workerRemotePath 2>&1)
     if ($LASTEXITCODE -ne 0) { throw "sequential retry failed: $($retryOutput -join '; ')" }
     $retryValidation = @(Invoke-ContainerSqlFile -LocalPath $validationPath -RemotePath $validationRemotePath)
     $null = Get-OutputRecord -Lines $retryValidation -Pattern '^8\|8\|8\|1\|8\|8$' -Description 'post-retry validation'
