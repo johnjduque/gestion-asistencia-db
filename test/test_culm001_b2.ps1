@@ -36,6 +36,20 @@ function Invoke-ContainerSql {
     return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Lines = $output }
 }
 
+# Composabilidad (F3): estas pruebas se escribieron cuando B.2 era el ultimo paquete. En una BD con los paquetes posteriores
+# desplegados (migraciones 17 en adelante), 16_down restauraria textos que dependen de objetos que esos paquetes cambiaron
+# (p. ej. usp_consultar_bitacora_estudiante_programa y uv_grupo_programa). Se aplica primero, DENTRO de la transaccion que la
+# prueba revierte al final, el down de cada migracion posterior en orden inverso (el orden real de rollback, D-RB): la BD
+# queda en el estado de B.2. Las migraciones se descubren por nombre, asi una migracion nueva no exige tocar la prueba.
+function New-DownChainPosterior16 {
+    $files = @(Get-ChildItem (Join-Path $dbRoot 'migrations') -Filter '*_down.sql' |
+        Where-Object { $_.Name -match '^(\d+)_' -and [int]$Matches[1] -gt 16 } |
+        Sort-Object { [int]($_.Name -split '_')[0] } -Descending)
+    $lines = @(':setvar CONFIRMAR_COLAPSO_SOPORTES 0')
+    foreach ($f in $files) { $lines += ":r $remoteDir/migrations/$($f.Name)"; $lines += 'GO' }
+    return ($lines -join "`n")
+}
+
 # Copia de migrations/, schema/ y del archivo de migraciones de prueba
 $null = & docker exec -u 0 $ContainerName mkdir -p "$remoteDir/migrations" "$remoteDir/schema" 2>&1
 foreach ($pair in @(@('migrations', 'migrations'), @('schema', 'schema'))) {
@@ -44,15 +58,39 @@ foreach ($pair in @(@('migrations', 'migrations'), @('schema', 'schema'))) {
 }
 $copy = @(& docker cp (Join-Path $PSScriptRoot 'test_culm001_b2_migraciones.sql') "${ContainerName}:$remoteDir/test_culm001_b2_migraciones.sql" 2>&1)
 if ($LASTEXITCODE -ne 0) { throw "could not copy test_culm001_b2_migraciones.sql: $($copy -join '; ')" }
+$copy = @(& docker cp (Join-Path $PSScriptRoot 'fixtures/maint_003g_attendance_fixture.sql') "${ContainerName}:$remoteDir/maint_003g_attendance_fixture.sql" 2>&1)
+if ($LASTEXITCODE -ne 0) { throw "could not copy maint_003g_attendance_fixture.sql: $($copy -join '; ')" }
 $null = & docker exec -u 0 $ContainerName chmod -R a+rX $remoteDir 2>&1
 
 # ---------------------------------------------------------------------------------------------------------------
 # B2-MIG-01..05: test_culm001_b2_migraciones.sql dentro de una transaccion revertida
 # ---------------------------------------------------------------------------------------------------------------
 try {
+    # Envoltorio: abre la transaccion, baja los paquetes posteriores a B.2 y delega en test_culm001_b2_migraciones.sql (que abre una
+    # transaccion anidada y termina con ROLLBACK TRANSACTION: ese ROLLBACK revierte tambien los downs del envoltorio)
+    $wrapperSql = @"
+:on error exit
+:setvar CONFIRMAR_COLAPSO 0
+SET NOCOUNT ON;
+SET XACT_ABORT OFF;
+SET QUOTED_IDENTIFIER ON;
+GO
+BEGIN TRANSACTION;
+GO
+$(New-DownChainPosterior16)
+-- "UP_CON_DATOS" necesita datos: una BD recien desplegada no tiene asistencias, asi que se crean con el fixture MAINT-003G
+:r $remoteDir/maint_003g_attendance_fixture.sql
+GO
+:r $remoteDir/test_culm001_b2_migraciones.sql
+"@
+    $wrapperLocal = Join-Path $localDir 'mig16_wrapper.sql'
+    Set-Content -Path $wrapperLocal -Value $wrapperSql -Encoding utf8
+    $copy = @(& docker cp $wrapperLocal "${ContainerName}:$remoteDir/mig16_wrapper.sql" 2>&1)
+    if ($LASTEXITCODE -ne 0) { throw "could not copy mig16_wrapper.sql: $($copy -join '; ')" }
+    $null = & docker exec -u 0 $ContainerName chmod a+r "$remoteDir/mig16_wrapper.sql" 2>&1
     $sqlArgs = @('exec', $ContainerName, '/opt/mssql-tools18/bin/sqlcmd', '-S', 'localhost', '-d', 'gestionasistenciadb', '-U', 'sa', '-P', $Password,
               '-C', '-I', '-h', '-1', '-W', '-s', '|', '-w', '65535', '-t', '600', '-v', "MIGDIR=$remoteDir/migrations", '-v', "SCHEMADIR=$remoteDir/schema",
-              '-i', "$remoteDir/test_culm001_b2_migraciones.sql")
+              '-i', "$remoteDir/mig16_wrapper.sql")
     $lines = @(& docker @sqlArgs 2>&1 | ForEach-Object { "$_".Trim() })
     $exit = $LASTEXITCODE
     $text = $lines -join "`n"
@@ -108,6 +146,12 @@ try {
 :on error exit
 BEGIN TRANSACTION;
 GO
+$(New-DownChainPosterior16)
+-- Precondicion (F3): los casos con 2 tomas necesitan una asistencia con detalle en una toma 1 unica. Una BD recien desplegada solo
+-- tiene semillas, asi que se crea con el fixture de MAINT-003G (usa los SP publicos: sesion + asistencias + toma implicita) dentro de
+-- la misma transaccion revertida.
+:r $remoteDir/maint_003g_attendance_fixture.sql
+GO
 $twoTomasSetup
 GO
 :setvar CONFIRMAR_COLAPSO 0
@@ -133,6 +177,12 @@ try {
 SET XACT_ABORT OFF;
 GO
 BEGIN TRANSACTION;
+GO
+$(New-DownChainPosterior16)
+-- Precondicion (F3): los casos con 2 tomas necesitan una asistencia con detalle en una toma 1 unica. Una BD recien desplegada solo
+-- tiene semillas, asi que se crea con el fixture de MAINT-003G (usa los SP publicos: sesion + asistencias + toma implicita) dentro de
+-- la misma transaccion revertida.
+:r $remoteDir/maint_003g_attendance_fixture.sql
 GO
 $twoTomasSetup
 GO
