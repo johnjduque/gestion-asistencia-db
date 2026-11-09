@@ -158,7 +158,7 @@ BEGIN TRY
     DECLARE @culmb2Sesiones NVARCHAR(MAX) = (SELECT DISTINCT idSesion = sesId FROM #asi FOR JSON PATH);
     EXEC #culm001_b2_crear_tomas @sesionesJSON = @culmb2Sesiones;
     INSERT INTO dbo.DetalleAsistencia (id, codigo, asistencia, asistio, razonCausa, fechaHoraInicio, fechaHoraFin, toma)
-    SELECT NEWID(), 1, a.id, IIF(a.codigo = N'SJC', 0, 1), rc.id, @ahora, @ahora, t.id FROM #asi a INNER JOIN dbo.RazonCausa rc ON rc.codigo = a.codigo
+    SELECT NEWID(), 1, a.id, CASE WHEN a.codigo = N'AN' THEN 1 ELSE 0 END, rc.id, @ahora, @ahora, t.id FROM #asi a INNER JOIN dbo.RazonCausa rc ON rc.codigo = a.codigo
     INNER JOIN dbo.TomaAsistencia t ON t.sesion = a.sesId AND t.numero = 1;
 
     -- Usuarios ejecutores y de estudiantes por clave
@@ -174,7 +174,7 @@ BEGIN TRY
         THROW 53200, 'TEST FAILED T-DB-01/04: resumen de E1 en G1 distinto del calculado a mano.', 1;
     IF NOT EXISTS (SELECT 1 FROM dbo.uv_resumen_asistencia_estudiante_grupo v INNER JOIN #eg x ON x.id = v.idEstudianteGrupo WHERE x.k = N'E2' AND x.g = N'G1' AND v.sesionesEjecutadas = 6 AND v.asistencias = 5 AND v.faltasSinJustaCausa = 1 AND v.excusas = 0 AND v.porcentajeInasistencia = 16.67 AND v.codigoPermanencia = N'RIESGO')
         THROW 53201, 'TEST FAILED T-DB-01/04: resumen de E2 en G1 distinto del calculado a mano.', 1;
-    IF NOT EXISTS (SELECT 1 FROM dbo.uv_resumen_asistencia_estudiante_grupo v INNER JOIN #eg x ON x.id = v.idEstudianteGrupo WHERE x.k = N'E3' AND x.g = N'G1' AND v.sesionesEjecutadas = 6 AND v.asistencias = 6 AND v.faltasSinJustaCausa = 0 AND v.excusas = 2 AND v.porcentajeInasistencia = 0.00 AND v.codigoPermanencia = N'REGULAR')
+    IF NOT EXISTS (SELECT 1 FROM dbo.uv_resumen_asistencia_estudiante_grupo v INNER JOIN #eg x ON x.id = v.idEstudianteGrupo WHERE x.k = N'E3' AND x.g = N'G1' AND v.sesionesEjecutadas = 6 AND v.asistencias = 4 AND v.faltasSinJustaCausa = 0 AND v.excusas = 2 AND v.porcentajeInasistencia = 0.00 AND v.codigoPermanencia = N'REGULAR')
         THROW 53202, 'TEST FAILED T-DB-01/04: resumen de E3 en G1 distinto del calculado a mano.', 1;
     IF NOT EXISTS (SELECT 1 FROM dbo.uv_resumen_asistencia_estudiante_grupo v INNER JOIN #eg x ON x.id = v.idEstudianteGrupo WHERE x.k = N'E4' AND x.g = N'G1' AND v.sesionesEjecutadas = 6 AND v.asistencias = 6 AND v.faltasSinJustaCausa = 0 AND v.excusas = 0 AND v.porcentajeInasistencia = 0.00 AND v.codigoPermanencia = N'REGULAR')
         THROW 53203, 'TEST FAILED T-DB-01/04: resumen de E4 en G1 distinto del calculado a mano.', 1;

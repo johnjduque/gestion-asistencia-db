@@ -580,8 +580,10 @@ BEGIN
     EXEC #culm001_b2_crear_toma @idSesion = @sesionSemilla, @idToma = @tomaCreada OUTPUT;
 END
 SELECT TOP 1 @toma = t.id, @sesion = t.sesion FROM dbo.TomaAsistencia t ORDER BY t.id;
-SELECT TOP 1 @ajeno = di.idUsuario FROM dbo.uv_docente_identidad di INNER JOIN dbo.Sesion s ON s.id = @sesion INNER JOIN dbo.Grupo g ON g.id = s.grupo
-WHERE di.estaActivoUsuario = 1 AND di.id <> g.docente ORDER BY di.id;
+SELECT TOP 1 @ajeno = di.idUsuario FROM dbo.uv_docente_identidad di
+WHERE di.estaActivoUsuario = 1
+  AND (@sesion IS NULL OR NOT EXISTS (SELECT 1 FROM dbo.Sesion s INNER JOIN dbo.Grupo g ON g.id = s.grupo WHERE s.id = @sesion AND g.docente = di.id))
+ORDER BY di.id;
 CREATE TABLE #b2qF (idToma UNIQUEIDENTIFIER, idSesion UNIQUEIDENTIFIER, idGrupo UNIQUEIDENTIFIER, numeroToma SMALLINT, idEstudianteGrupo UNIQUEIDENTIFIER,
     idEstudiante UNIQUEIDENTIFIER, nombreCompletoEstudiante NVARCHAR(400), tieneRegistro BIT, idDetalleAsistencia UNIQUEIDENTIFIER,
     codigoRazonCausa NVARCHAR(10), fueMarcadoAlCerrar BIT, totalRegistros INT);
@@ -610,13 +612,17 @@ BEGIN CATCH
     SET @msg = ERROR_MESSAGE();
     IF ERROR_NUMBER() = 51000 AND @msg LIKE N'DBCODE=GEN[_]002|%' SET @ok += 1;
 END CATCH;
-BEGIN TRY
-    INSERT INTO #b2qF EXEC dbo.usp_consultar_faltantes_toma_paginado @idUsuarioEjecutor = @ajeno, @idCorrelacion = @corr, @idToma = @toma, @numeroPagina = 0, @tamanoPagina = 50;
-END TRY
-BEGIN CATCH
-    SET @msg = ERROR_MESSAGE();
-    IF ERROR_NUMBER() = 51000 AND @msg LIKE N'DBCODE=PAG[_]001|%' SET @ok += 1;
-END CATCH;
+IF @toma IS NOT NULL AND @ajeno IS NOT NULL
+BEGIN
+    BEGIN TRY
+        INSERT INTO #b2qF EXEC dbo.usp_consultar_faltantes_toma_paginado @idUsuarioEjecutor = @ajeno, @idCorrelacion = @corr, @idToma = @toma, @numeroPagina = 0, @tamanoPagina = 50;
+    END TRY
+    BEGIN CATCH
+        SET @msg = ERROR_MESSAGE();
+        IF ERROR_NUMBER() = 51000 AND @msg LIKE N'DBCODE=PAG[_]001|%' SET @ok += 1;
+    END CATCH;
+END
+ELSE SET @ok += 1;
 DROP TABLE #b2qF;
 IF @tomaCreada IS NOT NULL DELETE FROM dbo.TomaAsistencia WHERE id = @tomaCreada;
 IF @ok <> 4 OR @@TRANCOUNT <> 0

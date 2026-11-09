@@ -19,7 +19,7 @@ IF NOT EXISTS (
     JOIN sys.default_constraints d ON d.parent_object_id = c.object_id AND d.parent_column_id = c.column_id
     WHERE c.object_id = OBJECT_ID('dbo.Coordinador') AND c.name = 'estado' AND c.is_nullable = 0 AND d.definition LIKE '%1%')
     THROW 51702, 'TEST FAILED T-DDL: Coordinador.estado debe ser NOT NULL con DEFAULT 1.', 1;
-IF EXISTS (SELECT 1 FROM dbo.Coordinador WHERE estado = 0)
+IF EXISTS (SELECT 1 FROM dbo.uv_coordinador WHERE estaActivoRolCoordinador = 0)
     THROW 51703, 'TEST FAILED T-DDL: hay coordinadores inactivos antes de usar el SP de estado.', 1;
 
 -- T-DDL: FK de facultad
@@ -32,8 +32,8 @@ IF NOT EXISTS (
 
 -- T-DDL-02: relleno de facultad desde el programa que coordina
 IF EXISTS (
-    SELECT 1 FROM dbo.Coordinador c JOIN dbo.Programa p ON p.coordinador = c.id
-    WHERE c.facultad IS NULL OR c.facultad <> p.facultad)
+    SELECT 1 FROM dbo.uv_coordinador c JOIN dbo.uv_programa p ON p.idCoordinador = c.id
+    WHERE c.idFacultad IS NULL OR c.idFacultad <> p.idFacultad)
     THROW 51705, 'TEST FAILED T-DDL-02: Coordinador.facultad no coincide con la facultad de su programa.', 1;
 
 -- T-VIEW-01: columnas nuevas de uv_coordinador
@@ -47,9 +47,16 @@ IF @columnasFaltantes IS NOT NULL
 
 -- T-120R-02: usp_crear_coordinador fija Coordinador.facultad (coordinador sin programa conserva su facultad)
 DECLARE @tipoId UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_tipo_identificacion WHERE tipoIdentificacion = 'CC');
-DECLARE @idFacultadF1 UNIQUEIDENTIFIER = (SELECT TOP 1 idFacultad FROM dbo.uv_programa);
-DECLARE @idDecanoF1 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_decano);
-DECLARE @idUsuarioD1 UNIQUEIDENTIFIER = (SELECT TOP 1 idUsuario FROM dbo.uv_decano_identidad WHERE id = @idDecanoF1);
+DECLARE @idFacultadF1 UNIQUEIDENTIFIER;
+DECLARE @idDecanoF1 UNIQUEIDENTIFIER;
+DECLARE @idUsuarioD1 UNIQUEIDENTIFIER;
+SELECT TOP (1) @idFacultadF1 = p.idFacultad, @idDecanoF1 = f.idDecano
+FROM dbo.uv_programa p
+INNER JOIN dbo.uv_facultad f ON f.id = p.idFacultad
+INNER JOIN dbo.uv_decano d ON d.id = f.idDecano AND d.estaActivoDecano = 1
+WHERE p.estaActivoPrograma = 1 AND f.estaActivaFacultad = 1
+ORDER BY p.id;
+SELECT @idUsuarioD1 = idUsuario FROM dbo.uv_decano_identidad WHERE id = @idDecanoF1;
 IF @idFacultadF1 IS NULL OR @idUsuarioD1 IS NULL THROW 51707, 'TEST FAILED: faltan fixtures de facultad o decano.', 1;
 
 BEGIN TRANSACTION;
@@ -63,7 +70,7 @@ BEGIN TRY
         @password = N'HashBackend_QaCoord1234567890', @idCorrelacion = @corrCx, @idUsuarioEjecutor = @idUsuarioD1;
     IF NOT EXISTS (SELECT 1 FROM #crea WHERE estadoResultado = 1)
         THROW 51708, 'TEST FAILED T-120R-02: no se pudo crear el coordinador sin programa.', 1;
-    IF NOT EXISTS (SELECT 1 FROM dbo.Coordinador WHERE id = @idCx AND facultad = @idFacultadF1 AND estado = 1)
+    IF NOT EXISTS (SELECT 1 FROM dbo.uv_coordinador WHERE id = @idCx AND idFacultad = @idFacultadF1 AND estaActivoRolCoordinador = 1)
         THROW 51709, 'TEST FAILED T-120R-02: usp_crear_coordinador no fijo Coordinador.facultad/estado.', 1;
     IF NOT EXISTS (SELECT 1 FROM dbo.uv_coordinador WHERE id = @idCx AND idPrograma IS NULL AND idFacultad = @idFacultadF1)
         THROW 51710, 'TEST FAILED T-120R-02: uv_coordinador no expone la facultad del coordinador sin programa.', 1;
@@ -75,7 +82,7 @@ BEGIN CATCH
 END CATCH
 ROLLBACK TRANSACTION;
 
-IF EXISTS (SELECT 1 FROM dbo.Usuario WHERE correo = N'coord.facultad.qa12x@test.local')
+IF EXISTS (SELECT 1 FROM dbo.uv_usuario WHERE correo = N'coord.facultad.qa12x@test.local')
     THROW 51711, 'TEST FAILED: el esquema de coordinador dejo datos permanentes.', 1;
 IF @@TRANCOUNT <> 0 THROW 51712, 'TEST FAILED: el esquema de coordinador dejo transacciones abiertas.', 1;
 PRINT 'TEST_PASS:COORDINATOR_SCHEMA_COLUMNS';

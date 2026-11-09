@@ -33,31 +33,46 @@ DECLARE @studentA UNIQUEIDENTIFIER, @studentB UNIQUEIDENTIFIER, @egA UNIQUEIDENT
 DECLARE @userA UNIQUEIDENTIFIER, @userB UNIQUEIDENTIFIER, @userT UNIQUEIDENTIFIER, @userCoord UNIQUEIDENTIFIER;
 DECLARE @estadoP UNIQUEIDENTIFIER, @estadoA UNIQUEIDENTIFIER;
 
-SELECT TOP 1 @group = g.id, @teacher = g.docente
-FROM dbo.Grupo g
+SELECT TOP 1 @group = g.id, @teacher = g.idDocente
+FROM dbo.uv_grupo g
 WHERE (SELECT COUNT(*) FROM dbo.uv_estudiante_grupo x WHERE x.idGrupo = g.id AND x.codigoEstadoEstudiante = 'A') >= 2
 ORDER BY (SELECT COUNT(*) FROM dbo.uv_estudiante_grupo x WHERE x.idGrupo = g.id) ASC, g.id;
 
+-- Use students without historical requests so totalRegistros measures only this isolated fixture.
 SELECT @studentA = z.idEstudiante, @egA = z.id FROM (
     SELECT idEstudiante, id, ROW_NUMBER() OVER (ORDER BY idEstudiante) rn
-    FROM dbo.uv_estudiante_grupo WHERE idGrupo = @group AND codigoEstadoEstudiante = 'A') z WHERE z.rn = 1;
+    FROM dbo.uv_estudiante_grupo eg
+    WHERE idGrupo = @group AND codigoEstadoEstudiante = 'A'
+      AND NOT EXISTS (
+          SELECT 1
+          FROM dbo.uv_asistencia a
+          INNER JOIN dbo.uv_solicitud_revision_asistencia r ON r.idAsistencia = a.id
+          WHERE a.idEstudianteGrupo = eg.id
+      )) z WHERE z.rn = 1;
 SELECT @studentB = z.idEstudiante, @egB = z.id FROM (
     SELECT idEstudiante, id, ROW_NUMBER() OVER (ORDER BY idEstudiante) rn
-    FROM dbo.uv_estudiante_grupo WHERE idGrupo = @group AND codigoEstadoEstudiante = 'A') z WHERE z.rn = 2;
+    FROM dbo.uv_estudiante_grupo eg
+    WHERE idGrupo = @group AND codigoEstadoEstudiante = 'A'
+      AND NOT EXISTS (
+          SELECT 1
+          FROM dbo.uv_asistencia a
+          INNER JOIN dbo.uv_solicitud_revision_asistencia r ON r.idAsistencia = a.id
+          WHERE a.idEstudianteGrupo = eg.id
+      )) z WHERE z.rn = 2;
 
-SELECT @userA = usuario FROM dbo.Estudiante WHERE id = @studentA;
-SELECT @userB = usuario FROM dbo.Estudiante WHERE id = @studentB;
-SELECT @userT = usuario FROM dbo.Docente WHERE id = @teacher;
-SELECT TOP 1 @userCoord = usuario FROM dbo.Coordinador ORDER BY id;
-SELECT @estadoP = id FROM dbo.Estado WHERE codigo = 'P';
-SELECT @estadoA = id FROM dbo.Estado WHERE codigo = 'A';
+SELECT @userA = idUsuario FROM dbo.uv_estudiante_identidad WHERE id = @studentA;
+SELECT @userB = idUsuario FROM dbo.uv_estudiante_identidad WHERE id = @studentB;
+SELECT @userT = idUsuario FROM dbo.uv_docente_identidad WHERE id = @teacher;
+SELECT TOP 1 @userCoord = idUsuario FROM dbo.uv_coordinador_identidad ORDER BY id;
+SELECT @estadoP = id FROM dbo.uv_estado WHERE codigo = 'P';
+SELECT @estadoA = id FROM dbo.uv_estado WHERE codigo = 'A';
 
 IF @group IS NULL OR @studentA IS NULL OR @studentB IS NULL OR @egA IS NULL OR @egB IS NULL OR @userA IS NULL
    OR @userB IS NULL OR @userT IS NULL OR @userCoord IS NULL OR @estadoP IS NULL OR @estadoA IS NULL
     THROW 52331, 'TEST FAILED: HU010_HU011 fixture missing (seed data).', 1;
 
 DECLARE @s1 UNIQUEIDENTIFIER = NEWID(), @s2 UNIQUEIDENTIFIER = NEWID();
-DECLARE @n1 INT = 1 + (SELECT ISNULL(MAX(numero), 0) FROM dbo.Sesion WHERE grupo = @group);
+DECLARE @n1 INT = 1 + (SELECT ISNULL(MAX(numero), 0) FROM dbo.uv_sesion WHERE idGrupo = @group);
 DECLARE @c1 NVARCHAR(50) = LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8);
 DECLARE @c2 NVARCHAR(50) = LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8);
 DECLARE @inicio DATETIME2(7) = '2026-10-19T15:30:45.1234567';
