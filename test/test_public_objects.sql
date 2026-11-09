@@ -123,6 +123,24 @@ END CATCH;
 PRINT 'TEST_PASS:VIEW_DETALLE_ASISTENCIA_CONTRACT';
 GO
 
+-- CULM-001 / DEC-064 (SMN-SEG-01): los SP publicos de las sesiones manuales tienen EXECUTE y las vistas nuevas SELECT para rol_asistencias_runtime.
+DECLARE @smnFaltantes NVARCHAR(MAX) = (
+    SELECT STRING_AGG(o.nombre, N',')
+    FROM (VALUES (N'usp_cancelar_sesion_coordinador', N'EXECUTE'), (N'usp_consultar_destinatarios_sesion_manual', N'EXECUTE'),
+                 (N'usp_consultar_motivos_cancelacion_sesion', N'EXECUTE'), (N'uv_sesion_manual', N'SELECT'),
+                 (N'uv_motivo_cancelacion_sesion', N'SELECT')) o(nombre, permiso)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM sys.database_permissions dp
+        WHERE dp.major_id = OBJECT_ID(N'dbo.' + o.nombre) AND dp.permission_name = o.permiso AND dp.state IN ('G', 'W')
+          AND dp.grantee_principal_id = DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime')));
+IF @smnFaltantes IS NOT NULL
+BEGIN
+    DECLARE @smnFallo NVARCHAR(2048) = CONCAT('TEST FAILED: CULM001_SMN_SEG_01 objetos sin permiso para el rol runtime: ', @smnFaltantes);
+    THROW 51960, @smnFallo, 1;
+END
+PRINT 'TEST_PASS:CULM001_SMN_SEG_01';
+GO
+
 -- CULM-001 B.1 (CONTRACT §2.13, B1-SEG-01): los SP publicos de B.1 tienen EXECUTE para rol_asistencias_runtime;
 -- los nucleos usp_internal_* no; las vistas nuevas de B.1 tienen SELECT.
 DECLARE @b1Faltantes NVARCHAR(MAX) = (
