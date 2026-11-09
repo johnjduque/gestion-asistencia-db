@@ -1,5 +1,5 @@
 param (
-    [string]$ContainerName = 'sqlserver',
+    [string]$ContainerName = 'sql_server_asistencias',
     [string]$Password = $env:MSSQL_SA_PASSWORD
 )
 
@@ -169,6 +169,7 @@ finally {
     if ($groupId -and $periodId) {
         $cleanupSql = @"
 SET NOCOUNT ON;
+SET QUOTED_IDENTIFIER ON;
 -- CULM-001 B.2 ([SUPUESTO-B-20]): tokens, tomas y cancelaciones (festivos) de las sesiones del grupo antes de borrarlas
 DELETE tk FROM dbo.TokenAsistenciaToma tk INNER JOIN dbo.TomaAsistencia t ON t.id = tk.toma INNER JOIN dbo.Sesion s ON s.id = t.sesion WHERE s.grupo = '$groupId';
 DELETE t FROM dbo.TomaAsistencia t INNER JOIN dbo.Sesion s ON s.id = t.sesion WHERE s.grupo = '$groupId';

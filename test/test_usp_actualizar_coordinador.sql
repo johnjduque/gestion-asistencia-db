@@ -10,11 +10,23 @@ SET XACT_ABORT OFF;
 PRINT 'TEST START: test_usp_actualizar_coordinador';
 
 DECLARE @tipoId UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_tipo_identificacion WHERE tipoIdentificacion = 'CC');
-DECLARE @idProgramaF1 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_programa WHERE estaActivoPrograma = 1);
-DECLARE @idFacultadF1 UNIQUEIDENTIFIER = (SELECT TOP 1 idFacultad FROM dbo.uv_programa WHERE id = @idProgramaF1);
-DECLARE @idInstitucion UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_institucion);
-DECLARE @idDecanoF1 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_decano);
-DECLARE @idUsuarioD1 UNIQUEIDENTIFIER = (SELECT TOP 1 idUsuario FROM dbo.uv_decano_identidad WHERE id = @idDecanoF1);
+DECLARE @idProgramaF1 UNIQUEIDENTIFIER;
+DECLARE @idFacultadF1 UNIQUEIDENTIFIER;
+DECLARE @idInstitucion UNIQUEIDENTIFIER;
+DECLARE @idDecanoF1 UNIQUEIDENTIFIER;
+DECLARE @idUsuarioD1 UNIQUEIDENTIFIER;
+
+SELECT TOP (1)
+    @idProgramaF1 = p.id,
+    @idFacultadF1 = p.idFacultad,
+    @idInstitucion = p.idInstitucion,
+    @idDecanoF1 = f.idDecano
+FROM dbo.uv_programa p
+INNER JOIN dbo.uv_facultad f ON f.id = p.idFacultad
+INNER JOIN dbo.uv_decano d ON d.id = f.idDecano AND d.estaActivoDecano = 1
+WHERE p.estaActivoPrograma = 1 AND f.estaActivaFacultad = 1
+ORDER BY p.id;
+SELECT @idUsuarioD1 = idUsuario FROM dbo.uv_decano_identidad WHERE id = @idDecanoF1;
 
 IF @tipoId IS NULL THROW 51600, 'TEST FAILED: no existe fixture CC.', 1;
 IF @idFacultadF1 IS NULL THROW 51601, 'TEST FAILED: no existe facultad fixture F1.', 1;
@@ -150,7 +162,7 @@ BEGIN CATCH
 END CATCH
 ROLLBACK TRANSACTION;
 
-IF EXISTS (SELECT 1 FROM dbo.Usuario WHERE correo LIKE N'%.qa121@test.local')
+IF EXISTS (SELECT 1 FROM dbo.uv_usuario WHERE correo LIKE N'%.qa121@test.local')
     THROW 51622, 'TEST FAILED: actualizar coordinador dejo datos permanentes.', 1;
 IF @@TRANCOUNT <> 0 THROW 51623, 'TEST FAILED: actualizar coordinador dejo transacciones abiertas.', 1;
 PRINT 'TEST_PASS:COORDINATOR_UPDATE_SUCCESS';

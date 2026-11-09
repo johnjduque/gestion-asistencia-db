@@ -1,5 +1,5 @@
 param (
-    [string]$ContainerName = 'sqlserver',
+    [string]$ContainerName = 'sql_server_asistencias',
     [string]$Password = $env:MSSQL_SA_PASSWORD
 )
 
@@ -11,6 +11,20 @@ param (
 
 $ErrorActionPreference = 'Stop'
 if (-not $Password) { throw 'SQL password is required for test_culm001_b2.ps1.' }
+
+$targetSql = @'
+SET NOCOUNT ON;
+IF DB_NAME() <> N'gestionasistenciadb' OR CAST(SERVERPROPERTY('Edition') AS NVARCHAR(128)) NOT LIKE N'%Developer Edition%'
+    THROW 57700, 'BLOCKED - CULM-001 B.2 tests require gestionasistenciadb on SQL Server Developer Edition.', 1;
+IF EXISTS (SELECT 1 FROM dbo.uv_parametro WHERE grupo = N'OPERACION' AND clave = N'AMBIENTE' AND UPPER(valor) IN (N'PRODUCCION', N'PROD', N'PRODUCTION'))
+    THROW 57701, 'BLOCKED - OPERACION/AMBIENTE declares a production database.', 1;
+SELECT CONCAT(DB_NAME(), '|', CONVERT(varchar(80), SERVERPROPERTY('Edition')));
+'@
+$targetCheck = @(& docker exec $ContainerName /opt/mssql-tools18/bin/sqlcmd `
+    -S localhost -d gestionasistenciadb -U sa -P $Password -C -b -h -1 -W -Q $targetSql 2>&1)
+if ($LASTEXITCODE -ne 0 -or ($targetCheck -join '').Trim() -notmatch '^gestionasistenciadb\|Developer Edition') {
+    throw 'BLOCKED - unsafe database target for test_culm001_b2.ps1.'
+}
 
 $tag = [guid]::NewGuid().ToString('N').Substring(0, 12)
 $remoteDir = "/tmp/culm001_b2_$tag"
@@ -74,7 +88,7 @@ try {
     foreach ($id in @('CULM001_B2_MIG_03_DOWN_RESTAURA', 'CULM001_B2_MIG_01_UP_CON_DATOS', 'CULM001_B2_MIG_02_UP_IDEMPOTENTE',
                       'CULM001_B2_MIG_05_DOBLE_DESPLIEGUE', 'CULM001_B2_MIG_04_UP_DOWN_UP_15_16')) {
         $missing = @($marks[$id] | Where-Object { $text -notmatch "(?m)^$_$" })
-        if ($missing.Count -eq 0 -and ($exit -eq 0 -or $id -ne 'CULM001_B2_MIG_04_UP_DOWN_UP_15_16')) { Write-Host "TEST_PASS:$id" }
+        if ($missing.Count -eq 0 -and ($exit -eq 0 -or $id -ne 'CULM001_B2_MIG_04_UP_DOWN_UP_15_16')) { Write-Output "TEST_PASS:$id" }
         else { $failures += "$id missing $($missing -join ',') (exit $exit): $(($lines | Where-Object { $_ -match 'Msg |MIG_|TEST' }) -join ' / ')" }
     }
 }
@@ -99,6 +113,35 @@ SELECT TOP 1 @a = da.asistencia, @s = t.sesion, @t1 = t.id, @d = da.id
 FROM dbo.DetalleAsistencia da INNER JOIN dbo.TomaAsistencia t ON t.id = da.toma
 WHERE t.numero = 1 AND NOT EXISTS (SELECT 1 FROM dbo.TomaAsistencia t2 WHERE t2.sesion = t.sesion AND t2.numero > 1)
 ORDER BY da.id;
+IF @a IS NULL
+BEGIN
+    DECLARE @eg UNIQUEIDENTIFIER;
+    SELECT TOP 1 @s = s.id, @eg = eg.id
+    FROM dbo.Sesion s
+    INNER JOIN dbo.EstudianteGrupo eg ON eg.grupo = s.grupo
+    WHERE NOT EXISTS (SELECT 1 FROM dbo.TomaAsistencia t WHERE t.sesion = s.id AND t.numero > 1)
+    ORDER BY s.id;
+
+    IF @s IS NOT NULL AND @eg IS NOT NULL
+    BEGIN
+        SELECT TOP 1 @t1 = t.id FROM dbo.TomaAsistencia t WHERE t.sesion = @s AND t.numero = 1;
+        IF @t1 IS NULL
+        BEGIN
+            SET @t1 = NEWID();
+            INSERT INTO dbo.TomaAsistencia (id, sesion, numero, modo, estado, esImplicita, docenteApertura, fechaAperturaUtc, fechaCierreUtc, idCorrelacionApertura)
+            VALUES (@t1, @s, 1, (SELECT TOP 1 id FROM dbo.ModoTomaAsistencia WHERE usaCodigoQr = 0), (SELECT TOP 1 id FROM dbo.EstadoTomaAsistencia WHERE estaAbierta = 0), 1, NULL, SYSUTCDATETIME(), SYSUTCDATETIME(), NEWID());
+        END
+        SELECT TOP 1 @a = a.id FROM dbo.Asistencia a WHERE a.sesion = @s AND a.estudianteGrupo = @eg;
+        IF @a IS NULL
+        BEGIN
+            SET @a = NEWID();
+            INSERT INTO dbo.Asistencia (id, sesion, estudianteGrupo) VALUES (@a, @s, @eg);
+        END
+        SET @d = NEWID();
+        INSERT INTO dbo.DetalleAsistencia (id, codigo, asistencia, asistio, razonCausa, fechaHoraInicio, fechaHoraFin, toma, registradoPorEstudiante, fechaRegistroUtc)
+        VALUES (@d, NEXT VALUE FOR dbo.seq_detalle_asistencia_codigo, @a, 1, (SELECT TOP 1 id FROM dbo.RazonCausa WHERE codigo = N'AN'), SYSUTCDATETIME(), DATEADD(HOUR, 1, SYSUTCDATETIME()), @t1, 0, SYSUTCDATETIME());
+    END
+END
 IF @a IS NULL THROW 57760, 'MIG_COLAPSO_SIN_DATOS', 1;
 UPDATE dbo.DetalleAsistencia SET razonCausa = (SELECT id FROM dbo.RazonCausa WHERE codigo = N'AN'), asistio = 1 WHERE id = @d;
 INSERT INTO dbo.TomaAsistencia (id, sesion, numero, modo, estado, esImplicita, docenteApertura, fechaAperturaUtc, fechaCierreUtc, idCorrelacionApertura)
@@ -137,7 +180,7 @@ GO
     }
     $check = Invoke-ContainerSql -Name 'mig16_colapso_sin_check' -Sql "SET NOCOUNT ON; SELECT CONCAT('COLSIN|', IIF(OBJECT_ID(N'dbo.TomaAsistencia', N'U') IS NULL, 0, 1), '|', (SELECT COUNT(*) FROM dbo.TomaAsistencia WHERE numero > 1 AND idCorrelacionCierre IS NULL AND docenteApertura IS NULL AND esImplicita = 0), '|', IIF(OBJECT_ID(N'dbo.zz_archivo_DetalleAsistencia_culm001_b2', N'U') IS NULL, 0, 1));" -AbortOnError
     if (@($check.Lines | Where-Object { $_ -eq 'COLSIN|1|0|0' }).Count -ne 1) { throw "state after aborted down: $($check.Lines -join ';')" }
-    Write-Host 'TEST_PASS:CULM001_B2_MIG_03_COLAPSO_SIN_CONFIRMACION'
+    Write-Output 'TEST_PASS:CULM001_B2_MIG_03_COLAPSO_SIN_CONFIRMACION'
 }
 catch { $failures += "CULM001_B2_MIG_03_COLAPSO_SIN_CONFIRMACION $($_.Exception.Message)" }
 
@@ -178,7 +221,7 @@ GO
     $res = Invoke-ContainerSql -Name 'mig16_colapso_con' -Sql $sql
     $text = $res.Lines -join "`n"
     if ($text -notmatch 'COLAPSO_CONFIRMADO_OK' -or $text -notmatch 'COLAPSO_RESTAURADO_OK' -or $res.ExitCode -ne 0) { throw "exit $($res.ExitCode): $text" }
-    Write-Host 'TEST_PASS:CULM001_B2_MIG_03_COLAPSO_CONFIRMADO'
+    Write-Output 'TEST_PASS:CULM001_B2_MIG_03_COLAPSO_CONFIRMADO'
 }
 catch { $failures += "CULM001_B2_MIG_03_COLAPSO_CONFIRMADO $($_.Exception.Message)" }
 
@@ -238,9 +281,9 @@ GO
 "@
     $res = Invoke-ContainerSql -Name 'seg02' -Sql $sql
     $text = $res.Lines -join "`n"
-    foreach ($m in @('SEG02_MAINT_OK', 'SEG02_DEV_OK', 'SEG02_RESTORED_OK')) { if ($text -notmatch $m) { throw "missing $m (exit $($res.ExitCode)): $(($res.Lines | Where-Object { $_ -match 'Msg |SEG02|Level' }) -join ' / ')" } }
+    foreach ($m in @('SEG02_MAINT_OK', 'SEG02_DEV_OK', 'SEG02_RESTORED_OK')) { if ($text -notmatch $m) { throw "missing $m (exit $($res.ExitCode)): $($res.Lines -join ' / ')" } }
     if ($res.ExitCode -ne 0) { throw "exit $($res.ExitCode)" }
-    Write-Host 'TEST_PASS:CULM001_B2_SEG_02_FIXTURES_REPETIBLES'
+    Write-Output 'TEST_PASS:CULM001_B2_SEG_02_FIXTURES_REPETIBLES'
 }
 catch { $failures += "CULM001_B2_SEG_02_FIXTURES_REPETIBLES $($_.Exception.Message)" }
 
@@ -336,7 +379,20 @@ try {
     $closed = @($results | ForEach-Object { $_.Lines } | Where-Object { $_ -match '^[0-9A-Fa-f-]{36}\|' } | ForEach-Object { $_.Split('|')[0].ToLowerInvariant() })
     $mine = @($tomas[0..3] | ForEach-Object { $_.ToLowerInvariant() })
     $closedMine = @($closed | Where-Object { $_ -in $mine })
-    if ($closedMine.Count -ne 4 -or @($closedMine | Select-Object -Unique).Count -ne 4) { throw "expected each of the 4 tomas closed exactly once; got $($closedMine -join ',')" }
+    if ($closedMine.Count -ne 4 -or @($closedMine | Select-Object -Unique).Count -ne 4) {
+        $workerEvidence = ($results | ForEach-Object { 'exit=' + $_.ExitCode + ':' + ($_.Lines -join ',') }) -join ' / '
+        $stateEvidence = Invoke-ContainerSql -Name 'tom10_state_debug' -Sql @"
+SET NOCOUNT ON;
+SELECT CONCAT('TOM10_STATE|', CONVERT(VARCHAR(36), t.idToma), '|open=', t.estaAbierta,
+    '|eligible=', IIF(SYSUTCDATETIME() >= DATEADD(MINUTE, COALESCE(TRY_CONVERT(INT, p.valor), 0), t.fechaHoraFinSesion), 1, 0),
+    '|end=', CONVERT(VARCHAR(33), t.fechaHoraFinSesion, 126))
+FROM dbo.uv_toma_asistencia t
+CROSS JOIN (SELECT TOP (1) valor FROM dbo.uv_parametro WHERE grupo=N'ASISTENCIA' AND clave=N'MARGEN_RETARDO_MINUTOS') p
+WHERE t.idToma IN ('$($tomas[0])', '$($tomas[1])', '$($tomas[2])', '$($tomas[3])')
+ORDER BY t.idToma;
+"@ -AbortOnError
+        throw "expected each of the 4 tomas closed exactly once; got $($closedMine -join ','); workers=$workerEvidence; state=$($stateEvidence.Lines -join ',')"
+    }
     $check = Invoke-ContainerSql -Name 'tom10_check' -Sql @"
 SET NOCOUNT ON;
 SELECT CONCAT('TOM10|', (SELECT COUNT(*) FROM dbo.TomaAsistencia t INNER JOIN dbo.Sesion s ON s.id = t.sesion INNER JOIN dbo.Grupo g ON g.id = s.grupo WHERE g.nombre = N'$fixtureTag' AND t.fechaCierreUtc IS NULL),
@@ -344,7 +400,7 @@ SELECT CONCAT('TOM10|', (SELECT COUNT(*) FROM dbo.TomaAsistencia t INNER JOIN db
     '|', (SELECT COUNT(*) FROM (SELECT da.asistencia, da.toma FROM dbo.DetalleAsistencia da GROUP BY da.asistencia, da.toma HAVING COUNT(*) > 1) x));
 "@ -AbortOnError
     if (@($check.Lines | Where-Object { $_ -eq 'TOM10|0|12|0' }).Count -ne 1) { throw "unexpected final state: $($check.Lines -join ';')" }
-    Write-Host 'TEST_PASS:CULM001_B2_TOM_10_CIERRE_AUTOMATICO_CONCURRENTE'
+    Write-Output 'TEST_PASS:CULM001_B2_TOM_10_CIERRE_AUTOMATICO_CONCURRENTE'
 }
 catch { $failures += "CULM001_B2_TOM_10_CIERRE_AUTOMATICO_CONCURRENTE $($_.Exception.Message)" }
 
@@ -388,7 +444,7 @@ SELECT CONCAT('TOM08|', (SELECT COUNT(*) FROM dbo.TomaAsistencia t INNER JOIN db
     if ($p[1] -ne '1' -or $p[2] -ne '0' -or $p[3] -ne $p[4] -or ($p[3] -ne '0' -and $p[3] -ne '3')) { throw "unexpected final state $($line[0])" }
     $docTuple = @($results | ForEach-Object { $_.Lines } | Where-Object { $_ -match '\|DBCODE=TOM_0(09|11)\|' })
     if ($docTuple.Count -ne 1) { throw "docente tuple not found: $($results | ForEach-Object { $_.Lines })" }
-    Write-Host 'TEST_PASS:CULM001_B2_TOM_08_CIERRE_CONCURRENTE'
+    Write-Output 'TEST_PASS:CULM001_B2_TOM_08_CIERRE_CONCURRENTE'
 }
 catch { $failures += "CULM001_B2_TOM_08_CIERRE_CONCURRENTE $($_.Exception.Message)" }
 finally {
@@ -401,6 +457,6 @@ finally {
 
 $null = & docker exec -u 0 $ContainerName rm -rf $remoteDir 2>&1
 Remove-Item -Recurse -Force -Path $localDir -ErrorAction SilentlyContinue
-foreach ($f in $failures) { Write-Host "TEST FAILED: $f" }
+foreach ($f in $failures) { Write-Output "TEST FAILED: $f" }
 if ($failures.Count -gt 0) { exit 1 }
 exit 0

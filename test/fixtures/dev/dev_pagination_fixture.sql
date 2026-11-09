@@ -23,7 +23,7 @@ IF CAST(SERVERPROPERTY('Edition') AS NVARCHAR(128)) NOT LIKE 'Developer%'
     THROW 55011, 'BLOCKED - dev fixtures only run on SQL Server Developer Edition.', 1;
 IF DB_NAME() <> N'gestionasistenciadb'
     THROW 55012, 'BLOCKED - unexpected database for dev fixtures.', 1;
-IF EXISTS (SELECT 1 FROM dbo.CatalogoParametro WHERE grupo = N'OPERACION' AND clave = N'AMBIENTE' AND UPPER(valor) IN (N'PRODUCCION', N'PROD', N'PRODUCTION'))
+IF EXISTS (SELECT 1 FROM dbo.uv_parametro WHERE grupo = N'OPERACION' AND clave = N'AMBIENTE' AND UPPER(valor) IN (N'PRODUCCION', N'PROD', N'PRODUCTION'))
     THROW 55013, 'BLOCKED - OPERACION/AMBIENTE declares a production database.', 1;
 IF EXISTS (SELECT 1 FROM dbo.Usuario WHERE LEFT(CONVERT(CHAR(36), id), 6) = 'DE0000')
     THROW 55014, 'ABORT - fixture rows already exist; run dev_pagination_cleanup.sql first (deploy_dev_fixtures.ps1 does it).', 1;

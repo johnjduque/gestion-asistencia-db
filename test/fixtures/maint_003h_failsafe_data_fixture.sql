@@ -15,8 +15,15 @@ GO
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
 
+IF DB_NAME() <> N'gestionasistenciadb'
+   OR CAST(SERVERPROPERTY('Edition') AS NVARCHAR(128)) NOT LIKE N'%Developer Edition%'
+    THROW 52208, 'BLOCKED - MAINT-003H fixtures require gestionasistenciadb on SQL Server Developer Edition.', 1;
+IF EXISTS (SELECT 1 FROM dbo.uv_parametro WHERE grupo = N'OPERACION' AND clave = N'AMBIENTE' AND UPPER(valor) IN (N'PRODUCCION', N'PROD', N'PRODUCTION'))
+    THROW 52209, 'BLOCKED - OPERACION/AMBIENTE declares a production database.', 1;
+
 DECLARE @tag NVARCHAR(50) = N'IT-MAINT003H';
 DECLARE @groupName NVARCHAR(50) = N'IT-MAINT003H-G2';
+DECLARE @scheduleId UNIQUEIDENTIFIER = 'A0390038-0000-4000-8000-000000000001';
 DECLARE @emptyTeacherEmail NVARCHAR(100) = N'it.maint003h.docente.sin.grupo@test.local';
 DECLARE @baseGroup UNIQUEIDENTIFIER;
 DECLARE @dayMonday UNIQUEIDENTIFIER;
@@ -36,7 +43,7 @@ BEGIN TRANSACTION;
 DELETE h FROM dbo.Horario h
 INNER JOIN dbo.Grupo g ON g.id = h.grupo
 WHERE g.nombre = @groupName;
-DELETE FROM dbo.Horario WHERE horaInicio = '05:00' AND horaFin = '05:30';
+DELETE FROM dbo.Horario WHERE id = @scheduleId;
 DELETE FROM dbo.Grupo WHERE nombre = @groupName;
 DELETE d FROM dbo.Docente d
 INNER JOIN dbo.Usuario u ON u.id = d.usuario
@@ -45,10 +52,11 @@ DELETE FROM dbo.Usuario WHERE correo = @emptyTeacherEmail;
 
 -- Base group: the teacher-owned group that already has active students (same shape the MAINT-003G fixture needs)
 SELECT TOP (1) @baseGroup = g.id
-FROM dbo.Grupo g
-INNER JOIN dbo.EstudianteGrupo eg ON eg.grupo = g.id
-INNER JOIN dbo.EstadoEstudianteGrupo eeg ON eeg.id = eg.estado AND eeg.codigo = 'A'
+FROM dbo.uv_grupo g
+INNER JOIN dbo.uv_estudiante_grupo eg ON eg.idGrupo = g.id
 WHERE g.nombre <> @groupName
+  AND LEFT(CONVERT(CHAR(36), g.id), 6) <> 'DE0000'
+  AND eg.codigoEstadoEstudiante = 'A'
 GROUP BY g.id
 ORDER BY g.id;
 SELECT TOP (1) @dayMonday = id FROM dbo.Dia WHERE codigo = 'LU';
@@ -64,7 +72,7 @@ DROP TABLE #g2;
 
 -- 2) Live schedules (teacher and student views): rows on the base group with unusual local times
 INSERT INTO dbo.Horario (id, grupo, dia, horaInicio, horaFin)
-VALUES (NEWID(), @baseGroup, @dayMonday, '05:00', '05:30');
+VALUES (@scheduleId, @baseGroup, @dayMonday, '05:00', '05:30');
 
 -- 3) Teacher with no groups: user through the PUBLIC provider, then the Docente role row
 INSERT INTO @result

@@ -6,6 +6,19 @@ param(
 $ErrorActionPreference = 'Stop'
 $database = 'gestionasistenciadb'
 $fixture = Join-Path $PSScriptRoot 'fixtures/maint_003g_attendance_fixture.sql'
+$targetSql = @"
+SET NOCOUNT ON;
+IF DB_NAME() <> N'$database' OR CAST(SERVERPROPERTY('Edition') AS NVARCHAR(128)) NOT LIKE N'%Developer Edition%'
+    THROW 52210, 'BLOCKED - Java integration fixtures require the local Developer database.', 1;
+IF EXISTS (SELECT 1 FROM dbo.uv_parametro WHERE grupo = N'OPERACION' AND clave = N'AMBIENTE' AND UPPER(valor) IN (N'PRODUCCION', N'PROD', N'PRODUCTION'))
+    THROW 52211, 'BLOCKED - OPERACION/AMBIENTE declares a production database.', 1;
+SELECT CONCAT(DB_NAME(), '|', CONVERT(varchar(80), SERVERPROPERTY('Edition')));
+"@
+$targetCheck = @(docker exec $ContainerName /opt/mssql-tools18/bin/sqlcmd `
+    -S localhost -d $database -U sa -P $AdminPassword -C -b -h -1 -W -Q $targetSql 2>&1)
+if ($LASTEXITCODE -ne 0 -or ($targetCheck -join '').Trim() -notmatch '^gestionasistenciadb\|Developer Edition') {
+    throw 'BLOCKED - unsafe database target: Java integration fixtures require gestionasistenciadb on Developer Edition.'
+}
 
 docker cp $fixture "$($ContainerName):/tmp/maint_003g_attendance_fixture.sql" | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Could not copy the MAINT-003G fixture into the isolated container.' }
