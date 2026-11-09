@@ -19,6 +19,7 @@ New-Item -ItemType Directory -Force -Path $localDir | Out-Null
 $null = & docker exec -u 0 $ContainerName mkdir -p $remoteDir 2>&1
 $failures = @()
 $dbRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot 'lib_componible.ps1')
 
 function Invoke-ContainerSql {
     param ([string]$Name, [string]$Sql, [switch]$AbortOnError, [string[]]$Variables = @())
@@ -44,15 +45,22 @@ foreach ($pair in @(@('migrations', 'migrations'), @('schema', 'schema'))) {
 }
 $copy = @(& docker cp (Join-Path $PSScriptRoot 'test_culm001_b2_migraciones.sql') "${ContainerName}:$remoteDir/test_culm001_b2_migraciones.sql" 2>&1)
 if ($LASTEXITCODE -ne 0) { throw "could not copy test_culm001_b2_migraciones.sql: $($copy -join '; ')" }
+$copy = @(& docker cp (Join-Path $PSScriptRoot 'fixtures/maint_003g_attendance_fixture.sql') "${ContainerName}:$remoteDir/maint_003g_attendance_fixture.sql" 2>&1)
+if ($LASTEXITCODE -ne 0) { throw "could not copy maint_003g_attendance_fixture.sql: $($copy -join '; ')" }
 $null = & docker exec -u 0 $ContainerName chmod -R a+rX $remoteDir 2>&1
 
 # ---------------------------------------------------------------------------------------------------------------
 # B2-MIG-01..05: test_culm001_b2_migraciones.sql dentro de una transaccion revertida
 # ---------------------------------------------------------------------------------------------------------------
 try {
+    # Envoltorio componible (lib_componible.ps1): baja los paquetes posteriores a B.2 dentro de la transaccion y delega en
+    # test_culm001_b2_migraciones.sql (transaccion anidada cuyo ROLLBACK final revierte tambien los downs del envoltorio).
+    # "UP_CON_DATOS" necesita datos: una BD recien desplegada no tiene asistencias, asi que se crean con el fixture MAINT-003G.
+    $preludio = ":r $remoteDir/maint_003g_attendance_fixture.sql`nGO"
+    Send-TextToContainer -ContainerName $ContainerName -RemotePath "$remoteDir/mig16_wrapper.sql" -Text (New-ComposableWrapperText -DbRoot $dbRoot -RemoteMigrationsDir "$remoteDir/migrations" -Despues 16 -RemoteTestFile "$remoteDir/test_culm001_b2_migraciones.sql" -Preludio $preludio)
     $sqlArgs = @('exec', $ContainerName, '/opt/mssql-tools18/bin/sqlcmd', '-S', 'localhost', '-d', 'gestionasistenciadb', '-U', 'sa', '-P', $Password,
               '-C', '-I', '-h', '-1', '-W', '-s', '|', '-w', '65535', '-t', '600', '-v', "MIGDIR=$remoteDir/migrations", '-v', "SCHEMADIR=$remoteDir/schema",
-              '-i', "$remoteDir/test_culm001_b2_migraciones.sql")
+              '-i', "$remoteDir/mig16_wrapper.sql")
     $lines = @(& docker @sqlArgs 2>&1 | ForEach-Object { "$_".Trim() })
     $exit = $LASTEXITCODE
     $text = $lines -join "`n"
@@ -108,6 +116,12 @@ try {
 :on error exit
 BEGIN TRANSACTION;
 GO
+$(Get-DownChainText -DbRoot $dbRoot -RemoteMigrationsDir "$remoteDir/migrations" -Despues 16)
+-- Precondicion (F3): los casos con 2 tomas necesitan una asistencia con detalle en una toma 1 unica. Una BD recien desplegada solo
+-- tiene semillas, asi que se crea con el fixture de MAINT-003G (usa los SP publicos: sesion + asistencias + toma implicita) dentro de
+-- la misma transaccion revertida.
+:r $remoteDir/maint_003g_attendance_fixture.sql
+GO
 $twoTomasSetup
 GO
 :setvar CONFIRMAR_COLAPSO 0
@@ -133,6 +147,12 @@ try {
 SET XACT_ABORT OFF;
 GO
 BEGIN TRANSACTION;
+GO
+$(Get-DownChainText -DbRoot $dbRoot -RemoteMigrationsDir "$remoteDir/migrations" -Despues 16)
+-- Precondicion (F3): los casos con 2 tomas necesitan una asistencia con detalle en una toma 1 unica. Una BD recien desplegada solo
+-- tiene semillas, asi que se crea con el fixture de MAINT-003G (usa los SP publicos: sesion + asistencias + toma implicita) dentro de
+-- la misma transaccion revertida.
+:r $remoteDir/maint_003g_attendance_fixture.sql
 GO
 $twoTomasSetup
 GO

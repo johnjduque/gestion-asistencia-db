@@ -60,7 +60,14 @@ DELETE FROM [dbo].[CatalogoParametro]
 WHERE grupo = 'CARGA_MASIVA' OR (grupo = 'IDENTIDAD' AND clave = 'TIPO_IDENTIFICACION_DEFECTO');
 GO
 
--- 7. Restaurar usp_crear_coordinador (version previa a D.5, sin @idTipoIdIdentificacion)
+-- 7. Restaurar usp_crear_coordinador (texto literal anterior a D.5, commit 81783b6^: sin @idTipoIdIdentificacion)
+USE [gestionasistenciadb];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
 CREATE OR ALTER PROCEDURE [dbo].[usp_crear_coordinador]
 (
     @idCoordinador           UNIQUEIDENTIFIER = NULL,
@@ -114,6 +121,7 @@ BEGIN
                 @p_param1 = 'idUsuarioEjecutor',
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
             SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
             SET @estadoResultado = 0;
         END
@@ -127,91 +135,75 @@ BEGIN
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
+
         END
 
-        -- PASO 2: Validación de parámetros requeridos (número de documento y correo)
-        IF @estadoResultado = 1
+        -- PASO 2: Validar programa académico consultando uv_programa (cuando se suministra @idPrograma)
+        IF @estadoResultado = 1 AND @idProgramaDefecto IS NOT NULL
         BEGIN
-            EXEC dbo.usp_validar_crear_coordinador_parametros_requeridos_interno 
-                @numeroIdentificacion = @numeroIdentificacion, 
-                @correo = @correo, 
-                @primerNombre = @primerNombre, 
-                @primerApellido = @primerApellido, 
-                @idFacultad = @idFacultadDefecto, 
-                @idCorrelacion = @idCorrelacionDefecto, 
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
-                @estadoResultado = @estadoResultado OUTPUT;
+            IF NOT EXISTS (SELECT 1 FROM [dbo].[uv_programa] WHERE id = @idProgramaDefecto)
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'PROG_001',
+                    @p_param1 = 'Programa',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
         END
 
-        -- PASO 3: Validación de existencia y pertenencia de la Facultad
+        -- PASO 2B: Validar existencia de la facultad indicada consultando uv_facultad
         IF @estadoResultado = 1
         BEGIN
-            EXEC dbo.usp_validar_facultad_existe_interno 
-                @idFacultad = @idFacultadDefecto, 
-                @idCorrelacion = @idCorrelacionDefecto, 
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
-                @estadoResultado = @estadoResultado OUTPUT;
+            IF NOT EXISTS (SELECT 1 FROM [dbo].[uv_facultad] WHERE id = @idFacultadDefecto)
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'GEN_001',
+                    @p_param1 = 'Facultad',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
         END
 
-        -- PASO 3.5: Validación de custodia/ownership del Decano sobre la Facultad (HU120)
+        -- PASO 2C: Validar que el Programa pertenezca a la Facultad indicada (cuando se suministra @idPrograma)
+        IF @estadoResultado = 1 AND @idProgramaDefecto IS NOT NULL
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM [dbo].[uv_programa]
+                WHERE id = @idProgramaDefecto AND idFacultad = @idFacultadDefecto
+            )
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'ERR_PROGRAMA_FACULTAD_INCONSISTENTE',
+                    @p_param1 = @idProgramaDefecto,
+                    @p_param2 = @idFacultadDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+        END
+
+        -- PASO 2D: Validar titularidad jerárquica sobre la Facultad ya existente y coherente
         IF @estadoResultado = 1
         BEGIN
-            EXEC dbo.usp_validar_custodia_decano_facultad_interno
-                @idUsuarioEjecutor = @idUsuarioEjecutorDefecto,
-                @idFacultad = @idFacultadDefecto,
+            EXEC dbo.usp_validar_titularidad_jerarquica_interno
+                @idUsuario = @idUsuarioEjecutorDefecto,
+                @idEntidadPadre = @idFacultadDefecto,
+                @tipoEntidadPadre = 'FACULTAD',
                 @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
-        -- PASO 4: Validación de unicidad de identidad del usuario
-        IF @estadoResultado = 1
-        BEGIN
-            EXEC dbo.usp_validar_coordinador_unicidad_usuario_interno 
-                @numeroIdentificacion = @numeroIdentificacion, 
-                @correo = @correo, 
-                @idCorrelacion = @idCorrelacionDefecto, 
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
-                @estadoResultado = @estadoResultado OUTPUT;
-        END
-
-        -- PASO 5: Validación del Programa (opcional al crear)
-        IF @estadoResultado = 1 AND @idProgramaDefecto IS NOT NULL
-        BEGIN
-            EXEC dbo.usp_validar_programa_existe_interno 
-                @idPrograma = @idProgramaDefecto, 
-                @idCorrelacion = @idCorrelacionDefecto, 
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
-                @estadoResultado = @estadoResultado OUTPUT;
-
-            IF @estadoResultado = 1
-            BEGIN
-                EXEC dbo.usp_validar_programa_pertenece_a_facultad_interno 
-                    @idPrograma = @idProgramaDefecto, 
-                    @idFacultad = @idFacultadDefecto, 
-                    @idCorrelacion = @idCorrelacionDefecto, 
-                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
-                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
-                    @estadoResultado = @estadoResultado OUTPUT;
-            END
-
-            IF @estadoResultado = 1
-            BEGIN
-                EXEC dbo.usp_validar_programa_no_tiene_coordinador_activo_interno 
-                    @idPrograma = @idProgramaDefecto, 
-                    @idCorrelacion = @idCorrelacionDefecto, 
-                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
-                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
-                    @estadoResultado = @estadoResultado OUTPUT;
-            END
-        END
-
-        -- SECCIÓN OPERACIONAL: Mutaciones transaccionales atómicas
+        -- PASO 3: GESTIÓN REACTIVA DE USUARIO (Consulta en uv_usuario y delegación a usp_sincronizar_usuario_interno)
         IF @estadoResultado = 1
         BEGIN
             SET @conteoTransaccionesInicial = @@TRANCOUNT;
@@ -257,79 +249,114 @@ BEGIN
                     WHERE correo = LOWER(TRIM(@correo));
                 END
             END
+        END
 
-            IF @estadoResultado = 1
+        -- PASO 4: Asignación reactiva de rol Coordinador y adscripción opcional al Programa
+        IF @estadoResultado = 1
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM dbo.Coordinador WHERE usuario = @idUsuarioCreado)
             BEGIN
-                EXEC dbo.usp_sincronizar_coordinador_interno
-                    @idCoordinador = @idCoordinadorDefecto OUTPUT,
-                    @idUsuario = @idUsuarioCreado,
-                    @idFacultad = @idFacultadDefecto,
-                    @idCorrelacion = @idCorrelacionDefecto,
-                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-                    @estadoResultado = @estadoResultado OUTPUT;
-            END
-
-            IF @estadoResultado = 1 AND @idProgramaDefecto IS NOT NULL
-            BEGIN
-                EXEC dbo.usp_asignar_coordinador_a_programa_interno
-                    @idPrograma = @idProgramaDefecto,
-                    @idCoordinador = @idCoordinadorDefecto,
-                    @idCorrelacion = @idCorrelacionDefecto,
-                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-                    @estadoResultado = @estadoResultado OUTPUT;
-            END
-
-            IF @estadoResultado = 1
-            BEGIN
-                IF @transaccionPropia = 1
+                IF @idCoordinadorDefecto IS NULL
                 BEGIN
-                    COMMIT TRANSACTION;
+                    SET @idCoordinadorDefecto = NEWID();
                 END
+
+                -- HU121/HU122 (D2): el coordinador conserva su facultad aunque aun no tenga programa
+                INSERT INTO dbo.Coordinador (id, usuario, facultad)
+                VALUES (@idCoordinadorDefecto, @idUsuarioCreado, @idFacultadDefecto);
             END
             ELSE
             BEGIN
-                IF @savepointCreado = 1 AND @@TRANCOUNT > 0
-                BEGIN
-                    ROLLBACK TRANSACTION usp_crear_coordinador;
-                END
-                ELSE IF @transaccionPropia = 1 AND @@TRANCOUNT > 0
-                BEGIN
+                SELECT TOP 1 @idCoordinadorDefecto = id FROM dbo.Coordinador WHERE usuario = @idUsuarioCreado;
+
+                UPDATE dbo.Coordinador SET facultad = @idFacultadDefecto
+                WHERE id = @idCoordinadorDefecto AND facultad IS NULL;
+            END
+
+            IF @idProgramaDefecto IS NOT NULL
+            BEGIN
+                UPDATE dbo.Programa
+                SET coordinador = @idCoordinadorDefecto
+                WHERE id = @idProgramaDefecto;
+            END
+
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'GEN_004',
+                @p_param1 = 'Coordinador',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+        END
+
+        -- PASO 5: Finalización de la transacción respetando ownership (ver docs/procedimiento-transacciones)
+        IF @transaccionPropia = 1
+        BEGIN
+            IF XACT_STATE() = 1
+            BEGIN
+                IF @estadoResultado = 1
+                    COMMIT TRANSACTION;
+                ELSE
                     ROLLBACK TRANSACTION;
-                END
+            END
+            ELSE IF XACT_STATE() = -1
+            BEGIN
+                ROLLBACK TRANSACTION;
             END
         END
+        ELSE IF @savepointCreado = 1
+        BEGIN
+            IF XACT_STATE() = 1 AND @estadoResultado = 0
+                ROLLBACK TRANSACTION usp_crear_coordinador;
+            -- XACT_STATE() = -1 con transacción externa: no es propietaria, no se toca (ver PASO 10 del contrato)
+        END
+
     END TRY
     BEGIN CATCH
-        IF @savepointCreado = 1 AND @@TRANCOUNT > 0
+        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+
+        IF @transaccionPropia = 1
+        BEGIN
+            IF @estadoTransaccionCatch <> 0
+                ROLLBACK TRANSACTION;
+        END
+        ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN
             ROLLBACK TRANSACTION usp_crear_coordinador;
         END
-        ELSE IF @transaccionPropia = 1 AND @@TRANCOUNT > 0
+
+        -- Transacción externa quedó doomed y no nos pertenece: propagar la excepción original al propietario
+        IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
         BEGIN
-            ROLLBACK TRANSACTION;
+            THROW;
         END
 
-        SET @estadoResultado = 0;
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Error SQL: ', ERROR_MESSAGE(), ' (Linea: ', ERROR_LINE(), ')');
-    END CATCH;
 
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
+        SET @estadoResultado = 0;
+    END CATCH
+
+    -- BLOQUE FINAL: Retorno unificado de resultados
     SELECT 
-        @idCorrelacionDefecto AS idCorrelacion,
-        @mensajeUsuarioResultado AS mensajeUsuarioResultado,
-        @mensajeTecnicoResultado AS mensajeTecnicoResultado,
-        @estadoResultado AS estadoResultado,
-        CASE WHEN @estadoResultado = 1 THEN @idCoordinadorDefecto ELSE NULL END AS idCoordinador;
+        idCorrelacion           = @idCorrelacionDefecto,
+        mensajeUsuarioResultado = @mensajeUsuarioResultado,
+        mensajeTecnicoResultado = @mensajeTecnicoResultado,
+        estadoResultado         = @estadoResultado;
 END;
 GO
 
--- 8. Restaurar usp_crear_decano (version previa a D.5, sin @idTipoIdIdentificacion)
+-- 8. Restaurar usp_crear_decano (texto literal anterior a D.5, commit 81783b6^: sin @idTipoIdIdentificacion)
+USE [gestionasistenciadb];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
 CREATE OR ALTER PROCEDURE [dbo].[usp_crear_decano]
 (
     @idDecano               UNIQUEIDENTIFIER = NULL,
@@ -353,14 +380,14 @@ AS
     DECLARE @nombreFacultadDef        NVARCHAR(150)    = TRIM(@nombreFacultad);
 
     DECLARE @idUsuarioCreado Uniqueidentifier;
-    DECLARE @idTipoIdCC      Uniqueidentifier;
+    DECLARE @idTipoIdCC      UNIQUEIDENTIFIER;
 
     -- Variables locales de respuesta
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado         BIT = 1;
 
-    -- Control de ownership transaccional
+    -- Control de ownership transaccional (ver docs/procedimiento-transacciones)
     DECLARE @conteoTransaccionesInicial INT = 0;
     DECLARE @transaccionPropia          BIT = 0;
     DECLARE @savepointCreado            BIT = 0;
@@ -375,7 +402,7 @@ BEGIN
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- PASO 1.5: Validación de presencia del ejecutor y perfil RBAC (ADMINISTRADOR)
+        -- PASO 1.5: Validación de perfil RBAC del usuario ejecutor si es suministrado
         IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -383,6 +410,7 @@ BEGIN
                 @p_param1 = 'idUsuarioEjecutor',
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
             SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
             SET @estadoResultado = 0;
         END
@@ -398,66 +426,17 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
-        -- PASO 2: Validación de parámetros requeridos
-        IF @estadoResultado = 1
+        -- PASO 2: Resolver facultad destino si se suministra el nombre
+        IF @estadoResultado = 1 AND @idFacultadDefecto IS NULL AND @nombreFacultadDef IS NOT NULL AND @nombreFacultadDef <> ''
         BEGIN
-            EXEC dbo.usp_validar_crear_decano_parametros_requeridos_interno 
-                @numeroIdentificacion = @numeroIdentificacion, 
-                @correo = @correo, 
-                @primerNombre = @primerNombre, 
-                @primerApellido = @primerApellido, 
-                @idCorrelacion = @idCorrelacionDefecto, 
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
-                @estadoResultado = @estadoResultado OUTPUT;
+            SELECT TOP 1 @idFacultadDefecto = id
+            FROM [dbo].[uv_facultad]
+            WHERE LOWER(nombreFacultad) = LOWER(@nombreFacultadDef)
+               OR LOWER(nombreFacultad) LIKE LOWER(CONCAT('%', @nombreFacultadDef, '%'))
+            ORDER BY nombreFacultad ASC;
         END
 
-        -- PASO 3: Validación de existencia o nombre de Facultad
-        IF @estadoResultado = 1
-        BEGIN
-            IF @idFacultadDefecto IS NOT NULL
-            BEGIN
-                EXEC dbo.usp_validar_facultad_existe_interno 
-                    @idFacultad = @idFacultadDefecto, 
-                    @idCorrelacion = @idCorrelacionDefecto, 
-                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
-                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
-                    @estadoResultado = @estadoResultado OUTPUT;
-
-                IF @estadoResultado = 1
-                BEGIN
-                    EXEC dbo.usp_validar_facultad_no_tiene_decano_activo_interno 
-                        @idFacultad = @idFacultadDefecto, 
-                        @idCorrelacion = @idCorrelacionDefecto, 
-                        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
-                        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
-                        @estadoResultado = @estadoResultado OUTPUT;
-                END
-            END
-            ELSE IF @nombreFacultadDef IS NOT NULL AND LEN(@nombreFacultadDef) > 0
-            BEGIN
-                EXEC dbo.usp_validar_facultad_nombre_disponible_interno
-                    @nombreFacultad = @nombreFacultadDef,
-                    @idCorrelacion = @idCorrelacionDefecto,
-                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-                    @estadoResultado = @estadoResultado OUTPUT;
-            END
-        END
-
-        -- PASO 4: Validación de unicidad de identidad del usuario
-        IF @estadoResultado = 1
-        BEGIN
-            EXEC dbo.usp_validar_decano_unicidad_usuario_interno 
-                @numeroIdentificacion = @numeroIdentificacion, 
-                @correo = @correo, 
-                @idCorrelacion = @idCorrelacionDefecto, 
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
-                @estadoResultado = @estadoResultado OUTPUT;
-        END
-
-        -- SECCIÓN OPERACIONAL: Mutaciones atómicas
+        -- PASO 3: GESTIÓN REACTIVA DE USUARIO (Consulta en uv_usuario y delegación a usp_sincronizar_usuario_interno)
         IF @estadoResultado = 1
         BEGIN
             SET @conteoTransaccionesInicial = @@TRANCOUNT;
@@ -503,98 +482,96 @@ BEGIN
                     WHERE correo = LOWER(TRIM(@correo));
                 END
             END
+        END
 
-            IF @estadoResultado = 1
+        -- PASO 4: Asignación reactiva de rol Decano y adscripción a la Facultad
+        IF @estadoResultado = 1
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM dbo.Decano WHERE usuario = @idUsuarioCreado)
             BEGIN
-                EXEC dbo.usp_sincronizar_decano_interno
-                    @idDecano = @idDecanoDefecto OUTPUT,
-                    @idUsuario = @idUsuarioCreado,
-                    @idCorrelacion = @idCorrelacionDefecto,
-                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-                    @estadoResultado = @estadoResultado OUTPUT;
-            END
+                IF @idDecanoDefecto IS NULL
+                    SET @idDecanoDefecto = NEWID();
 
-            IF @estadoResultado = 1
-            BEGIN
-                IF @idFacultadDefecto IS NULL AND @nombreFacultadDef IS NOT NULL AND LEN(@nombreFacultadDef) > 0
-                BEGIN
-                    DECLARE @idInstitucionDecano UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(NULL, 'GENERAL', 'ID_INSTITUCION_DEFECTO');
-                    IF @idInstitucionDecano IS NULL
-                    BEGIN
-                        SELECT TOP 1 @idInstitucionDecano = institucion FROM dbo.uv_administrador WHERE idUsuario = @idUsuarioEjecutorDefecto;
-                    END
-                    IF @idInstitucionDecano IS NULL
-                    BEGIN
-                        SELECT TOP 1 @idInstitucionDecano = id FROM dbo.Institucion;
-                    END
-
-                    EXEC dbo.usp_crear_facultad_interna
-                        @nombre = @nombreFacultadDef,
-                        @idInstitucion = @idInstitucionDecano,
-                        @idDecano = @idDecanoDefecto,
-                        @idCorrelacion = @idCorrelacionDefecto,
-                        @idFacultadCreada = @idFacultadDefecto OUTPUT,
-                        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-                        @estadoResultado = @estadoResultado OUTPUT;
-                END
-                ELSE IF @idFacultadDefecto IS NOT NULL
-                BEGIN
-                    EXEC dbo.usp_asignar_decano_a_facultad_interno
-                        @idFacultad = @idFacultadDefecto,
-                        @idDecano = @idDecanoDefecto,
-                        @idCorrelacion = @idCorrelacionDefecto,
-                        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-                        @estadoResultado = @estadoResultado OUTPUT;
-                END
-            END
-
-            IF @estadoResultado = 1
-            BEGIN
-                IF @transaccionPropia = 1
-                BEGIN
-                    COMMIT TRANSACTION;
-                END
+                INSERT INTO dbo.Decano (id, usuario)
+                VALUES (@idDecanoDefecto, @idUsuarioCreado);
             END
             ELSE
             BEGIN
-                IF @savepointCreado = 1 AND @@TRANCOUNT > 0
-                BEGIN
-                    ROLLBACK TRANSACTION usp_crear_decano;
-                END
-                ELSE IF @transaccionPropia = 1 AND @@TRANCOUNT > 0
-                BEGIN
+                SELECT TOP 1 @idDecanoDefecto = id FROM dbo.Decano WHERE usuario = @idUsuarioCreado;
+            END
+
+            IF @idFacultadDefecto IS NOT NULL
+            BEGIN
+                UPDATE dbo.Facultad
+                SET decano = @idDecanoDefecto
+                WHERE id = @idFacultadDefecto;
+            END
+
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'GEN_004',
+                @p_param1 = 'Decano',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+        END
+
+        -- PASO 5: Finalización de la transacción respetando ownership (ver docs/procedimiento-transacciones)
+        IF @transaccionPropia = 1
+        BEGIN
+            IF XACT_STATE() = 1
+            BEGIN
+                IF @estadoResultado = 1
+                    COMMIT TRANSACTION;
+                ELSE
                     ROLLBACK TRANSACTION;
-                END
+            END
+            ELSE IF XACT_STATE() = -1
+            BEGIN
+                ROLLBACK TRANSACTION;
             END
         END
+        ELSE IF @savepointCreado = 1
+        BEGIN
+            IF XACT_STATE() = 1 AND @estadoResultado = 0
+                ROLLBACK TRANSACTION usp_crear_decano;
+            -- XACT_STATE() = -1 con transacción externa: no es propietaria, no se toca (ver PASO 10 del contrato)
+        END
+
     END TRY
     BEGIN CATCH
-        IF @savepointCreado = 1 AND @@TRANCOUNT > 0
+        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+
+        IF @transaccionPropia = 1
+        BEGIN
+            IF @estadoTransaccionCatch <> 0
+                ROLLBACK TRANSACTION;
+        END
+        ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN
             ROLLBACK TRANSACTION usp_crear_decano;
         END
-        ELSE IF @transaccionPropia = 1 AND @@TRANCOUNT > 0
+
+        -- Transacción externa quedó doomed y no nos pertenece: propagar la excepción original al propietario
+        IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
         BEGIN
-            ROLLBACK TRANSACTION;
+            THROW;
         END
 
-        SET @estadoResultado = 0;
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Error SQL: ', ERROR_MESSAGE(), ' (Linea: ', ERROR_LINE(), ')');
-    END CATCH;
 
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
+        SET @estadoResultado = 0;
+    END CATCH
+
+    -- BLOQUE FINAL: Retorno unificado de resultados
     SELECT 
-        @idCorrelacionDefecto AS idCorrelacion,
-        @mensajeUsuarioResultado AS mensajeUsuarioResultado,
-        @mensajeTecnicoResultado AS mensajeTecnicoResultado,
-        @estadoResultado AS estadoResultado,
-        CASE WHEN @estadoResultado = 1 THEN @idDecanoDefecto ELSE NULL END AS idDecano;
+        idCorrelacion           = @idCorrelacionDefecto,
+        mensajeUsuarioResultado = @mensajeUsuarioResultado,
+        mensajeTecnicoResultado = @mensajeTecnicoResultado,
+        estadoResultado         = @estadoResultado;
 END;
 GO

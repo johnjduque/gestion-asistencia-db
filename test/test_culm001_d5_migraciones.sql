@@ -18,9 +18,13 @@ CREATE TABLE #d5mig (k NVARCHAR(60) PRIMARY KEY, v VARBINARY(32));
 GO
 
 -- 1. D-RB-02: aborto si usp_crear_decano contiene DEC_020
+-- sys.sql_modules guarda 'CREATE OR ALTER' normalizado como 'CREATE   PROCEDURE': se reconstruye un ALTER a partir del encabezado
+-- (el CREATE literal fallaba con Msg 2714 sobre el SP existente).
 DECLARE @defOrig NVARCHAR(MAX) = (SELECT definition FROM sys.sql_modules WHERE object_id = OBJECT_ID(N'dbo.usp_crear_decano'));
+DECLARE @cuerpoDec NVARCHAR(MAX) = SUBSTRING(@defOrig, CHARINDEX(N'PROCEDURE [dbo].[usp_crear_decano]', @defOrig), LEN(@defOrig));
+DECLARE @alterOrig NVARCHAR(MAX) = N'ALTER ' + @cuerpoDec;
 -- Alteramos temporalmente para simular que D.9 ya modifico usp_crear_decano con DEC_020
-DECLARE @sqlDec20 NVARCHAR(MAX) = REPLACE(@defOrig, N'CREATE OR ALTER PROCEDURE [dbo].[usp_crear_decano]', N'CREATE OR ALTER PROCEDURE [dbo].[usp_crear_decano] /* DEC_020 test */');
+DECLARE @sqlDec20 NVARCHAR(MAX) = N'ALTER ' + REPLACE(@cuerpoDec, N'PROCEDURE [dbo].[usp_crear_decano]', N'PROCEDURE [dbo].[usp_crear_decano] /* DEC_020 test */');
 EXEC sp_executesql @sqlDec20;
 
 DECLARE @downAborta BIT = 0;
@@ -39,7 +43,7 @@ IF @downAborta <> 1
     THROW 57920, 'TEST FAILED: CULM001_D_RB_02 el guard no detecto DEC_020.', 1;
 
 -- Restauramos definicion previa
-EXEC sp_executesql @defOrig;
+EXEC sp_executesql @alterOrig;
 PRINT 'MIG_D5_DOWN_GUARD_OK';
 GO
 

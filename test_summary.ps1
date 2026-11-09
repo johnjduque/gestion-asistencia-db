@@ -319,9 +319,11 @@ finally {
         $cleanupErrors += 'attendance worker file cleanup raised an exception'
     }
     if ($concurrencySession) {
-        $cleanupSql = "SET NOCOUNT ON; DELETE d FROM dbo.DetalleAsistencia d JOIN dbo.Asistencia a ON a.id = d.asistencia WHERE a.sesion = '$concurrencySession'; DELETE FROM dbo.Asistencia WHERE sesion = '$concurrencySession'; DELETE FROM dbo.Sesion WHERE id = '$concurrencySession';"
+        $cleanupSql = "SET NOCOUNT ON; DELETE d FROM dbo.DetalleAsistencia d JOIN dbo.Asistencia a ON a.id = d.asistencia WHERE a.sesion = '$concurrencySession'; DELETE tk FROM dbo.TokenAsistenciaToma tk JOIN dbo.TomaAsistencia t ON t.id = tk.toma WHERE t.sesion = '$concurrencySession'; DELETE FROM dbo.TomaAsistencia WHERE sesion = '$concurrencySession'; DELETE FROM dbo.Asistencia WHERE sesion = '$concurrencySession'; DELETE FROM dbo.Sesion WHERE id = '$concurrencySession';"
         try {
-            docker exec $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -d gestionasistenciadb -U sa -P $Password -C -Q $cleanupSql | Out-Null
+            # -I (QUOTED_IDENTIFIER ON) y -b: sin ellos el DELETE falla en silencio y la sesion QA queda en la BD (B.2: tomas y tokens
+            # dependen de la sesion) contaminando las pruebas posteriores con cruces de horario
+            docker exec $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -d gestionasistenciadb -U sa -P $Password -C -I -b -Q $cleanupSql | Out-Null
             if ($LASTEXITCODE -ne 0) { $cleanupErrors += 'attendance SQL cleanup returned a non-zero exit code' }
         }
         catch {
@@ -352,7 +354,9 @@ ORDER BY g.cuposDisponibles DESC;
     if ($LASTEXITCODE -ne 0 -or $d06Setup.Count -ne 1) { throw "setup failed: $($d06Setup -join '; ')" }
     $d06Group = $d06Setup[0].Split('|')[0]
     $d06Owner = $d06Setup[0].Split('|')[1]
-    $d06WorkerSql = "SET NOCOUNT ON; DECLARE @i INT = 0; WHILE @i < 5 BEGIN DECLARE @corr UNIQUEIDENTIFIER = NEWID(); EXEC dbo.usp_crear_sesion_v2 @idGrupo = '$d06Group', @nombre = N'$d06Tag', @fechaHoraInicio = '2027-01-10T13:00:00', @fechaHoraFin = '2027-01-10T14:00:00', @idCorrelacion = @corr, @idUsuarioEjecutor = '$d06Owner'; SET @i += 1; END"
+    # D.9 rechaza las sesiones que se cruzan con otra del grupo o del docente: cada sesion usa su propio dia (la variable sqlcmd WORKER
+    # separa a los dos trabajadores) para que el rechazo por cruce no oculte lo que la prueba mide, el correlativo bajo concurrencia.
+    $d06WorkerSql = "SET NOCOUNT ON; DECLARE @i INT = 0; WHILE @i < 5 BEGIN DECLARE @corr UNIQUEIDENTIFIER = NEWID(); DECLARE @ini DATETIME2 = DATEADD(DAY, `$(WORKER) * 5 + @i, '2027-01-10T13:00:00'); DECLARE @fin DATETIME2 = DATEADD(HOUR, 1, @ini); EXEC dbo.usp_crear_sesion_v2 @idGrupo = '$d06Group', @nombre = N'$d06Tag', @fechaHoraInicio = @ini, @fechaHoraFin = @fin, @idCorrelacion = @corr, @idUsuarioEjecutor = '$d06Owner'; SET @i += 1; END"
     $d06Local = Join-Path ([System.IO.Path]::GetTempPath()) "utc_d06_concurrent_worker_$([guid]::NewGuid().ToString('N')).sql"
     Set-Content -Path $d06Local -Value $d06WorkerSql -Encoding utf8 -NoNewline
     docker cp $d06Local "${ContainerName}:/tmp/utc_d06_concurrent_worker.sql" | Out-Null
@@ -360,13 +364,13 @@ ORDER BY g.cuposDisponibles DESC;
     docker exec -u 0 $ContainerName chmod a+r /tmp/utc_d06_concurrent_worker.sql | Out-Null
     Remove-Item -Path $d06Local -Force -ErrorAction SilentlyContinue
     $d06Job = {
-        param($cn, $pw)
-        $output = @(& docker exec $cn /opt/mssql-tools18/bin/sqlcmd -S localhost -d gestionasistenciadb -U sa -P $pw -C -b -h -1 -W -i /tmp/utc_d06_concurrent_worker.sql 2>&1)
+        param($cn, $pw, $worker)
+        $output = @(& docker exec $cn /opt/mssql-tools18/bin/sqlcmd -S localhost -d gestionasistenciadb -U sa -P $pw -C -I -b -h -1 -W -v "WORKER=$worker" -i /tmp/utc_d06_concurrent_worker.sql 2>&1)
         if ($LASTEXITCODE -ne 0) { throw "sqlcmd failed: $($output -join '; ')" }
     }
     $d06Jobs = @(
-        (Start-Job -ScriptBlock $d06Job -ArgumentList $ContainerName, $Password),
-        (Start-Job -ScriptBlock $d06Job -ArgumentList $ContainerName, $Password)
+        (Start-Job -ScriptBlock $d06Job -ArgumentList $ContainerName, $Password, 0),
+        (Start-Job -ScriptBlock $d06Job -ArgumentList $ContainerName, $Password, 1)
     )
     $d06Out = @(Receive-Job -Job $d06Jobs -Wait -AutoRemoveJob 2>&1)
     if ($d06Out | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] }) { throw "worker failed: $($d06Out -join '; ')" }
@@ -391,7 +395,7 @@ finally {
     }
     if ($d06Group) {
         try {
-            docker exec $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -d gestionasistenciadb -U sa -P $Password -C -Q "SET NOCOUNT ON; DELETE FROM dbo.Sesion WHERE grupo = '$d06Group' AND nombre = N'$d06Tag';" | Out-Null
+            docker exec $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -d gestionasistenciadb -U sa -P $Password -C -I -b -Q "SET NOCOUNT ON; DELETE FROM dbo.Sesion WHERE grupo = '$d06Group' AND nombre = N'$d06Tag';" | Out-Null
             if ($LASTEXITCODE -ne 0) { $cleanupErrors += 'D06 SQL cleanup returned a non-zero exit code' }
         }
         catch {
@@ -511,7 +515,7 @@ finally {
 
 # CC-003G-01: login real de minimo privilegio (no sa) para los dos proveedores.
 try {
-    $rtOutput = @(& (Join-Path $PSScriptRoot 'test/verify_runtime_role_cc003g01.ps1') -ContainerName $ContainerName -AdminPassword $Password 2>&1 | ForEach-Object { "$_" })
+    $rtOutput = @(& (Join-Path $PSScriptRoot 'test/verify_runtime_role_cc003g01.ps1') -ContainerName $ContainerName -AdminPassword $Password *>&1 | ForEach-Object { "$_" })
     foreach ($line in $rtOutput) { Write-Host $line }
     foreach ($id in @('CC003G01_RUNTIME_EXECUTE_GRANTS', 'CC003G01_RUNTIME_INTERNAL_EXEC_DENIED', 'CC003G01_RUNTIME_DIRECT_DML_DENIED',
             'CC003G01_RUNTIME_BASE_TABLE_READ_DENIED', 'CC003G01_RUNTIME_PROVIDERS_FUNCTIONAL')) {
@@ -526,7 +530,7 @@ catch {
 # F2: dos sqlcmd independientes precargan el mismo grupo y luego se valida el reintento.
 try {
     $preloadConcurrencyOutput = @(& (Join-Path $PSScriptRoot 'test/test_usp_precargar_sesiones_concurrency.ps1') `
-        -ContainerName $ContainerName -Password $Password 2>&1 | ForEach-Object { "$_" })
+        -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
     foreach ($line in $preloadConcurrencyOutput) { Write-Host $line }
     if ($preloadConcurrencyOutput -contains 'TEST_PASS:PRELOAD_CONCURRENT_IDEMPOTENT') {
         $clientPassed += 'PRELOAD_CONCURRENT_IDEMPOTENT'
@@ -544,7 +548,7 @@ catch {
 $culm001B1Ids = @('CULM001_B1_FES_05_CARGA_CONCURRENTE', 'CULM001_B1_FES_07_TUPLA_CONTEOS', 'CULM001_B1_FES_08A_SIN_TRANSACCION_SYS001',
     'CULM001_B1_FES_08B2_SIN_TUPLA', 'CULM001_B1_FES_08B_PARIDAD_TUPLA', 'CULM001_B1_MIG_01_UP_DOWN_UP')
 try {
-    $culm001B1Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_b1.ps1') -ContainerName $ContainerName -Password $Password 2>&1 | ForEach-Object { "$_" })
+    $culm001B1Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_b1.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
     foreach ($line in $culm001B1Output) { Write-Host $line }
     foreach ($id in $culm001B1Ids) {
         if ($culm001B1Output -contains "TEST_PASS:$id") { $clientPassed += $id }
@@ -561,7 +565,7 @@ $culm001B2Ids = @('CULM001_B2_MIG_03_DOWN_RESTAURA', 'CULM001_B2_MIG_01_UP_CON_D
     'CULM001_B2_MIG_03_COLAPSO_CONFIRMADO', 'CULM001_B2_SEG_02_FIXTURES_REPETIBLES', 'CULM001_B2_TOM_10_CIERRE_AUTOMATICO_CONCURRENTE',
     'CULM001_B2_TOM_08_CIERRE_CONCURRENTE')
 try {
-    $culm001B2Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_b2.ps1') -ContainerName $ContainerName -Password $Password 2>&1 | ForEach-Object { "$_" })
+    $culm001B2Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_b2.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
     foreach ($line in $culm001B2Output) { Write-Host $line }
     foreach ($id in $culm001B2Ids) {
         if ($culm001B2Output -contains "TEST_PASS:$id") { $clientPassed += $id }
@@ -574,7 +578,7 @@ catch {
 # CULM-001 C.1: migracion 19 (up/down/up, C-DB-60) en test/test_culm001_c.ps1.
 $culm001CIds = @('CULM001_C_MIG_19_UP_DOWN_UP')
 try {
-    $culm001COutput = @(& (Join-Path $PSScriptRoot 'test/test_culm001_c.ps1') -ContainerName $ContainerName -Password $Password 2>&1 | ForEach-Object { "$_" })
+    $culm001COutput = @(& (Join-Path $PSScriptRoot 'test/test_culm001_c.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
     foreach ($line in $culm001COutput) { Write-Host $line }
     foreach ($id in $culm001CIds) {
         if ($culm001COutput -contains "TEST_PASS:$id") { $clientPassed += $id }
@@ -587,7 +591,7 @@ catch {
 # CULM-001 D.3 (D3-09 concurrencia, D3-16 migracion 22) y D.6 (migracion 25) en test/test_culm001_d3.ps1.
 $culm001D3Ids = @('CULM001_D3_09_CONCURRENCIA', 'CULM001_D3_16_MIG_UP_DOWN_UP', 'CULM001_D6_MIG_01_UP_DOWN_UP')
 try {
-    $culm001D3Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d3.ps1') -ContainerName $ContainerName -Password $Password 2>&1 | ForEach-Object { "$_" })
+    $culm001D3Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d3.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
     foreach ($line in $culm001D3Output) { Write-Host $line }
     foreach ($id in $culm001D3Ids) {
         if ($culm001D3Output -contains "TEST_PASS:$id") { $clientPassed += $id }
@@ -600,7 +604,7 @@ catch {
 # CULM-001 D.5: migracion 24 (up/down/up) y proteccion del down (D-RB-02) en test/test_culm001_d5.ps1.
 $culm001D5Ids = @('CULM001_D5_11_UP_DOWN_UP', 'CULM001_D_RB_02_DOWN_GUARD')
 try {
-    $culm001D5Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d5.ps1') -ContainerName $ContainerName -Password $Password 2>&1 | ForEach-Object { "$_" })
+    $culm001D5Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d5.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
     foreach ($line in $culm001D5Output) { Write-Host $line }
     foreach ($id in $culm001D5Ids) {
         if ($culm001D5Output -contains "TEST_PASS:$id") { $clientPassed += $id }
@@ -613,7 +617,7 @@ catch {
 # CULM-001 D.4: migracion 23 (up/down/up) en test/test_culm001_d4.ps1.
 $culm001D4Ids = @('CULM001_D4_12_UP_DOWN_UP')
 try {
-    $culm001D4Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d4.ps1') -ContainerName $ContainerName -Password $Password 2>&1 | ForEach-Object { "$_" })
+    $culm001D4Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d4.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
     foreach ($line in $culm001D4Output) { Write-Host $line }
     foreach ($id in $culm001D4Ids) {
         if ($culm001D4Output -contains "TEST_PASS:$id") { $clientPassed += $id }
@@ -626,7 +630,7 @@ catch {
 # CULM-001 D.1: migracion 20 (up/down/up) y proteccion del down (D-RB-01) en test/test_culm001_d1.ps1.
 $culm001D1Ids = @('CULM001_D1_11_UP_DOWN_UP', 'CULM001_D1_RB_01_DOWN_GUARD')
 try {
-    $culm001D1Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d1.ps1') -ContainerName $ContainerName -Password $Password 2>&1 | ForEach-Object { "$_" })
+    $culm001D1Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d1.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
     foreach ($line in $culm001D1Output) { Write-Host $line }
     foreach ($id in $culm001D1Ids) {
         if ($culm001D1Output -contains "TEST_PASS:$id") { $clientPassed += $id }
@@ -639,7 +643,7 @@ catch {
 # CULM-001 D.2: migracion 21 (up/down/up), down sin confirmacion y orden de rollback D-RB-01 en test/test_culm001_d2.ps1.
 $culm001D2Ids = @('CULM001_D2_13_UP_DOWN_UP', 'CULM001_D2_13_DOWN_SIN_CONFIRMACION', 'CULM001_D_RB_01_ORDEN_DE_DOWN')
 try {
-    $culm001D2Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d2.ps1') -ContainerName $ContainerName -Password $Password 2>&1 | ForEach-Object { "$_" })
+    $culm001D2Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d2.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
     foreach ($line in $culm001D2Output) { Write-Host $line }
     foreach ($id in $culm001D2Ids) {
         if ($culm001D2Output -contains "TEST_PASS:$id") { $clientPassed += $id }
@@ -651,7 +655,7 @@ catch {
 }
 # CULM-001 D.7: migracion 26 (up/down/up, D7-03) en test/test_culm001_d7.ps1.
 try {
-    $culm001D7Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d7.ps1') -ContainerName $ContainerName -Password $Password 2>&1 | ForEach-Object { "$_" })
+    $culm001D7Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d7.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
     foreach ($line in $culm001D7Output) { Write-Host $line }
     if ($culm001D7Output -contains 'TEST_PASS:CULM001_D7_03_UP_DOWN_UP') { $clientPassed += 'CULM001_D7_03_UP_DOWN_UP' }
     else { $resultFailures += 'CULM001_D7_03_UP_DOWN_UP not reported by test_culm001_d7.ps1' }
@@ -661,7 +665,7 @@ catch {
 }
 # CULM-001 D.8: migracion 27 (up/down/up, D8-08) en test/test_culm001_d8.ps1.
 try {
-    $culm001D8Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d8.ps1') -ContainerName $ContainerName -Password $Password 2>&1 | ForEach-Object { "$_" })
+    $culm001D8Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d8.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
     foreach ($line in $culm001D8Output) { Write-Host $line }
     if ($culm001D8Output -contains 'TEST_PASS:CULM001_D8_08_UP_DOWN_UP') { $clientPassed += 'CULM001_D8_08_UP_DOWN_UP' }
     else { $resultFailures += 'CULM001_D8_08_UP_DOWN_UP not reported by test_culm001_d8.ps1' }
@@ -672,7 +676,7 @@ catch {
 # CULM-001 B.2 (B2-CON-01, NB-4): 5 grupos x 40 estudiantes por token a la vez; solo bajo demanda (-Concurrencia).
 if ($Concurrencia) {
     try {
-        $culm001B2ConOutput = @(& (Join-Path $PSScriptRoot 'test/test_culm001_b2_concurrencia.ps1') -ContainerName $ContainerName -Password $Password 2>&1 | ForEach-Object { "$_" })
+        $culm001B2ConOutput = @(& (Join-Path $PSScriptRoot 'test/test_culm001_b2_concurrencia.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
         foreach ($line in $culm001B2ConOutput) { Write-Host $line }
         if ($culm001B2ConOutput -contains 'TEST_PASS:CULM001_B2_CON_01_5X40') { $clientPassed += 'CULM001_B2_CON_01_5X40' }
         else { $resultFailures += 'CULM001_B2_CON_01_5X40 not reported by test_culm001_b2_concurrencia.ps1' }
@@ -876,10 +880,11 @@ $criticalIds = @(
     'CULM001_B2_INV_TOMA_ESTADO_CIERRE', 'CULM001_B2_TOM_TRANCOUNT_ZERO',
     'CULM001_B2_HOR_00_FUNCIONES_Y_COLUMNAS', 'CULM001_B2_HOR_01_DOS_TOMAS', 'CULM001_B2_HOR_02_DURACIONES_DISTINTAS',
     'CULM001_B2_HOR_03_SESION_CANCELADA', 'CULM001_B2_HOR_04_EXCUSA_EN_DENOMINADOR', 'CULM001_B2_HOR_05_UMBRALES',
-    'CULM001_B2_HOR_06_SIN_REGISTRO_FUERA_DEL_DENOMINADOR', 'CULM001_B2_HOR_07_KPIS_POR_HORAS', 'CULM001_B2_HOR_07_DIFERIDOS_SIN_DUPLICAR',
+    'CULM001_B2_HOR_06_SIN_REGISTRO_FUERA_DEL_DENOMINADOR', 'CULM001_B2_HOR_07_KPIS_POR_HORAS',
+    # D.8 renombro HOR_07_DIFERIDOS_SIN_DUPLICAR a HOR_07_DIFERIDOS_POR_HORAS (la equivalencia 2 tomas = 1 toma deja de aplicar con horas) y
+    # C.1 movio HOR_10 a CULM001_C_HOR_10_CIERRE_POR_HORAS: el registro conserva solo los ids que la suite emite hoy.
+    'CULM001_B2_HOR_07_DIFERIDOS_POR_HORAS',
     'CULM001_B2_HOR_08_RECLAMO_VARIAS_TOMAS', 'CULM001_B2_HOR_09_CABECERA_SIN_DETALLE', 'CULM001_C_HOR_10_CIERRE_POR_HORAS',
-    'CULM001_B2_HOR_06_SIN_REGISTRO_FUERA_DEL_DENOMINADOR', 'CULM001_B2_HOR_07_KPIS_POR_HORAS', 'CULM001_B2_HOR_07_DIFERIDOS_POR_HORAS',
-    'CULM001_B2_HOR_08_RECLAMO_VARIAS_TOMAS', 'CULM001_B2_HOR_09_CABECERA_SIN_DETALLE', 'CULM001_B2_HOR_10_CIERRE_MASIVO_SESIONES_DISTINTAS',
     'CULM001_B2_HOR_11_UNIDADES', 'CULM001_B2_HOR_TRANCOUNT_ZERO',
     'CULM001_C_ALERTAS', 'CULM001_C_REVISIONES', 'CULM001_C_CIERRE_BLOQUEO_Y_RESOLUCION', 'CULM001_C_CIERRE_MOTOR_APAGADO_Y_UNA_FILA',
     'CULM001_C_AUDIENCIAS_Y_PERMISOS',

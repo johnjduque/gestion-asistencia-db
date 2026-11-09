@@ -5836,8 +5836,10 @@ DROP FUNCTION IF EXISTS dbo.ufn_programas_grupo;
 GO
 
 -- Borra los EstudiantePrograma creados por el backfill, los indices unicos, programaPorDefecto, la puente, el catalogo, el parametro y los mensajes
-DELETE ep FROM dbo.EstudiantePrograma ep
-WHERE EXISTS (SELECT 1 FROM dbo.zz_reporte_culm001_b2nm_estudiante_programa r WHERE r.tipo = N'CREADO' AND r.estudiante = ep.estudiante AND r.programa = ep.programa);
+-- (la tabla de reporte solo existe si el up corrio sobre una BD con datos; en un despliegue limpio por objeto no existe y no hay backfill que borrar)
+IF OBJECT_ID(N'dbo.zz_reporte_culm001_b2nm_estudiante_programa', N'U') IS NOT NULL
+    EXEC sys.sp_executesql N'DELETE ep FROM dbo.EstudiantePrograma ep
+WHERE EXISTS (SELECT 1 FROM dbo.zz_reporte_culm001_b2nm_estudiante_programa r WHERE r.tipo = N''CREADO'' AND r.estudiante = ep.estudiante AND r.programa = ep.programa);';
 GO
 DROP INDEX IF EXISTS UX_EstudiantePrograma_estudiante_programa ON dbo.EstudiantePrograma;
 DROP INDEX IF EXISTS UX_Asignatura_codigo ON dbo.Asignatura;
