@@ -10,9 +10,9 @@ GO
 --
 -- Comando de SISTEMA (job). Recorre (lote ALERTA_INASISTENCIA/LOTE_EVALUACION_AUTOMATICA) las revisiones que esperan al resolutor
 -- con matricula activa y recalcula sus resolutores en vivo; si la huella cambio (coordinador desactivado o reasignado, programa
--- cambiado) actualiza el perfil resolutor (ESCALAR al decano, REASIGNAR a otro), deja historial + auditoria y devuelve la novedad
+-- cambiado) actualiza el perfil resolutor (REASIGNAR a otro coordinador; DEC-065: nunca al decano), deja historial + auditoria y devuelve la novedad
 -- para el aviso. Sin resolutor posible: perfil NULL, REASIGNAR y REVISION_CANCELACION_SIN_RESOLUTOR una sola vez por cambio de
--- huella. Una transaccion por revision (o la del llamador). Salida: tupla + revisionesReasignadas, revisionesEscaladas,
+-- huella. Una transaccion por revision (o la del llamador). Salida: tupla + revisionesReasignadas, revisionesEscaladas (siempre 0),
 -- revisionesSinResolutor, novedadesJSON. ALR_007.
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_actualizar_resolutores_revisiones_cancelacion]
@@ -83,7 +83,7 @@ BEGIN
                         SELECT @huellaNueva = NULL, @perfilNuevo = NULL;
                         IF EXISTS (SELECT 1 FROM #culmc_res)
                         BEGIN
-                            SET @perfilNuevo = IIF(EXISTS (SELECT 1 FROM #culmc_res WHERE esEscalamiento = 1), N'DECANO', N'COORDINADOR');
+                            SET @perfilNuevo = N'COORDINADOR';
                             SELECT @huellaNueva = HASHBYTES('SHA2_256', STRING_AGG(CONVERT(VARCHAR(36), x.idUsuario), ',') WITHIN GROUP (ORDER BY CONVERT(VARCHAR(36), x.idUsuario)))
                             FROM (SELECT DISTINCT idUsuario FROM #culmc_res) x;
                         END
@@ -93,10 +93,10 @@ BEGIN
                             SET @ahora = CAST(SYSUTCDATETIME() AS DATETIME2(3));
                             SELECT @porcentaje = rs.porcentajeInasistencia FROM dbo.uv_resumen_asistencia_estudiante_grupo rs WHERE rs.idEstudianteGrupo = @idEg;
                             SET @porcentaje = ISNULL(@porcentaje, 0);
-                            SET @evento = IIF(@perfilNuevo = N'DECANO' AND ISNULL(@perfilPrev, N'') <> N'DECANO', N'ESCALAR', N'REASIGNAR');
+                            SET @evento = N'REASIGNAR';
                             UPDATE dbo.RevisionCancelacion
                             SET codigoPerfilResolutorActual = @perfilNuevo, huellaResolutoresActual = @huellaNueva,
-                                fechaEscalamientoUtc = IIF(@evento = N'ESCALAR', @ahora, fechaEscalamientoUtc), fechaActualizacionUtc = @ahora
+                                fechaActualizacionUtc = @ahora
                             WHERE id = @idRevision;
                             INSERT INTO dbo.RevisionCancelacionHistorial (id, revision, estadoAnterior, estadoNuevo, codigoEvento, motivo, usuarioActor, codigoPerfilActor,
                                 codigoPerfilResolutor, porcentajeInasistencia, fechaUtc, idCorrelacion)
@@ -106,15 +106,14 @@ BEGIN
                                 INSERT INTO dbo.AuditoriaEvento (id, occurredAt, actorId, actorType, action, resourceType, resourceId, result, correlationId, httpMethod, path, httpStatus, metadata)
                                 VALUES (NEWID(), SYSDATETIMEOFFSET(), N'SISTEMA', 'SYSTEM', 'REVISION_CANCELACION_SIN_RESOLUTOR', 'RevisionCancelacion', CONVERT(NVARCHAR(36), @idRevision),
                                         'SUCCESS', @idCorrelacionDefecto, 'JOB', N'/jobs/alertas-inasistencia', 200,
-                                        (SELECT perfilAnterior = @perfilPrev, causa = N'SIN_COORDINADOR_NI_DECANO_ACTIVO' FOR JSON PATH, WITHOUT_ARRAY_WRAPPER));
+                                        (SELECT perfilAnterior = @perfilPrev, causa = N'SIN_COORDINADOR_ACTIVO' FOR JSON PATH, WITHOUT_ARRAY_WRAPPER));
                             ELSE
                                 INSERT INTO dbo.AuditoriaEvento (id, occurredAt, actorId, actorType, action, resourceType, resourceId, result, correlationId, httpMethod, path, httpStatus, metadata)
-                                VALUES (NEWID(), SYSDATETIMEOFFSET(), N'SISTEMA', 'SYSTEM', IIF(@evento = N'ESCALAR', 'ESCALAR_REVISION_CANCELACION', 'REASIGNAR_REVISION_CANCELACION'),
+                                VALUES (NEWID(), SYSDATETIMEOFFSET(), N'SISTEMA', 'SYSTEM', 'REASIGNAR_REVISION_CANCELACION',
                                         'RevisionCancelacion', CONVERT(NVARCHAR(36), @idRevision), 'SUCCESS', @idCorrelacionDefecto, 'JOB', N'/jobs/alertas-inasistencia', 200,
                                         (SELECT perfilAnterior = @perfilPrev, perfilNuevo = @perfilNuevo, causa = N'RESOLUTORES_CAMBIARON' FOR JSON PATH, WITHOUT_ARRAY_WRAPPER));
 
                             IF @perfilNuevo IS NULL SET @sinResolutor += 1;
-                            ELSE IF @evento = N'ESCALAR' SET @escaladas += 1;
                             ELSE SET @reasignadas += 1;
 
                             INSERT INTO #culmc_nov (json)

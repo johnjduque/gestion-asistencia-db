@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **285**.
+Total de códigos: **286**.
 
 ## ADS
 
@@ -383,9 +383,10 @@ Total de códigos: **285**.
 | `RCN_010` | SUCCESS | BAJO | Cancelación rechazada: el estudiante sigue activo en el grupo. | Revisión [{}] → RECHAZADA. | `40_culm001_c_mensajes.sql` |
 | `RCN_011` | SUCCESS | BAJO | La decisión ya estaba registrada. | Revisión [{}] ya en [{}]; sin escrituras. | `40_culm001_c_mensajes.sql` |
 | `RCN_012` | BUSINESS_ERROR | ALTO | Hay {} casos de pérdida por inasistencia pendientes de decisión del docente o de resolución en el periodo; resuélvelos antes del cierre. | Cierre de [{}] bloqueado: {} revisiones pendientes (incluye las de pérdida ya superada que esperan decisión), {} pérdidas sin revisión. | `40_culm001_c_mensajes.sql` |
-| `RCN_013` | BUSINESS_ERROR | MEDIO | No hay un coordinador ni un decano activo que pueda resolver la propuesta para el programa del estudiante. | ufn_revision_cancelacion_resolutores vacío para [{}]. | `40_culm001_c_mensajes.sql` |
+| `RCN_013` | BUSINESS_ERROR | MEDIO | El programa no tiene coordinador activo para resolver la revisión; solicite su asignación al decano. | ufn_revision_cancelacion_resolutores vacío para [{}] (sin coordinador activo; DEC-065: no se escala al decano). | `40_culm001_c_mensajes.sql` |
 | `RCN_014` | BUSINESS_ERROR | MEDIO | No puedes resolver una propuesta de cancelación que hiciste como docente. | Ejecutor [{}] = proponente de [{}]. | `40_culm001_c_mensajes.sql` |
-| `RCN_015` | SUCCESS | BAJO | El programa no tiene un coordinador disponible: la propuesta se envió a la decanatura de la facultad. | Revisión [{}] → PROPUESTA escalada a DECANO. | `40_culm001_c_mensajes.sql` |
+| `RCN_015` | SUCCESS | BAJO | Mensaje en desuso (DEC-065): la propuesta ya no se envía a la decanatura; la decisión final es del coordinador. | En desuso (DEC-065): ya no se escala la revisión [{}] a DECANO. | `40_culm001_c_mensajes.sql` |
+| `RCN_016` | BUSINESS_ERROR | MEDIO | La resolución de la revisión corresponde al coordinador del programa. | Regla DEC-065: el ejecutor [{}] es decano y no resuelve la revisión [{}]; solo el coordinador del programa; sin escrituras. | `40_culm001_c_mensajes.sql` |
 
 ## RET
 

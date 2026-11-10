@@ -12,8 +12,9 @@ GO
 -- idRevision, codigoEstadoAnterior, codigoEstadoNuevo, codigoDecision, sinCambios, idGrupo, idEstudianteGrupo, idEstudiante,
 -- porcentajeActual, tipoPlantillaNotificacion, codigoPerfilResolutor, esEscalamiento. Las transiciones salen de
 -- TransicionRevisionCancelacion. PROPONER exige umbral de perdida vigente y un resolutor disponible
--- (ufn_revision_cancelacion_resolutores, que excluye a quien propone); si solo hay decanos escala (RCN_015).
--- Codigos: RCN_001..RCN_008, RCN_011, RCN_013, RCN_015, GEN_002, SYS_001. Bloqueo: RevisionCancelacion (UPDLOCK, HOLDLOCK).
+-- (ufn_revision_cancelacion_resolutores, que excluye a quien propone). DEC-065 (1): la decision final es del coordinador; no hay
+-- escalamiento al decano. Si no hay ningun coordinador disponible responde RCN_013 sin cambios; esEscalamiento se conserva y es siempre 0.
+-- Codigos: RCN_001..RCN_008, RCN_011, RCN_013, GEN_002, SYS_001. Bloqueo: RevisionCancelacion (UPDLOCK, HOLDLOCK).
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_decidir_revision_cancelacion]
 (
@@ -50,7 +51,7 @@ AS
     DECLARE @idTransicion UNIQUEIDENTIFIER, @idEstadoDestino UNIQUEIDENTIFIER, @codigoEstadoDestino NVARCHAR(20), @exigeUmbral BIT, @exigeResolutor BIT;
     DECLARE @codigoMensajeTransicion VARCHAR(100), @plantilla VARCHAR(60);
     DECLARE @porcentaje DECIMAL(5,2), @umbral DECIMAL(5,2);
-    DECLARE @perfilResolutor NVARCHAR(20) = NULL, @esEscalamiento BIT = 0, @huella VARBINARY(32) = NULL;
+    DECLARE @perfilResolutor NVARCHAR(20) = NULL, @huella VARBINARY(32) = NULL;
     DECLARE @sinCambios BIT = 0;
     DECLARE @ahora DATETIME2(3);
     DECLARE @codigoEstadoAnteriorOut NVARCHAR(20), @codigoEstadoNuevoOut NVARCHAR(20);
@@ -137,14 +138,13 @@ BEGIN
                     BEGIN
                         IF @exigeResolutor = 1
                         BEGIN
-                            SELECT f.idUsuario, f.codigoPerfil, f.esEscalamiento INTO #culmc_res
+                            SELECT f.idUsuario, f.codigoPerfil INTO #culmc_res
                             FROM dbo.ufn_revision_cancelacion_resolutores(@idEstudianteGrupo, @idUsuarioEjecutorDefecto) f;
                             IF NOT EXISTS (SELECT 1 FROM #culmc_res)
                                 SELECT @err = 'RCN_013', @e1 = CONVERT(NVARCHAR(36), @idEstudianteGrupo);
                             ELSE
                             BEGIN
-                                SET @esEscalamiento = IIF(EXISTS (SELECT 1 FROM #culmc_res WHERE esEscalamiento = 1), 1, 0);
-                                SET @perfilResolutor = IIF(@esEscalamiento = 1, N'DECANO', N'COORDINADOR');
+                                SET @perfilResolutor = N'COORDINADOR';
                                 SELECT @huella = HASHBYTES('SHA2_256', STRING_AGG(CONVERT(VARCHAR(36), x.idUsuario), ',') WITHIN GROUP (ORDER BY CONVERT(VARCHAR(36), x.idUsuario)))
                                 FROM (SELECT DISTINCT idUsuario FROM #culmc_res) x;
                             END
@@ -157,7 +157,7 @@ BEGIN
                                 codigoDecisionDocente = @decision, motivoDocente = @motivoLimpio, usuarioDecisionDocente = @idUsuarioEjecutorDefecto,
                                 porcentajeDecisionDocente = @porcentaje, fechaDecisionDocenteUtc = @ahora,
                                 codigoPerfilResolutorActual = @perfilResolutor, huellaResolutoresActual = @huella,
-                                fechaEscalamientoUtc = IIF(@esEscalamiento = 1, @ahora, NULL),
+                                fechaEscalamientoUtc = NULL,
                                 codigoDecisionResolucion = NULL, motivoResolucion = NULL, usuarioResolucion = NULL, codigoPerfilResolucion = NULL,
                                 programaResolucion = NULL, porcentajeResolucion = NULL, fechaResolucionUtc = NULL,
                                 fechaActualizacionUtc = @ahora
@@ -167,11 +167,6 @@ BEGIN
                                 codigoPerfilResolutor, porcentajeInasistencia, fechaUtc, idCorrelacion)
                             VALUES (NEWID(), @idRevisionDefecto, @idEstadoActual, @idEstadoDestino, @decision, @motivoLimpio, @idUsuarioEjecutorDefecto, N'DOCENTE',
                                     @perfilResolutor, @porcentaje, @ahora, @idCorrelacionDefecto);
-                            IF @esEscalamiento = 1
-                                INSERT INTO dbo.RevisionCancelacionHistorial (id, revision, estadoAnterior, estadoNuevo, codigoEvento, motivo, usuarioActor, codigoPerfilActor,
-                                    codigoPerfilResolutor, porcentajeInasistencia, fechaUtc, idCorrelacion)
-                                VALUES (NEWID(), @idRevisionDefecto, @idEstadoDestino, @idEstadoDestino, N'ESCALAR', NULL, NULL, NULL, @perfilResolutor, @porcentaje,
-                                        DATEADD(MILLISECOND, 1, @ahora), @idCorrelacionDefecto);
 
                             SELECT @codigoEstadoDestino = codigo FROM dbo.EstadoRevisionCancelacion WHERE id = @idEstadoDestino;
                             INSERT INTO dbo.AuditoriaEvento (id, occurredAt, actorId, actorType, action, resourceType, resourceId, result, correlationId, httpMethod, path, httpStatus, metadata)
@@ -179,13 +174,8 @@ BEGIN
                                     CONVERT(NVARCHAR(36), @idRevisionDefecto), 'SUCCESS', @idCorrelacionDefecto, 'PATCH', N'/api/v1/docente/revisiones-cancelacion/{revisionId}', 200,
                                     (SELECT estadoAnterior = @codigoEstadoActual, estadoNuevo = @codigoEstadoDestino, decision = @decision, motivo = @motivoLimpio,
                                             porcentajeInasistencia = @porcentaje, perfilActor = N'DOCENTE', perfilResolutor = @perfilResolutor FOR JSON PATH, WITHOUT_ARRAY_WRAPPER));
-                            IF @esEscalamiento = 1
-                                INSERT INTO dbo.AuditoriaEvento (id, occurredAt, actorId, actorType, action, resourceType, resourceId, result, correlationId, httpMethod, path, httpStatus, metadata)
-                                VALUES (NEWID(), SYSDATETIMEOFFSET(), CAST(@idUsuarioEjecutorDefecto AS NVARCHAR(120)), 'USER', 'ESCALAR_REVISION_CANCELACION', 'RevisionCancelacion',
-                                        CONVERT(NVARCHAR(36), @idRevisionDefecto), 'SUCCESS', @idCorrelacionDefecto, 'PATCH', N'/api/v1/docente/revisiones-cancelacion/{revisionId}', 200,
-                                        (SELECT motivoEscalamiento = N'SIN_COORDINADOR_DISPONIBLE', decanos = (SELECT COUNT(DISTINCT idUsuario) FROM #culmc_res) FOR JSON PATH, WITHOUT_ARRAY_WRAPPER));
 
-                            SELECT @codigoMensajeOk = IIF(@esEscalamiento = 1, 'RCN_015', @codigoMensajeTransicion), @p1ok = CONVERT(NVARCHAR(36), @idRevisionDefecto), @p2ok = NULL;
+                            SELECT @codigoMensajeOk = @codigoMensajeTransicion, @p1ok = CONVERT(NVARCHAR(36), @idRevisionDefecto), @p2ok = NULL;
                         END
                     END
                 END
@@ -262,6 +252,6 @@ BEGIN
         porcentajeActual          = IIF(@estadoResultado = 1, @porcentaje, NULL),
         tipoPlantillaNotificacion = IIF(@estadoResultado = 1 AND @sinCambios = 0, @plantilla, NULL),
         codigoPerfilResolutor     = IIF(@estadoResultado = 1, @perfilResolutor, NULL),
-        esEscalamiento            = IIF(@estadoResultado = 1, @esEscalamiento, NULL);
+        esEscalamiento            = IIF(@estadoResultado = 1, CAST(0 AS BIT), NULL);
 END;
 GO
