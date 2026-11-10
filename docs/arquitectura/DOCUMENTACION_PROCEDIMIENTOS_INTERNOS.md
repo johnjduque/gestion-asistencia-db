@@ -425,3 +425,16 @@ Todos los procedimientos listados en esta documentación han sido compilados y p
 - **Códigos de Catálogo Consumidos**: `SES_001`, `SES_007` (no iniciada), `SES_008` (cerrada), `SES_009` (indeterminada), `SYS_001`.
 - **Consumidores**: `usp_registrar_asistencias_sesion` (antes de escribir y antes de confirmar) (el consumidor `usp_registrar_asistencia_estudiante_autonomo` se retiró en CULM-001 D.7). No lo usa `usp_resolver_solicitud_revision_asistencia`: la rectificación posterior al cierre es el flujo formal de reclamos (SES-04).
 - **Work item**: `docs/work-items/SES-01-cierre-estricto-asistencia/PLAN.md`.
+
+## Addendum validaciones compartidas de sesión (2026-11-10)
+
+### `dbo.usp_validar_docente_titular_sesion_interno`
+- **Propósito**: Validación compartida por las consultas de destinatarios que hace el docente sobre una sesión suya: correlación presente, ejecutor y sesión obligatorios, RBAC `DOCENTE` y titularidad jerárquica sobre la sesión (tipo `SESION`). No escribe, no abre transacciones y no lanza; el llamador decide qué hacer con el resultado.
+- **Parámetros de Entrada**: `@idSesion UNIQUEIDENTIFIER`, `@idUsuarioEjecutor UNIQUEIDENTIFIER`, `@idCorrelacion UNIQUEIDENTIFIER`.
+- **Parámetros de Salida**: `@mensajeUsuarioResultado`, `@mensajeTecnicoResultado`, `@estadoResultado`.
+- **Códigos de Catálogo Consumidos**: `GEN_002`, los de `usp_validar_id_correlacion_esta_presente_interno`, `usp_validar_permiso_rbac_usuario_interno` (`SEC_001`) y `usp_validar_titularidad_jerarquica_interno`.
+- **Consumidores**: `usp_consultar_destinatarios_sesion_cancelada` y `usp_consultar_destinatarios_sesion_manual` (lanzan `THROW 51000` con el mensaje técnico si `@estadoResultado = 0`).
+- **Permisos**: sin `EXECUTE` para `rol_asistencias_runtime`; se usa por encadenamiento de propiedad.
+
+### `dbo.usp_validar_coordinador_sesion_interno` (consumidor nuevo)
+- Desde la migración 34 también lo usa `usp_cancelar_sesion_coordinador`, que antes repetía sus cuatro pasos (correlación y ejecutor, RBAC `COORDINADOR`, sesión existente y ámbito del coordinador sobre el grupo).
