@@ -673,6 +673,16 @@ try {
 catch {
     $resultFailures += "CULM001_D8_RUNNER $($_.Exception.Message)"
 }
+# HU018 / HU019: migracion 30 (up/down/up) en test/test_hu018_hu019.ps1.
+try {
+    $hu018Output = @(& (Join-Path $PSScriptRoot 'test/test_hu018_hu019.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $hu018Output) { Write-Host $line }
+    if ($hu018Output -contains 'TEST_PASS:HU018_HU019_MIG_UP_DOWN_UP') { $clientPassed += 'HU018_HU019_MIG_UP_DOWN_UP' }
+    else { $resultFailures += 'HU018_HU019_MIG_UP_DOWN_UP not reported by test_hu018_hu019.ps1' }
+}
+catch {
+    $resultFailures += "HU018_HU019_RUNNER $($_.Exception.Message)"
+}
 # CULM-001 B.2 (B2-CON-01, NB-4): 5 grupos x 40 estudiantes por token a la vez; solo bajo demanda (-Concurrencia).
 if ($Concurrencia) {
     try {
@@ -933,7 +943,10 @@ $criticalIds = @(
     'CULM001_D7_TRANCOUNT_ZERO', 'CULM001_D7_03_UP_DOWN_UP',
     # CULM-001 D.8 (test/test_culm001_d8_kpis_horas.sql, test/test_culm001_d8.ps1)
     'CULM001_D8_01_COMPARATIVAS', 'CULM001_D8_02_TENDENCIA', 'CULM001_D8_03_CONSOLIDADO', 'CULM001_D8_04_REGRESION_UNA_TOMA', 'CULM001_D8_05_SIN_LITERAL_A',
-    'CULM001_D8_06_CANCELADA_NO_SUMA', 'CULM001_D8_07_GRANO_GRUPO_PROGRAMA', 'CULM001_D8_09_REDONDEO_SUMA_100', 'CULM001_D8_TRANCOUNT_ZERO', 'CULM001_D8_08_UP_DOWN_UP'
+    'CULM001_D8_06_CANCELADA_NO_SUMA', 'CULM001_D8_07_GRANO_GRUPO_PROGRAMA', 'CULM001_D8_09_REDONDEO_SUMA_100', 'CULM001_D8_TRANCOUNT_ZERO', 'CULM001_D8_08_UP_DOWN_UP',
+    # HU018 / HU019 (test/test_hu018_hu019_plan_horas_estudiante.sql, test/test_hu018_hu019.ps1, test/test_public_objects.sql)
+    'HU018_PLAN_ESTRUCTURA_ORDEN', 'HU018_PLAN_EXCLUSIONES', 'HU018_PLAN_CURSANDO', 'HU018_PLAN_PRIVACIDAD', 'HU018_PLAN_COLUMNAS',
+    'HU019_HORAS_PROGRAMADAS', 'HU019_HORAS_VALIDACIONES', 'HU018_HU019_SEG_01', 'HU018_HU019_MIG_UP_DOWN_UP'
 )
 if ($Concurrencia) { $criticalIds += 'CULM001_B2_CON_01_5X40' }
 $sqlPasses = @([regex]::Matches($outputStr, '(?m)^TEST_PASS:([A-Z0-9_]+)\s*$') | ForEach-Object { $_.Groups[1].Value })

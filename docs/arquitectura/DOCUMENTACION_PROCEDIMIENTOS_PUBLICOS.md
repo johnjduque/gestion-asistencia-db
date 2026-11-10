@@ -436,3 +436,14 @@ Permisos: `schema/security/rol_asistencias_runtime_culm001_a.sql`. Seeds: `33_cu
 `33_culm001_a_mensajes.sql`. Pruebas: `test_culm001_a_retiro_solicitudes.sql`, `test_culm001_a_correcciones.sql`,
 `test_culm001_a_fixture_segundo_ambito.sql` y la compuerta manual `scripts/tests/test_migracion_13_culm001_a.ps1`.
 Fixture fuera del despliegue: `test/fixtures/culm1_segundo_ambito.sql` (+ `_down`).
+
+## Addendum HU018 / HU019 — plan de estudios y horas programadas del estudiante (2026-11-10)
+
+Decisión de John del 2026-11-10. El estudiante solo ve lo propio: los dos SP resuelven al estudiante desde `@idUsuarioEjecutor` y no reciben identificadores de otro estudiante.
+
+| Objeto | Qué entrega | Ámbito | Códigos |
+|---|---|---|---|
+| `dbo.usp_consultar_plan_estudio_estudiante` | Lectura nueva (18 columnas): semestres y asignaturas de los planes ACTIVOS de los programas del estudiante. Una fila por semestre y asignatura (vínculo activo, asignatura activa); un semestre sin asignaturas sale en una fila sin asignatura. `cursando`, `idGrupoCursando` y `nombreGrupoCursando` salen de la matrícula `MATRICULA/ESTADO_INSCRITA`. Orden: programa, INP, semestre, orden del carácter y nombre | estudiante ejecutor (`Estudiante.usuario`, `EstudiantePrograma`) | `VAL_001` (THROW) |
+| `dbo.usp_consultar_horas_programadas_estudiante` | Lectura nueva (4 columnas): `idEstudianteGrupo`, `idGrupo`, `sesionesProgramadas` y `horasProgramadas` de cada matrícula inscrita. Cuenta las sesiones no canceladas del grupo, dictadas o por dictar (`uv_cumplimiento_sesion_grupo`); un grupo sin sesiones devuelve 0 y 0 | estudiante ejecutor | `VAL_001` (THROW) |
+
+Sin objetos modificados. Permiso aditivo: `schema/security/rol_asistencias_runtime_hu018_hu019.sql`. Migración: `30_hu018_hu019_plan_horas_estudiante_up|down.sql`. Pruebas: `test/test_hu018_hu019_plan_horas_estudiante.sql` y `test/test_hu018_hu019.ps1`. Work item: `docs/work-items/HU018-HU019-plan-horas-estudiante/PLAN.md`.

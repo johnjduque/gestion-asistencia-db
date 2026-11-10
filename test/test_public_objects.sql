@@ -141,6 +141,22 @@ END
 PRINT 'TEST_PASS:CULM001_SMN_SEG_01';
 GO
 
+-- HU018 / HU019 (HU018_HU019_SEG_01): los dos SP publicos del estudiante tienen EXECUTE para rol_asistencias_runtime.
+DECLARE @h18Faltantes NVARCHAR(MAX) = (
+    SELECT STRING_AGG(o.nombre, N',')
+    FROM (VALUES (N'usp_consultar_plan_estudio_estudiante'), (N'usp_consultar_horas_programadas_estudiante')) o(nombre)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM sys.database_permissions dp
+        WHERE dp.major_id = OBJECT_ID(N'dbo.' + o.nombre) AND dp.permission_name = N'EXECUTE' AND dp.state IN ('G', 'W')
+          AND dp.grantee_principal_id = DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime')));
+IF @h18Faltantes IS NOT NULL
+BEGIN
+    DECLARE @h18Fallo NVARCHAR(2048) = CONCAT('TEST FAILED: HU018_HU019_SEG_01 objetos sin permiso para el rol runtime: ', @h18Faltantes);
+    THROW 51961, @h18Fallo, 1;
+END
+PRINT 'TEST_PASS:HU018_HU019_SEG_01';
+GO
+
 -- CULM-001 B.1 (CONTRACT §2.13, B1-SEG-01): los SP publicos de B.1 tienen EXECUTE para rol_asistencias_runtime;
 -- los nucleos usp_internal_* no; las vistas nuevas de B.1 tienen SELECT.
 DECLARE @b1Faltantes NVARCHAR(MAX) = (

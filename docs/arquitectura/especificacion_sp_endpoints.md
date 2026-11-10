@@ -534,6 +534,8 @@
 | `GET /api/v1/grupos/{grupoId}/asistencias` | `usp_consultar_asistencias_grupo_ambito_paginado` | CULM-001 A.2-2 |
 | `GET /api/v1/grupos/{grupoId}/estudiantes/busqueda` | `usp_buscar_estudiante_por_documento_grupo` | CULM-001 A.2-15 (DEC-027) |
 | `GET /api/v1/estudiante/materias` / `GET /api/v1/estudiante/horario` | `usp_consultar_materias_estudiante` / `usp_consultar_horario_estudiante` | CULM-001 A.2-11 |
+| `GET /api/v1/estudiante/materias` (horas programadas de cada materia) | `usp_consultar_horas_programadas_estudiante` | HU019 |
+| `GET /api/v1/estudiante/plan-estudio` | `usp_consultar_plan_estudio_estudiante` | HU018 |
 | `DELETE /api/v1/estudiante/reclamos/{id}` | `usp_retirar_solicitud_revision_asistencia` | CULM-001 A.2-7 |
 | `PATCH /api/v1/admin/decanos/{id}/toggle` | `usp_cambiar_estado_decano` | CULM-001 A.2-8 |
 | `GET /api/v1/coordinador/docentes/{idDocente}/ficha` | `usp_consultar_docentes_programa` (cabecera, `@idDocente`) + `usp_consultar_historial_grupos_docente_programa` | HU094 |
