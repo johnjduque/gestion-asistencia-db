@@ -13,6 +13,8 @@ GO
 --   * ESTUDIANTE:  matriculas activas (MATRICULA/ESTADO_INSCRITA) del grupo con usuario activo;
 --   * COORDINADOR: coordinador(es) activo(s) de TODOS los programas vigentes del grupo (ufn_programas_grupo). Un coordinador de dos
 --                  programas del mismo grupo es UNA fila; un grupo mixto devuelve ambos coordinadores.
+-- CULM-001 / DEC-065 (2): ademas devuelve la fila del DOCENTE titular (tipoDestinatario = 'DOCENTE', al final del orden) para que el backend
+-- le avise la decision del coordinador; el aviso a la coordinacion al crear lo sigue dando la fila COORDINADOR.
 -- Ambito: RBAC DOCENTE + titularidad 'SESION' dentro del SP (THROW 51000 con el mensaje tecnico si falla). El correo es de uso
 -- interno del NotificacionPort; el backend no lo expone por HTTP ni lo escribe en logs. Mismo formato que
 -- usp_consultar_destinatarios_sesion_cancelada.
@@ -130,6 +132,22 @@ BEGIN
             INNER JOIN dbo.uv_coordinador_identidad ci2  ON ci2.id = p.coordinador
                                                         AND ci2.estaActivoRolCoordinador = 1 AND ci2.estaActivoUsuario = 1
         ) ci ON 1 = 1
+        WHERE sm.idSesion = @idSesionDefecto
+        UNION ALL
+        SELECT  tipoDestinatario = CAST(N'DOCENTE' AS NVARCHAR(20)),
+                ordenTipo        = 3,
+                idUsuario        = di.idUsuario,
+                nombreCompleto   = CAST(di.nombreCompleto AS NVARCHAR(400)),
+                correo           = ud.correo,
+                nombreAsignatura = g.nombreAsignatura,
+                nombreGrupo      = CAST(CONCAT(N'G', FORMAT(g.codigo, '00'), N' de ', g.nombreAsignatura) AS NVARCHAR(300)),
+                nombreDocente    = CAST(di.nombreCompleto AS NVARCHAR(400)),
+                fechaHoraInicio  = sm.fechaHoraInicio,
+                fechaHoraFin     = sm.fechaHoraFin
+        FROM dbo.uv_sesion_manual sm
+        INNER JOIN dbo.uv_grupo g              ON g.id = sm.idGrupo
+        INNER JOIN dbo.uv_docente_identidad di ON di.id = g.idDocente AND di.estaActivoUsuario = 1
+        INNER JOIN dbo.uv_usuario ud           ON ud.id = di.idUsuario
         WHERE sm.idSesion = @idSesionDefecto
     ) x
     ORDER BY x.ordenTipo, x.nombreCompleto, x.idUsuario;

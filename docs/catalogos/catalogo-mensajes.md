@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **279**.
+Total de códigos: **285**.
 
 ## ADS
 
@@ -447,6 +447,12 @@ Total de códigos: **279**.
 | `SES_019` | VALIDATION_ERROR | BAJO | El motivo de cancelación no es válido. | Validación: codigoMotivo [{}] ausente o fuera de MotivoCancelacionSesion activo; sin escrituras. | `60_sesiones_manuales_mensajes.sql` |
 | `SES_020` | SUCCESS | BAJO | La sesión fue cancelada por la coordinación del programa. | Sesión [{}] cancelada por el coordinador; tipo [{}]. | `60_sesiones_manuales_mensajes.sql` |
 | `SES_021` | VALIDATION_ERROR | BAJO | La observación no puede superar {} caracteres. | Validación: la observación recortada supera SESION/OBSERVACION_CANCELACION_COORDINADOR_MAXIMA ({}); sin escrituras. | `60_sesiones_manuales_mensajes.sql` |
+| `SES_022` | SUCCESS | BAJO | La sesión extraordinaria quedó registrada como solicitud pendiente de aprobación del coordinador del programa. | Sesión [{}] creada por el docente con solicitud PENDIENTE de aprobación del coordinador. | `60_sesiones_manuales_mensajes.sql` |
+| `SES_023` | BUSINESS_ERROR | MEDIO | La sesión está pendiente de aprobación del coordinador. | Regla: la sesión [{}] tiene una solicitud en espera (EstadoSolicitudSesion.esFinal = 0); no admite tomas ni asistencia; sin escrituras. | `60_sesiones_manuales_mensajes.sql` |
+| `SES_024` | BUSINESS_ERROR | MEDIO | La solicitud ya fue resuelta. | Regla: la solicitud de la sesión [{}] ya está en un estado final (aprobada o rechazada); sin escrituras. | `60_sesiones_manuales_mensajes.sql` |
+| `SES_025` | BUSINESS_ERROR | MEDIO | La sesión no tiene una solicitud de aprobación. | Regla: la sesión [{}] no tiene fila en SesionSolicitud (generada o anterior a DEC-065); sin escrituras. | `60_sesiones_manuales_mensajes.sql` |
+| `SES_026` | SUCCESS | BAJO | La solicitud de sesión extraordinaria fue aprobada. | Solicitud de la sesión [{}] aprobada por el coordinador. | `60_sesiones_manuales_mensajes.sql` |
+| `SES_027` | SUCCESS | BAJO | La solicitud de sesión extraordinaria fue rechazada y la sesión quedó cancelada. | Solicitud de la sesión [{}] rechazada por el coordinador; la sesión quedó cancelada (tipo manual). | `60_sesiones_manuales_mensajes.sql` |
 
 ## SUC
 
