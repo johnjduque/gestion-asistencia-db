@@ -141,6 +141,29 @@ END
 PRINT 'TEST_PASS:CULM001_SMN_SEG_01';
 GO
 
+-- CULM-001 / DEC-065 (MRM-SEG-01): los SP publicos de la solicitud de sesion extraordinaria tienen EXECUTE y las vistas nuevas SELECT para
+-- rol_asistencias_runtime; el nucleo usp_validar_coordinador_sesion_interno no se concede (encadenamiento de propiedad).
+DECLARE @mrmFaltantes NVARCHAR(MAX) = (
+    SELECT STRING_AGG(o.nombre, N',')
+    FROM (VALUES (N'usp_aprobar_solicitud_sesion', N'EXECUTE'), (N'usp_rechazar_solicitud_sesion', N'EXECUTE'),
+                 (N'usp_consultar_solicitudes_sesion_coordinador_paginado', N'EXECUTE'), (N'usp_consultar_destinatarios_solicitud_sesion', N'EXECUTE'),
+                 (N'uv_solicitud_sesion', N'SELECT'), (N'uv_estado_solicitud_sesion', N'SELECT')) o(nombre, permiso)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM sys.database_permissions dp
+        WHERE dp.major_id = OBJECT_ID(N'dbo.' + o.nombre) AND dp.permission_name = o.permiso AND dp.state IN ('G', 'W')
+          AND dp.grantee_principal_id = DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime')));
+IF @mrmFaltantes IS NOT NULL
+BEGIN
+    DECLARE @mrmFallo NVARCHAR(2048) = CONCAT('TEST FAILED: CULM001_MRM_SEG_01 objetos sin permiso para el rol runtime: ', @mrmFaltantes);
+    THROW 51961, @mrmFallo, 1;
+END
+IF EXISTS (SELECT 1 FROM sys.database_permissions dp
+           WHERE dp.major_id = OBJECT_ID(N'dbo.usp_validar_coordinador_sesion_interno') AND dp.permission_name = N'EXECUTE' AND dp.state IN ('G', 'W')
+             AND dp.grantee_principal_id = DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime'))
+    THROW 51962, 'TEST FAILED: CULM001_MRM_SEG_01 el nucleo usp_validar_coordinador_sesion_interno no debe tener EXECUTE para el rol runtime.', 1;
+PRINT 'TEST_PASS:CULM001_MRM_SEG_01';
+GO
+
 -- CULM-001 B.1 (CONTRACT §2.13, B1-SEG-01): los SP publicos de B.1 tienen EXECUTE para rol_asistencias_runtime;
 -- los nucleos usp_internal_* no; las vistas nuevas de B.1 tienen SELECT.
 DECLARE @b1Faltantes NVARCHAR(MAX) = (

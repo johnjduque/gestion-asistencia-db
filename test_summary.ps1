@@ -640,6 +640,19 @@ try {
 catch {
     $resultFailures += "CULM001_D1_RUNNER $($_.Exception.Message)"
 }
+# CULM-001 / DEC-065: migracion 30 (up/down/up componible) en test/test_mrm_solicitud_sesion.ps1.
+$mrmIds = @('MRM_MIG_UP_DOWN_UP')
+try {
+    $mrmOutput = @(& (Join-Path $PSScriptRoot 'test/test_mrm_solicitud_sesion.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $mrmOutput) { Write-Host $line }
+    foreach ($id in $mrmIds) {
+        if ($mrmOutput -contains "TEST_PASS:$id") { $clientPassed += $id }
+        else { $resultFailures += "$id not reported by test_mrm_solicitud_sesion.ps1" }
+    }
+}
+catch {
+    $resultFailures += "MRM_RUNNER $($_.Exception.Message)"
+}
 # CULM-001 D.2: migracion 21 (up/down/up), down sin confirmacion y orden de rollback D-RB-01 en test/test_culm001_d2.ps1.
 $culm001D2Ids = @('CULM001_D2_13_UP_DOWN_UP', 'CULM001_D2_13_DOWN_SIN_CONFIRMACION', 'CULM001_D_RB_01_ORDEN_DE_DOWN')
 try {
@@ -933,7 +946,13 @@ $criticalIds = @(
     'CULM001_D7_TRANCOUNT_ZERO', 'CULM001_D7_03_UP_DOWN_UP',
     # CULM-001 D.8 (test/test_culm001_d8_kpis_horas.sql, test/test_culm001_d8.ps1)
     'CULM001_D8_01_COMPARATIVAS', 'CULM001_D8_02_TENDENCIA', 'CULM001_D8_03_CONSOLIDADO', 'CULM001_D8_04_REGRESION_UNA_TOMA', 'CULM001_D8_05_SIN_LITERAL_A',
-    'CULM001_D8_06_CANCELADA_NO_SUMA', 'CULM001_D8_07_GRANO_GRUPO_PROGRAMA', 'CULM001_D8_09_REDONDEO_SUMA_100', 'CULM001_D8_TRANCOUNT_ZERO', 'CULM001_D8_08_UP_DOWN_UP'
+    'CULM001_D8_06_CANCELADA_NO_SUMA', 'CULM001_D8_07_GRANO_GRUPO_PROGRAMA', 'CULM001_D8_09_REDONDEO_SUMA_100', 'CULM001_D8_TRANCOUNT_ZERO', 'CULM001_D8_08_UP_DOWN_UP',
+    # CULM-001 / DEC-065 (test/test_mrm_solicitud_sesion.sql, test/test_mrm_solicitud_sesion.ps1, test/test_public_objects.sql)
+    'CULM001_MRM_00_OBJETOS_Y_SEMILLAS', 'CULM001_MRM_01_DOCENTE_CREA_SOLICITUD_PENDIENTE', 'CULM001_MRM_02_VISTAS_ESTADO_SOLICITUD',
+    'CULM001_MRM_03_ESTUDIANTE_NO_VE_PENDIENTE', 'CULM001_MRM_04_PENDIENTE_NO_ADMITE_TOMAS', 'CULM001_MRM_05_APROBAR', 'CULM001_MRM_06_RECHAZAR',
+    'CULM001_MRM_07_CONSULTA_PAGINADA_COORDINADOR', 'CULM001_MRM_08_DESTINATARIOS', 'CULM001_MRM_09_GRUPOS_SOLO_COORDINADOR', 'CULM001_MRM_SOLICITUD_SESION',
+    'CULM001_MRM_08_DESTINATARIOS_SOLO_COORDINADOR', 'CULM001_MRM_08_DESTINATARIOS_AMBITO_SEC002', 'CULM001_MRM_07_SOLO_COORDINADOR',
+    'CULM001_MRM_TRANCOUNT_ZERO', 'CULM001_MRM_SEG_01', 'MRM_MIG_UP_DOWN_UP'
 )
 if ($Concurrencia) { $criticalIds += 'CULM001_B2_CON_01_5X40' }
 $sqlPasses = @([regex]::Matches($outputStr, '(?m)^TEST_PASS:([A-Z0-9_]+)\s*$') | ForEach-Object { $_.Groups[1].Value })

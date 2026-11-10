@@ -337,6 +337,8 @@ DELETE da FROM dbo.DetalleAsistencia da INNER JOIN dbo.Asistencia a ON a.id = da
 DELETE tk FROM dbo.TokenAsistenciaToma tk INNER JOIN dbo.TomaAsistencia t ON t.id = tk.toma INNER JOIN dbo.Sesion s ON s.id = t.sesion WHERE s.grupo IN (SELECT id FROM @g);
 DELETE t FROM dbo.TomaAsistencia t INNER JOIN dbo.Sesion s ON s.id = t.sesion WHERE s.grupo IN (SELECT id FROM @g);
 DELETE sc FROM dbo.SesionCancelacion sc INNER JOIN dbo.Sesion s ON s.id = sc.sesion WHERE s.grupo IN (SELECT id FROM @g);
+IF OBJECT_ID(N'dbo.SesionSolicitud', N'U') IS NOT NULL   -- DEC-065 (2)
+    DELETE ss FROM dbo.SesionSolicitud ss INNER JOIN dbo.Sesion s ON s.id = ss.sesion WHERE s.grupo IN (SELECT id FROM @g);
 DELETE a FROM dbo.Asistencia a INNER JOIN dbo.Sesion s ON s.id = a.sesion WHERE s.grupo IN (SELECT id FROM @g);
 DELETE FROM dbo.Sesion WHERE grupo IN (SELECT id FROM @g);
 DELETE FROM dbo.EstudianteGrupo WHERE grupo IN (SELECT id FROM @g);
