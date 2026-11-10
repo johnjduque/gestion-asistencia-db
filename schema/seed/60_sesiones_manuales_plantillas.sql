@@ -51,3 +51,63 @@ WHEN NOT MATCHED THEN
     INSERT (id, tipo, idioma, version, asunto, cuerpo, activa, creadoPor, creadoEn)
     VALUES (NEWID(), Source.tipo, Source.idioma, Source.version, Source.asunto, Source.cuerpo, Source.activa, NULL, SYSUTCDATETIME());
 GO
+
+-- CULM-001 / DEC-065 (2): plantillas de la solicitud de sesion extraordinaria con aval del coordinador (mismo formato y marcadores que las
+-- de DEC-064). SESION_SOLICITUD_CREADA_COORDINADOR avisa al coordinador la solicitud; SESION_SOLICITUD_APROBADA_DOCENTE y
+-- SESION_SOLICITUD_RECHAZADA_DOCENTE avisan al docente la decision (la rechazada agrega motivo y observacion). Idempotente.
+MERGE INTO [dbo].[PlantillaNotificacionMarcador] AS Target
+USING (VALUES
+    ('SESION_SOLICITUD_CREADA_COORDINADOR', 'coordinador', N'Nombre completo del coordinador', N'Ana Gómez', 1),
+    ('SESION_SOLICITUD_CREADA_COORDINADOR', 'asignatura',  N'Nombre de la asignatura', N'Ingeniería de Software', 1),
+    ('SESION_SOLICITUD_CREADA_COORDINADOR', 'grupo',       N'Nombre del grupo y asignatura', N'G01 de Ingeniería de Software', 1),
+    ('SESION_SOLICITUD_CREADA_COORDINADOR', 'fecha',       N'Fecha de la sesión (hora institucional)', N'10/11/2026', 1),
+    ('SESION_SOLICITUD_CREADA_COORDINADOR', 'horaInicio',  N'Hora de inicio de la sesión (hora institucional)', N'08:00', 1),
+    ('SESION_SOLICITUD_CREADA_COORDINADOR', 'horaFin',     N'Hora de fin de la sesión (hora institucional)', N'10:00', 1),
+    ('SESION_SOLICITUD_CREADA_COORDINADOR', 'docente',     N'Nombre completo del docente titular', N'María Rostagno', 1),
+    ('SESION_SOLICITUD_APROBADA_DOCENTE', 'docente',      N'Nombre completo del docente titular', N'María Rostagno', 1),
+    ('SESION_SOLICITUD_APROBADA_DOCENTE', 'asignatura',   N'Nombre de la asignatura', N'Ingeniería de Software', 1),
+    ('SESION_SOLICITUD_APROBADA_DOCENTE', 'grupo',        N'Nombre del grupo y asignatura', N'G01 de Ingeniería de Software', 1),
+    ('SESION_SOLICITUD_APROBADA_DOCENTE', 'fecha',        N'Fecha de la sesión (hora institucional)', N'10/11/2026', 1),
+    ('SESION_SOLICITUD_APROBADA_DOCENTE', 'horaInicio',   N'Hora de inicio de la sesión (hora institucional)', N'08:00', 1),
+    ('SESION_SOLICITUD_APROBADA_DOCENTE', 'horaFin',      N'Hora de fin de la sesión (hora institucional)', N'10:00', 1),
+    ('SESION_SOLICITUD_APROBADA_DOCENTE', 'coordinador',  N'Nombre completo del coordinador que decidió', N'Ana Gómez', 1),
+    ('SESION_SOLICITUD_RECHAZADA_DOCENTE', 'docente',     N'Nombre completo del docente titular', N'María Rostagno', 1),
+    ('SESION_SOLICITUD_RECHAZADA_DOCENTE', 'asignatura',  N'Nombre de la asignatura', N'Ingeniería de Software', 1),
+    ('SESION_SOLICITUD_RECHAZADA_DOCENTE', 'grupo',       N'Nombre del grupo y asignatura', N'G01 de Ingeniería de Software', 1),
+    ('SESION_SOLICITUD_RECHAZADA_DOCENTE', 'fecha',       N'Fecha de la sesión (hora institucional)', N'10/11/2026', 1),
+    ('SESION_SOLICITUD_RECHAZADA_DOCENTE', 'horaInicio',  N'Hora de inicio de la sesión (hora institucional)', N'08:00', 1),
+    ('SESION_SOLICITUD_RECHAZADA_DOCENTE', 'horaFin',     N'Hora de fin de la sesión (hora institucional)', N'10:00', 1),
+    ('SESION_SOLICITUD_RECHAZADA_DOCENTE', 'coordinador', N'Nombre completo del coordinador que decidió', N'Ana Gómez', 1),
+    ('SESION_SOLICITUD_RECHAZADA_DOCENTE', 'motivo',      N'Motivo del rechazo (catálogo de motivos)', N'Sesión fuera del calendario académico', 1),
+    ('SESION_SOLICITUD_RECHAZADA_DOCENTE', 'observacion', N'Observación del coordinador (puede ir vacía)', N'Reprogramar la próxima semana', 1)
+) AS Source (tipo, marcador, descripcion, ejemplo, obligatorio)
+ON (Target.tipo = Source.tipo AND Target.marcador = Source.marcador)
+WHEN MATCHED THEN
+    UPDATE SET Target.descripcion = Source.descripcion, Target.ejemplo = Source.ejemplo, Target.obligatorio = Source.obligatorio
+WHEN NOT MATCHED THEN
+    INSERT (id, tipo, marcador, descripcion, ejemplo, obligatorio)
+    VALUES (NEWID(), Source.tipo, Source.marcador, Source.descripcion, Source.ejemplo, Source.obligatorio);
+GO
+
+MERGE INTO [dbo].[PlantillaNotificacion] AS Target
+USING (VALUES
+    ('SESION_SOLICITUD_CREADA_COORDINADOR', 'es', 1,
+     N'Solicitud de sesión extraordinaria: {asignatura} ({fecha})',
+     N'Hola {coordinador}. El docente {docente} solicitó una sesión extraordinaria de {asignatura} del grupo {grupo} para el {fecha} de {horaInicio} a {horaFin}. La sesión queda pendiente de su aprobación; puede aprobarla o rechazarla desde su vista de solicitudes.',
+     1),
+    ('SESION_SOLICITUD_APROBADA_DOCENTE', 'es', 1,
+     N'Solicitud aprobada: {asignatura} ({fecha})',
+     N'Hola {docente}. {coordinador} aprobó su solicitud de sesión extraordinaria de {asignatura} del grupo {grupo} para el {fecha} de {horaInicio} a {horaFin}. Ya puede tomar asistencia en ella y los estudiantes fueron notificados.',
+     1),
+    ('SESION_SOLICITUD_RECHAZADA_DOCENTE', 'es', 1,
+     N'Solicitud rechazada: {asignatura} ({fecha})',
+     N'Hola {docente}. {coordinador} rechazó su solicitud de sesión extraordinaria de {asignatura} del grupo {grupo} para el {fecha} de {horaInicio} a {horaFin}. Motivo: {motivo}. {observacion}',
+     1)
+) AS Source (tipo, idioma, version, asunto, cuerpo, activa)
+ON (Target.tipo = Source.tipo AND Target.idioma = Source.idioma AND Target.version = Source.version)
+WHEN MATCHED THEN
+    UPDATE SET Target.asunto = Source.asunto, Target.cuerpo = Source.cuerpo
+WHEN NOT MATCHED THEN
+    INSERT (id, tipo, idioma, version, asunto, cuerpo, activa, creadoPor, creadoEn)
+    VALUES (NEWID(), Source.tipo, Source.idioma, Source.version, Source.asunto, Source.cuerpo, Source.activa, NULL, SYSUTCDATETIME());
+GO

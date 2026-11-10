@@ -27,6 +27,8 @@ GO
 --   (bloqueo compartido) en lugar de UPDLOCK, HOLDLOCK. Solo lo usa usp_registrar_asistencia_por_token: los registros QR de un
 --   grupo no se serializan entre si y la cancelacion (U/X) sigue serializada contra ellos; el registro no actualiza Sesion,
 --   asi que no hay conversion de bloqueo. Por defecto 0: todos los demas llamadores conservan el bloqueo exclusivo.
+-- CULM-001 / DEC-065 (2): PASO 2.6, una sesion con solicitud en espera (EstadoSolicitudSesion.esFinal = 0) se rechaza con SES_023;
+--   abrir toma/QR y registrar asistencia pasan todos por este validador.
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_sesion_ventana_registro_interno]
 (
     @idSesion                UNIQUEIDENTIFIER,
@@ -112,6 +114,22 @@ BEGIN
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'SES_010',
+                @p_param1 = @idSesionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
+        -- PASO 2.6 (DEC-065 (2)): sesion extraordinaria pendiente de aprobacion del coordinador => SES_023 (no admite tomas ni asistencia)
+        IF @estadoResultado = 1
+           AND EXISTS (SELECT 1 FROM dbo.SesionSolicitud ss
+                       INNER JOIN dbo.EstadoSolicitudSesion es ON es.id = ss.idEstado
+                       WHERE ss.sesion = @idSesionDefecto AND es.esFinal = 0)
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'SES_023',
                 @p_param1 = @idSesionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;

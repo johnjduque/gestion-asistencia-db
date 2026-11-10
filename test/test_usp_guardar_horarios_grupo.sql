@@ -173,19 +173,25 @@ BEGIN TRY
         THROW 53283, 'GROUP_SCHEDULE_SCOPE FAILED: docente que no es titular debio retornar SEC_002.', 1;
     PRINT 'TEST_PASS:GROUP_SCHEDULE_SCOPE';
 
-    -- 9. F3: el docente crea grupos a su propio nombre (SEC_002 si asigna a otro docente) y define su horario inicial
+    -- 9. DEC-065 (4): el docente ya NO crea grupos (SEC_001, ni a su nombre ni a otro docente ni sin vinculo); el grupo del horario inicial lo crea el coordinador
     DECLARE @gD UNIQUEIDENTIFIER = NEWID(), @gE UNIQUEIDENTIFIER = NEWID(), @codD INT = @base + 3, @codE INT = @base + 4;
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_crear_grupo @idGrupo = @gE, @idAsignatura = @idAsig, @idPeriodoAcademico = @idPeriodo, @codigo = @codE,
         @nombre = N'Grupo QA Horario E', @idDocente = @d2, @idCorrelacion = @corr, @idUsuarioEjecutor = @uD1;
-    SELECT @userMsg = contenido FROM dbo.uv_mensaje_usuario WHERE codigo = 'SEC_002';
+    SELECT @userMsg = contenido FROM dbo.uv_mensaje_usuario WHERE codigo = 'SEC_001';
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @userMsg) OR EXISTS (SELECT 1 FROM dbo.Grupo WHERE id = @gE)
-        THROW 53284, 'TEACHER_CREATES_GROUP FAILED: docente creando un grupo para otro docente debio retornar SEC_002 sin crearlo.', 1;
+        THROW 53284, 'TEACHER_CREATES_GROUP FAILED: docente creando un grupo para otro docente debio retornar SEC_001 sin crearlo (DEC-065 (4)).', 1;
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_crear_grupo @idGrupo = @gD, @idAsignatura = @idAsig, @idPeriodoAcademico = @idPeriodo, @codigo = @codD,
         @nombre = N'Grupo QA Horario D', @idDocente = @d1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uD1;
+    SELECT @userMsg = contenido FROM dbo.uv_mensaje_usuario WHERE codigo = 'SEC_001';
+    IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @userMsg) OR EXISTS (SELECT 1 FROM dbo.Grupo WHERE id = @gD)
+        THROW 53285, 'TEACHER_CREATES_GROUP FAILED: docente creando un grupo a su nombre debio retornar SEC_001 sin crearlo (DEC-065 (4)).', 1;
+    TRUNCATE TABLE #r;
+    INSERT INTO #r EXEC dbo.usp_crear_grupo @idGrupo = @gD, @idAsignatura = @idAsig, @idPeriodoAcademico = @idPeriodo, @codigo = @codD,
+        @nombre = N'Grupo QA Horario D', @idDocente = @d1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uCoord;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 1) OR NOT EXISTS (SELECT 1 FROM dbo.Grupo WHERE id = @gD AND docente = @d1)
-        THROW 53285, 'TEACHER_CREATES_GROUP FAILED: docente debio crear un grupo a su nombre.', 1;
+        THROW 53285, 'TEACHER_CREATES_GROUP FAILED: el coordinador debio crear el grupo del docente.', 1;
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_guardar_horarios_grupo @idGrupo = @gD,
         @horariosJSON = N'[{"codigoDia":"VI","horaInicio":"14:00","horaFin":"16:00"}]', @idCorrelacion = @corr, @idUsuarioEjecutor = @uD1;
@@ -206,9 +212,9 @@ BEGIN TRY
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_crear_grupo @idGrupo = @gF, @idAsignatura = @idAsig, @idPeriodoAcademico = @idPeriodo, @codigo = @codF,
         @nombre = N'Grupo QA Horario F', @idDocente = @d3, @idCorrelacion = @corr, @idUsuarioEjecutor = @uD3;
-    SELECT @userMsg = contenido FROM dbo.uv_mensaje_usuario WHERE codigo = 'SEC_002';
+    SELECT @userMsg = contenido FROM dbo.uv_mensaje_usuario WHERE codigo = 'SEC_001';
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @userMsg) OR EXISTS (SELECT 1 FROM dbo.Grupo WHERE id = @gF)
-        THROW 53288, 'TEACHER_CREATES_GROUP FAILED: docente sin vinculo con el programa debio retornar SEC_002 sin crear el grupo.', 1;
+        THROW 53288, 'TEACHER_CREATES_GROUP FAILED: docente sin vinculo con el programa debio retornar SEC_001 sin crear el grupo (DEC-065 (4)).', 1;
     PRINT 'TEST_PASS:TEACHER_CREATES_GROUP';
 
     DROP TABLE #r;

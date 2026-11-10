@@ -1,7 +1,7 @@
 -- ============================================================================
 -- MIGRACION UP 30: HU018 / HU019 - plan de estudios por semestres y horas programadas de las materias del estudiante
 -- Crea usp_consultar_plan_estudio_estudiante (HU018) y usp_consultar_horas_programadas_estudiante (HU019) y concede EXECUTE al
--- rol runtime. No modifica objetos existentes ni datos. Idempotente. Down: 30_hu018_hu019_plan_horas_estudiante_down.sql.
+-- rol runtime. No modifica objetos existentes ni datos. Idempotente. Down: 33_hu018_hu019_plan_horas_estudiante_down.sql.
 -- ============================================================================
 PRINT 'MIGRACION 30 UP: HU018 / HU019 - plan de estudios y horas programadas del estudiante';
 GO

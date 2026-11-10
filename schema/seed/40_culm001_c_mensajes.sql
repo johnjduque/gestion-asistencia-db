@@ -29,9 +29,10 @@ USING (VALUES
     ('RCN_010', 'SUCCESS',          'BAJO',  N'Cancelación rechazada: el estudiante sigue activo en el grupo.'),
     ('RCN_011', 'SUCCESS',          'BAJO',  N'La decisión ya estaba registrada.'),
     ('RCN_012', 'BUSINESS_ERROR',   'ALTO',  N'Hay {} casos de pérdida por inasistencia pendientes de decisión del docente o de resolución en el periodo; resuélvelos antes del cierre.'),
-    ('RCN_013', 'BUSINESS_ERROR',   'MEDIO', N'No hay un coordinador ni un decano activo que pueda resolver la propuesta para el programa del estudiante.'),
+    ('RCN_013', 'BUSINESS_ERROR',   'MEDIO', N'El programa no tiene coordinador activo para resolver la revisión; solicite su asignación al decano.'),
     ('RCN_014', 'BUSINESS_ERROR',   'MEDIO', N'No puedes resolver una propuesta de cancelación que hiciste como docente.'),
-    ('RCN_015', 'SUCCESS',          'BAJO',  N'El programa no tiene un coordinador disponible: la propuesta se envió a la decanatura de la facultad.')
+    ('RCN_015', 'SUCCESS',          'BAJO',  N'Mensaje en desuso (DEC-065): la propuesta ya no se envía a la decanatura; la decisión final es del coordinador.'),
+    ('RCN_016', 'BUSINESS_ERROR',   'MEDIO', N'La resolución de la revisión corresponde al coordinador del programa.')
 ) AS Source (codigo, tipoMensaje, severidad, contenido)
 ON (Target.codigo = Source.codigo)
 WHEN MATCHED THEN
@@ -64,9 +65,10 @@ USING (VALUES
     ('RCN_010', 'SUCCESS',          'BAJO',  N'Revisión [{}] → RECHAZADA.'),
     ('RCN_011', 'SUCCESS',          'BAJO',  N'Revisión [{}] ya en [{}]; sin escrituras.'),
     ('RCN_012', 'BUSINESS_ERROR',   'ALTO',  N'Cierre de [{}] bloqueado: {} revisiones pendientes (incluye las de pérdida ya superada que esperan decisión), {} pérdidas sin revisión.'),
-    ('RCN_013', 'BUSINESS_ERROR',   'MEDIO', N'ufn_revision_cancelacion_resolutores vacío para [{}].'),
+    ('RCN_013', 'BUSINESS_ERROR',   'MEDIO', N'ufn_revision_cancelacion_resolutores vacío para [{}] (sin coordinador activo; DEC-065: no se escala al decano).'),
     ('RCN_014', 'BUSINESS_ERROR',   'MEDIO', N'Ejecutor [{}] = proponente de [{}].'),
-    ('RCN_015', 'SUCCESS',          'BAJO',  N'Revisión [{}] → PROPUESTA escalada a DECANO.')
+    ('RCN_015', 'SUCCESS',          'BAJO',  N'En desuso (DEC-065): ya no se escala la revisión [{}] a DECANO.'),
+    ('RCN_016', 'BUSINESS_ERROR',   'MEDIO', N'Regla DEC-065: el ejecutor [{}] es decano y no resuelve la revisión [{}]; solo el coordinador del programa; sin escrituras.')
 ) AS Source (codigo, tipoMensaje, severidad, contenido)
 ON (Target.codigo = Source.codigo)
 WHEN MATCHED THEN

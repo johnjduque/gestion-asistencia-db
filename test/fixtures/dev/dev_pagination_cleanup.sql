@@ -93,6 +93,8 @@ BEGIN
     SELECT TOP (1) @sessionId = id FROM #fixtureSessions ORDER BY id;
     IF OBJECT_ID(N'dbo.SesionCancelacion', N'U') IS NOT NULL
         DELETE FROM dbo.SesionCancelacion WHERE sesion = @sessionId;
+    IF OBJECT_ID(N'dbo.SesionSolicitud', N'U') IS NOT NULL   -- DEC-065 (2)
+        DELETE FROM dbo.SesionSolicitud WHERE sesion = @sessionId;
     DELETE FROM dbo.SesionProcedenciaClasificacion WHERE sesion = @sessionId;
     DELETE FROM dbo.Sesion WHERE id = @sessionId;
     DELETE FROM #fixtureSessions WHERE id = @sessionId;

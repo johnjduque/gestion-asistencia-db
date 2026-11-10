@@ -89,6 +89,8 @@ BEGIN
 END
 IF OBJECT_ID(N'dbo.SesionCancelacion', N'U') IS NOT NULL
     DELETE FROM dbo.SesionCancelacion WHERE sesion = @session;
+IF OBJECT_ID(N'dbo.SesionSolicitud', N'U') IS NOT NULL   -- DEC-065 (2): la solicitud que deja usp_crear_sesion_v2
+    DELETE FROM dbo.SesionSolicitud WHERE sesion = @session;
 
 DELETE FROM dbo.Asistencia WHERE sesion = @session;
 
@@ -124,6 +126,15 @@ IF NOT EXISTS (SELECT 1 FROM @result WHERE estadoResultado = 1)
 SELECT @session = id FROM dbo.uv_sesion WHERE nombre = @fixtureName;
 IF @session IS NULL
     THROW 52203, 'MAINT-003G fixture session was not persisted.', 1;
+
+-- CULM-001 / DEC-065 (2): usp_crear_sesion_v2 deja la sesion con una solicitud PENDIENTE de aprobacion del coordinador y una sesion
+-- pendiente no admite asistencia (SES_023). La fixture la deja APROBADA (SQL dinamico: la tabla no existe antes de la migracion 30).
+IF OBJECT_ID(N'dbo.SesionSolicitud', N'U') IS NOT NULL
+    EXEC sys.sp_executesql
+        N'UPDATE ss SET ss.idEstado = e.id, ss.usuarioResolucion = ss.usuarioSolicitante, ss.fechaResolucionUtc = SYSUTCDATETIME()
+          FROM dbo.SesionSolicitud ss CROSS JOIN dbo.EstadoSolicitudSesion e
+          WHERE ss.sesion = @s AND e.esFinal = 1 AND e.esAprobada = 1',
+        N'@s UNIQUEIDENTIFIER', @s = @session;
 
 SELECT @attendanceJson = CONCAT(
     '[',

@@ -1,4 +1,4 @@
--- HU018 / HU019: migracion 30 (plan de estudios y horas programadas del estudiante) up -> down -> up.
+-- HU018 / HU019: migracion 33 (plan de estudios y horas programadas del estudiante) up -> down -> up.
 -- Lo ejecuta test/test_hu018_hu019.ps1 con sqlcmd y la variable MIGDIR (copia de migrations/). Todo ocurre dentro de
 -- UNA transaccion que se revierte al final: la BD queda como estaba.
 --   MIG_HU018_DOWN_OK     el down quita los dos SP y no toca los objetos existentes
@@ -16,7 +16,7 @@ GO
 IF OBJECT_ID(N'tempdb..#h18mig') IS NOT NULL DROP TABLE #h18mig;
 CREATE TABLE #h18mig (k NVARCHAR(80) PRIMARY KEY, v VARBINARY(32));
 GO
-:r $(MIGDIR)/30_hu018_hu019_plan_horas_estudiante_down.sql
+:r $(MIGDIR)/33_hu018_hu019_plan_horas_estudiante_down.sql
 GO
 IF OBJECT_ID(N'dbo.usp_consultar_plan_estudio_estudiante', N'P') IS NOT NULL
    OR OBJECT_ID(N'dbo.usp_consultar_horas_programadas_estudiante', N'P') IS NOT NULL
@@ -28,7 +28,7 @@ IF OBJECT_ID(N'dbo.usp_consultar_materias_estudiante', N'P') IS NULL
     THROW 54701, 'TEST FAILED: HU018_MIG el down no debe tocar los objetos existentes.', 1;
 PRINT 'MIG_HU018_DOWN_OK';
 GO
-:r $(MIGDIR)/30_hu018_hu019_plan_horas_estudiante_up.sql
+:r $(MIGDIR)/33_hu018_hu019_plan_horas_estudiante_up.sql
 GO
 IF OBJECT_ID(N'dbo.usp_consultar_plan_estudio_estudiante', N'P') IS NULL
    OR OBJECT_ID(N'dbo.usp_consultar_horas_programadas_estudiante', N'P') IS NULL
@@ -43,16 +43,16 @@ WHERE o.schema_id = SCHEMA_ID('dbo') AND o.name IN (N'usp_consultar_plan_estudio
 IF (SELECT COUNT(*) FROM #h18mig) <> 2 THROW 54703, 'TEST FAILED: HU018_MIG faltan objetos tras el up.', 1;
 PRINT 'MIG_HU018_UP1_OK';
 GO
-:r $(MIGDIR)/30_hu018_hu019_plan_horas_estudiante_up.sql
+:r $(MIGDIR)/33_hu018_hu019_plan_horas_estudiante_up.sql
 GO
 IF EXISTS (SELECT 1 FROM #h18mig x INNER JOIN sys.objects o ON o.name = x.k COLLATE DATABASE_DEFAULT INNER JOIN sys.sql_modules m ON m.object_id = o.object_id
            WHERE o.schema_id = SCHEMA_ID('dbo') AND x.v <> HASHBYTES('SHA2_256', m.definition))
     THROW 54704, 'TEST FAILED: HU018_MIG el up repetido cambio objetos.', 1;
 PRINT 'MIG_HU018_UP2_OK';
 GO
-:r $(MIGDIR)/30_hu018_hu019_plan_horas_estudiante_down.sql
+:r $(MIGDIR)/33_hu018_hu019_plan_horas_estudiante_down.sql
 GO
-:r $(MIGDIR)/30_hu018_hu019_plan_horas_estudiante_up.sql
+:r $(MIGDIR)/33_hu018_hu019_plan_horas_estudiante_up.sql
 GO
 IF EXISTS (SELECT 1 FROM #h18mig x INNER JOIN sys.objects o ON o.name = x.k COLLATE DATABASE_DEFAULT INNER JOIN sys.sql_modules m ON m.object_id = o.object_id
            WHERE o.schema_id = SCHEMA_ID('dbo') AND x.v <> HASHBYTES('SHA2_256', m.definition))

@@ -5,6 +5,7 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
+-- CULM-001 / DEC-065 (4): solo el COORDINADOR crea grupos; el DOCENTE recibe SEC_001 (perfil requerido COORDINADOR).
 CREATE OR ALTER PROCEDURE [dbo].[usp_crear_grupo]
 (
     @idGrupo                 UNIQUEIDENTIFIER,
@@ -27,8 +28,6 @@ AS
 
     DECLARE @idPeriodoResolved         UNIQUEIDENTIFIER = @idPeriodoAcademicoDefecto;
     DECLARE @capacidadMaximaDefecto    INT;
-    DECLARE @idDocenteEjecutor         UNIQUEIDENTIFIER;
-    DECLARE @ejecutorEsCoordinador     BIT = 0;
 
     -- Variables locales de respuesta
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -62,36 +61,14 @@ BEGIN
         BEGIN
             EXEC dbo.usp_validar_permiso_rbac_usuario_interno
                 @idUsuario = @idUsuarioEjecutorDefecto,
-                @codigoPerfilRequerido = 'COORDINADOR,DOCENTE',
+                @codigoPerfilRequerido = 'COORDINADOR',
                 @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
-        -- PASO 1.6 (F3): el COORDINADOR crea y asigna cualquier docente; el DOCENTE solo crea grupos a su propio nombre
-        IF @estadoResultado = 1
-        BEGIN
-            IF EXISTS (SELECT 1 FROM dbo.uv_coordinador_identidad ci WHERE ci.idUsuario = @idUsuarioEjecutorDefecto)
-            BEGIN
-                SET @ejecutorEsCoordinador = 1;
-            END
-
-            SELECT @idDocenteEjecutor = di.id
-            FROM dbo.uv_docente_identidad di
-            WHERE di.idUsuario = @idUsuarioEjecutorDefecto;
-
-            IF @ejecutorEsCoordinador = 0 AND (@idDocenteEjecutor IS NULL OR @idDocenteEjecutor <> @idDocenteDefecto)
-            BEGIN
-                EXEC dbo.usp_obtener_mensaje_catalogo
-                    @p_codigo = 'SEC_002',
-                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-
-                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-                SET @estadoResultado = 0;
-            END
-        END
+        -- PASO 1.6 (DEC-065 (4)): solo el COORDINADOR crea grupos (el docente ya no los crea; el PASO 1.5 lo rechaza con SEC_001)
 
         -- PASO 2: Validar asignatura en uv_asignatura
         IF @estadoResultado = 1
@@ -101,29 +78,6 @@ BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
                     @p_codigo = 'VAL_002',
                     @p_param1 = 'Asignatura',
-                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-
-                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-                SET @estadoResultado = 0;
-            END
-        END
-
-        -- PASO 2B (F3): el DOCENTE solo abre grupos de asignaturas de programas con los que tiene vinculo activo
-        IF @estadoResultado = 1 AND @ejecutorEsCoordinador = 0
-        BEGIN
-            IF NOT EXISTS (
-                SELECT 1
-                FROM dbo.uv_asignatura_plan_estudio v
-                INNER JOIN dbo.uv_docente_programa dp ON dp.idPrograma = v.idPrograma
-                WHERE v.idAsignatura = @idAsignaturaDefecto
-                  AND v.estaActivoVinculo = 1   -- CULM-001 B2NM: algun programa de la asignatura (tabla puente)
-                  AND dp.idDocente = @idDocenteEjecutor
-                  AND dp.estaActivoDocentePrograma = 1
-            )
-            BEGIN
-                EXEC dbo.usp_obtener_mensaje_catalogo
-                    @p_codigo = 'SEC_002',
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 

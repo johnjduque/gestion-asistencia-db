@@ -8,8 +8,8 @@ GO
 -- ============================================================================
 -- usp_resolver_revision_cancelacion (CULM-001 C.1, HU026C; CONTRACT §2.5.8, SUPUESTO-C-09, O-2, O-13)
 --
--- Resolucion de una propuesta de cancelacion por el coordinador competente del programa del estudiante o, por escalamiento, el
--- decano (ufn_revision_cancelacion_resolutores, que excluye al proponente). APROBAR => la matricula pasa a CI (MATRICULA/
+-- Resolucion de una propuesta de cancelacion por el coordinador competente del programa del estudiante (ufn_revision_cancelacion_resolutores,
+-- que excluye al proponente). DEC-065 (1): el decano no resuelve (RCN_016, sin cambios); solo consulta y audita. APROBAR => la matricula pasa a CI (MATRICULA/
 -- ESTADO_CANCELADA_INASISTENCIA) y queda fuera de todo registro; RECHAZAR => sigue activa. Una revision ajena es indistinguible de
 -- una inexistente (RCN_001). Nadie resuelve su propia propuesta (RCN_014). Idempotente para quien pida lo mismo (RCN_011).
 -- Salida: tupla + idRevision, codigoEstadoAnterior, codigoEstadoNuevo, codigoDecision, sinCambios, cambioMatricula, idGrupo,
@@ -102,10 +102,12 @@ BEGIN
                 SELECT @err = 'RCN_014', @e1 = CONVERT(NVARCHAR(36), @idUsuarioEjecutorDefecto), @e2 = CONVERT(NVARCHAR(36), @idRevisionDefecto);
             ELSE
             BEGIN
-                SELECT f.idUsuario, f.codigoPerfil, f.idPrograma, f.esEscalamiento INTO #culmc_res
+                SELECT f.idUsuario, f.codigoPerfil, f.idPrograma INTO #culmc_res
                 FROM dbo.ufn_revision_cancelacion_resolutores(@idEstudianteGrupo, @usuarioProponente) f;
                 SELECT TOP 1 @perfilEjecutor = x.codigoPerfil FROM #culmc_res x WHERE x.idUsuario = @idUsuarioEjecutorDefecto;
-                IF @perfilEjecutor IS NULL
+                IF @perfilEjecutor IS NULL AND EXISTS (SELECT 1 FROM dbo.Decano d WHERE d.usuario = @idUsuarioEjecutorDefecto AND d.estado = 1)
+                    SELECT @err = 'RCN_016', @e1 = CONVERT(NVARCHAR(36), @idUsuarioEjecutorDefecto), @e2 = CONVERT(NVARCHAR(36), @idRevisionDefecto);
+                ELSE IF @perfilEjecutor IS NULL
                     SELECT @err = 'RCN_001', @e1 = CONVERT(NVARCHAR(36), @idRevisionDefecto), @e2 = CONVERT(NVARCHAR(36), @idUsuarioEjecutorDefecto);
                 ELSE
                 BEGIN
@@ -180,10 +182,9 @@ BEGIN
                             INSERT INTO dbo.AuditoriaEvento (id, occurredAt, actorId, actorType, action, resourceType, resourceId, result, correlationId, httpMethod, path, httpStatus, metadata)
                             VALUES (NEWID(), SYSDATETIMEOFFSET(), CAST(@idUsuarioEjecutorDefecto AS NVARCHAR(120)), 'USER', 'RESOLVER_REVISION_CANCELACION', 'RevisionCancelacion',
                                     CONVERT(NVARCHAR(36), @idRevisionDefecto), 'SUCCESS', @idCorrelacionDefecto, 'PATCH',
-                                    IIF(@perfilEjecutor = N'DECANO', N'/api/v1/decano/revisiones-cancelacion/{revisionId}', N'/api/v1/coordinador/revisiones-cancelacion/{revisionId}'), 200,
+                                    N'/api/v1/coordinador/revisiones-cancelacion/{revisionId}', 200,
                                     (SELECT estadoAnterior = @codigoEstadoActual, estadoNuevo = @codigoEstadoDestino, decision = @decision, motivo = @motivoLimpio,
                                             porcentajeInasistencia = @porcentaje, perfilResolutor = @perfilEjecutor,
-                                            escalada = CAST(IIF(EXISTS (SELECT 1 FROM #culmc_res WHERE esEscalamiento = 1), 1, 0) AS BIT),
                                             matriculaAnterior = IIF(@cambioMatricula = 1, @codigoInscrita, NULL), matriculaNueva = IIF(@cambioMatricula = 1, @codigoCancelada, NULL)
                                      FOR JSON PATH, WITHOUT_ARRAY_WRAPPER));
                             SELECT @codigoMensajeOk = @codigoMensajeTransicion, @p1ok = CONVERT(NVARCHAR(36), @idRevisionDefecto), @p2ok = CONVERT(NVARCHAR(36), @idEstudianteGrupo);

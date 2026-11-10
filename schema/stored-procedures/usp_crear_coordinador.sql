@@ -28,8 +28,6 @@ AS
     DECLARE @idFacultadDefecto        UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idFacultad, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idUsuarioEjecutorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
 
-    DECLARE @idUsuarioCreado UNIQUEIDENTIFIER;
-    DECLARE @idTipoIdCC      UNIQUEIDENTIFIER;
 
     -- Variables locales de respuesta
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -141,7 +139,7 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
-        -- PASO 3: GESTIÓN REACTIVA DE USUARIO (Consulta en uv_usuario y delegación a usp_sincronizar_usuario_interno)
+        -- PASO 3: apertura de transaccion (o savepoint) y delegacion de persona + rol Coordinador al nucleo usp_crear_coordinador_interno (DEC-065 (5))
         IF @estadoResultado = 1
         BEGIN
             SET @conteoTransaccionesInicial = @@TRANCOUNT;
@@ -157,82 +155,22 @@ BEGIN
                 SET @savepointCreado = 1;
             END
 
-            SELECT TOP 1 @idUsuarioCreado = id
-            FROM [dbo].[uv_usuario]
-            WHERE correo = LOWER(TRIM(@correo)) OR numeroIdentificacion = @numeroIdentificacion;
-
-            IF @idUsuarioCreado IS NULL
-            BEGIN
-                IF @idTipoIdIdentificacion IS NOT NULL
-                BEGIN
-                    SET @idTipoIdCC = @idTipoIdIdentificacion;
-                END
-                ELSE
-                BEGIN
-                    DECLARE @codTipoDocDefectoCoord NVARCHAR(50) = dbo.ufn_obtener_parametro_texto(NULL, 'IDENTIDAD', 'TIPO_IDENTIFICACION_DEFECTO');
-                    SELECT TOP 1 @idTipoIdCC = id FROM dbo.TipoIdentificacion WHERE tipoIdentificacion = @codTipoDocDefectoCoord ORDER BY id ASC;
-                    IF @idTipoIdCC IS NULL SELECT TOP 1 @idTipoIdCC = id FROM dbo.TipoIdentificacion ORDER BY id ASC;
-                END
-
-                EXEC dbo.usp_sincronizar_usuario_interno
-                    @idTipoIdIdentificacion = @idTipoIdCC,
-                    @numeroIdentificacion = @numeroIdentificacion,
-                    @primerApellido = @primerApellido,
-                    @segundoApellido = @segundoApellido,
-                    @primerNombre = @primerNombre,
-                    @segundoNombre = @segundoNombre,
-                    @correo = @correo,
-                    @password = @password,
-                    @idCorrelacion = @idCorrelacionDefecto,
-                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-                    @estadoResultado = @estadoResultado OUTPUT;
-
-                IF @estadoResultado = 1
-                BEGIN
-                    SELECT TOP 1 @idUsuarioCreado = id
-                    FROM [dbo].[uv_usuario]
-                    WHERE correo = LOWER(TRIM(@correo));
-                END
-            END
-        END
-
-        -- PASO 4: Asignación reactiva de rol Coordinador y adscripción opcional al Programa
-        IF @estadoResultado = 1
-        BEGIN
-            IF NOT EXISTS (SELECT 1 FROM dbo.Coordinador WHERE usuario = @idUsuarioCreado)
-            BEGIN
-                IF @idCoordinadorDefecto IS NULL
-                BEGIN
-                    SET @idCoordinadorDefecto = NEWID();
-                END
-
-                -- HU121/HU122 (D2): el coordinador conserva su facultad aunque aun no tenga programa
-                INSERT INTO dbo.Coordinador (id, usuario, facultad)
-                VALUES (@idCoordinadorDefecto, @idUsuarioCreado, @idFacultadDefecto);
-            END
-            ELSE
-            BEGIN
-                SELECT TOP 1 @idCoordinadorDefecto = id FROM dbo.Coordinador WHERE usuario = @idUsuarioCreado;
-
-                UPDATE dbo.Coordinador SET facultad = @idFacultadDefecto
-                WHERE id = @idCoordinadorDefecto AND facultad IS NULL;
-            END
-
-            IF @idProgramaDefecto IS NOT NULL
-            BEGIN
-                UPDATE dbo.Programa
-                SET coordinador = @idCoordinadorDefecto
-                WHERE id = @idProgramaDefecto;
-            END
-
-            EXEC dbo.usp_obtener_mensaje_catalogo
-                @p_codigo = 'GEN_004',
-                @p_param1 = 'Coordinador',
+            EXEC dbo.usp_crear_coordinador_interno
+                @idCoordinador = @idCoordinadorDefecto OUTPUT,
+                @numeroIdentificacion = @numeroIdentificacion,
+                @primerNombre = @primerNombre,
+                @segundoNombre = @segundoNombre,
+                @primerApellido = @primerApellido,
+                @segundoApellido = @segundoApellido,
+                @correo = @correo,
+                @password = @password,
+                @idFacultad = @idFacultadDefecto,
+                @idPrograma = @idProgramaDefecto,
+                @idTipoIdIdentificacion = @idTipoIdIdentificacion,
+                @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-
-            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
         END
 
         -- PASO 5: Finalización de la transacción respetando ownership (ver docs/procedimiento-transacciones)

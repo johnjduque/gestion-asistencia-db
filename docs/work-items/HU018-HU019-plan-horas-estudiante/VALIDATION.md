@@ -11,9 +11,10 @@ last-reviewed: 2026-11-10
 | Comando | Resultado |
 |---|---|
 | `deploy_schema.ps1` + `test/prepare_lb004d_fixture.ps1` + `test_summary.ps1` sobre un contenedor SQL Server 2022 limpio (mismo orden que el job `DB Quality Gate CI/CD`), 2026-11-10 | `TOTAL_EXPECTED=530`, `TOTAL_EXECUTED=708`, `PASSED=707`, `FAILED=0`, `SKIPPED=1` (permitido), `CRITICAL_MISSING=0`, `SQL_ERROR_COUNT=0`, `DB GATE PASS`. Pasan los 9 casos nuevos: `HU018_PLAN_ESTRUCTURA_ORDEN`, `HU018_PLAN_EXCLUSIONES`, `HU018_PLAN_CURSANDO`, `HU018_PLAN_PRIVACIDAD`, `HU018_PLAN_COLUMNAS`, `HU019_HORAS_PROGRAMADAS`, `HU019_HORAS_VALIDACIONES`, `HU018_HU019_SEG_01` y `HU018_HU019_MIG_UP_DOWN_UP` |
+| La misma compuerta en un contenedor limpio, después de unir `develop` (migraciones 30, 31 y 32 de DEC-065) y renumerar esta migración de la 30 a la 33, 2026-11-10 | `TOTAL_EXPECTED=562`, `TOTAL_EXECUTED=740`, `PASSED=739`, `FAILED=0`, `SKIPPED=1` (permitido), `CRITICAL_MISSING=0`, `SQL_ERROR_COUNT=0`, `DB GATE PASS` |
 | `scripts/freeze-manifest.ps1 -Mode Verify` (dentro del gate) | `GOLDEN_PATH_FREEZE_MANIFEST_VERIFIED`: ningún objeto congelado cambia |
 | `PUBLIC_CANONICAL_RESULTSET` y `PUBLIC_SP_INVENTORY` (dentro del gate) | Pasan; 195 SP públicos en el repositorio |
-| Migración `30_hu018_hu019_plan_horas_estudiante_up.sql` en la BD local de John | Aplicada el 2026-11-10: los dos SP existen con `EXECUTE` para `rol_asistencias_runtime` |
+| Migración `33_hu018_hu019_plan_horas_estudiante_up.sql` en la BD local de John | Aplicada el 2026-11-10: los dos SP existen con `EXECUTE` para `rol_asistencias_runtime` |
 | `test/test_hu018_hu019_plan_horas_estudiante.sql` y `test/test_hu018_hu019.ps1` en la BD local | Los 7 casos funcionales y la migración up → down → up pasan; la transacción se revierte y no quedan residuos |
 | GitHub Actions `DB Quality Gate CI/CD` | Pendiente: la rama está en el árbol de trabajo local, sin commit ni push |
 

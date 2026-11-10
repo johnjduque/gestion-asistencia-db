@@ -23,7 +23,7 @@ last-reviewed: 2026-11-10
 | `usp_consultar_plan_estudio_estudiante` | Nuevo (READ_QUERY_RESULTSET, 18 columnas, sin paginación) |
 | `usp_consultar_horas_programadas_estudiante` | Nuevo (READ_QUERY_RESULTSET, 4 columnas, sin paginación) |
 | `schema/security/rol_asistencias_runtime_hu018_hu019.sql` | `GRANT EXECUTE` aditivo de los dos SP |
-| `migrations/30_hu018_hu019_plan_horas_estudiante_up.sql` y `_down.sql` | Los dos SP y sus permisos; el `down` solo los elimina |
+| `migrations/33_hu018_hu019_plan_horas_estudiante_up.sql` y `_down.sql` | Los dos SP y sus permisos; el `down` solo los elimina |
 | `test/test_hu018_hu019_plan_horas_estudiante.sql` | Nuevo (7 casos) |
 | `test/test_hu018_hu019_migraciones.sql` y `test/test_hu018_hu019.ps1` | Nuevo: migración 30 up → down → up dentro de una transacción revertida |
 | `test_suite.sql`, `test_summary.ps1`, `test/test_contract_closure.sql`, `test/test_public_objects.sql` | Registro de las pruebas, exclusión READ_QUERY_RESULTSET de los dos SP y verificación de permisos |
@@ -64,4 +64,4 @@ Ningún objeto existente cambia. En particular no se tocan `usp_consultar_resume
 ## Despliegue y rollback
 
 - Orden (DEC-060): primero la migración 30 y después el backend.
-- Rollback: `30_hu018_hu019_plan_horas_estudiante_down.sql`. Solo elimina los dos SP; no hay datos que deshacer.
+- Rollback: `33_hu018_hu019_plan_horas_estudiante_down.sql`. Solo elimina los dos SP; no hay datos que deshacer.

@@ -3,7 +3,7 @@
     [string]$Password = $env:MSSQL_SA_PASSWORD
 )
 
-# HU018 / HU019: migracion 30 (plan de estudios y horas programadas del estudiante) up->down->up con sqlcmd, variables y :r de migrations/.
+# HU018 / HU019: migracion 33 (plan de estudios y horas programadas del estudiante) up->down->up con sqlcmd, variables y :r de migrations/.
 #   HU018_HU019_MIG_UP_DOWN_UP   test_hu018_hu019_migraciones.sql (transaccion revertida)
 # Salida: TEST_PASS:<ID> por caso aprobado y TEST FAILED: <ID> <motivo> por caso fallido.
 
