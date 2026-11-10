@@ -41,10 +41,10 @@ BEGIN TRY
     DELETE FROM #c1a; INSERT INTO #c1a EXEC dbo.usp_consultar_audiencias_realtime_grupo @idUsuarioEjecutor = @uT, @idCorrelacion = @c, @idGrupo = '00000000-0000-0000-0000-0000000000AC';
     IF NOT EXISTS (SELECT 1 FROM #c1a WHERE esDocenteTitular = 0 AND esEstudianteActivo = 0 AND esAmbitoLectura = 0) THROW 58408, 'TEST FAILED: C-DB-45 grupo inexistente -> tres en 0.', 1;
 
-    -- C-DB-61: los 10 SP de C.1 estan concedidos al rol runtime; las funciones no
+    -- C-DB-61: los 11 SP de C.1 (el 11 es la consulta del docente de DEC-065) estan concedidos al rol runtime; las funciones no
     DECLARE @sinGrant NVARCHAR(MAX) = (SELECT STRING_AGG(n.name, N', ') FROM (VALUES (N'usp_evaluar_alertas_inasistencia_grupo'), (N'usp_consultar_grupos_pendientes_evaluacion_alertas'),
         (N'usp_consultar_alertas_estudiante'), (N'usp_decidir_revision_cancelacion'), (N'usp_consultar_revisiones_cancelacion_coordinador_paginado'),
-        (N'usp_consultar_revisiones_cancelacion_decano_paginado'), (N'usp_resolver_revision_cancelacion'), (N'usp_consultar_destinatarios_revision_cancelacion'),
+        (N'usp_consultar_revisiones_cancelacion_decano_paginado'), (N'usp_consultar_revisiones_cancelacion_docente_paginado'), (N'usp_resolver_revision_cancelacion'), (N'usp_consultar_destinatarios_revision_cancelacion'),
         (N'usp_consultar_audiencias_realtime_grupo'), (N'usp_actualizar_resolutores_revisiones_cancelacion')) n(name)
         WHERE OBJECT_ID(N'dbo.' + n.name, N'P') IS NULL
            OR NOT EXISTS (SELECT 1 FROM sys.database_permissions pm WHERE pm.major_id = OBJECT_ID(N'dbo.' + n.name) AND pm.permission_name = N'EXECUTE' AND pm.state IN ('G','W')

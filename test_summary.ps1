@@ -653,6 +653,19 @@ try {
 catch {
     $resultFailures += "MRM_RUNNER $($_.Exception.Message)"
 }
+# CULM-001 / DEC-065 (1): migracion 31 (up/down/up componible) en test/test_mrm_coordinador_cancelacion.ps1.
+$mrcIds = @('MRC_MIG_UP_DOWN_UP')
+try {
+    $mrcOutput = @(& (Join-Path $PSScriptRoot 'test/test_mrm_coordinador_cancelacion.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $mrcOutput) { Write-Host $line }
+    foreach ($id in $mrcIds) {
+        if ($mrcOutput -contains "TEST_PASS:$id") { $clientPassed += $id }
+        else { $resultFailures += "$id not reported by test_mrm_coordinador_cancelacion.ps1" }
+    }
+}
+catch {
+    $resultFailures += "MRC_RUNNER $($_.Exception.Message)"
+}
 # CULM-001 D.2: migracion 21 (up/down/up), down sin confirmacion y orden de rollback D-RB-01 en test/test_culm001_d2.ps1.
 $culm001D2Ids = @('CULM001_D2_13_UP_DOWN_UP', 'CULM001_D2_13_DOWN_SIN_CONFIRMACION', 'CULM001_D_RB_01_ORDEN_DE_DOWN')
 try {
@@ -952,7 +965,7 @@ $criticalIds = @(
     'CULM001_MRM_03_ESTUDIANTE_NO_VE_PENDIENTE', 'CULM001_MRM_04_PENDIENTE_NO_ADMITE_TOMAS', 'CULM001_MRM_05_APROBAR', 'CULM001_MRM_06_RECHAZAR',
     'CULM001_MRM_07_CONSULTA_PAGINADA_COORDINADOR', 'CULM001_MRM_08_DESTINATARIOS', 'CULM001_MRM_09_GRUPOS_SOLO_COORDINADOR', 'CULM001_MRM_SOLICITUD_SESION',
     'CULM001_MRM_08_DESTINATARIOS_SOLO_COORDINADOR', 'CULM001_MRM_08_DESTINATARIOS_AMBITO_SEC002', 'CULM001_MRM_07_SOLO_COORDINADOR',
-    'CULM001_MRM_TRANCOUNT_ZERO', 'CULM001_MRM_SEG_01', 'MRM_MIG_UP_DOWN_UP'
+    'CULM001_MRM_TRANCOUNT_ZERO', 'CULM001_MRM_SEG_01', 'MRM_MIG_UP_DOWN_UP', 'CULM001_MRC_SEG_01', 'MRC_MIG_UP_DOWN_UP'
 )
 if ($Concurrencia) { $criticalIds += 'CULM001_B2_CON_01_5X40' }
 $sqlPasses = @([regex]::Matches($outputStr, '(?m)^TEST_PASS:([A-Z0-9_]+)\s*$') | ForEach-Object { $_.Groups[1].Value })

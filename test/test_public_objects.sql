@@ -164,6 +164,14 @@ IF EXISTS (SELECT 1 FROM sys.database_permissions dp
 PRINT 'TEST_PASS:CULM001_MRM_SEG_01';
 GO
 
+-- CULM-001 / DEC-065 (1) (MRC-SEG-01): la consulta de revisiones del docente tiene EXECUTE para rol_asistencias_runtime.
+IF NOT EXISTS (SELECT 1 FROM sys.database_permissions dp
+               WHERE dp.major_id = OBJECT_ID(N'dbo.usp_consultar_revisiones_cancelacion_docente_paginado') AND dp.permission_name = N'EXECUTE' AND dp.state IN ('G', 'W')
+                 AND dp.grantee_principal_id = DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime'))
+    THROW 51963, 'TEST FAILED: CULM001_MRC_SEG_01 usp_consultar_revisiones_cancelacion_docente_paginado sin EXECUTE para el rol runtime.', 1;
+PRINT 'TEST_PASS:CULM001_MRC_SEG_01';
+GO
+
 -- CULM-001 B.1 (CONTRACT §2.13, B1-SEG-01): los SP publicos de B.1 tienen EXECUTE para rol_asistencias_runtime;
 -- los nucleos usp_internal_* no; las vistas nuevas de B.1 tienen SELECT.
 DECLARE @b1Faltantes NVARCHAR(MAX) = (
