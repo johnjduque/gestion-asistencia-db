@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **275**.
+Total de códigos: **279**.
 
 ## ADS
 
@@ -443,6 +443,10 @@ Total de códigos: **275**.
 | `SES_014` | SUCCESS | BAJO | La sesión fue cancelada y se avisó a los estudiantes. | SesionCancelacion creada para [{}] tipo [{}]. | `34_mensajes_sesion_cancelada_festivos.sql` |
 | `SES_016` | BUSINESS_ERROR | MEDIO | La sesión ya terminó y tiene asistencia registrada; no se puede cancelar. Las correcciones se hacen por reclamo. | Sesión [{}] con Asistencia o TomaAsistencia y SYSUTCDATETIME() >= fin + MARGEN_RETARDO_MINUTOS; cancelación rechazada. | `34_mensajes_sesion_cancelada_festivos.sql` |
 | `SES_017` | BUSINESS_ERROR | MEDIO | La sesión se cruza con otra sesión del grupo o del docente en ese horario. | Regla: la sesion se cruza con la sesion [{}] del mismo grupo o de otro grupo del mismo docente (inicio < fin y fin > inicio); sin escrituras. | `33_culm001_a_mensajes.sql` |
+| `SES_018` | BUSINESS_ERROR | MEDIO | Solo las sesiones creadas manualmente por el docente pueden ser canceladas por el coordinador. | Regla: la sesión [{}] no es manual (procedencia UTC_GENERADOR o UTC_OWNER); el coordinador no puede cancelarla; sin escrituras. | `60_sesiones_manuales_mensajes.sql` |
+| `SES_019` | VALIDATION_ERROR | BAJO | El motivo de cancelación no es válido. | Validación: codigoMotivo [{}] ausente o fuera de MotivoCancelacionSesion activo; sin escrituras. | `60_sesiones_manuales_mensajes.sql` |
+| `SES_020` | SUCCESS | BAJO | La sesión fue cancelada por la coordinación del programa. | Sesión [{}] cancelada por el coordinador; tipo [{}]. | `60_sesiones_manuales_mensajes.sql` |
+| `SES_021` | VALIDATION_ERROR | BAJO | La observación no puede superar {} caracteres. | Validación: la observación recortada supera SESION/OBSERVACION_CANCELACION_COORDINADOR_MAXIMA ({}); sin escrituras. | `60_sesiones_manuales_mensajes.sql` |
 
 ## SUC
 
