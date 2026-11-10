@@ -172,6 +172,19 @@ IF NOT EXISTS (SELECT 1 FROM sys.database_permissions dp
 PRINT 'TEST_PASS:CULM001_MRC_SEG_01';
 GO
 
+-- CULM-001 / DEC-065 (5) (MRG-SEG-01): los dos SP compuestos tienen EXECUTE para rol_asistencias_runtime; los nucleos usp_crear_*_interno no.
+IF EXISTS (SELECT 1 FROM (VALUES (N'usp_crear_decano_con_facultad'), (N'usp_crear_coordinador_con_programa')) o(nombre)
+           WHERE NOT EXISTS (SELECT 1 FROM sys.database_permissions dp
+                             WHERE dp.major_id = OBJECT_ID(N'dbo.' + o.nombre) AND dp.permission_name = N'EXECUTE' AND dp.state IN ('G', 'W')
+                               AND dp.grantee_principal_id = DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime')))
+    THROW 51964, 'TEST FAILED: CULM001_MRG_SEG_01 un SP compuesto sin EXECUTE para el rol runtime.', 1;
+IF EXISTS (SELECT 1 FROM sys.database_permissions dp
+           WHERE dp.major_id IN (OBJECT_ID(N'dbo.usp_crear_decano_interno'), OBJECT_ID(N'dbo.usp_crear_coordinador_interno')) AND dp.permission_name = N'EXECUTE'
+             AND dp.state IN ('G', 'W') AND dp.grantee_principal_id = DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime'))
+    THROW 51965, 'TEST FAILED: CULM001_MRG_SEG_01 los nucleos usp_crear_decano_interno y usp_crear_coordinador_interno no deben tener EXECUTE para el rol runtime.', 1;
+PRINT 'TEST_PASS:CULM001_MRG_SEG_01';
+GO
+
 -- CULM-001 B.1 (CONTRACT §2.13, B1-SEG-01): los SP publicos de B.1 tienen EXECUTE para rol_asistencias_runtime;
 -- los nucleos usp_internal_* no; las vistas nuevas de B.1 tienen SELECT.
 DECLARE @b1Faltantes NVARCHAR(MAX) = (

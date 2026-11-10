@@ -134,6 +134,8 @@ PRINT '======================================================================';
 -- CULM-001 D.3 y D.6 (parametros editables y auditoria de /admin/**): registro por nombre exacto (DEC-028, sin comodin)
 -- CULM-001 / DEC-065 (solicitud de sesion extraordinaria con aval del coordinador): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_mrm_solicitud_sesion.sql
+-- CULM-001 / DEC-065 (5) (registro compuesto decano + facultad y coordinador + programa): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_mrm_registro_compuesto.sql
 :r /tmp/test/test_culm001_d3_parametros.sql
 :r /tmp/test/test_culm001_d6_auditoria.sql
 -- CULM-001 D.5 (carga masiva por CSV de roles no estudiantes HU171): registro por nombre exacto (DEC-028, sin comodin)
