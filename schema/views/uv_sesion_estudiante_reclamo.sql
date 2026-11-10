@@ -12,6 +12,8 @@ GO
 --   plazoJustificacionVigente   = 1 solo si la sesion NO esta cancelada y SYSUTCDATETIME() < limite
 -- idAsignatura, codigo, numeroSemana, codigoGrupo, nombreGrupo y codigoEstadoEstudiante completan las columnas que hoy
 -- entrega la consulta de sesiones de la materia y permiten al SP filtrar la matricula inscrita.
+-- CULM-001 / DEC-065 (2): el estudiante solo ve las sesiones sin solicitud (generadas y manuales anteriores) y las extraordinarias
+-- aprobadas por el coordinador; las pendientes y las rechazadas (nunca se le anunciaron) no se listan.
 CREATE OR ALTER VIEW [dbo].[uv_sesion_estudiante_reclamo]
 AS
 SELECT  idSesion = s.id,
@@ -39,5 +41,10 @@ INNER JOIN dbo.uv_estudiante_grupo eg
 ON      eg.idGrupo = s.idGrupo
 INNER JOIN dbo.uv_grupo g
 ON      g.id = s.idGrupo
-CROSS APPLY (SELECT fechaLimiteUtc = dbo.ufn_calcular_fecha_limite_justificacion(s.fechaHoraFin)) lim;
+LEFT JOIN dbo.SesionSolicitud ssol
+ON      ssol.sesion = s.id
+LEFT JOIN dbo.EstadoSolicitudSesion esol
+ON      esol.id = ssol.idEstado
+CROSS APPLY (SELECT fechaLimiteUtc = dbo.ufn_calcular_fecha_limite_justificacion(s.fechaHoraFin)) lim
+WHERE   esol.id IS NULL OR esol.esAprobada = 1;
 GO
