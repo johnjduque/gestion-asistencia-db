@@ -64,63 +64,16 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
     BEGIN TRY
-        -- PASO 1: correlacion y ejecutor obligatorio
-        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
-            @idCorrelacion = @idCorrelacionDefecto,
+        -- PASOS 1 a 4: correlacion, ejecutor obligatorio, RBAC COORDINADOR (SEC_001), sesion existente (SES_001) y ambito del
+        -- coordinador sobre el grupo de la sesion (SEC_002): validacion compartida con las demas operaciones del coordinador.
+        EXEC dbo.usp_validar_coordinador_sesion_interno
+            @idSesion = @idSesion,
+            @idUsuarioEjecutor = @idUsuarioEjecutor,
+            @idCorrelacion = @idCorrelacion,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-            @estadoResultado = @estadoResultado OUTPUT;
-
-        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
-        BEGIN
-            EXEC dbo.usp_obtener_mensaje_catalogo
-                @p_codigo = 'GEN_002', @p_param1 = 'idUsuarioEjecutor',
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-            SET @estadoResultado = 0;
-        END
-
-        -- PASO 2: RBAC (COORDINADOR)
-        IF @estadoResultado = 1
-        BEGIN
-            EXEC dbo.usp_validar_permiso_rbac_usuario_interno
-                @idUsuario = @idUsuarioEjecutorDefecto,
-                @codigoPerfilRequerido = 'COORDINADOR',
-                @idCorrelacion = @idCorrelacionDefecto,
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-                @estadoResultado = @estadoResultado OUTPUT;
-        END
-
-        -- PASO 3: sesion existente (SES_001)
-        IF @estadoResultado = 1
-        BEGIN
-            EXEC dbo.usp_validar_sesion_exista_por_id_interno
-                @idSesion = @idSesionDefecto,
-                @idCorrelacion = @idCorrelacionDefecto,
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-                @estadoResultado = @estadoResultado OUTPUT;
-        END
-
-        -- PASO 4: ambito del coordinador sobre el grupo de la sesion (SEC_002)
-        IF @estadoResultado = 1
-        BEGIN
-            SELECT @idGrupo = s.grupo FROM dbo.Sesion s WHERE s.id = @idSesionDefecto;
-
-            IF NOT EXISTS (SELECT idPrograma FROM dbo.ufn_programas_grupo(@idGrupo)
-                           INTERSECT
-                           SELECT idPrograma FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutorDefecto))
-            BEGIN
-                EXEC dbo.usp_obtener_mensaje_catalogo
-                    @p_codigo = 'SEC_002',
-                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-                SET @estadoResultado = 0;
-            END
-        END
+            @estadoResultado = @estadoResultado OUTPUT,
+            @idGrupo = @idGrupo OUTPUT;
 
         -- PASO 5: solo sesiones creadas manualmente por el docente (SES_018)
         IF @estadoResultado = 1 AND NOT EXISTS (SELECT 1 FROM dbo.uv_sesion_manual sm WHERE sm.idSesion = @idSesionDefecto)

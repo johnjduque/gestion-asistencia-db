@@ -679,6 +679,19 @@ try {
 catch {
     $resultFailures += "MRG_RUNNER $($_.Exception.Message)"
 }
+# Migracion 34 (validaciones compartidas de sesion; up/down/up componible) en test/test_dedup_validaciones_sesion.ps1.
+$dvsIds = @('DVS_MIG_UP_DOWN_UP')
+try {
+    $dvsOutput = @(& (Join-Path $PSScriptRoot 'test/test_dedup_validaciones_sesion.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $dvsOutput) { Write-Host $line }
+    foreach ($id in $dvsIds) {
+        if ($dvsOutput -contains "TEST_PASS:$id") { $clientPassed += $id }
+        else { $resultFailures += "$id not reported by test_dedup_validaciones_sesion.ps1" }
+    }
+}
+catch {
+    $resultFailures += "DVS_RUNNER $($_.Exception.Message)"
+}
 # CULM-001 D.2: migracion 21 (up/down/up), down sin confirmacion y orden de rollback D-RB-01 en test/test_culm001_d2.ps1.
 $culm001D2Ids = @('CULM001_D2_13_UP_DOWN_UP', 'CULM001_D2_13_DOWN_SIN_CONFIRMACION', 'CULM001_D_RB_01_ORDEN_DE_DOWN')
 try {
@@ -996,7 +1009,9 @@ $criticalIds = @(
     'CULM001_MRM_REG_00_OBJETOS_Y_PERMISOS', 'CULM001_MRM_REG_01_DECANO_CON_FACULTAD', 'CULM001_MRM_REG_02_FALLO_FACULTAD_NO_DEJA_PERSONA', 'CULM001_MRM_REG_03_DEC_020',
     'CULM001_MRM_REG_04_RBAC_DECANO_CON_FACULTAD', 'CULM001_MRM_REG_05_COORDINADOR_CON_PROGRAMA', 'CULM001_MRM_REG_06_FALLO_PROGRAMA_NO_DEJA_PERSONA',
     'CULM001_MRM_REG_07_RBAC_Y_TITULARIDAD_COORDINADOR_CON_PROGRAMA', 'CULM001_MRM_REG_08_FALLO_POSTERIOR_REVIERTE_TODO', 'CULM001_MRM_REG_09_PUBLICOS_ANTERIORES',
-    'CULM001_MRM_REG_10_TRANCOUNT_ZERO', 'CULM001_MRG_SEG_01', 'MRG_MIG_UP_DOWN_UP'
+    'CULM001_MRM_REG_10_TRANCOUNT_ZERO', 'CULM001_MRG_SEG_01', 'MRG_MIG_UP_DOWN_UP',
+    # Migracion 34: validaciones compartidas de sesion (test/test_dedup_validaciones_sesion.ps1)
+    'DVS_MIG_UP_DOWN_UP'
 )
 if ($Concurrencia) { $criticalIds += 'CULM001_B2_CON_01_5X40' }
 $sqlPasses = @([regex]::Matches($outputStr, '(?m)^TEST_PASS:([A-Z0-9_]+)\s*$') | ForEach-Object { $_.Groups[1].Value })

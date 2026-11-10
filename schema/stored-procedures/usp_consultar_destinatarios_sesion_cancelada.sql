@@ -25,53 +25,21 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
-    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @idUsuarioDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idSesionDefecto      UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idSesion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @codigoMatriculaActiva NVARCHAR(10)    = CAST(dbo.ufn_obtener_parametro('MATRICULA', 'ESTADO_INSCRITA') AS NVARCHAR(10));
 
-    DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
-    DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
-    DECLARE @estadoResultado BIT = 1;
+    DECLARE @mensajeUsuarioResultado NVARCHAR(4000);
+    DECLARE @mensajeTecnicoResultado NVARCHAR(4000);
+    DECLARE @estadoResultado BIT;
 
-    EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
-        @idCorrelacion = @idCorrelacionDefecto,
+    -- Correlacion, ejecutor y sesion obligatorios, RBAC DOCENTE y titularidad 'SESION' (validacion compartida)
+    EXEC dbo.usp_validar_docente_titular_sesion_interno
+        @idSesion = @idSesion,
+        @idUsuarioEjecutor = @idUsuarioEjecutor,
+        @idCorrelacion = @idCorrelacion,
         @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
         @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
         @estadoResultado = @estadoResultado OUTPUT;
-
-    IF @estadoResultado = 1 AND (@idUsuarioEjecutor IS NULL OR @idSesion IS NULL)
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'GEN_002', @p_param1 = 'idUsuarioEjecutor/idSesion',
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-    END
-
-    IF @estadoResultado = 1
-    BEGIN
-        EXEC dbo.usp_validar_permiso_rbac_usuario_interno
-            @idUsuario = @idUsuarioDefecto,
-            @codigoPerfilRequerido = 'DOCENTE',
-            @idCorrelacion = @idCorrelacionDefecto,
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-            @estadoResultado = @estadoResultado OUTPUT;
-    END
-
-    IF @estadoResultado = 1
-    BEGIN
-        EXEC dbo.usp_validar_titularidad_jerarquica_interno
-            @idUsuario = @idUsuarioDefecto,
-            @idEntidadPadre = @idSesionDefecto,
-            @tipoEntidadPadre = 'SESION',
-            @idCorrelacion = @idCorrelacionDefecto,
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-            @estadoResultado = @estadoResultado OUTPUT;
-    END
 
     IF @estadoResultado = 0
         THROW 51000, @mensajeTecnicoResultado, 1;
