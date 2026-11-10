@@ -452,12 +452,12 @@ WHERE ((grupo = 'ALERTA_INASISTENCIA' AND clave IN ('HABILITADA', 'LOTE_EVALUACI
     OR (grupo = 'REVISION_CANCELACION' AND clave IN ('MOTIVO_LONGITUD_MINIMA', 'MOTIVO_LONGITUD_MAXIMA'))
     OR (grupo = 'MATRICULA' AND clave IN ('ESTADO_CANCELADA_INASISTENCIA', 'ESTADO_FINALIZADA')))
   AND ISNULL(valor, N'') = ISNULL(valorDefecto, N'');
+-- Las familias ALR_* y RCN_* pertenecen integramente al modulo C (C-DB-60); la migracion 31 (DEC-065) la amplia con RCN_016
+-- y cambia los textos de RCN_013/RCN_015, por lo que el retiro se hace por familia y no por lista cerrada de codigos.
 DELETE FROM dbo.CatalogoMensajeUsuario
-WHERE codigo IN ('ALR_001', 'ALR_002', 'ALR_003', 'ALR_004', 'ALR_005', 'ALR_006', 'ALR_007', 'ALR_010', 'ALR_011', 'RCN_001', 'RCN_002', 'RCN_003', 'RCN_004', 'RCN_005',
-                 'RCN_006', 'RCN_007', 'RCN_008', 'RCN_009', 'RCN_010', 'RCN_011', 'RCN_012', 'RCN_013', 'RCN_014', 'RCN_015');
+WHERE codigo LIKE 'ALR[_]%' OR codigo LIKE 'RCN[_]%';
 DELETE FROM dbo.CatalogoMensajeTecnico
-WHERE codigo IN ('ALR_001', 'ALR_002', 'ALR_003', 'ALR_004', 'ALR_005', 'ALR_006', 'ALR_007', 'ALR_010', 'ALR_011', 'RCN_001', 'RCN_002', 'RCN_003', 'RCN_004', 'RCN_005',
-                 'RCN_006', 'RCN_007', 'RCN_008', 'RCN_009', 'RCN_010', 'RCN_011', 'RCN_012', 'RCN_013', 'RCN_014', 'RCN_015');
+WHERE codigo LIKE 'ALR[_]%' OR codigo LIKE 'RCN[_]%';
 
 DECLARE @idFallidaDefinitiva UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.EstadoNotificacion WHERE codigo = 'FALLIDA_DEFINITIVA');
 IF @idFallidaDefinitiva IS NOT NULL
