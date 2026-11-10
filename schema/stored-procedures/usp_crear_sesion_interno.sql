@@ -13,6 +13,8 @@ GO
 -- UTC_GENERADOR y UTC_OWNER NO se aceptan por esta via (generador y clasificacion propios).
 -- CULM-001 A.2-10 (F-DOC-017): dentro de la transaccion y antes del INSERT, una sesion que se cruce con otra del grupo o
 -- de otro grupo del mismo docente se rechaza con SES_017 (usp_validar_solape_sesion_interno); el rechazo no escribe.
+-- CULM-001 / DEC-065 (2): la sesion creada por el docente nace con una solicitud PENDIENTE (SesionSolicitud, estado con esFinal = 0)
+-- de aprobacion del coordinador, en la misma transaccion; el exito es SES_022. El ejecutor siempre es DOCENTE titular (PASOS 0-2.1).
 CREATE OR ALTER PROCEDURE [dbo].[usp_crear_sesion_interno]
 (
     @idGrupo                 UNIQUEIDENTIFIER,
@@ -36,6 +38,7 @@ AS
     DECLARE @idNuevoSesion   UNIQUEIDENTIFIER = NEWID();
     DECLARE @numeroSiguiente INT = 1;
     DECLARE @codigoSesion    NVARCHAR(50);
+    DECLARE @idEstadoPendiente UNIQUEIDENTIFIER;
 
     -- Ownership transaccional (propia o savepoint bajo transacción externa)
     DECLARE @transaccionPropia BIT = 0;
@@ -124,6 +127,25 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
+        -- PASO 2.9 (DEC-065 (2)): estado en espera de la solicitud (catalogo; se resuelve por bandera, no por texto)
+        IF @estadoResultado = 1
+        BEGIN
+            SELECT TOP 1 @idEstadoPendiente = e.id
+            FROM dbo.uv_estado_solicitud_sesion e
+            WHERE e.esFinal = 0
+            ORDER BY e.orden;
+
+            IF @idEstadoPendiente IS NULL
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'GEN_001', @p_param1 = 'EstadoSolicitudSesion(esFinal = 0)',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+        END
+
         IF @estadoResultado = 1
         BEGIN
             SELECT @numeroSiguiente = COALESCE(MAX(numero), 0) + 1
@@ -151,6 +173,9 @@ BEGIN
                 @fechaHoraFin,
                 @procedenciaTemporal
             );
+
+            INSERT INTO dbo.SesionSolicitud (sesion, idEstado, usuarioSolicitante, fechaSolicitudUtc, idCorrelacion)
+            VALUES (@idNuevoSesion, @idEstadoPendiente, @idUsuarioEjecutorDefecto, SYSUTCDATETIME(), @idCorrelacionDefecto);
         END
 
         -- Cierre de la transaccion propia (el rechazo por solape no escribe)
@@ -164,7 +189,7 @@ BEGIN
 
         IF @estadoResultado = 1
         BEGIN
-            EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_004', @p_param1 = 'Sesion', @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SES_022', @p_param1 = @idNuevoSesion, @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
             SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
         END
 

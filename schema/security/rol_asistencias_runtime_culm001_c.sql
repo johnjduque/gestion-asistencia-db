@@ -30,6 +30,9 @@ GO
 IF OBJECT_ID(N'dbo.usp_consultar_revisiones_cancelacion_decano_paginado', N'P') IS NOT NULL
     GRANT EXECUTE ON [dbo].[usp_consultar_revisiones_cancelacion_decano_paginado] TO [rol_asistencias_runtime];
 GO
+IF OBJECT_ID(N'dbo.usp_consultar_revisiones_cancelacion_docente_paginado', N'P') IS NOT NULL
+    GRANT EXECUTE ON [dbo].[usp_consultar_revisiones_cancelacion_docente_paginado] TO [rol_asistencias_runtime];
+GO
 IF OBJECT_ID(N'dbo.usp_resolver_revision_cancelacion', N'P') IS NOT NULL
     GRANT EXECUTE ON [dbo].[usp_resolver_revision_cancelacion] TO [rol_asistencias_runtime];
 GO

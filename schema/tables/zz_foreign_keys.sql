@@ -525,3 +525,24 @@ BEGIN
     ALTER TABLE [dbo].[JerarquiaAltaUsuario] ADD CONSTRAINT [FK_JerarquiaAltaUsuario_PerfilDestino] FOREIGN KEY ([perfilDestino]) REFERENCES [dbo].[Perfil] ([id]);
 END
 GO
+-- CULM-001 / DEC-065 (2): solicitud de sesion extraordinaria con aval del coordinador
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_SesionSolicitud_Sesion')
+BEGIN
+    ALTER TABLE [dbo].[SesionSolicitud] ADD CONSTRAINT [FK_SesionSolicitud_Sesion] FOREIGN KEY ([sesion]) REFERENCES [dbo].[Sesion] ([id]);
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_SesionSolicitud_EstadoSolicitudSesion')
+BEGIN
+    ALTER TABLE [dbo].[SesionSolicitud] ADD CONSTRAINT [FK_SesionSolicitud_EstadoSolicitudSesion] FOREIGN KEY ([idEstado]) REFERENCES [dbo].[EstadoSolicitudSesion] ([id]);
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_SesionSolicitud_UsuarioSolicitante')
+BEGIN
+    ALTER TABLE [dbo].[SesionSolicitud] ADD CONSTRAINT [FK_SesionSolicitud_UsuarioSolicitante] FOREIGN KEY ([usuarioSolicitante]) REFERENCES [dbo].[Usuario] ([id]);
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_SesionSolicitud_UsuarioResolucion')
+BEGIN
+    ALTER TABLE [dbo].[SesionSolicitud] ADD CONSTRAINT [FK_SesionSolicitud_UsuarioResolucion] FOREIGN KEY ([usuarioResolucion]) REFERENCES [dbo].[Usuario] ([id]);
+END
+GO

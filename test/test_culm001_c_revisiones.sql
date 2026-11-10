@@ -3,7 +3,7 @@ GO
 SET NOCOUNT ON;
 SET XACT_ABORT OFF;
 -- CULM-001 C.1 (CONTRACT §2.13.1 C-DB-20..34): revision de cancelacion: una por perdida, decision del docente, resolucion del
--- coordinador por programa del estudiante (grupo mixto), proponente excluido con escalamiento al decano, listados, destinatarios,
+-- coordinador por programa del estudiante (grupo mixto), proponente excluido sin coordinador -> RCN_013 (DEC-065: sin escalamiento al decano), listados del decano (solo lectura) y del docente, destinatarios,
 -- resumen del docente y reasignacion por el job. Transaccion revertida; deja @@TRANCOUNT = 0.
 PRINT 'TEST START: test_culm001_c_revisiones';
 IF OBJECT_ID(N'tempdb..#c1_faltas') IS NOT NULL DROP PROCEDURE #c1_faltas;
@@ -199,28 +199,31 @@ BEGIN TRY
     EXEC #c1_decidir @rev0, N'MANTENER', @mot, @uT, @c;
     IF (SELECT codigoEstadoNuevo FROM #c1d) <> N'MANTENIDA' THROW 58181, 'TEST FAILED: C-DB-25 MANTENER bajo el umbral es valido.', 1;
 
-    -- C-DB-29: el docente es el unico coordinador del programa A => escala al decano
+    -- C-DB-29 (DEC-065 1): el docente es el unico coordinador del programa A => no hay resolutor: RCN_013 y nada se escala al decano
     DECLARE @coordT UNIQUEIDENTIFIER = NEWID(), @coordA UNIQUEIDENTIFIER = (SELECT coordinador FROM dbo.Programa WHERE id = @progA);
     INSERT INTO dbo.Coordinador (id, usuario, estado, facultad) VALUES (@coordT, @uT, 1, @fac);
     UPDATE dbo.Programa SET coordinador = @coordT WHERE id = @progA;
     UPDATE dbo.RevisionCancelacion SET estado = (SELECT id FROM dbo.EstadoRevisionCancelacion WHERE codigo = N'PENDIENTE_DOCENTE'), codigoDecisionDocente = NULL, usuarioDecisionDocente = NULL,
-        codigoDecisionResolucion = NULL, usuarioResolucion = NULL, codigoPerfilResolucion = NULL, programaResolucion = NULL, fechaResolucionUtc = NULL, estadoMatriculaAnterior = NULL
+        codigoPerfilResolutorActual = NULL, huellaResolutoresActual = NULL, fechaEscalamientoUtc = NULL, codigoDecisionResolucion = NULL, usuarioResolucion = NULL, codigoPerfilResolucion = NULL, programaResolucion = NULL, fechaResolucionUtc = NULL, estadoMatriculaAnterior = NULL
         WHERE id = @revEA;
     UPDATE dbo.EstudianteGrupo SET estado = @estA WHERE id = @egEA;
     EXEC #c1_faltas @egEA, 12;
+    DECLARE @histEA INT = (SELECT COUNT(*) FROM dbo.RevisionCancelacionHistorial WHERE revision = @revEA);
     EXEC #c1_decidir @revEA, N'PROPONER', @mot, @uT, @c;
-    IF (SELECT estadoResultado FROM #c1d) <> 1 OR (SELECT mensajeTecnicoResultado FROM #c1d) NOT LIKE N'%RCN_015%' OR (SELECT codigoPerfilResolutor FROM #c1d) <> N'DECANO' OR (SELECT esEscalamiento FROM #c1d) <> 1
-       OR NOT EXISTS (SELECT 1 FROM dbo.RevisionCancelacionHistorial WHERE revision = @revEA AND codigoEvento = N'ESCALAR')
-       OR NOT EXISTS (SELECT 1 FROM dbo.AuditoriaEvento WHERE correlationId = @c AND action = 'ESCALAR_REVISION_CANCELACION')
-        THROW 58190, 'TEST FAILED: C-DB-29 PROPONER debe escalar al decano (RCN_015, historial ESCALAR, auditoria).', 1;
-    DELETE FROM #c1dest;
-    INSERT INTO #c1dest EXEC dbo.usp_consultar_destinatarios_revision_cancelacion @idUsuarioEjecutor = @uT, @idCorrelacion = @c, @idRevision = @revEA;
-    IF (SELECT COUNT(*) FROM #c1dest WHERE rolDestinatario = N'RESOLUTOR') <> 1 OR NOT EXISTS (SELECT 1 FROM #c1dest WHERE rolDestinatario = N'RESOLUTOR' AND idUsuario = @uDec AND esEscalamiento = 1)
-        THROW 58191, 'TEST FAILED: C-DB-29 el unico resolutor escalado debe ser el decano.', 1;
-    EXEC #c1_resolver @revEA, N'APROBAR', @mot, @uT, @c;
-    IF (SELECT mensajeTecnicoResultado FROM #c1r) NOT LIKE N'%RCN_014%' THROW 58192, 'TEST FAILED: C-DB-29 el proponente no aprueba (RCN_014).', 1;
+    IF (SELECT estadoResultado FROM #c1d) <> 0 OR (SELECT mensajeTecnicoResultado FROM #c1d) NOT LIKE N'%RCN_013%'
+       OR (SELECT COUNT(*) FROM dbo.RevisionCancelacionHistorial WHERE revision = @revEA) <> @histEA
+       OR EXISTS (SELECT 1 FROM dbo.RevisionCancelacionHistorial WHERE revision = @revEA AND codigoEvento = N'ESCALAR')
+       OR EXISTS (SELECT 1 FROM dbo.AuditoriaEvento WHERE correlationId = @c AND action = 'ESCALAR_REVISION_CANCELACION')
+       OR NOT EXISTS (SELECT 1 FROM dbo.RevisionCancelacion r INNER JOIN dbo.EstadoRevisionCancelacion es ON es.id = r.estado
+                      WHERE r.id = @revEA AND es.codigo = N'PENDIENTE_DOCENTE' AND r.codigoPerfilResolutorActual IS NULL AND r.fechaEscalamientoUtc IS NULL)
+        THROW 58190, 'TEST FAILED: C-DB-29 (DEC-065) sin otro coordinador: RCN_013, sin escalar al decano ni cambiar el estado.', 1;
+    IF (SELECT mensajeUsuarioResultado FROM #c1d) NOT LIKE N'%solicite su asignación al decano%'
+        THROW 58191, 'TEST FAILED: C-DB-29 (DEC-065) el mensaje RCN_013 debe pedir asignar un coordinador al decano.', 1;
+    IF EXISTS (SELECT 1 FROM dbo.ufn_revision_cancelacion_resolutores(@egEA, @uT) WHERE codigoPerfil <> N'COORDINADOR' OR esEscalamiento <> 0)
+        THROW 58192, 'TEST FAILED: C-DB-29 (DEC-065) la funcion de resolutores nunca devuelve al decano ni esEscalamiento = 1.', 1;
+    UPDATE dbo.Programa SET coordinador = @coordA WHERE id = @progA;
 
-    -- C-DB-33: listado del decano (solo escaladas a el o resueltas por el)
+    -- C-DB-33 (DEC-065 1 y 4): el decano consulta TODAS las revisiones de su facultad (solo lectura) y no puede resolver (RCN_016)
     IF OBJECT_ID(N'tempdb..#c1ld') IS NOT NULL DROP TABLE #c1ld;
     CREATE TABLE #c1ld (id UNIQUEIDENTIFIER, idEstudianteGrupo UNIQUEIDENTIFIER, idEstudiante UNIQUEIDENTIFIER, idUsuarioEstudiante UNIQUEIDENTIFIER, nombreCompletoEstudiante NVARCHAR(400),
         idGrupo UNIQUEIDENTIFIER, codigoGrupo INT, nombreGrupo NVARCHAR(50), idAsignatura UNIQUEIDENTIFIER, nombreAsignatura NVARCHAR(100), idPeriodoAcademico UNIQUEIDENTIFIER,
@@ -235,54 +238,99 @@ BEGIN TRY
         umbralPerdida DECIMAL(5,2), esResolutorActual BIT, accionesPermitidas NVARCHAR(200), totalRegistros INT);
     INSERT INTO #c1ld EXEC dbo.usp_consultar_revisiones_cancelacion_decano_paginado @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 50,
         @soloPendientes = 0, @codigoEstado = NULL, @idPrograma = NULL;
-    IF NOT EXISTS (SELECT 1 FROM #c1ld WHERE id = @revEA AND esResolutorActual = 1 AND accionesPermitidas LIKE N'%APROBAR%') OR EXISTS (SELECT 1 FROM #c1ld WHERE id = @revEB)
-        THROW 58200, 'TEST FAILED: C-DB-33 el decano ve la escalada (EA) y no la que tiene coordinador (EB).', 1;
+    IF NOT EXISTS (SELECT 1 FROM #c1ld WHERE id = @revEA) OR NOT EXISTS (SELECT 1 FROM #c1ld WHERE id = @revEB) OR NOT EXISTS (SELECT 1 FROM #c1ld WHERE id = @rev0)
+       OR (SELECT COUNT(*) FROM #c1ld) <> (SELECT COUNT(*) FROM dbo.RevisionCancelacion r INNER JOIN dbo.EstudianteGrupo eg ON eg.id = r.estudianteGrupo
+                                           WHERE EXISTS (SELECT 1 FROM dbo.ufn_programas_grupo(eg.grupo) pg INNER JOIN dbo.Programa p ON p.id = pg.idPrograma WHERE p.facultad = @fac))
+       OR EXISTS (SELECT 1 FROM #c1ld WHERE esResolutorActual <> 0 OR accionesPermitidas <> N'' OR idPrograma NOT IN (SELECT id FROM dbo.Programa WHERE facultad = @fac))
+        THROW 58200, 'TEST FAILED: C-DB-33 (DEC-065) el decano ve todas las revisiones de su facultad (cualquier estado) sin acciones.', 1;
+    DELETE FROM #c1ld;
+    INSERT INTO #c1ld EXEC dbo.usp_consultar_revisiones_cancelacion_decano_paginado @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 50,
+        @soloPendientes = 1, @codigoEstado = NULL, @idPrograma = NULL;
+    IF NOT EXISTS (SELECT 1 FROM #c1ld WHERE id = @revEB) OR EXISTS (SELECT 1 FROM #c1ld WHERE requiereAccionResolutor = 0)
+        THROW 58203, 'TEST FAILED: C-DB-33 (DEC-065) soloPendientes del decano deja solo las que esperan al coordinador.', 1;
+    DELETE FROM #c1ld;
+    INSERT INTO #c1ld EXEC dbo.usp_consultar_revisiones_cancelacion_decano_paginado @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 50,
+        @soloPendientes = 0, @codigoEstado = N'PROPUESTA', @idPrograma = @progB;
+    IF NOT EXISTS (SELECT 1 FROM #c1ld WHERE id = @revEB) OR EXISTS (SELECT 1 FROM #c1ld WHERE codigoEstado <> N'PROPUESTA' OR idPrograma <> @progB)
+        THROW 58204, 'TEST FAILED: C-DB-33 (DEC-065) filtros estado y programa del decano.', 1;
     DECLARE @progAjeno UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.Programa WHERE facultad <> @fac);
-    EXEC #c1_resolver @revEA, N'APROBAR', @mot, @uDec, @c;
-    IF (SELECT estadoResultado FROM #c1r) <> 1 OR NOT EXISTS (SELECT 1 FROM dbo.RevisionCancelacion WHERE id = @revEA AND codigoPerfilResolucion = N'DECANO' AND usuarioResolucion = @uDec)
-        THROW 58202, 'TEST FAILED: C-DB-29 el decano aprueba la escalada (codigoPerfilResolucion = DECANO).', 1;
-    -- sin decano activo ademas: RCN_013
-    UPDATE dbo.Decano SET estado = 0 WHERE usuario = @uDec;
-    UPDATE dbo.EstudianteGrupo SET estado = @estA WHERE id = @egEA;
-    UPDATE dbo.RevisionCancelacion SET estado = (SELECT id FROM dbo.EstadoRevisionCancelacion WHERE codigo = N'MANTENIDA'), codigoDecisionDocente = N'MANTENER' WHERE id = @revEA;
-    EXEC #c1_decidir @revEA, N'PROPONER', @mot, @uT, @c;
-    IF (SELECT mensajeTecnicoResultado FROM #c1d) NOT LIKE N'%RCN_013%' THROW 58203, 'TEST FAILED: C-DB-29 sin coordinador ni decano activo -> RCN_013.', 1;
-    UPDATE dbo.Decano SET estado = 1 WHERE usuario = @uDec;
-    UPDATE dbo.Programa SET coordinador = @coordA WHERE id = @progA;
+    DECLARE @estRevEB UNIQUEIDENTIFIER = (SELECT estado FROM dbo.RevisionCancelacion WHERE id = @revEB);
+    EXEC #c1_resolver @revEB, N'APROBAR', @mot, @uDec, @c;
+    IF (SELECT estadoResultado FROM #c1r) <> 0 OR (SELECT mensajeTecnicoResultado FROM #c1r) NOT LIKE N'%RCN_016%'
+       OR (SELECT mensajeUsuarioResultado FROM #c1r) NOT LIKE N'%corresponde al coordinador%'
+       OR NOT EXISTS (SELECT 1 FROM dbo.RevisionCancelacion WHERE id = @revEB AND estado = @estRevEB AND usuarioResolucion IS NULL)
+       OR EXISTS (SELECT 1 FROM dbo.AuditoriaEvento WHERE correlationId = @c AND path LIKE N'/api/v1/decano/%')
+        THROW 58202, 'TEST FAILED: C-DB-33 (DEC-065) el decano que resuelve recibe RCN_016 sin cambios de estado ni auditoria /decano.', 1;
 
-    -- C-DB-34: reasignacion por el job. Propuesta de EB con CB; CB se desactiva: escala a D; CB reactivado y reasignado: REASIGNAR; sin cambios: 0
+    -- C-DB-34 (DEC-065 1 y 3): reasignacion por el job. Propuesta de EB con CB; CB se desactiva: sin resolutor (nunca decano); reactivado: REASIGNAR
     IF OBJECT_ID(N'tempdb..#c1j') IS NOT NULL DROP TABLE #c1j;
     CREATE TABLE #c1j (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT,
         revisionesReasignadas INT, revisionesEscaladas INT, revisionesSinResolutor INT, novedadesJSON NVARCHAR(MAX));
     UPDATE dbo.Coordinador SET estado = 0 WHERE id = @coordB;
     INSERT INTO #c1j EXEC dbo.usp_actualizar_resolutores_revisiones_cancelacion @idCorrelacion = @c, @tamanoLote = 500;
-    IF (SELECT estadoResultado FROM #c1j) <> 1 OR (SELECT revisionesEscaladas FROM #c1j) < 1
-       OR NOT EXISTS (SELECT 1 FROM dbo.RevisionCancelacion WHERE id = @revEB AND codigoPerfilResolutorActual = N'DECANO')
-       OR NOT EXISTS (SELECT 1 FROM dbo.RevisionCancelacionHistorial WHERE revision = @revEB AND codigoEvento = N'ESCALAR')
+    IF (SELECT estadoResultado FROM #c1j) <> 1 OR (SELECT revisionesEscaladas FROM #c1j) <> 0 OR (SELECT revisionesSinResolutor FROM #c1j) < 1
+       OR NOT EXISTS (SELECT 1 FROM dbo.RevisionCancelacion WHERE id = @revEB AND codigoPerfilResolutorActual IS NULL AND fechaEscalamientoUtc IS NULL)
+       OR EXISTS (SELECT 1 FROM dbo.RevisionCancelacionHistorial WHERE codigoEvento = N'ESCALAR' OR codigoPerfilResolutor = N'DECANO')
+       OR EXISTS (SELECT 1 FROM dbo.AuditoriaEvento WHERE correlationId = @c AND action = 'ESCALAR_REVISION_CANCELACION')
        OR NOT EXISTS (SELECT 1 FROM OPENJSON((SELECT novedadesJSON FROM #c1j)) WITH (idRevision UNIQUEIDENTIFIER '$.idRevision') WHERE idRevision = @revEB)
-        THROW 58210, 'TEST FAILED: C-DB-34 al desactivar al coordinador la propuesta escala al decano (historial, novedad).', 1;
+        THROW 58210, 'TEST FAILED: C-DB-34 (DEC-065) al desactivar al coordinador la propuesta queda sin resolutor y nunca se escala al decano.', 1;
     DELETE FROM #c1j;
     INSERT INTO #c1j EXEC dbo.usp_actualizar_resolutores_revisiones_cancelacion @idCorrelacion = @c, @tamanoLote = 500;
-    IF NOT EXISTS (SELECT 1 FROM #c1j WHERE estadoResultado = 1 AND revisionesEscaladas = 0 AND revisionesReasignadas = 0)
-        THROW 58211, 'TEST FAILED: C-DB-34 la huella sin cambios no genera novedades.', 1;
+    IF NOT EXISTS (SELECT 1 FROM #c1j WHERE estadoResultado = 1 AND revisionesEscaladas = 0 AND revisionesReasignadas = 0 AND revisionesSinResolutor = 0)
+        THROW 58211, 'TEST FAILED: C-DB-34 la huella sin cambios no genera novedades (la ausencia de resolutor se registra una sola vez).', 1;
     UPDATE dbo.Coordinador SET estado = 1 WHERE id = @coordB;
     DELETE FROM #c1j;
     INSERT INTO #c1j EXEC dbo.usp_actualizar_resolutores_revisiones_cancelacion @idCorrelacion = @c, @tamanoLote = 500;
     IF (SELECT revisionesReasignadas FROM #c1j) < 1 OR NOT EXISTS (SELECT 1 FROM dbo.RevisionCancelacion WHERE id = @revEB AND codigoPerfilResolutorActual = N'COORDINADOR')
        OR NOT EXISTS (SELECT 1 FROM dbo.RevisionCancelacionHistorial WHERE revision = @revEB AND codigoEvento = N'REASIGNAR')
         THROW 58212, 'TEST FAILED: C-DB-34 al volver el coordinador la revision se reasigna (REASIGNAR).', 1;
-    UPDATE dbo.Coordinador SET estado = 0 WHERE id = @coordB;
     UPDATE dbo.Decano SET estado = 0 WHERE usuario = @uDec;
+    UPDATE dbo.Coordinador SET estado = 0 WHERE id = @coordB;
     DELETE FROM #c1j;
     INSERT INTO #c1j EXEC dbo.usp_actualizar_resolutores_revisiones_cancelacion @idCorrelacion = @c, @tamanoLote = 500;
     IF (SELECT revisionesSinResolutor FROM #c1j) < 1 OR NOT EXISTS (SELECT 1 FROM dbo.AuditoriaEvento WHERE correlationId = @c AND action = 'REVISION_CANCELACION_SIN_RESOLUTOR')
-        THROW 58213, 'TEST FAILED: C-DB-34 sin coordinador ni decano: REVISION_CANCELACION_SIN_RESOLUTOR.', 1;
-    DELETE FROM #c1j;
-    INSERT INTO #c1j EXEC dbo.usp_actualizar_resolutores_revisiones_cancelacion @idCorrelacion = @c, @tamanoLote = 500;
-    IF NOT EXISTS (SELECT 1 FROM #c1j WHERE revisionesSinResolutor = 0)
-        THROW 58214, 'TEST FAILED: C-DB-34 la ausencia de resolutor se registra una sola vez por cambio de huella.', 1;
+        THROW 58213, 'TEST FAILED: C-DB-34 sin coordinador activo: REVISION_CANCELACION_SIN_RESOLUTOR.', 1;
     UPDATE dbo.Coordinador SET estado = 1 WHERE id = @coordB;
     UPDATE dbo.Decano SET estado = 1 WHERE usuario = @uDec;
+
+    -- C-DB-35 (DEC-065 6): consulta de revisiones del docente titular (todas las suyas, ninguna ajena, mismas columnas que el coordinador)
+    DECLARE @colsDoc NVARCHAR(MAX) = (SELECT STRING_AGG(CAST(name AS NVARCHAR(MAX)), N',') WITHIN GROUP (ORDER BY column_ordinal)
+        FROM sys.dm_exec_describe_first_result_set(N'EXEC dbo.usp_consultar_revisiones_cancelacion_docente_paginado @idUsuario = ''00000000-0000-0000-0000-000000000001'', @idCorrelacion = ''00000000-0000-0000-0000-000000000001''', NULL, 0));
+    DECLARE @colsCoo NVARCHAR(MAX) = (SELECT STRING_AGG(CAST(name AS NVARCHAR(MAX)), N',') WITHIN GROUP (ORDER BY column_ordinal)
+        FROM sys.dm_exec_describe_first_result_set(N'EXEC dbo.usp_consultar_revisiones_cancelacion_coordinador_paginado @idUsuarioEjecutor = ''00000000-0000-0000-0000-000000000001'', @idCorrelacion = ''00000000-0000-0000-0000-000000000001''', NULL, 0));
+    IF @colsDoc IS NULL OR @colsDoc <> @colsCoo
+        THROW 58230, 'TEST FAILED: C-DB-35 el SP del docente debe devolver las mismas columnas que el del coordinador.', 1;
+    IF OBJECT_ID(N'tempdb..#c1lt') IS NOT NULL DROP TABLE #c1lt;
+    SELECT * INTO #c1lt FROM #c1ld WHERE 1 = 0;
+    INSERT INTO #c1lt EXEC dbo.usp_consultar_revisiones_cancelacion_docente_paginado @idUsuario = @uT, @idCorrelacion = @c, @soloPendientes = 0, @idGrupo = NULL, @estado = NULL,
+        @numeroPagina = 1, @tamanoPagina = 50;
+    IF (SELECT COUNT(*) FROM #c1lt) <> (SELECT COUNT(*) FROM dbo.RevisionCancelacion r INNER JOIN dbo.EstudianteGrupo eg ON eg.id = r.estudianteGrupo WHERE eg.grupo = @grupoG)
+       OR NOT EXISTS (SELECT 1 FROM #c1lt WHERE id = @revEA) OR NOT EXISTS (SELECT 1 FROM #c1lt WHERE id = @revEB) OR NOT EXISTS (SELECT 1 FROM #c1lt WHERE id = @rev0)
+       OR EXISTS (SELECT 1 FROM #c1lt WHERE idGrupo <> @grupoG OR idUsuarioDocenteTitular <> @uT OR esResolutorActual <> 0 OR accionesPermitidas <> N'')
+       OR (SELECT MIN(totalRegistros) FROM #c1lt) <> (SELECT COUNT(*) FROM #c1lt) OR (SELECT MAX(totalRegistros) FROM #c1lt) <> (SELECT COUNT(*) FROM #c1lt)
+        THROW 58231, 'TEST FAILED: C-DB-35 el docente titular ve todas las revisiones de su grupo con totalRegistros.', 1;
+    DELETE FROM #c1lt;
+    INSERT INTO #c1lt EXEC dbo.usp_consultar_revisiones_cancelacion_docente_paginado @idUsuario = @uT, @idCorrelacion = @c, @soloPendientes = 1, @idGrupo = @grupoG, @estado = NULL,
+        @numeroPagina = 1, @tamanoPagina = 50;
+    IF EXISTS (SELECT 1 FROM #c1lt WHERE requiereAccionDocente = 0 OR codigoEstado <> N'PENDIENTE_DOCENTE')
+       OR (SELECT COUNT(*) FROM #c1lt) <> (SELECT COUNT(*) FROM dbo.RevisionCancelacion r INNER JOIN dbo.EstadoRevisionCancelacion es ON es.id = r.estado
+                                           INNER JOIN dbo.EstudianteGrupo eg ON eg.id = r.estudianteGrupo WHERE eg.grupo = @grupoG AND es.requiereAccionDocente = 1)
+        THROW 58233, 'TEST FAILED: C-DB-35 soloPendientes del docente deja solo PENDIENTE_DOCENTE.', 1;
+    DELETE FROM #c1lt;
+    INSERT INTO #c1lt EXEC dbo.usp_consultar_revisiones_cancelacion_docente_paginado @idUsuario = @uT, @idCorrelacion = @c, @soloPendientes = 0, @idGrupo = NULL, @estado = N'propuesta',
+        @numeroPagina = 1, @tamanoPagina = 50;
+    IF NOT EXISTS (SELECT 1 FROM #c1lt WHERE id = @revEB) OR EXISTS (SELECT 1 FROM #c1lt WHERE codigoEstado <> N'PROPUESTA')
+        THROW 58234, 'TEST FAILED: C-DB-35 filtro de estado del docente.', 1;
+    DELETE FROM #c1lt;
+    INSERT INTO #c1lt EXEC dbo.usp_consultar_revisiones_cancelacion_docente_paginado @idUsuario = @uT, @idCorrelacion = @c, @soloPendientes = 0, @idGrupo = NULL, @estado = NULL,
+        @numeroPagina = 2, @tamanoPagina = 1;
+    IF (SELECT COUNT(*) FROM #c1lt) <> 1 OR (SELECT MAX(totalRegistros) FROM #c1lt) < 3
+        THROW 58235, 'TEST FAILED: C-DB-35 paginacion del docente: la pagina 2 de tamano 1 trae una fila y totalRegistros el total.', 1;
+    DELETE FROM #c1lt;
+    INSERT INTO #c1lt EXEC dbo.usp_consultar_revisiones_cancelacion_docente_paginado @idUsuario = @uT2, @idCorrelacion = @c, @soloPendientes = 0, @idGrupo = NULL, @estado = NULL,
+        @numeroPagina = 1, @tamanoPagina = 50;
+    IF EXISTS (SELECT 1 FROM #c1lt)
+        THROW 58236, 'TEST FAILED: C-DB-35 un docente sin grupos no ve revisiones ajenas.', 1;
 
     -- C-DB-32: el resumen del docente conserva sus columnas y agrega las de C al final
     DECLARE @cols NVARCHAR(MAX) = (SELECT STRING_AGG(CAST(name AS NVARCHAR(MAX)), N',') WITHIN GROUP (ORDER BY column_ordinal)
@@ -301,6 +349,15 @@ BEGIN TRY
         IF ERROR_MESSAGE() LIKE N'%COO_003%' SET @coo3 = 1;
     END CATCH
     IF @coo3 = 0 THROW 58143, 'TEST FAILED: C-DB-28 @idPrograma ajeno -> COO_003.', 1;
+    DECLARE @sec2doc BIT = 0;
+    BEGIN TRY
+        INSERT INTO #c1lt EXEC dbo.usp_consultar_revisiones_cancelacion_docente_paginado @idUsuario = @uT2, @idCorrelacion = @c, @soloPendientes = 0, @idGrupo = @grupoG, @estado = NULL,
+            @numeroPagina = 1, @tamanoPagina = 50;
+    END TRY
+    BEGIN CATCH
+        IF ERROR_MESSAGE() LIKE N'%SEC_002%' SET @sec2doc = 1;
+    END CATCH
+    IF @sec2doc = 0 THROW 58237, 'TEST FAILED: C-DB-35 @idGrupo de otro docente -> SEC_002.', 1;
     DECLARE @dest001 BIT = 0;
     BEGIN TRY
         INSERT INTO #c1dest EXEC dbo.usp_consultar_destinatarios_revision_cancelacion @idUsuarioEjecutor = @uAdm, @idCorrelacion = @c, @idRevision = @revEA;

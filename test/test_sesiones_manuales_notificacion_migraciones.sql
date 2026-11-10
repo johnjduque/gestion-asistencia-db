@@ -1,6 +1,6 @@
 -- CULM-001 / DEC-064: migracion 29 (sesiones manuales: aviso y cancelacion por el coordinador) up -> down -> up.
 -- Lo ejecuta test/test_sesiones_manuales_notificacion.ps1 con sqlcmd y la variable MIGDIR (copia de migrations/). Todo ocurre dentro de
--- UNA transaccion que se revierte al final: la BD queda como estaba.
+-- UNA transaccion (la abre el envoltorio componible) que se revierte al final: la BD queda como estaba.
 --   MIG_SMN_DOWN_OK     el down quita SP, vistas, tabla, mensajes SES_018..021, plantillas, marcadores y parametro
 --   MIG_SMN_UP1_OK      el up crea todo
 --   MIG_SMN_UP2_OK      el up dos veces no cambia nada (mismos textos)
@@ -11,8 +11,7 @@ SET NOCOUNT ON;
 SET XACT_ABORT OFF;
 SET QUOTED_IDENTIFIER ON;
 GO
-BEGIN TRANSACTION;
-GO
+-- La transaccion la abre el envoltorio componible (lib_componible.ps1), que antes baja las migraciones posteriores a la 29.
 IF OBJECT_ID(N'tempdb..#smnmig') IS NOT NULL DROP TABLE #smnmig;
 CREATE TABLE #smnmig (k NVARCHAR(80) PRIMARY KEY, v VARBINARY(32));
 GO
@@ -75,7 +74,7 @@ IF EXISTS (SELECT 1 FROM #smnmig x INNER JOIN sys.objects o ON o.name = x.k INNE
     THROW 58955, 'TEST FAILED: SMN_MIG down -> up no reprodujo el primer up.', 1;
 PRINT 'MIG_SMN_DOWN_UP_OK';
 GO
-IF @@TRANCOUNT <> 1 THROW 58956, 'TEST FAILED: SMN_MIG la migracion altero el nivel de transacciones.', 1;
+IF @@TRANCOUNT < 1 THROW 58956, 'TEST FAILED: SMN_MIG la migracion cerro la transaccion de la prueba.', 1;
 ROLLBACK TRANSACTION;
 GO
 PRINT 'MIG_SMN_ROLLBACK_OK';

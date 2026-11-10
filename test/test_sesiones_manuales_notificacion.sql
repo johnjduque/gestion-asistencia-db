@@ -65,7 +65,8 @@ BEGIN TRY
     INSERT #dest EXEC dbo.usp_consultar_destinatarios_sesion_manual @idSesion = @sGen, @idCorrelacion = @c, @idUsuarioEjecutor = @uT;
     IF EXISTS (SELECT 1 FROM #dest) THROW 58011, 'TEST FAILED CULM001_SMN_02: una sesion no manual no tiene destinatarios.', 1;
     INSERT #dest EXEC dbo.usp_consultar_destinatarios_sesion_manual @idSesion = @sV1, @idCorrelacion = @c, @idUsuarioEjecutor = @uT;
-    IF (SELECT COUNT(*) FROM #dest) <> 5 THROW 58015, 'TEST FAILED CULM001_SMN_01: la sesion creada por v1 (procedencia NULL) tambien notifica a 3 estudiantes y 2 coordinadores.', 1;
+    -- DEC-065 (2): el resultset suma la fila del DOCENTE titular (1 docente + 3 estudiantes + 2 coordinadores = 6)
+    IF (SELECT COUNT(*) FROM #dest) <> 6 THROW 58015, 'TEST FAILED CULM001_SMN_01: la sesion creada por v1 (procedencia NULL) tambien notifica a 3 estudiantes, 2 coordinadores y al docente titular.', 1;
     TRUNCATE TABLE #dest;
     PRINT 'TEST_PASS:CULM001_SMN_02_SESION_NO_MANUAL_SIN_DESTINATARIOS';
 

@@ -12,6 +12,8 @@ GO
 --   ventanaAbierta     = no cancelada, procedencia confirmada y apertura <= SYSUTCDATETIME() < cierre
 -- Los dos parametros se leen una sola vez (CROSS APPLY); un parametro ausente o negativo vale 0 (regla estricta).
 -- horasSesion = minutos de la sesion / 60 (0 si fin <= inicio).
+-- CULM-001 / DEC-065 (2): estadoSolicitud (codigo de EstadoSolicitudSesion; NULL si la sesion no tiene solicitud: generadas y manuales
+-- anteriores a DEC-065) y pendienteAprobacion (solicitud en espera): una sesion pendiente no tiene ventana abierta ni admite tomas.
 -- CULM-001 B.2 (CONTRACT §2.5): totalTomas (tomas de la sesion), tieneTomaAbierta e idTomaAbierta (la toma sin fechaCierreUtc).
 CREATE OR ALTER VIEW [dbo].[uv_sesion_estado]
 AS
@@ -36,13 +38,16 @@ SELECT  idSesion = s.id,
         ventanaCierreUtc = DATEADD(MINUTE, p.margenMinutos, s.fechaHoraFin),
         ventanaAbierta = CAST(IIF(sc.sesion IS NULL
                                   AND s.procedenciaTemporal IS NOT NULL
+                                  AND (esol.esFinal IS NULL OR esol.esFinal = 1)
                                   AND DATEADD(MINUTE, -p.toleranciaMinutos, s.fechaHoraInicio) <= SYSUTCDATETIME()
                                   AND SYSUTCDATETIME() < DATEADD(MINUTE, p.margenMinutos, s.fechaHoraFin), 1, 0) AS BIT),
         horasSesion = CAST(IIF(s.fechaHoraFin > s.fechaHoraInicio,
                                CAST(DATEDIFF(MINUTE, s.fechaHoraInicio, s.fechaHoraFin) AS DECIMAL(12,6)) / 60, 0) AS DECIMAL(12,6)),
         totalTomas = tm.totalTomas,
         tieneTomaAbierta = CAST(IIF(tm.idTomaAbierta IS NULL, 0, 1) AS BIT),
-        idTomaAbierta = tm.idTomaAbierta
+        idTomaAbierta = tm.idTomaAbierta,
+        estadoSolicitud = esol.codigo,
+        pendienteAprobacion = CAST(IIF(esol.esFinal = 0, 1, 0) AS BIT)
 FROM    dbo.uv_sesion_v2 s
 CROSS APPLY (
         SELECT  toleranciaMinutos = IIF(t.valor IS NULL OR t.valor < 0, 0, t.valor),
@@ -56,6 +61,10 @@ LEFT JOIN dbo.uv_tipo_cancelacion_sesion tc
 ON      tc.id = sc.tipoCancelacion
 LEFT JOIN dbo.DiaFestivo df
 ON      df.id = sc.diaFestivo
+LEFT JOIN dbo.SesionSolicitud ssol
+ON      ssol.sesion = s.id
+LEFT JOIN dbo.EstadoSolicitudSesion esol
+ON      esol.id = ssol.idEstado
 OUTER APPLY (
         SELECT  totalTomas = COUNT(1),
                 idTomaAbierta = MAX(IIF(t.fechaCierreUtc IS NULL, CAST(t.id AS NVARCHAR(36)), NULL))

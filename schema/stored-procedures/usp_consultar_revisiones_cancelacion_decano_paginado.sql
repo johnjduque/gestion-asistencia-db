@@ -6,11 +6,13 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 -- ============================================================================
--- usp_consultar_revisiones_cancelacion_decano_paginado (CULM-001 C.1; CONTRACT §2.5.7, SUPUESTO-C-14, DEC-043)
+-- usp_consultar_revisiones_cancelacion_decano_paginado (CULM-001 C.1; CONTRACT §2.5.7, SUPUESTO-C-14, DEC-043, DEC-065 (1))
 --
--- READ_QUERY_RESULTSET paginado (THROW 51000 si la validacion falla). RBAC DECANO. Revisiones escaladas al decano (perfil
--- resolutor actual DECANO y el ejecutor entre los resolutores de ufn_revision_cancelacion_resolutores) y las que resolvio el.
--- @idPrograma fuera de su facultad -> COO_003; @codigoEstado inexistente -> RCN_002. Mismas columnas que la bandeja del coordinador.
+-- READ_QUERY_RESULTSET paginado (THROW 51000 si la validacion falla). RBAC DECANO. SOLO CONSULTA Y AUDITORIA: todas las revisiones (cualquier
+-- estado) de los grupos que tienen algun programa de la facultad del decano (ufn_programas_ambito_ejecutor); la decision final es del
+-- coordinador, por eso esResolutorActual es siempre 0 y accionesPermitidas siempre vacio. @soloPendientes = revisiones que esperan al
+-- resolutor (propuestas). @idPrograma fuera de su facultad -> COO_003; @codigoEstado inexistente -> RCN_002. Mismas columnas que la
+-- bandeja del coordinador.
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_revisiones_cancelacion_decano_paginado]
 (
@@ -30,7 +32,6 @@ BEGIN
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idUsuarioDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @tamanoMaximo         INT = dbo.ufn_obtener_parametro_int(NULL, 'PAGINACION', 'TAMANO_MAXIMO');
-    DECLARE @codigoInscrita       NVARCHAR(10) = CAST(dbo.ufn_obtener_parametro('MATRICULA', 'ESTADO_INSCRITA') AS NVARCHAR(10));
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado BIT = 1;
@@ -86,31 +87,22 @@ BEGIN
         horasFaltaActual = rs.horasFalta,
         horasDictadasActual = rs.horasDictadas,
         umbralPerdida = rs.umbralPerdida,
-        esResolutorActual = CAST(res.esResolutor AS BIT),
-        accionesPermitidas = CASE WHEN res.esResolutor = 1 AND rv.codigoEstadoMatricula = @codigoInscrita THEN ISNULL(acc.acciones, N'') ELSE N'' END,
+        esResolutorActual = CAST(0 AS BIT),
+        accionesPermitidas = CAST(N'' AS NVARCHAR(200)),
         totalRegistros = COUNT(1) OVER()
     FROM dbo.uv_revision_cancelacion rv
-    OUTER APPLY (
-        SELECT esResolutor = CAST(IIF(EXISTS (SELECT 1 FROM dbo.ufn_revision_cancelacion_resolutores(rv.idEstudianteGrupo, rv.idUsuarioDecisionDocente) f
-                                              WHERE f.idUsuario = @idUsuarioDefecto AND f.esEscalamiento = 1), 1, 0) AS BIT)
-    ) res
-    OUTER APPLY (
+    CROSS APPLY (
         SELECT TOP 1 idPrograma = p.id, p.nombre
-        FROM (SELECT f.idPrograma FROM dbo.ufn_revision_cancelacion_resolutores(rv.idEstudianteGrupo, rv.idUsuarioDecisionDocente) f WHERE f.idUsuario = @idUsuarioDefecto
-              UNION SELECT rv.idProgramaResolucion WHERE rv.idProgramaResolucion IS NOT NULL) q
-        INNER JOIN dbo.Programa p ON p.id = q.idPrograma
-        ORDER BY IIF(p.id = rv.idProgramaResolucion, 0, 1) ASC, p.nombre ASC, p.id ASC
+        FROM dbo.ufn_programas_grupo(rv.idGrupo) pg
+        INNER JOIN dbo.ufn_programas_ambito_ejecutor(@idUsuarioDefecto) a ON a.idPrograma = pg.idPrograma AND a.rol = N'DECANO'
+        INNER JOIN dbo.Programa p ON p.id = pg.idPrograma
+        WHERE (@idPrograma IS NULL OR p.id = @idPrograma)
+        ORDER BY p.nombre ASC, p.id ASC
     ) x
-    OUTER APPLY (
-        SELECT acciones = STRING_AGG(t.codigoDecision, N',') WITHIN GROUP (ORDER BY t.codigoDecision DESC)
-        FROM dbo.TransicionRevisionCancelacion t WHERE t.estadoOrigen = rv.idEstado AND t.esDecisionResolutor = 1
-    ) acc
     LEFT JOIN dbo.uv_resumen_asistencia_estudiante_grupo rs ON rs.idEstudianteGrupo = rv.idEstudianteGrupo
-    WHERE ((rv.codigoPerfilResolutorActual = N'DECANO' AND res.esResolutor = 1) OR rv.idUsuarioResolucion = @idUsuarioDefecto)
-      AND (@codigoEstado IS NULL OR rv.codigoEstado = UPPER(TRIM(@codigoEstado)))
-      AND (@idPrograma IS NULL OR x.idPrograma = @idPrograma)
-      AND (@soloPendientes IS NULL OR @soloPendientes = 0 OR (rv.requiereAccionResolutor = 1 AND res.esResolutor = 1))
-    ORDER BY res.esResolutor DESC, rv.requiereAccionResolutor DESC, rv.fechaDecisionDocenteUtc ASC, rv.id ASC
+    WHERE (@codigoEstado IS NULL OR rv.codigoEstado = UPPER(TRIM(@codigoEstado)))
+      AND (@soloPendientes IS NULL OR @soloPendientes = 0 OR rv.requiereAccionResolutor = 1)
+    ORDER BY rv.requiereAccionResolutor DESC, rv.fechaActualizacionUtc DESC, rv.id ASC
     OFFSET @offset ROWS FETCH NEXT @tamanoPagina ROWS ONLY;
 END;
 GO

@@ -395,7 +395,7 @@ finally {
     }
     if ($d06Group) {
         try {
-            docker exec $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -d gestionasistenciadb -U sa -P $Password -C -I -b -Q "SET NOCOUNT ON; SET QUOTED_IDENTIFIER ON; DELETE tk FROM dbo.TokenAsistenciaToma tk INNER JOIN dbo.TomaAsistencia t ON t.id = tk.toma INNER JOIN dbo.Sesion s ON s.id = t.sesion WHERE s.grupo = '$d06Group' AND s.nombre = N'$d06Tag'; DELETE t FROM dbo.TomaAsistencia t INNER JOIN dbo.Sesion s ON s.id = t.sesion WHERE s.grupo = '$d06Group' AND s.nombre = N'$d06Tag'; DELETE sc FROM dbo.SesionCancelacion sc INNER JOIN dbo.Sesion s ON s.id = sc.sesion WHERE s.grupo = '$d06Group' AND s.nombre = N'$d06Tag'; DELETE FROM dbo.Sesion WHERE grupo = '$d06Group' AND nombre = N'$d06Tag';" | Out-Null
+            docker exec $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -d gestionasistenciadb -U sa -P $Password -C -I -b -Q "SET NOCOUNT ON; SET QUOTED_IDENTIFIER ON; DELETE tk FROM dbo.TokenAsistenciaToma tk INNER JOIN dbo.TomaAsistencia t ON t.id = tk.toma INNER JOIN dbo.Sesion s ON s.id = t.sesion WHERE s.grupo = '$d06Group' AND s.nombre = N'$d06Tag'; DELETE t FROM dbo.TomaAsistencia t INNER JOIN dbo.Sesion s ON s.id = t.sesion WHERE s.grupo = '$d06Group' AND s.nombre = N'$d06Tag'; DELETE ss FROM dbo.SesionSolicitud ss INNER JOIN dbo.Sesion s ON s.id = ss.sesion WHERE s.grupo = '$d06Group' AND s.nombre = N'$d06Tag'; DELETE sc FROM dbo.SesionCancelacion sc INNER JOIN dbo.Sesion s ON s.id = sc.sesion WHERE s.grupo = '$d06Group' AND s.nombre = N'$d06Tag'; DELETE FROM dbo.Sesion WHERE grupo = '$d06Group' AND nombre = N'$d06Tag';" | Out-Null
             if ($LASTEXITCODE -ne 0) { $cleanupErrors += 'D06 SQL cleanup returned a non-zero exit code' }
         }
         catch {
@@ -639,6 +639,45 @@ try {
 }
 catch {
     $resultFailures += "CULM001_D1_RUNNER $($_.Exception.Message)"
+}
+# CULM-001 / DEC-065: migracion 30 (up/down/up componible) en test/test_mrm_solicitud_sesion.ps1.
+$mrmIds = @('MRM_MIG_UP_DOWN_UP')
+try {
+    $mrmOutput = @(& (Join-Path $PSScriptRoot 'test/test_mrm_solicitud_sesion.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $mrmOutput) { Write-Host $line }
+    foreach ($id in $mrmIds) {
+        if ($mrmOutput -contains "TEST_PASS:$id") { $clientPassed += $id }
+        else { $resultFailures += "$id not reported by test_mrm_solicitud_sesion.ps1" }
+    }
+}
+catch {
+    $resultFailures += "MRM_RUNNER $($_.Exception.Message)"
+}
+# CULM-001 / DEC-065 (1): migracion 31 (up/down/up componible) en test/test_mrm_coordinador_cancelacion.ps1.
+$mrcIds = @('MRC_MIG_UP_DOWN_UP')
+try {
+    $mrcOutput = @(& (Join-Path $PSScriptRoot 'test/test_mrm_coordinador_cancelacion.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $mrcOutput) { Write-Host $line }
+    foreach ($id in $mrcIds) {
+        if ($mrcOutput -contains "TEST_PASS:$id") { $clientPassed += $id }
+        else { $resultFailures += "$id not reported by test_mrm_coordinador_cancelacion.ps1" }
+    }
+}
+catch {
+    $resultFailures += "MRC_RUNNER $($_.Exception.Message)"
+}
+# CULM-001 / DEC-065 (5): migracion 32 (up/down/up componible) en test/test_mrm_registro_compuesto.ps1.
+$mrgIds = @('MRG_MIG_UP_DOWN_UP')
+try {
+    $mrgOutput = @(& (Join-Path $PSScriptRoot 'test/test_mrm_registro_compuesto.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $mrgOutput) { Write-Host $line }
+    foreach ($id in $mrgIds) {
+        if ($mrgOutput -contains "TEST_PASS:$id") { $clientPassed += $id }
+        else { $resultFailures += "$id not reported by test_mrm_registro_compuesto.ps1" }
+    }
+}
+catch {
+    $resultFailures += "MRG_RUNNER $($_.Exception.Message)"
 }
 # CULM-001 D.2: migracion 21 (up/down/up), down sin confirmacion y orden de rollback D-RB-01 en test/test_culm001_d2.ps1.
 $culm001D2Ids = @('CULM001_D2_13_UP_DOWN_UP', 'CULM001_D2_13_DOWN_SIN_CONFIRMACION', 'CULM001_D_RB_01_ORDEN_DE_DOWN')
@@ -933,7 +972,18 @@ $criticalIds = @(
     'CULM001_D7_TRANCOUNT_ZERO', 'CULM001_D7_03_UP_DOWN_UP',
     # CULM-001 D.8 (test/test_culm001_d8_kpis_horas.sql, test/test_culm001_d8.ps1)
     'CULM001_D8_01_COMPARATIVAS', 'CULM001_D8_02_TENDENCIA', 'CULM001_D8_03_CONSOLIDADO', 'CULM001_D8_04_REGRESION_UNA_TOMA', 'CULM001_D8_05_SIN_LITERAL_A',
-    'CULM001_D8_06_CANCELADA_NO_SUMA', 'CULM001_D8_07_GRANO_GRUPO_PROGRAMA', 'CULM001_D8_09_REDONDEO_SUMA_100', 'CULM001_D8_TRANCOUNT_ZERO', 'CULM001_D8_08_UP_DOWN_UP'
+    'CULM001_D8_06_CANCELADA_NO_SUMA', 'CULM001_D8_07_GRANO_GRUPO_PROGRAMA', 'CULM001_D8_09_REDONDEO_SUMA_100', 'CULM001_D8_TRANCOUNT_ZERO', 'CULM001_D8_08_UP_DOWN_UP',
+    # CULM-001 / DEC-065 (test/test_mrm_solicitud_sesion.sql, test/test_mrm_solicitud_sesion.ps1, test/test_public_objects.sql)
+    'CULM001_MRM_00_OBJETOS_Y_SEMILLAS', 'CULM001_MRM_01_DOCENTE_CREA_SOLICITUD_PENDIENTE', 'CULM001_MRM_02_VISTAS_ESTADO_SOLICITUD',
+    'CULM001_MRM_03_ESTUDIANTE_NO_VE_PENDIENTE', 'CULM001_MRM_04_PENDIENTE_NO_ADMITE_TOMAS', 'CULM001_MRM_05_APROBAR', 'CULM001_MRM_06_RECHAZAR',
+    'CULM001_MRM_07_CONSULTA_PAGINADA_COORDINADOR', 'CULM001_MRM_08_DESTINATARIOS', 'CULM001_MRM_09_GRUPOS_SOLO_COORDINADOR', 'CULM001_MRM_SOLICITUD_SESION',
+    'CULM001_MRM_08_DESTINATARIOS_SOLO_COORDINADOR', 'CULM001_MRM_08_DESTINATARIOS_AMBITO_SEC002', 'CULM001_MRM_07_SOLO_COORDINADOR',
+    'CULM001_MRM_TRANCOUNT_ZERO', 'CULM001_MRM_SEG_01', 'MRM_MIG_UP_DOWN_UP', 'CULM001_MRC_SEG_01', 'MRC_MIG_UP_DOWN_UP',
+    # CULM-001 / DEC-065 (5) (test/test_mrm_registro_compuesto.sql, test/test_mrm_registro_compuesto.ps1, test/test_public_objects.sql)
+    'CULM001_MRM_REG_00_OBJETOS_Y_PERMISOS', 'CULM001_MRM_REG_01_DECANO_CON_FACULTAD', 'CULM001_MRM_REG_02_FALLO_FACULTAD_NO_DEJA_PERSONA', 'CULM001_MRM_REG_03_DEC_020',
+    'CULM001_MRM_REG_04_RBAC_DECANO_CON_FACULTAD', 'CULM001_MRM_REG_05_COORDINADOR_CON_PROGRAMA', 'CULM001_MRM_REG_06_FALLO_PROGRAMA_NO_DEJA_PERSONA',
+    'CULM001_MRM_REG_07_RBAC_Y_TITULARIDAD_COORDINADOR_CON_PROGRAMA', 'CULM001_MRM_REG_08_FALLO_POSTERIOR_REVIERTE_TODO', 'CULM001_MRM_REG_09_PUBLICOS_ANTERIORES',
+    'CULM001_MRM_REG_10_TRANCOUNT_ZERO', 'CULM001_MRG_SEG_01', 'MRG_MIG_UP_DOWN_UP'
 )
 if ($Concurrencia) { $criticalIds += 'CULM001_B2_CON_01_5X40' }
 $sqlPasses = @([regex]::Matches($outputStr, '(?m)^TEST_PASS:([A-Z0-9_]+)\s*$') | ForEach-Object { $_.Groups[1].Value })

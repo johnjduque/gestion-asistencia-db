@@ -17,6 +17,8 @@ GO
 --   académico consumiendo uv_auth_sesion. Aplica preservación estricta de SESSION_CONTEXT.
 --   CULM-001 B.1 (CONTRACT §2.7.7): agrega al final estaCancelada, codigoTipoCancelacion, motivoCancelacion,
 --   nombreDiaFestivo y fechaCancelacionUtc desde uv_sesion_estado (las sesiones canceladas se siguen listando).
+--   CULM-001 / DEC-065 (2): un usuario que solo tiene perfil ESTUDIANTE no ve las sesiones extraordinarias pendientes de aprobacion
+--   ni las rechazadas por el coordinador (nunca se le anunciaron); docente, coordinador y demas perfiles las ven (con su estado).
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_sesiones_grupo_paginado]
 (
@@ -51,6 +53,7 @@ AS
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado BIT = 1;
     DECLARE @contextoPrevio SQL_VARIANT = SESSION_CONTEXT(N'idUsuarioEjecutor');
+    DECLARE @esSoloEstudiante BIT = 0;
 
 BEGIN
     SET NOCOUNT ON;
@@ -93,6 +96,11 @@ BEGIN
             THROW 51000, @mensajeTecnicoResultado, 1;
         END
 
+        -- Paso 3.5 (DEC-065 (2)): perfil exclusivamente ESTUDIANTE => se ocultan las sesiones extraordinarias no aprobadas
+        IF EXISTS (SELECT 1 FROM dbo.uv_usuario_perfil up WHERE up.idUsuario = @idUsuarioDefecto AND UPPER(up.nombrePerfil) = 'ESTUDIANTE')
+           AND NOT EXISTS (SELECT 1 FROM dbo.uv_usuario_perfil up WHERE up.idUsuario = @idUsuarioDefecto AND UPPER(up.nombrePerfil) <> 'ESTUDIANTE')
+            SET @esSoloEstudiante = 1;
+
         -- Paso 4: Establecer identidad temporal en contexto para uv_auth_sesion
         EXEC dbo.usp_establecer_contexto_usuario_ejecutor @p_idUsuario = @idUsuarioDefecto;
 
@@ -121,6 +129,10 @@ BEGIN
           AND (@filtroFechaDesde IS NULL OR s.fechaHoraInicio >= @filtroFechaDesde)
           AND (@filtroFechaHasta IS NULL OR s.fechaHoraFin <= @filtroFechaHasta)
           AND (@filtroSemana IS NULL OR s.numeroSemana = @filtroSemana)
+          AND (@esSoloEstudiante = 0
+               OR NOT EXISTS (SELECT 1 FROM dbo.SesionSolicitud ssol
+                              INNER JOIN dbo.EstadoSolicitudSesion esol ON esol.id = ssol.idEstado
+                              WHERE ssol.sesion = s.id AND esol.esAprobada = 0))
         ORDER BY s.fechaHoraInicio ASC, s.numero ASC, s.id ASC
         OFFSET @offset ROWS
         FETCH NEXT @tamano ROWS ONLY;

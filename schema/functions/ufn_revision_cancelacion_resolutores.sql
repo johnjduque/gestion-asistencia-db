@@ -5,11 +5,11 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
--- CULM-001 C.1 (CONTRACT §2.3, SUPUESTO-C-09, O-1, O-2): usuarios que pueden resolver una revision de cancelacion.
--- Programas competentes = EstudiantePrograma del estudiante que ademas son programas vigentes del grupo (regla S1 de B2,
--- replicada de ufn_programas_grupo para no depender del orden de despliegue; la paridad la prueba C-DB-63).
--- Coordinadores activos de esos programas (excluido @idUsuarioExcluido: quien propuso); si no queda ninguno, escala a los
--- decanos activos de las facultades de esos programas (esEscalamiento = 1), tambien con la exclusion. Solo tablas base.
+-- CULM-001 C.1 (CONTRACT §2.3, O-1, O-2) + DEC-065 (1): usuarios que pueden resolver una revision de cancelacion. La decision final es del
+-- coordinador del programa: no hay escalamiento al decano. Programas competentes = EstudiantePrograma del estudiante que ademas son
+-- programas vigentes del grupo (regla S1 de B2, replicada de ufn_programas_grupo para no depender del orden de despliegue; la paridad la
+-- prueba C-DB-63). Resolutores = coordinadores titulares activos (Programa.coordinador) de esos programas, sin @idUsuarioExcluido (quien
+-- propuso). esEscalamiento se conserva por compatibilidad de los consumidores y es siempre 0. Solo tablas base.
 CREATE OR ALTER FUNCTION [dbo].[ufn_revision_cancelacion_resolutores] (@idEstudianteGrupo UNIQUEIDENTIFIER, @idUsuarioExcluido UNIQUEIDENTIFIER)
 RETURNS TABLE
 AS
@@ -43,18 +43,7 @@ RETURN
         INNER JOIN dbo.Coordinador co ON co.id = c.idCoordinador AND co.estado = 1
         INNER JOIN dbo.Usuario u ON u.id = co.usuario AND u.estado = 1
         WHERE (@idUsuarioExcluido IS NULL OR u.id <> @idUsuarioExcluido)
-    ),
-    decanos AS (
-        SELECT DISTINCT idUsuario = u.id, codigoPerfil = CAST(N'DECANO' AS NVARCHAR(20)), c.idPrograma, c.idFacultad, esEscalamiento = CAST(1 AS BIT)
-        FROM competentes c
-        INNER JOIN dbo.Facultad f ON f.id = c.idFacultad AND f.estado = 1
-        INNER JOIN dbo.Decano d ON d.id = f.decano AND d.estado = 1
-        INNER JOIN dbo.Usuario u ON u.id = d.usuario AND u.estado = 1
-        WHERE NOT EXISTS (SELECT 1 FROM coordinadores)
-          AND (@idUsuarioExcluido IS NULL OR u.id <> @idUsuarioExcluido)
     )
     SELECT idUsuario, codigoPerfil, idPrograma, idFacultad, esEscalamiento FROM coordinadores
-    UNION
-    SELECT idUsuario, codigoPerfil, idPrograma, idFacultad, esEscalamiento FROM decanos
 );
 GO
