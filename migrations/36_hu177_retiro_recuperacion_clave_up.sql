@@ -1,9 +1,10 @@
 -- ============================================================================
--- MIGRACION DOWN 35: HU177 - retira la recuperacion de contrasena
---   1. DROP de los 4 SP.
---   2. DROP de dbo.TokenRecuperacionClave (el FK y el indice se van con ella). Los enlaces pendientes se pierden: dejan de servir.
---   3. Borra la plantilla RECUPERACION_CLAVE y sus marcadores, los mensajes RCL_001..RCL_003 y los parametros RECUPERACION_CLAVE.
--- Idempotente.
+-- MIGRACION UP 36: retiro del flujo propio de recuperacion de contrasena (HU177)
+-- Decision de John (2026-11-11): recuperar la contrasena es del servicio de seguridad de terceros, no de esta aplicacion.
+-- La migracion 35 (tabla TokenRecuperacionClave, cuatro SP, mensajes RCL_001..003, parametros RECUPERACION_CLAVE y plantilla de
+-- correo) estuvo en develop unas horas y se retiro del repositorio. Esta migracion limpia los ambientes donde se alcanzo a
+-- aplicar; donde no se aplico no hace nada. Solo elimina objetos y semillas de ese flujo. Idempotente.
+-- Down: 36_hu177_retiro_recuperacion_clave_down.sql (no recrea nada: el flujo ya no existe en el repositorio).
 -- ============================================================================
 :on error exit
 USE [gestionasistenciadb];
@@ -12,7 +13,7 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-PRINT 'MIGRACION 35 DOWN: retira la recuperacion de contrasena';
+PRINT 'MIGRACION 36 UP: retiro del flujo propio de recuperacion de contrasena';
 GO
 IF OBJECT_ID(N'dbo.usp_consultar_solicitud_recuperacion_clave', N'P') IS NOT NULL DROP PROCEDURE dbo.usp_consultar_solicitud_recuperacion_clave;
 GO
@@ -30,5 +31,5 @@ DELETE FROM dbo.CatalogoMensajeUsuario WHERE codigo IN ('RCL_001', 'RCL_002', 'R
 DELETE FROM dbo.CatalogoMensajeTecnico WHERE codigo IN ('RCL_001', 'RCL_002', 'RCL_003');
 DELETE FROM dbo.CatalogoParametro WHERE grupo = 'RECUPERACION_CLAVE';
 GO
-PRINT 'MIGRACION 35 DOWN OK';
+PRINT 'MIGRACION 36 UP OK';
 GO

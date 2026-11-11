@@ -546,8 +546,3 @@ BEGIN
     ALTER TABLE [dbo].[SesionSolicitud] ADD CONSTRAINT [FK_SesionSolicitud_UsuarioResolucion] FOREIGN KEY ([usuarioResolucion]) REFERENCES [dbo].[Usuario] ([id]);
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_TokenRecuperacionClave_Usuario')
-BEGIN
-    ALTER TABLE [dbo].[TokenRecuperacionClave] ADD CONSTRAINT [FK_TokenRecuperacionClave_Usuario] FOREIGN KEY ([usuario]) REFERENCES [dbo].[Usuario] ([id]);
-END
-GO
