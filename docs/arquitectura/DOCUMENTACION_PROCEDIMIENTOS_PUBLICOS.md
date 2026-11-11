@@ -447,3 +447,16 @@ Decisión de John del 2026-11-10. El estudiante solo ve lo propio: los dos SP re
 | `dbo.usp_consultar_horas_programadas_estudiante` | Lectura nueva (4 columnas): `idEstudianteGrupo`, `idGrupo`, `sesionesProgramadas` y `horasProgramadas` de cada matrícula inscrita. Cuenta las sesiones no canceladas del grupo, dictadas o por dictar (`uv_cumplimiento_sesion_grupo`); un grupo sin sesiones devuelve 0 y 0 | estudiante ejecutor | `VAL_001` (THROW) |
 
 Sin objetos modificados. Permiso aditivo: `schema/security/rol_asistencias_runtime_hu018_hu019.sql`. Migración: `33_hu018_hu019_plan_horas_estudiante_up|down.sql`. Pruebas: `test/test_hu018_hu019_plan_horas_estudiante.sql` y `test/test_hu018_hu019.ps1`. Work item: `docs/work-items/HU018-HU019-plan-horas-estudiante/PLAN.md`.
+
+## Addendum HU177 — recuperación de contraseña (2026-11-11)
+
+Decisión de John del 2026-11-11. Los cuatro SP son públicos sin ejecutor: la credencial es el correo (solo para pedir el enlace, con respuesta uniforme) o el SHA-256 del token del enlace. Ninguno recibe ni guarda la contraseña.
+
+| Objeto | Qué entrega | Ámbito | Códigos |
+|---|---|---|---|
+| `dbo.usp_consultar_solicitud_recuperacion_clave` | Lectura nueva (0..1 fila: `idUsuario`, `primerNombre`, `correo`). Devuelve fila solo si el correo es de un único usuario activo y ya pasó `RECUPERACION_CLAVE/REENVIO_ESPERA_MINUTOS` desde el último enlace emitido | Sin ejecutor. No revela por qué no devuelve fila | No lanza |
+| `dbo.usp_emitir_token_recuperacion_clave` | Comando canónico. Revoca el enlace pendiente del usuario y registra el hash del nuevo con vigencia `ahora + RECUPERACION_CLAVE/TTL_MINUTOS` | Técnico: lo llama el canal de correo al entregar el aviso | `GEN_004`, `GEN_002`, `VCE_007`, `SYS_001` |
+| `dbo.usp_consultar_token_recuperacion_clave` | Lectura nueva (0..1 fila: `idUsuario`). No consume el enlace | Sin ejecutor: la credencial es el hash | No lanza |
+| `dbo.usp_consumir_token_recuperacion_clave` | Comando canónico. Marca el enlace como usado en una sola sentencia | Sin ejecutor: la credencial es el hash | `RCL_003`, `RCL_002`, `SYS_001` |
+
+Permiso aditivo: `schema/security/rol_asistencias_runtime_hu177.sql`. Migración: `35_hu177_recuperacion_clave_up|down.sql`. Pruebas: `test/test_hu177_recuperacion_clave.sql` y `test/test_hu177.ps1`. Work item: `docs/work-items/HU177-recuperar-contrasena/PLAN.md`.
