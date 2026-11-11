@@ -152,6 +152,7 @@ PRINT '======================================================================';
 :r /tmp/test/test_culm001_d8_kpis_horas.sql
 -- HU018 / HU019 (plan de estudios por semestres y horas programadas del estudiante): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_hu018_hu019_plan_horas_estudiante.sql
+:r /tmp/test/test_hu177_recuperacion_clave.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN
