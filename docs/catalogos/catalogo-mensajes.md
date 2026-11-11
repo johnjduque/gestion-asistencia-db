@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **289**.
+Total de códigos: **286**.
 
 ## ADS
 
@@ -366,14 +366,6 @@ Total de códigos: **289**.
 | Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
 |---|---|---|---|---|---|
 | `RC_001` | BUSINESS_ERROR | MEDIO | El estado de asistencia {} no corresponde a una razón de causa válida. | RazonCausa.codigo = [{}] no existe o no es válido para el contrato de asistencia. | `04_mensaje.sql` |
-
-## RCL
-
-| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
-|---|---|---|---|---|---|
-| `RCL_001` | SUCCESS | BAJO | Si el correo está registrado, recibirá un enlace para definir una contraseña nueva. | Solicitud de recuperación recibida; la respuesta no indica si el correo existe. | `61_hu177_recuperacion_clave.sql` |
-| `RCL_002` | BUSINESS_ERROR | MEDIO | El enlace para definir la contraseña no es válido o ya venció. Solicite uno nuevo. | Enlace de recuperación inexistente, vencido, usado, revocado o de usuario inactivo. | `61_hu177_recuperacion_clave.sql` |
-| `RCL_003` | SUCCESS | BAJO | Su contraseña fue actualizada. Ya puede iniciar sesión. | Enlace de recuperación consumido (TokenRecuperacionClave.fechaUsoUtc). | `61_hu177_recuperacion_clave.sql` |
 
 ## RCN
 

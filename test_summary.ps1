@@ -692,18 +692,18 @@ try {
 catch {
     $resultFailures += "DVS_RUNNER $($_.Exception.Message)"
 }
-# HU177: migracion 35 (recuperacion de contrasena; up/down/up componible) en test/test_hu177.ps1.
-$hu177Ids = @('HU177_MIG_UP_DOWN_UP')
+# HU177: migracion 36 (retiro del flujo propio de recuperacion de contrasena) en test/test_hu177_retiro.ps1.
+$ret177Ids = @('HU177_RETIRO_MIG')
 try {
-    $hu177Output = @(& (Join-Path $PSScriptRoot 'test/test_hu177.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
-    foreach ($line in $hu177Output) { Write-Host $line }
-    foreach ($id in $hu177Ids) {
-        if ($hu177Output -contains "TEST_PASS:$id") { $clientPassed += $id }
-        else { $resultFailures += "$id not reported by test_hu177.ps1" }
+    $ret177Output = @(& (Join-Path $PSScriptRoot 'test/test_hu177_retiro.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $ret177Output) { Write-Host $line }
+    foreach ($id in $ret177Ids) {
+        if ($ret177Output -contains "TEST_PASS:$id") { $clientPassed += $id }
+        else { $resultFailures += "$id not reported by test_hu177_retiro.ps1" }
     }
 }
 catch {
-    $resultFailures += "HU177_RUNNER $($_.Exception.Message)"
+    $resultFailures += "HU177_RETIRO_RUNNER $($_.Exception.Message)"
 }
 # CULM-001 D.2: migracion 21 (up/down/up), down sin confirmacion y orden de rollback D-RB-01 en test/test_culm001_d2.ps1.
 $culm001D2Ids = @('CULM001_D2_13_UP_DOWN_UP', 'CULM001_D2_13_DOWN_SIN_CONFIRMACION', 'CULM001_D_RB_01_ORDEN_DE_DOWN')
@@ -1025,9 +1025,8 @@ $criticalIds = @(
     'CULM001_MRM_REG_10_TRANCOUNT_ZERO', 'CULM001_MRG_SEG_01', 'MRG_MIG_UP_DOWN_UP',
     # Migracion 34: validaciones compartidas de sesion (test/test_dedup_validaciones_sesion.ps1)
     'DVS_MIG_UP_DOWN_UP',
-    # HU177 (test/test_hu177_recuperacion_clave.sql, test/test_hu177.ps1)
-    'HU177_OBJETOS_Y_SEMILLAS', 'HU177_SOLICITUD_USUARIO', 'HU177_EMISION', 'HU177_ESPERA_REENVIO', 'HU177_UN_PENDIENTE', 'HU177_EMISION_RECHAZOS',
-    'HU177_CONSULTA_NO_CONSUME', 'HU177_CONSUMO_UN_SOLO_USO', 'HU177_ENLACES_INVALIDOS', 'HU177_PERMISOS', 'HU177_TRANCOUNT_ZERO', 'HU177_MIG_UP_DOWN_UP'
+    # HU177: retiro del flujo propio de recuperacion de contrasena (test/test_hu177_retiro.ps1)
+    'HU177_RETIRO_MIG'
 )
 if ($Concurrencia) { $criticalIds += 'CULM001_B2_CON_01_5X40' }
 $sqlPasses = @([regex]::Matches($outputStr, '(?m)^TEST_PASS:([A-Z0-9_]+)\s*$') | ForEach-Object { $_.Groups[1].Value })
