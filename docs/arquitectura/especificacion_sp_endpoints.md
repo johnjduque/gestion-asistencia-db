@@ -634,3 +634,11 @@ Work item: `docs/work-items/PC-puntos-control-tomas/`. Migración `37_pc_tomas_p
 | `SolicitudRevisionAsistencia`, `DetalleAsistencia` | `usp_resolver_solicitud_revision_asistencia` (parámetro nuevo al final) | `PATCH /api/v1/docente/reclamos/{id}` con `resultado` | DOCENTE titular | `… , @codigoResultadoAprobacion` (`AN` = PRESENTE, `EX` = JUSTIFICADA; NULL = EX) | Aprobación con resultado; `REV_028` (400), `REV_029` (409). |
 | `SolicitudRevisionAsistencia` | `usp_consultar_solicitudes_revision_estudiante` y `usp_consultar_detalle_solicitud_revision_docente` (columnas al final) | rutas actuales de reclamos | ESTUDIANTE / DOCENTE | sin cambio | Toma reclamada, su punto de control, resultado; el detalle agrega la marca actual y los minutos de la sesión. |
 | `uv_asistencia_toma_estudiante` (NUEVA) | — (lectura JPA) | `GET /api/v1/estudiante/materias/{materiaId}/sesiones` (tomas de cada sesión) | ESTUDIANTE | — | Estado del estudiante en cada toma, minutos de los tramos vecinos y si es reclamable. |
+
+## Addendum VAL ROL-05 (2026-11-12): retiro del alta de usuarios sin ámbito
+
+Migración `39_val_retiro_alta_usuarios_sin_ambito_up|down.sql`. Decisión de John: `POST /api/v1/usuarios` se retira del backend porque creaba usuarios y cuentas de identidad para cualquier autenticado, sin ejecutor ni ámbito.
+
+| Tabla | SP | Endpoint | Rol | Cambio |
+|---|---|---|---|---|
+| `Usuario` | `usp_sincronizar_usuario` (RETIRADO con su `GRANT EXECUTE`) | ~~`POST /api/v1/usuarios`~~ (retirado) | — | El alta de usuarios va solo por los flujos con ámbito: `usp_crear_decano` (`POST /api/v1/admin/decanos`), `usp_crear_coordinador` (`POST /api/v1/decano/coordinadores`), `usp_vincular_docente_programa`, `usp_admitir_estudiante` y `usp_registrar_estudiante_en_grupo`. Todos usan `usp_sincronizar_usuario_interno`, que no cambia. |

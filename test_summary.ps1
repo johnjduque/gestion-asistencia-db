@@ -165,10 +165,8 @@ foreach ($line in ($outputStr -split '\r?\n')) {
 # the result set and compares the actual row with catalog and state checks.
 $resultIds = @('STUDENT_DUPLICATE', 'STUDENT_GROUP_NOT_FOUND', 'STUDENT_GROUP_DISABLED', 'STUDENT_CAPACITY_EXCEEDED', 'MASS_CLOSE_SUCCESS',
     'ATTENDANCE_BULK_STUDENT_NOT_IN_GROUP', 'ATTENDANCE_BULK_ATOMIC',
-    # CC-003G-01: rechazos y fallos forzados de los proveedores publicos (el SP ejecuta ROLLBACK internamente)
-    'USER_SYNC_PUBLIC_DUPLICATE_DOCUMENT', 'USER_SYNC_PUBLIC_DUPLICATE_EMAIL', 'USER_SYNC_PUBLIC_CONFLICTING_PROFILE',
-    'USER_SYNC_PUBLIC_INVALID_EMAIL', 'USER_SYNC_PUBLIC_EMPTY_PASSWORD', 'USER_SYNC_PUBLIC_UNKNOWN_ID_TYPE',
-    'USER_SYNC_PUBLIC_ROLLBACK_SAVEPOINT', 'USER_SYNC_PUBLIC_ROLLBACK_OWN_TRANSACTION', 'USER_SYNC_PUBLIC_INACTIVE_REPLAY',
+    # CC-003G-01: rechazos y fallos forzados del proveedor publico de plan (el SP ejecuta ROLLBACK internamente).
+    # VAL ROL-05 (migracion 39): los casos USER_SYNC_PUBLIC_* se retiraron con usp_sincronizar_usuario.
     'PLAN_PUBLIC_DUPLICATE_BUSINESS_KEY', 'PLAN_PUBLIC_UPDATE_TO_TAKEN_INP', 'PLAN_PUBLIC_FOREIGN_PLAN',
     'PLAN_PUBLIC_ROLLBACK_SAVEPOINT', 'PLAN_PUBLIC_ROLLBACK_OWN_TRANSACTION',
     # F1: rechazo de usp_guardar_horarios_grupo despues de escribir (rollback a savepoint y transaccion propia)
@@ -452,30 +450,7 @@ WHERE ci.estaActivoUsuario = 1 ORDER BY p.id;
     $ccTipo, $ccPrograma, $ccCoord = $ccFx[0].Split('|')
     $ccBase = 1700000000 + (Get-Random -Minimum 1 -Maximum 90000000)
 
-    # (1) Usuario: mismas solicitudes exactas desde dos sesiones => una fila por identidad y todo exito (alta o reintento)
-    $userCalls = { param($offset) (1..$ccCount | ForEach-Object {
-        "EXEC dbo.usp_sincronizar_usuario @idTipoIdIdentificacion = '$ccTipo', @numeroIdentificacion = $($ccBase + $_ + $offset), @primerApellido = N'Race', @segundoApellido = N'Gate', @primerNombre = N'Same', @segundoNombre = N'Request', @correo = N'$ccTag.same.$_@test.local', @password = N'HashBackend_CC003G01_SECRET_MARKER_RACE', @idCorrelacion = '$([guid]::NewGuid())';" }) -join "`n" }
-    $outSame = Invoke-Cc003g01WorkerPair -SqlA ("SET NOCOUNT ON;`n" + (& $userCalls 0)) -SqlB ("SET NOCOUNT ON;`n" + (& $userCalls 0)) -Label 'usersame'
-    $sameStates = Get-Cc003g01States $outSame
-    $sameCounts = @(docker exec $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -d gestionasistenciadb -U sa -P $Password -C -b -h -1 -W -Q "SET NOCOUNT ON; SELECT CONCAT(COUNT(*), '|', COUNT(DISTINCT numeroIdentificacion), '|', COUNT(DISTINCT correo)) FROM dbo.Usuario WHERE correo LIKE N'$ccTag.same.%';" 2>&1 | ForEach-Object { "$_".Trim() } | Where-Object { $_ -match '^\d+\|\d+\|\d+$' })
-    if ($sameStates.Count -ne (2 * $ccCount) -or ($sameStates | Where-Object { $_ -ne '1' }) -or $sameCounts.Count -ne 1 -or $sameCounts[0] -ne "$ccCount|$ccCount|$ccCount") {
-        throw "same-request race: states=$($sameStates -join ',') counts=$($sameCounts -join ';')"
-    }
-    $clientPassed += 'CC003G01_CONCURRENT_USER_IDENTICAL'
-    Write-Host 'TEST_PASS:CC003G01_CONCURRENT_USER_IDENTICAL'
-
-    # (2) Usuario: mismo correo con documentos distintos => exactamente un ganador por correo
-    $conflictCalls = { param($offset) (1..$ccCount | ForEach-Object {
-        "EXEC dbo.usp_sincronizar_usuario @idTipoIdIdentificacion = '$ccTipo', @numeroIdentificacion = $($ccBase + 100 + $_ + $offset), @primerApellido = N'Race', @segundoApellido = N'Gate', @primerNombre = N'Same', @segundoNombre = N'Email', @correo = N'$ccTag.conflict.$_@test.local', @password = N'HashBackend_CC003G01_SECRET_MARKER_RACE', @idCorrelacion = '$([guid]::NewGuid())';" }) -join "`n" }
-    $outConflict = Invoke-Cc003g01WorkerPair -SqlA ("SET NOCOUNT ON;`n" + (& $conflictCalls 0)) -SqlB ("SET NOCOUNT ON;`n" + (& $conflictCalls 1000)) -Label 'userconflict'
-    $conflictStates = Get-Cc003g01States $outConflict
-    $conflictCounts = @(docker exec $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -d gestionasistenciadb -U sa -P $Password -C -b -h -1 -W -Q "SET NOCOUNT ON; SELECT CONCAT(COUNT(*), '|', COUNT(DISTINCT correo)) FROM dbo.Usuario WHERE correo LIKE N'$ccTag.conflict.%';" 2>&1 | ForEach-Object { "$_".Trim() } | Where-Object { $_ -match '^\d+\|\d+$' })
-    $conflictWins = @($conflictStates | Where-Object { $_ -eq '1' }).Count
-    if ($conflictStates.Count -ne (2 * $ccCount) -or $conflictWins -ne $ccCount -or $conflictCounts.Count -ne 1 -or $conflictCounts[0] -ne "$ccCount|$ccCount") {
-        throw "same-email race: wins=$conflictWins of $($conflictStates.Count) counts=$($conflictCounts -join ';')"
-    }
-    $clientPassed += 'CC003G01_CONCURRENT_USER_CONFLICT_EMAIL'
-    Write-Host 'TEST_PASS:CC003G01_CONCURRENT_USER_CONFLICT_EMAIL'
+    # VAL ROL-05 (migracion 39): las carreras (1) y (2) sobre usp_sincronizar_usuario se retiraron con el SP.
 
     # (3) Plan: mismo (programa, inp) con ids distintos desde dos sesiones => un solo plan por inp
     $ccInpBase = 40000 + (Get-Random -Minimum 1 -Maximum 5000) * 10
@@ -926,17 +901,14 @@ $criticalIds = @(
     'UTC_D06_DETALLE_SNAPSHOT', 'UTC_D06_GENERATOR_DST_GAP', 'UTC_D06_GENERATOR_MARK',
     'UTC_D06_DIRECT_UPDATE_REJECTED', 'UTC_D06_CONCURRENT_V2_CREATE', 'UV_ESTUDIANTE_PROGRAMA_NO_DUPLICATES',
     'SECRET_GATE_COVERS_ENV_TEMPLATES', 'SECRET_GATE_DETECTS_UNSAFE_TEMPLATE', 'SECRET_GATE_ACCEPTS_PLACEHOLDER',
-    # CC-003G-01: proveedores publicos usp_sincronizar_usuario y usp_registrar_o_actualizar_plan_estudio
-    'USER_SYNC_PUBLIC_METADATA', 'USER_SYNC_PUBLIC_SUCCESS', 'USER_SYNC_PUBLIC_NO_SECRET_LEAK', 'USER_SYNC_PUBLIC_IDEMPOTENT',
-    'USER_SYNC_PUBLIC_REJECTIONS_PRE_TRANSACTION', 'USER_SYNC_PUBLIC_DUPLICATE_DOCUMENT', 'USER_SYNC_PUBLIC_DUPLICATE_EMAIL',
-    'USER_SYNC_PUBLIC_CONFLICTING_PROFILE', 'USER_SYNC_PUBLIC_INVALID_EMAIL', 'USER_SYNC_PUBLIC_EMPTY_PASSWORD',
-    'USER_SYNC_PUBLIC_UNKNOWN_ID_TYPE', 'USER_SYNC_PUBLIC_ROLLBACK_SAVEPOINT', 'USER_SYNC_PUBLIC_COMMIT_OWN_TRANSACTION',
-    'USER_SYNC_PUBLIC_ROLLBACK_OWN_TRANSACTION', 'USER_SYNC_PUBLIC_INACTIVE_REPLAY',
+    # CC-003G-01: proveedor publico usp_registrar_o_actualizar_plan_estudio
+    # VAL ROL-05 (test/test_val_retiro_alta_usuarios_sin_ambito.sql): usp_sincronizar_usuario retirado (migracion 39)
+    'VAL_ROL05_01_SP_PUBLICO_RETIRADO', 'VAL_ROL05_02_SIN_PERMISO_RUNTIME', 'VAL_ROL05_03_NUCLEO_INTERNO_INTACTO',
+    'VAL_ROL05_04_ALTAS_CON_AMBITO_USAN_EL_NUCLEO', 'VAL_ROL05_TRANCOUNT_ZERO',
     'PLAN_PUBLIC_METADATA', 'PLAN_PUBLIC_CREATE', 'PLAN_PUBLIC_VIEW_CONSISTENT', 'PLAN_PUBLIC_IDEMPOTENT', 'PLAN_PUBLIC_UPDATE',
     'PLAN_PUBLIC_TWO_ACTORS', 'PLAN_PUBLIC_EXECUTOR_REQUIRED', 'PLAN_PUBLIC_RBAC', 'PLAN_PUBLIC_FOREIGN_PROGRAM_SCOPE',
     'PLAN_PUBLIC_INVALID_INPUT', 'PLAN_PUBLIC_DUPLICATE_BUSINESS_KEY', 'PLAN_PUBLIC_UPDATE_TO_TAKEN_INP', 'PLAN_PUBLIC_FOREIGN_PLAN',
     'PLAN_PUBLIC_ROLLBACK_SAVEPOINT', 'PLAN_PUBLIC_COMMIT_OWN_TRANSACTION', 'PLAN_PUBLIC_ROLLBACK_OWN_TRANSACTION',
-    'CC003G01_CONCURRENT_USER_IDENTICAL', 'CC003G01_CONCURRENT_USER_CONFLICT_EMAIL',
     'CC003G01_CONCURRENT_PLAN_DUPLICATE_KEY', 'CC003G01_CONCURRENT_PLAN_IDEMPOTENT',
     'CC003G01_RUNTIME_EXECUTE_GRANTS', 'CC003G01_RUNTIME_INTERNAL_EXEC_DENIED', 'CC003G01_RUNTIME_DIRECT_DML_DENIED',
     'CC003G01_RUNTIME_BASE_TABLE_READ_DENIED', 'CC003G01_RUNTIME_PROVIDERS_FUNCTIONAL',
