@@ -1,0 +1,25 @@
+# SEC-05 / SEC-08 (VAL oleada 2): configuracion de gitleaks para CI.
+# Extiende las reglas por defecto de gitleaks y solo agrega excepciones para falsos positivos
+# conocidos, cada una con su motivo. Revisar las excepciones el 2027-02-12.
+# El CI escanea solo los commits del PR/push (--log-opts con el rango): el historial viejo tiene
+# valores que quedaron invalidados con la rotacion de credenciales y no se reescribe.
+title = "AsistenciasUCO gitleaks config"
+
+[extend]
+useDefault = true
+
+# Digests SHA-256 (64 hex) citados como evidencia en documentacion (OpenAPI SHA, artefactos, imagenes).
+# Un digest no es una credencial. Solo aplica a Markdown dentro de docs/.
+[[allowlists]]
+description = "SHA-256 digests in documentation"
+condition = "AND"
+paths = ['''(^|/)docs/.*\.md$''']
+regexTarget = "secret"
+regexes = ['''^[A-Fa-f0-9]{64}$''']
+
+# Identificadores de pruebas T-SQL en mayusculas (p. ej. CULM001_B2_QR_03_REGISTRO_TOKEN_Y_PIN)
+# que la regla generica confunde con claves por contener TOKEN o PIN.
+[[allowlists]]
+description = "T-SQL test identifiers"
+regexTarget = "secret"
+regexes = ['''^[A-Z0-9]+(_[A-Z0-9]+)+$''']

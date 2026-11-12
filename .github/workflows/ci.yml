@@ -7,6 +7,13 @@ on:
     branches: [ develop, main ]
   workflow_dispatch:
 
+# Minimo por defecto; cada job declara lo que necesita (VAL oleada 2).
+permissions:
+  contents: read
+
+env:
+  TRIVY_VERSION: v0.74.0
+
 jobs:
   db-quality-gate:
     name: Database Deployment & Quality Gate
@@ -14,10 +21,11 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+      security-events: write
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -187,26 +195,54 @@ jobs:
         run: |
           ./test/cleanup_lb004d_fixture.ps1 -ContainerName "sqlserver" -AdminPassword $env:MSSQL_SA_PASSWORD
 
-      - name: Trivy Security Scan (Filesystem)
-        id: trivy-scan
-        uses: aquasecurity/trivy-action@v0.36.0
+      # TRI-04 (VAL oleada 2, decision E): inventario SARIF (Code Scanning + artifact) y compuerta
+      # que bloquea HIGH/CRITICAL con correccion disponible, misconfig y secretos.
+      - name: Trivy Security Inventory (Filesystem, SARIF)
+        id: trivy-inventory
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
+          version: ${{ env.TRIVY_VERSION }}
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,misconfig,secret
+          format: sarif
+          output: db-trivy-fs.sarif
+          severity: HIGH,CRITICAL
+          exit-code: 0
+          ignore-unfixed: false
+
+      - name: Trivy Security Scan (Filesystem gate)
+        id: trivy-scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: ${{ env.TRIVY_VERSION }}
+          skip-setup-trivy: true
           scan-type: fs
           scan-ref: .
           scanners: vuln,misconfig,secret
           format: table
+          output: ''
           severity: HIGH,CRITICAL
-          exit-code: 0
+          exit-code: 1
+          ignore-unfixed: true
+
+      - name: Publish Trivy findings to Code Scanning
+        if: always() && hashFiles('db-trivy-fs.sarif') != ''
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: db-trivy-fs.sarif
+          category: trivy-db-filesystem
 
       - name: SonarCloud Analysis and Quality Gate
         id: sonar-analysis
-        uses: SonarSource/sonarcloud-github-action@master
+        # sonarcloud-github-action@master era una etiqueta mutable y la accion esta deprecada; se usa
+        # la oficial fijada por SHA. qualitygate.wait hace fallar el paso si el gate queda en ERROR.
+        uses: SonarSource/sonarqube-scan-action@e805d875275f728fac1885b413934be6d7c63f65 # v8.4.1
         with:
           args: >
             -Dsonar.qualitygate.wait=true
             -Dsonar.qualitygate.timeout=300
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - name: Generate CI Job Summary
@@ -282,10 +318,72 @@ jobs:
 
       - name: Upload DB quality evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: db-quality-evidence
           path: |
             db-quality-summary.log
             ci-gate-evidence.md
+            db-trivy-fs.sarif
           if-no-files-found: error
+
+  # SEC-05 / SEC-08 (VAL oleada 2): gitleaks bloquea secretos nuevos. Solo escanea los commits que
+  # trae el PR (o el push), no el historial completo: el historial ya contiene valores viejos que
+  # quedaron invalidados con la rotacion de credenciales (ver docs/work-items/VAL-oleada2-cumplimiento).
+  # Se usa el binario oficial con SHA-256 fijado (gitleaks-action exige licencia para cuentas de organizacion).
+  gitleaks:
+    name: Gitleaks Secret Scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository (full history for the commit range)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Install gitleaks (pinned release, checksum verified)
+        shell: bash
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          set -euo pipefail
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl --fail --location --silent --show-error --retry 2 --retry-all-errors --connect-timeout 20 --max-time 120 \
+            --output "${RUNNER_TEMP}/${archive}" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
+          printf '%s  %s\n' "$GITLEAKS_SHA256" "${RUNNER_TEMP}/${archive}" | sha256sum --check --status
+          mkdir -p "${RUNNER_TEMP}/gitleaks-bin"
+          tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}/gitleaks-bin" gitleaks
+          echo "${RUNNER_TEMP}/gitleaks-bin" >> "$GITHUB_PATH"
+
+      - name: Scan commits introduced by this change
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          zero='0000000000000000000000000000000000000000'
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            range="${PR_BASE_SHA}..${PR_HEAD_SHA}"
+          elif [ "$EVENT_NAME" = "push" ] && [ -n "${PUSH_BEFORE:-}" ] && [ "$PUSH_BEFORE" != "$zero" ] \
+               && git cat-file -e "${PUSH_BEFORE}^{commit}" 2>/dev/null; then
+            range="${PUSH_BEFORE}..${PUSH_AFTER}"
+          else
+            range="-1 ${PUSH_AFTER}"
+          fi
+          echo "Gitleaks commit range: ${range}"
+          gitleaks git . \
+            --config .github/gitleaks.toml \
+            --log-opts="${range}" \
+            --redact \
+            --no-banner \
+            --verbose \
+            --exit-code 1
