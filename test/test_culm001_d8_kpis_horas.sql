@@ -15,20 +15,23 @@ SET XACT_ABORT OFF;
 --   Programas A (semilla) y B (nuevo, misma facultad F). Asignatura OPT en los planes de A y B.
 --   Estudiantes: eA1, eA2 (vinculo A), eAB (vinculo A y B), eB1 (vinculo B), e0 (sin vinculo), f1..f10 (vinculo A).
 --   G1 (OPT, periodo P1, 5 matriculas activas: eA1, eA2, eAB, eB1, e0). Sesiones (UTC 14:00 = 09:00 hora local):
---     S1 03-03 2 h, 2 tomas: eA1 AN+SJC | eA2 AN+AN | eAB AN+SJC | eB1 SJC+SJC | e0 EX+EX
+--     S1 03-03 2 h, 2 tomas (minutos 0 y 60): eA1 AN+SJC | eA2 AN+AN | eAB AN+SJC | eB1 SJC+SJC | e0 EX+EX
+--       PC (puntos de control): por tramos AN+SJC da 0 h asistidas y 2 h de falta (antes 1 y 1 por el reparto 1/n); los
+--       valores de G1 / P1 que dependen de eA1 y eAB cambian por eso (antes: eA1 2/1, eAB 1/2, A 33.33/26.67, B 10.00/40.00,
+--       facultad 6 h = 30.00, semana 6 h = 40.00, mes 24.00).
 --     S2 03-04 1 h, 1 toma : eA1 AN | eA2 SJC | eAB SJC | eB1 EX | e0 sin fila
 --     S3 03-05 1 h CANCELADA, 1 toma: los cinco SJC (no suma en nada)
 --     S4 03-10 2 h sin tomas, cabecera Asistencia solo de eA1 (sin detalle)
 --   horasDictadas por matricula = 2 + 1 + 2 = 5. Por estudiante (asistidas / falta / excusa / sin registro):
---     eA1 2/1/0/2, eA2 2/1/0/2, eAB 1/2/0/2, eB1 0/2/1/2, e0 0/0/2/3
---   Consolidado fila (G1, A): eA1 + eA2 + eAB, activos 3, horasDictadas (del grupo) = 5.00, D = 5 x 3 = 15: asist 5, falta 4, excusa 0
---     => 33.33 / 26.67 / 0.00 / sin registro = 100 - 60.00 = 40.00
---   Consolidado fila (G1, B): eB1 + eAB, activos 2, horasDictadas (del grupo) = 5.00, D = 10: asist 1, falta 4, excusa 1 => 10.00 / 40.00 / 10.00 / 40.00
---   Comparativa programa A: horasDictadas 15, horasFalta 4 => 26.67; programa B: 10 y 4 => 40.00.
+--     eA1 1/2/0/2, eA2 2/1/0/2, eAB 0/3/0/2, eB1 0/2/1/2, e0 0/0/2/3
+--   Consolidado fila (G1, A): eA1 + eA2 + eAB, activos 3, horasDictadas (del grupo) = 5.00, D = 5 x 3 = 15: asist 3, falta 6, excusa 0
+--     => 20.00 / 40.00 / 0.00 / sin registro = 100 - 60.00 = 40.00
+--   Consolidado fila (G1, B): eB1 + eAB, activos 2, horasDictadas (del grupo) = 5.00, D = 10: asist 0, falta 5, excusa 1 => 0.00 / 50.00 / 10.00 / 40.00
+--   Comparativa programa A: horasDictadas 15, horasFalta 6 => 40.00; programa B: 10 y 5 => 50.00.
 --   Comparativa facultad F (eAB cuenta UNA vez): estudiantes con vinculo eA1, eA2, eAB, eB1 => horasDictadas 4 x 5 = 20,
---     horasFalta 1 + 1 + 2 + 2 = 6 => 30.00 (contando dos veces a eAB serian 25 h y 8 h = 32.00).
+--     horasFalta 2 + 1 + 3 + 2 = 8 => 40.00 (contando dos veces a eAB serian 25 h y 11 h = 44.00).
 --   Tendencia P1 (5 matriculas activas por sesion): semana 03-02..03-08: horasDictadasEstudiante = 2x5 + 1x5 = 15, horasFalta
---     S1 (1+0+1+2+0) + S2 (0+1+1+0+0) = 4 + 2 = 6 => 40.00; semana 03-09..03-15: 10 y 0 => 0.00; mes de marzo: 25 y 6 => 24.00.
+--     S1 (2+0+2+2+0) + S2 (0+1+1+0+0) = 6 + 2 = 8 => 53.33; semana 03-09..03-15: 10 y 0 => 0.00; mes de marzo: 25 y 8 => 32.00.
 --   G2 (periodo P2, una toma y sesiones de 1 h, eA1 y eA2): 3 sesiones; eA1 AN, SJC, SJC; eA2 AN, AN, SJC => D8-04
 --     horasDictadas 6, horasFalta 3 => 50.00 igual que la formula por sesiones (3 faltas / 6 sesiones-estudiante).
 --   G3 (periodo P3, eA1): tres sesiones de 6667 h (AN), 6667 h (SJC) y 6666 h (EX), una toma cada una; D = 20000 h:
@@ -144,7 +147,9 @@ BEGIN TRY
            s.inicio, DATEADD(HOUR, s.horas, s.inicio), N'UTC_V2'
     FROM #d8S s INNER JOIN #d8G x ON x.k = s.grupo INNER JOIN dbo.Grupo g ON g.id = x.id;
     INSERT INTO dbo.TomaAsistencia (id, sesion, numero, modo, estado, esImplicita, docenteApertura, fechaAperturaUtc, fechaCierreUtc, idCorrelacionApertura)
-    SELECT NEWID(), s.id, v.n, @modoManual, @estCerrada, 0, @d, CAST(se.fechaHoraInicio AS DATETIME2(0)), CAST(se.fechaHoraFin AS DATETIME2(0)), NEWID()
+    -- PC (puntos de control): la toma k se abre en inicio + (k - 1) * duracion / n (antes todas en el inicio)
+    SELECT NEWID(), s.id, v.n, @modoManual, @estCerrada, 0, @d, CAST(DATEADD(MINUTE, (v.n - 1) * s.horas * 60 / s.tomas, se.fechaHoraInicio) AS DATETIME2(0)),
+           CAST(se.fechaHoraFin AS DATETIME2(0)), NEWID()
     FROM #d8S s INNER JOIN dbo.Sesion se ON se.id = s.id INNER JOIN (VALUES (1), (2)) v(n) ON v.n <= s.tomas;
 
     INSERT INTO #d8D (k, est, tomaNum, codigo) VALUES
@@ -181,7 +186,7 @@ BEGIN TRY
 
     -- Sanidad del fixture (si falla, el fixture o la base B2 no son los esperados; no es un fallo de D.8)
     IF NOT EXISTS (SELECT 1 FROM dbo.uv_resumen_asistencia_estudiante_grupo r INNER JOIN #d8E e ON e.idEstudiante = r.idEstudiante
-                   WHERE r.idGrupo = @g1 AND e.k = N'eAB' AND r.horasDictadas = 5.000000 AND r.horasAsistidas = 1.000000 AND r.horasFalta = 2.000000 AND r.horasExcusa = 0 AND r.horasSinRegistro = 2.000000)
+                   WHERE r.idGrupo = @g1 AND e.k = N'eAB' AND r.horasDictadas = 5.000000 AND r.horasAsistidas = 0 AND r.horasFalta = 3.000000 AND r.horasExcusa = 0 AND r.horasSinRegistro = 2.000000)
        OR NOT EXISTS (SELECT 1 FROM dbo.uv_resumen_asistencia_estudiante_grupo r INNER JOIN #d8E e ON e.idEstudiante = r.idEstudiante
                    WHERE r.idGrupo = @g3 AND e.k = N'eA1' AND r.horasDictadas = 20000.000000 AND r.horasAsistidas = 6667.000000 AND r.horasFalta = 6667.000000 AND r.horasExcusa = 6666.000000)
         THROW 57801, 'TEST FAILED CULM001_D8: el fixture no produce las horas calculadas a mano (base B.2).', 1;
@@ -190,12 +195,12 @@ BEGIN TRY
     -- D8-01 comparativas (facultad: eAB una sola vez; programas: sin duplicar) + D8-06 (la cancelada no suma)
     -- --------------------------------------------------------------------------------------------------------
     INSERT INTO #d8Cf EXEC dbo.usp_consultar_comparativa_facultades @idUsuarioEjecutor = @uAdm, @idCorrelacion = @corr, @idPeriodoAcademico = @p1;
-    IF NOT EXISTS (SELECT 1 FROM #d8Cf WHERE idFacultad = @fac AND horasDictadas = 20.00 AND horasFalta = 6.00 AND porcentajeAusentismo = 30.00)
-        THROW 57810, 'TEST FAILED CULM001_D8_01: comparativa de facultades debe dar horasDictadas 20.00, horasFalta 6.00 y 30.00 (eAB una sola vez; la cancelada no suma).', 1;
+    IF NOT EXISTS (SELECT 1 FROM #d8Cf WHERE idFacultad = @fac AND horasDictadas = 20.00 AND horasFalta = 8.00 AND porcentajeAusentismo = 40.00)
+        THROW 57810, 'TEST FAILED CULM001_D8_01: comparativa de facultades debe dar horasDictadas 20.00, horasFalta 8.00 y 40.00 (PC; eAB una sola vez; la cancelada no suma).', 1;
     INSERT INTO #d8Cp EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @corr, @idPeriodoAcademico = @p1;
-    IF NOT EXISTS (SELECT 1 FROM #d8Cp WHERE idPrograma = @progA AND horasDictadas = 15.00 AND horasFalta = 4.00 AND porcentajeAusentismo = 26.67)
-       OR NOT EXISTS (SELECT 1 FROM #d8Cp WHERE idPrograma = @progB AND horasDictadas = 10.00 AND horasFalta = 4.00 AND porcentajeAusentismo = 40.00)
-        THROW 57811, 'TEST FAILED CULM001_D8_01: comparativa de programas debe dar A 15.00 h / 4.00 h / 26.67 y B 10.00 h / 4.00 h / 40.00.', 1;
+    IF NOT EXISTS (SELECT 1 FROM #d8Cp WHERE idPrograma = @progA AND horasDictadas = 15.00 AND horasFalta = 6.00 AND porcentajeAusentismo = 40.00)
+       OR NOT EXISTS (SELECT 1 FROM #d8Cp WHERE idPrograma = @progB AND horasDictadas = 10.00 AND horasFalta = 5.00 AND porcentajeAusentismo = 50.00)
+        THROW 57811, 'TEST FAILED CULM001_D8_01: comparativa de programas debe dar A 15.00 h / 6.00 h / 40.00 y B 10.00 h / 5.00 h / 50.00 (PC).', 1;
     IF EXISTS (SELECT 1 FROM #d8Cp WHERE idPrograma NOT IN (@progA, @progB) AND (horasDictadas <> 0 OR horasFalta <> 0 OR porcentajeAusentismo IS NOT NULL))
         THROW 57812, 'TEST FAILED CULM001_D8_01: un programa sin horas dictadas debe dar 0.00 h y porcentajeAusentismo NULL.', 1;
     TRUNCATE TABLE #d8Cf; TRUNCATE TABLE #d8Cp;
@@ -207,14 +212,14 @@ BEGIN TRY
     -- --------------------------------------------------------------------------------------------------------
     INSERT INTO #d8Te EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uAdm, @idCorrelacion = @corr, @idPeriodoAcademico = @p1, @granularidad = N'SEMANA';
     IF (SELECT COUNT(*) FROM #d8Te) <> 2
-       OR NOT EXISTS (SELECT 1 FROM #d8Te WHERE inicioIntervalo = '2026-03-02' AND finIntervalo = '2026-03-08' AND horasDictadasEstudiante = 15.00 AND horasFalta = 6.00 AND porcentajeAusentismo = 40.00)
+       OR NOT EXISTS (SELECT 1 FROM #d8Te WHERE inicioIntervalo = '2026-03-02' AND finIntervalo = '2026-03-08' AND horasDictadasEstudiante = 15.00 AND horasFalta = 8.00 AND porcentajeAusentismo = 53.33)
        OR NOT EXISTS (SELECT 1 FROM #d8Te WHERE inicioIntervalo = '2026-03-09' AND finIntervalo = '2026-03-15' AND horasDictadasEstudiante = 10.00 AND horasFalta = 0.00 AND porcentajeAusentismo = 0.00)
-        THROW 57820, 'TEST FAILED CULM001_D8_02: tendencia semanal debe dar 15.00 h / 6.00 h / 40.00 y 10.00 h / 0.00 h / 0.00.', 1;
+        THROW 57820, 'TEST FAILED CULM001_D8_02: tendencia semanal debe dar 15.00 h / 8.00 h / 53.33 (PC) y 10.00 h / 0.00 h / 0.00.', 1;
     TRUNCATE TABLE #d8Te;
     INSERT INTO #d8Te EXEC dbo.usp_consultar_tendencia_ausentismo @idUsuarioEjecutor = @uAdm, @idCorrelacion = @corr, @idPeriodoAcademico = @p1, @granularidad = N'MES';
     IF (SELECT COUNT(*) FROM #d8Te) <> 1
-       OR NOT EXISTS (SELECT 1 FROM #d8Te WHERE inicioIntervalo = '2026-03-01' AND finIntervalo = '2026-03-31' AND horasDictadasEstudiante = 25.00 AND horasFalta = 6.00 AND porcentajeAusentismo = 24.00)
-        THROW 57821, 'TEST FAILED CULM001_D8_02: tendencia mensual debe dar 25.00 h / 6.00 h / 24.00.', 1;
+       OR NOT EXISTS (SELECT 1 FROM #d8Te WHERE inicioIntervalo = '2026-03-01' AND finIntervalo = '2026-03-31' AND horasDictadasEstudiante = 25.00 AND horasFalta = 8.00 AND porcentajeAusentismo = 32.00)
+        THROW 57821, 'TEST FAILED CULM001_D8_02: tendencia mensual debe dar 25.00 h / 8.00 h / 32.00 (PC).', 1;
     TRUNCATE TABLE #d8Te;
     PRINT 'TEST_PASS:CULM001_D8_02_TENDENCIA';
 
@@ -224,11 +229,11 @@ BEGIN TRY
     INSERT INTO #d8Co EXEC dbo.usp_consultar_consolidado_asistencia_grupos_paginado @idUsuarioEjecutor = @uDec, @idCorrelacion = @corr,
         @numeroPagina = 1, @tamanoPagina = 100, @idPeriodoAcademico = @p1;
     IF NOT EXISTS (SELECT 1 FROM #d8Co WHERE idGrupo = @g1 AND idPrograma = @progA AND estudiantesActivos = 3 AND horasDictadas = 5.00
-                   AND porcentajeAsistencia = 33.33 AND porcentajeInasistencia = 26.67 AND porcentajeExcusa = 0.00 AND porcentajeSinRegistro = 40.00)
-        THROW 57830, 'TEST FAILED CULM001_D8_03: consolidado (G1, A) debe dar 3 activos, 5.00 h (horas dictadas del grupo) y 33.33 / 26.67 / 0.00 / 40.00.', 1;
+                   AND porcentajeAsistencia = 20.00 AND porcentajeInasistencia = 40.00 AND porcentajeExcusa = 0.00 AND porcentajeSinRegistro = 40.00)
+        THROW 57830, 'TEST FAILED CULM001_D8_03: consolidado (G1, A) debe dar 3 activos, 5.00 h (horas dictadas del grupo) y 20.00 / 40.00 / 0.00 / 40.00 (PC).', 1;
     IF NOT EXISTS (SELECT 1 FROM #d8Co WHERE idGrupo = @g1 AND idPrograma = @progB AND estudiantesActivos = 2 AND horasDictadas = 5.00
-                   AND porcentajeAsistencia = 10.00 AND porcentajeInasistencia = 40.00 AND porcentajeExcusa = 10.00 AND porcentajeSinRegistro = 40.00)
-        THROW 57831, 'TEST FAILED CULM001_D8_03: consolidado (G1, B) debe dar 2 activos, 5.00 h (horas dictadas del grupo) y 10.00 / 40.00 / 10.00 / 40.00.', 1;
+                   AND porcentajeAsistencia = 0.00 AND porcentajeInasistencia = 50.00 AND porcentajeExcusa = 10.00 AND porcentajeSinRegistro = 40.00)
+        THROW 57831, 'TEST FAILED CULM001_D8_03: consolidado (G1, B) debe dar 2 activos, 5.00 h (horas dictadas del grupo) y 0.00 / 50.00 / 10.00 / 40.00 (PC).', 1;
     IF (SELECT COUNT(*) FROM #d8Co WHERE idGrupo = @g1) <> 2
         THROW 57832, 'TEST FAILED CULM001_D8_07: un grupo de dos programas debe dar una fila por programa del ambito (el decano ve los dos).', 1;
     PRINT 'TEST_PASS:CULM001_D8_07_GRANO_GRUPO_PROGRAMA';
@@ -236,7 +241,7 @@ BEGIN TRY
     INSERT INTO #d8Co EXEC dbo.usp_consultar_consolidado_asistencia_grupos_paginado @idUsuarioEjecutor = @uCA, @idCorrelacion = @corr,
         @numeroPagina = 1, @tamanoPagina = 100, @idPeriodoAcademico = @p1, @idPrograma = @progA;
     IF (SELECT COUNT(*) FROM #d8Co) <> 1
-       OR NOT EXISTS (SELECT 1 FROM #d8Co WHERE idGrupo = @g1 AND idPrograma = @progA AND estudiantesActivos = 3 AND porcentajeAsistencia = 33.33 AND porcentajeSinRegistro = 40.00)
+       OR NOT EXISTS (SELECT 1 FROM #d8Co WHERE idGrupo = @g1 AND idPrograma = @progA AND estudiantesActivos = 3 AND porcentajeAsistencia = 20.00 AND porcentajeSinRegistro = 40.00)
         THROW 57833, 'TEST FAILED CULM001_D8_07: el coordinador de A con el filtro de A ve solo la fila (G1, A) con sus tres estudiantes.', 1;
     TRUNCATE TABLE #d8Co;
     -- F-COO-007: 10 activos, 2 sesiones, sin faltas => 85.00 / 0.00 / 0.00 / 15.00 (> 0); y D = 0 => los cuatro 0

@@ -620,3 +620,17 @@ El backend de `develop` no lo invoca y no tiene `GRANT EXECUTE` al runtime. Se c
 | `Horario` | `usp_guardar_horarios_grupo` | `POST /api/v1/grupos` y `PUT /api/v1/grupos/{id}` con `franjas` (misma transacción que crear o actualizar el grupo) | COORDINADOR (del programa); DOCENTE titular solo para el horario inicial (`HOR_005` si ya existe; F3) | `@idGrupo, @horariosJSON, @idCorrelacion, @idUsuarioEjecutor` | Reemplaza el horario semanal del grupo. HOR_004 (formato), HOR_003 (franjas que se cruzan) y HOR_002 (cruce del docente) responden 400, 400 y 409 |
 
 `GET /api/v1/grupos` devuelve además las `franjas` de cada grupo, leídas de `uv_horario`, que ahora expone `codigoDia`; `uv_dia` también expone `codigo`.
+
+## Addendum PC (2026-11-11): tomas de asistencia como puntos de control
+
+Work item: `docs/work-items/PC-puntos-control-tomas/`. Migración `37_pc_tomas_puntos_control_up|down.sql`. Las rutas son las que propone el diseño (`informes/DISENO_TOMAS_PUNTOS_CONTROL_2026-11-11.md`, sección C); el backend aún no las implementa.
+
+| Tabla / vista | SP | Endpoint | Rol | Parámetros | Propósito |
+|---|---|---|---|---|---|
+| `uv_asistencia_sesion_horas` | `usp_consultar_resumen_tomas_sesion` (NUEVO) | `GET /api/v1/sesiones/{sesionId}/tomas/resumen` | DOCENTE titular | `@idUsuarioEjecutor, @idCorrelacion, @idSesion` | Minutos de la sesión por estudiante activo (asistidos, falta, excusa, sin registro), estado y tomas ausentes. `THROW 51000` con `GEN_002`, `SEC_001`, `SEC_002`. |
+| `uv_toma_asistencia`, `uv_sesion_estado` | `usp_consultar_tomas_sesion` (columnas nuevas al final) | `GET /api/v1/sesiones/{id}/tomas` | DOCENTE titular | sin cambio | Agrega `fechaPuntoControlUtc`, `ordenPuntoControl`, `minutosTramoAnterior`, `minutosTramoSiguiente`, `esEditable`, `editableHastaUtc`. `horasToma` queda obsoleto. |
+| `DetalleAsistencia` | `usp_registrar_asistencias_toma` (regla nueva) | `POST /api/v1/tomas/{tomaId}/asistencias` (ruta actual) | DOCENTE titular | sin cambio | Una toma cerrada con toma posterior responde `TOM_012` (409). |
+| `SolicitudRevisionAsistencia`, `ArchivoSoporte` | `usp_radicar_solicitud_revision_asistencia_v4` (NUEVO) | `POST /api/v1/asistencias/revisiones` con `tomaId` | ESTUDIANTE | `@idEstudiante, @idSesion, @idToma, @categoria, @justificacion, @idsArchivoSoporte, @idCorrelacion, @idUsuarioEjecutor` | Reclamo de una toma con SJC. `GEN_002` (sin toma), `TOM_001`, `REV_026`, `REV_027` (409) y los códigos de v3. Sin `tomaId` el backend sigue usando v3. |
+| `SolicitudRevisionAsistencia`, `DetalleAsistencia` | `usp_resolver_solicitud_revision_asistencia` (parámetro nuevo al final) | `PATCH /api/v1/docente/reclamos/{id}` con `resultado` | DOCENTE titular | `… , @codigoResultadoAprobacion` (`AN` = PRESENTE, `EX` = JUSTIFICADA; NULL = EX) | Aprobación con resultado; `REV_028` (400), `REV_029` (409). |
+| `SolicitudRevisionAsistencia` | `usp_consultar_solicitudes_revision_estudiante` y `usp_consultar_detalle_solicitud_revision_docente` (columnas al final) | rutas actuales de reclamos | ESTUDIANTE / DOCENTE | sin cambio | Toma reclamada, su punto de control, resultado; el detalle agrega la marca actual y los minutos de la sesión. |
+| `uv_asistencia_toma_estudiante` (NUEVA) | — (lectura JPA) | `GET /api/v1/estudiante/materias/{materiaId}/sesiones` (tomas de cada sesión) | ESTUDIANTE | — | Estado del estudiante en cada toma, minutos de los tramos vecinos y si es reclamable. |

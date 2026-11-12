@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **286**.
+Total de códigos: **291**.
 
 ## ADS
 
@@ -416,6 +416,10 @@ Total de códigos: **286**.
 | `REV_023` | BUSINESS_ERROR | MEDIO | Puedes adjuntar como máximo {} soportes. | HU015: [{}] soportes superan ARCHIVOS/MAXIMO_SOPORTES_POR_RECLAMO = [{}]. | `52_culm001_d2_parametros_mensajes.sql` |
 | `REV_024` | BUSINESS_ERROR | MEDIO | Un mismo soporte no se puede adjuntar dos veces. | HU015: la lista de soportes repite al menos un idArchivoSoporte. | `52_culm001_d2_parametros_mensajes.sql` |
 | `REV_025` | TECHNICAL_ERROR | ALTO | No es posible validar el plazo de justificación en este momento. | HU026B: falta ASISTENCIA/DIAS_LIMITE_JUSTIFICACION o TIEMPO/ZONA_HORARIA_SQLSERVER. | `51_culm001_d1_mensajes.sql` |
+| `REV_026` | BUSINESS_ERROR | MEDIO | Solo puedes reclamar una toma en la que quedaste ausente. | Regla: el estudiante no tiene SJC en la toma [{}] de la sesion [{}]; sin escrituras. | `61_puntos_control_mensajes.sql` |
+| `REV_027` | BUSINESS_ERROR | MEDIO | Ya existe un reclamo para esta toma. | Regla: la toma [{}] ya tiene la solicitud de revision no retirada [{}]; sin escrituras. | `61_puntos_control_mensajes.sql` |
+| `REV_028` | VALIDATION_ERROR | BAJO | El resultado de la aprobación debe ser PRESENTE o JUSTIFICADA. | Validacion: codigoResultadoAprobacion [{}] fuera de ASISTENCIA/CODIGO_RAZON_PRESENTE y ASISTENCIA/CODIGO_RAZON_EXCUSA; sin escrituras. | `61_puntos_control_mensajes.sql` |
+| `REV_029` | BUSINESS_ERROR | MEDIO | La aprobación como presente solo aplica a reclamos de una toma. | Regla: la solicitud de revision [{}] es de la sesion completa (sin toma) y solo admite el resultado EX; sin escrituras. | `61_puntos_control_mensajes.sql` |
 
 ## SEC
 
@@ -481,6 +485,7 @@ Total de códigos: **286**.
 | `TOM_009` | SUCCESS | BAJO | Toma cerrada. {} estudiantes quedaron como ausentes. | TomaAsistencia [{}] cerrada; ausentes marcados {}. | `35_mensajes_toma_asistencia_qr.sql` |
 | `TOM_010` | SUCCESS | BAJO | Asistencia de la toma guardada. | Lote de toma [{}] con {} registros. | `35_mensajes_toma_asistencia_qr.sql` |
 | `TOM_011` | SUCCESS | BAJO | La toma ya estaba cerrada. | TomaAsistencia [{}] ya cerrada; sin escrituras. | `35_mensajes_toma_asistencia_qr.sql` |
+| `TOM_012` | BUSINESS_ERROR | MEDIO | La toma {} ya no se puede corregir porque se abrió la toma {}. Las correcciones se hacen por reclamo del estudiante. | Regla: la toma numero [{}] esta cerrada y ya se abrio la toma numero [{}]; solo se corrige por reclamo; sin escrituras. | `61_puntos_control_mensajes.sql` |
 
 ## TPR
 

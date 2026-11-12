@@ -8,6 +8,8 @@ GO
 -- CULM-001 B.2 (CONTRACT §2.5, DEC-011, DEC-012): detalle de asistencia por toma. Mismas columnas de uv_detalle_asistencia
 -- (congelada, intacta) + la toma, la sesion, la matricula, el modo, las horas que vale la toma (0 si la sesion esta
 -- cancelada), quien registro (registradoPorEstudiante) y cuando (fechaRegistroUtc).
+-- PC (puntos de control, docs/work-items/PC-puntos-control-tomas/CONTRACT.md): horasToma (1/n) queda OBSOLETO (expand &
+-- contract); se conserva por compatibilidad y ningun calculo de horas debe usarlo (ver uv_asistencia_sesion_horas).
 CREATE OR ALTER VIEW [dbo].[uv_detalle_asistencia_v2]
 AS
 SELECT  id = da.id,

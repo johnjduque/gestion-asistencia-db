@@ -16,7 +16,9 @@ GO
 --   correlacion -> ejecutor -> RBAC ESTUDIANTE -> estudiante -> propiedad (H-01) -> sesion -> matricula
 --   -> reejecucion idempotente por correlacion (algun soporte ya ATTACHED con la MISMA correlacion y del mismo dueno:
 --      devuelve la solicitud y el total originales sin escribir)
---   -> plazo de excusas (usp_internal_validar_plazo_justificacion, D.1: REV_020 / REV_025)
+--   -> PC (reclamo por toma, solo con @idToma; v2 y v3 no lo informan): toma de la sesion (TOM_001), SJC del estudiante en
+--      esa toma con cabecera y detalle bloqueados (REV_026) y sin otra solicitud no retirada de la toma (REV_027)
+--   -> plazo de excusas (usp_internal_validar_plazo_justificacion, D.1: REV_020 / REV_025; por sesion, igual para sus tomas)
 --   -> categoria por codigo o por nombre (REV_021)
 --   -> JSON valido (arreglo de GUID) y GUID distintos (GEN_002 / REV_024)
 --   -> cantidad <= ARCHIVOS/MAXIMO_SOPORTES_POR_RECLAMO (REV_023)
@@ -42,7 +44,8 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_internal_radicar_solicitud_revision]
     @totalSoportes            INT              OUTPUT,
     @mensajeUsuarioResultado  NVARCHAR(4000)   OUTPUT,
     @mensajeTecnicoResultado  NVARCHAR(4000)   OUTPUT,
-    @estadoResultado          BIT              OUTPUT
+    @estadoResultado          BIT              OUTPUT,
+    @idToma                   UNIQUEIDENTIFIER = NULL
 )
 AS
 BEGIN
@@ -59,6 +62,12 @@ BEGIN
     DECLARE @estadoAdjunto            VARCHAR(10)      = CAST(dbo.ufn_obtener_parametro('ARCHIVO', 'ESTADO_ADJUNTO') AS VARCHAR(10));
     DECLARE @estadoBorrador           VARCHAR(10)      = CAST(dbo.ufn_obtener_parametro('ARCHIVO', 'ESTADO_BORRADOR') AS VARCHAR(10));
     DECLARE @codigoPendiente          NVARCHAR(5)      = CAST(dbo.ufn_obtener_parametro('RECLAMO', 'ESTADO_PENDIENTE') AS NVARCHAR(5));
+    DECLARE @codigoRetirado           NVARCHAR(5)      = CAST(dbo.ufn_obtener_parametro('RECLAMO', 'ESTADO_RETIRADO') AS NVARCHAR(5));
+    DECLARE @codigoSinJustaCausa      NVARCHAR(5)      = CAST(dbo.ufn_obtener_parametro('ASISTENCIA', 'CODIGO_RAZON_SIN_JUSTA_CAUSA') AS NVARCHAR(5));
+    DECLARE @numeroToma               INT;
+    DECLARE @codigoRazonToma          NVARCHAR(5);
+    DECLARE @solicitudTomaExistente   UNIQUEIDENTIFIER;
+    DECLARE @textoNumeroToma          NVARCHAR(20);
 
     DECLARE @idAsistencia         UNIQUEIDENTIFIER;
     DECLARE @idEstudianteGrupo    UNIQUEIDENTIFIER;
@@ -234,6 +243,62 @@ BEGIN
             END
         END
 
+        -- PASO 10b (PC, reclamo por toma): con @idToma la toma debe ser de la sesion (TOM_001), el estudiante debe tener SJC en
+        -- ella (REV_026; cabecera y detalle bloqueados) y no debe existir otra solicitud no retirada de la misma toma (REV_027).
+        IF @estadoResultado = 1 AND @esReintento = 0 AND @idToma IS NOT NULL
+        BEGIN
+            SELECT @numeroToma = t.numero FROM dbo.TomaAsistencia t WHERE t.id = @idToma AND t.sesion = @idSesionDefecto;
+            IF @numeroToma IS NULL
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'TOM_001', @p_param1 = @idToma,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+                SET @estadoResultado = 0;
+            END
+            ELSE
+            BEGIN
+                SET @textoNumeroToma = CONVERT(NVARCHAR(20), @numeroToma);
+                SELECT TOP 1 @idEstudianteGrupo = eg.id
+                FROM dbo.Sesion s
+                INNER JOIN dbo.EstudianteGrupo eg ON eg.grupo = s.grupo
+                WHERE s.id = @idSesionDefecto AND eg.estudiante = @idEstudianteDefecto;
+
+                SELECT TOP 1 @idAsistencia = a.id, @codigoRazonToma = rc.codigo
+                FROM dbo.Asistencia a WITH (UPDLOCK, HOLDLOCK)
+                LEFT JOIN dbo.DetalleAsistencia d WITH (UPDLOCK, HOLDLOCK) ON d.asistencia = a.id AND d.toma = @idToma
+                LEFT JOIN dbo.RazonCausa rc ON rc.id = d.razonCausa
+                WHERE a.estudianteGrupo = @idEstudianteGrupo AND a.sesion = @idSesionDefecto;
+
+                IF @codigoRazonToma IS NULL OR @codigoRazonToma <> @codigoSinJustaCausa
+                BEGIN
+                    EXEC dbo.usp_obtener_mensaje_catalogo
+                        @p_codigo = 'REV_026', @p_param1 = @textoNumeroToma, @p_param2 = @idSesionDefecto,
+                        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+                    SET @estadoResultado = 0;
+                END
+                ELSE
+                BEGIN
+                    SELECT TOP 1 @solicitudTomaExistente = sra.id
+                    FROM dbo.SolicitudRevisionAsistencia sra WITH (UPDLOCK, HOLDLOCK)
+                    INNER JOIN dbo.Estado e ON e.id = sra.estado
+                    WHERE sra.asistencia = @idAsistencia AND sra.toma = @idToma AND e.codigo <> @codigoRetirado
+                    ORDER BY sra.id;
+                    IF @solicitudTomaExistente IS NOT NULL
+                    BEGIN
+                        EXEC dbo.usp_obtener_mensaje_catalogo
+                            @p_codigo = 'REV_027', @p_param1 = @textoNumeroToma, @p_param2 = @solicitudTomaExistente,
+                            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+                        SET @estadoResultado = 0;
+                    END
+                END
+            END
+            IF @estadoResultado = 0
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+        END
+
         -- PASO 11: Plazo de excusas (D.1). Solo cuando NO es la reejecucion idempotente de una radicacion ya exitosa.
         IF @estadoResultado = 1 AND @esReintento = 0
         BEGIN
@@ -401,7 +466,7 @@ BEGIN
 
             INSERT INTO dbo.SolicitudRevisionAsistencia (
                 id, nombre, asistencia, fecha, estado,
-                justificacionSolicitud, justificacionRespuesta, categoriaJustificacion
+                justificacionSolicitud, justificacionRespuesta, categoriaJustificacion, toma
             )
             VALUES (
                 @nuevaSolicitudId,
@@ -411,7 +476,8 @@ BEGIN
                 @idEstadoPendiente,
                 CASE WHEN @justificacionDefecto IS NOT NULL AND @justificacionDefecto <> '' THEN @justificacionDefecto ELSE 'Solicitud de revision de asistencia radicada por estudiante.' END,
                 '',
-                @idCategoria
+                @idCategoria,
+                @idToma
             );
 
             IF @cantidad > 0

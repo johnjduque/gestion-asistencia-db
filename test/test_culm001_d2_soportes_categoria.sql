@@ -86,7 +86,9 @@ CREATE TABLE #rd (idSolicitudRevisionAsistencia UNIQUEIDENTIFIER, nombreSolicitu
     asistio BIT, codigoRazonCausa NVARCHAR(5), nombreRazonCausa NVARCHAR(50),
     idArchivoSoporte UNIQUEIDENTIFIER, nombreSoporte NVARCHAR(250), tipoContenidoSoporte VARCHAR(50),
     tamanioSoporteBytes BIGINT, fechaRegistroSoporteUtc DATETIME2(7),
-    codigoCategoria NVARCHAR(5), nombreCategoria NVARCHAR(50), soportesJson NVARCHAR(MAX));
+    codigoCategoria NVARCHAR(5), nombreCategoria NVARCHAR(50), soportesJson NVARCHAR(MAX),
+    -- PC (puntos de control): columnas nuevas al final
+    idToma UNIQUEIDENTIFIER, numeroToma SMALLINT, fechaPuntoControlUtc DATETIME2(7), codigoResultadoAprobacion NVARCHAR(10), codigoRazonCausaToma NVARCHAR(10), minutosSesion INT, minutosAsistidos INT);
 CREATE TABLE #rl (idSolicitudRevisionAsistencia UNIQUEIDENTIFIER, nombreSolicitud NVARCHAR(50), fechaSolicitud DATE,
     codigoEstado NVARCHAR(5), nombreEstado NVARCHAR(100), justificacionSolicitud NVARCHAR(MAX), justificacionRespuesta NVARCHAR(MAX),
     idEstudiante UNIQUEIDENTIFIER, nombreEstudiante NVARCHAR(400), idSesion UNIQUEIDENTIFIER, numeroSesion INT,
@@ -94,7 +96,9 @@ CREATE TABLE #rl (idSolicitudRevisionAsistencia UNIQUEIDENTIFIER, nombreSolicitu
     nombreGrupo NVARCHAR(100), idAsignatura UNIQUEIDENTIFIER, codigoAsignatura NVARCHAR(100), nombreAsignatura NVARCHAR(100),
     idArchivoSoporte UNIQUEIDENTIFIER, nombreSoporte NVARCHAR(250), tipoContenidoSoporte VARCHAR(50),
     tamanioSoporteBytes BIGINT, fechaRegistroSoporteUtc DATETIME2(7), totalRegistros INT,
-    codigoCategoria NVARCHAR(5), nombreCategoria NVARCHAR(50), soportesJson NVARCHAR(MAX));
+    codigoCategoria NVARCHAR(5), nombreCategoria NVARCHAR(50), soportesJson NVARCHAR(MAX),
+    -- PC (puntos de control): columnas nuevas al final
+    idToma UNIQUEIDENTIFIER, numeroToma SMALLINT, fechaPuntoControlUtc DATETIME2(7), codigoResultadoAprobacion NVARCHAR(10));
 CREATE TABLE #rr (idSolicitudRevisionAsistencia UNIQUEIDENTIFIER, nombreSolicitud NVARCHAR(50), fechaSolicitud DATE,
     codigoEstado NVARCHAR(5), nombreEstado NVARCHAR(100), justificacionSolicitud NVARCHAR(MAX), justificacionRespuesta NVARCHAR(MAX),
     idEstudiante UNIQUEIDENTIFIER, nombreEstudiante NVARCHAR(400), idSesion UNIQUEIDENTIFIER, numeroSesion INT,

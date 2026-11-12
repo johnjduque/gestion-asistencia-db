@@ -19,6 +19,9 @@ GO
 --   sesionesAsistidas / sesionesConFaltaSinJustaCausa / sesionesConExcusa: sesiones por estado consolidado (consumidores
 --   diferidos a D).
 -- CULM-001 B2NM: sin idPrograma (1 fila por matricula); el resumen por programa es uv_resumen_asistencia_estudiante_programa_grupo.
+-- PC BD-4 (rendimiento, sin cambio de resultado): las horas se agrupan tambien por idGrupo (grupo de la sesion = grupo de la
+-- matricula) y se unen por (idEstudianteGrupo, idGrupo); asi un filtro por grupo llega a uv_asistencia_sesion_horas antes de
+-- calcular los tramos de todas las cabeceras.
 CREATE OR ALTER VIEW [dbo].[uv_resumen_asistencia_estudiante_grupo]
 AS
 SELECT  idEstudianteGrupo = eg.id,
@@ -73,7 +76,7 @@ LEFT JOIN (
           ) de
 ON      de.idEstudianteGrupo = eg.id
 LEFT JOIN (
-            SELECT  h.idEstudianteGrupo,
+            SELECT  h.idEstudianteGrupo, h.idGrupo,
                     horasAsistidas = SUM(h.horasAsistidas),
                     horasFalta = SUM(h.horasFalta),
                     horasExcusa = SUM(h.horasExcusa),
@@ -82,9 +85,9 @@ LEFT JOIN (
                     sesionesConExcusa = SUM(IIF(h.codigoRazonCausaConsolidado = N'EX', 1, 0))
             FROM    dbo.uv_asistencia_sesion_horas h
             INNER JOIN dbo.uv_cumplimiento_sesion_grupo c ON c.idSesion = h.idSesion AND c.estaVencida = 1 AND c.tieneRegistroAsistencia = 1
-            GROUP BY h.idEstudianteGrupo
+            GROUP BY h.idEstudianteGrupo, h.idGrupo
           ) hs
-ON      hs.idEstudianteGrupo = eg.id
+ON      hs.idEstudianteGrupo = eg.id AND hs.idGrupo = eg.idGrupo
 CROSS APPLY (
             SELECT  horasDictadas = CAST(ISNULL(se.horasDictadas, 0) AS DECIMAL(12,6)),
                     horasAsistidas = CAST(ISNULL(hs.horasAsistidas, 0) AS DECIMAL(12,6)),

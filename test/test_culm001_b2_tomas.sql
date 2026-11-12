@@ -33,13 +33,15 @@ IF OBJECT_ID(N'dbo.TomaAsistencia', N'U') IS NULL OR OBJECT_ID(N'dbo.TokenAsiste
    OR OBJECT_ID(N'dbo.seq_detalle_asistencia_codigo', N'SO') IS NULL
     THROW 57200, 'TEST FAILED CULM001_B2_TOM_00: faltan objetos de B.2 (tablas, vistas, SP, funciones o secuencia de tomas).', 1;
 IF (SELECT COUNT(*) FROM dbo.uv_modo_toma_asistencia) <> 2
-   OR NOT EXISTS (SELECT 1 FROM dbo.uv_modo_toma_asistencia WHERE id = '7C1E0B20-5E51-4C0A-9A01-000000000001' AND codigo = N'MANUAL' AND usaCodigoQr = 0 AND marcaAusentesAlCerrar = 0)
+   -- PC (puntos de control): el modo MANUAL tambien marca SJC al cerrar (antes marcaAusentesAlCerrar = 0)
+   OR NOT EXISTS (SELECT 1 FROM dbo.uv_modo_toma_asistencia WHERE id = '7C1E0B20-5E51-4C0A-9A01-000000000001' AND codigo = N'MANUAL' AND usaCodigoQr = 0 AND marcaAusentesAlCerrar = 1)
    OR NOT EXISTS (SELECT 1 FROM dbo.uv_modo_toma_asistencia WHERE id = '7C1E0B20-5E51-4C0A-9A01-000000000002' AND codigo = N'QR' AND usaCodigoQr = 1 AND marcaAusentesAlCerrar = 1)
    OR (SELECT COUNT(*) FROM dbo.uv_estado_toma_asistencia) <> 2
    OR NOT EXISTS (SELECT 1 FROM dbo.uv_estado_toma_asistencia WHERE id = '7C1E0B30-5E51-4C0A-9A01-000000000001' AND codigo = N'ABIERTA' AND estaAbierta = 1)
    OR NOT EXISTS (SELECT 1 FROM dbo.uv_estado_toma_asistencia WHERE id = '7C1E0B30-5E51-4C0A-9A01-000000000002' AND codigo = N'CERRADA' AND estaAbierta = 0)
     THROW 57201, 'TEST FAILED CULM001_B2_TOM_00: catalogos ModoTomaAsistencia / EstadoTomaAsistencia distintos de la semilla 35.', 1;
-IF dbo.ufn_obtener_parametro_int(NULL, 'TOMA_ASISTENCIA', 'MAXIMO_TOMAS_POR_SESION') <> 4
+-- PC (puntos de control): el tope de tomas por sesion pasa de 4 a 20
+IF dbo.ufn_obtener_parametro_int(NULL, 'TOMA_ASISTENCIA', 'MAXIMO_TOMAS_POR_SESION') <> 20
    OR dbo.ufn_obtener_parametro_int(NULL, 'TOMA_ASISTENCIA', 'LOTE_CIERRE_AUTOMATICO') <> 200
    OR CAST(dbo.ufn_obtener_parametro('ASISTENCIA', 'CODIGO_RAZON_PRESENTE') AS NVARCHAR(10)) <> N'AN'
    OR CAST(dbo.ufn_obtener_parametro('ASISTENCIA', 'CODIGO_RAZON_SIN_JUSTA_CAUSA') AS NVARCHAR(10)) <> N'SJC'
@@ -133,7 +135,9 @@ CREATE TABLE #b2tS (idSesion UNIQUEIDENTIFIER, idGrupo UNIQUEIDENTIFIER, numeroS
     idToma UNIQUEIDENTIFIER, numero SMALLINT, idModo UNIQUEIDENTIFIER, codigoModo NVARCHAR(20), nombreModo NVARCHAR(50), usaCodigoQr BIT,
     marcaAusentesAlCerrar BIT, idEstado UNIQUEIDENTIFIER, codigoEstado NVARCHAR(20), nombreEstado NVARCHAR(50), estaAbierta BIT, esImplicita BIT,
     idDocenteApertura UNIQUEIDENTIFIER, fechaAperturaUtc DATETIME2(0), fechaCierreUtc DATETIME2(0), totalAusentesMarcados INT, horasToma DECIMAL(12,6),
-    totalRegistros INT, totalPresentes INT, totalAusentes INT, totalExcusas INT, tieneQrActivo BIT);
+    totalRegistros INT, totalPresentes INT, totalAusentes INT, totalExcusas INT, tieneQrActivo BIT,
+    -- PC (puntos de control): columnas nuevas al final
+    fechaPuntoControlUtc DATETIME2(7), ordenPuntoControl INT, minutosTramoAnterior INT, minutosTramoSiguiente INT, esEditable BIT, editableHastaUtc DATETIME2(7));
 CREATE TABLE #b2tF (idToma UNIQUEIDENTIFIER, idSesion UNIQUEIDENTIFIER, idGrupo UNIQUEIDENTIFIER, numeroToma SMALLINT, idEstudianteGrupo UNIQUEIDENTIFIER,
     idEstudiante UNIQUEIDENTIFIER, nombreCompletoEstudiante NVARCHAR(400), tieneRegistro BIT, idDetalleAsistencia UNIQUEIDENTIFIER,
     codigoRazonCausa NVARCHAR(10), fueMarcadoAlCerrar BIT, totalRegistros INT);
@@ -259,8 +263,9 @@ BEGIN TRY
         THROW 57230, 'TEST FAILED CULM001_B2_TOM_03: abrir una toma MANUAL en ventana debe responder TOM_008 con numero 1 y la ventana con margen.', 1;
     TRUNCATE TABLE #b2tA;
     -- cierre de la MANUAL (sin marcar ausentes) y apertura QR => numero 2, horasToma = 1
+    -- PC (puntos de control): con NULL el modo MANUAL ya marca SJC; el escenario pide explicitamente no marcar (@marcarAusentes = 0)
     SET @corr = NEWID();
-    INSERT INTO #b2tC EXEC dbo.usp_cerrar_toma_asistencia @idToma = @t1, @marcarAusentes = NULL, @idCorrelacion = @corr, @idUsuarioEjecutor = @uD1;
+    INSERT INTO #b2tC EXEC dbo.usp_cerrar_toma_asistencia @idToma = @t1, @marcarAusentes = 0, @idCorrelacion = @corr, @idUsuarioEjecutor = @uD1;
     IF NOT EXISTS (SELECT 1 FROM #b2tC WHERE estado = 1 AND mt LIKE N'DBCODE=TOM[_]009|%' AND idToma = @t1 AND idSesion = @sNow AND idGrupo = @g
                    AND totalAusentesMarcados = 0 AND yaEstabaCerrada = 0 AND fechaCierreUtc IS NOT NULL)
         THROW 57231, 'TEST FAILED CULM001_B2_TOM_03: cerrar la toma MANUAL debe responder TOM_009 sin marcar ausentes.', 1;
@@ -301,13 +306,14 @@ BEGIN TRY
     IF NOT EXISTS (SELECT 1 FROM #b2tA WHERE estado = 0 AND mt LIKE N'DBCODE=TOM[_]003|%') OR (SELECT COUNT(*) FROM dbo.TomaAsistencia WHERE sesion = @sNow) <> 2
         THROW 57240, 'TEST FAILED CULM001_B2_TOM_04: con una toma abierta abrir otra debe responder TOM_003.', 1;
     TRUNCATE TABLE #b2tA;
+    -- PC (puntos de control): el tope pasa de 4 a 20; se abren 20 tomas y la 21 responde TOM_004
     SET @n = 1;
-    WHILE @n <= 4
+    WHILE @n <= 20
     BEGIN
         SET @corr = NEWID();
         INSERT INTO #b2tA EXEC dbo.usp_abrir_toma_asistencia @idSesion = @sNow3, @codigoModo = N'MANUAL', @idCorrelacion = @corr, @idUsuarioEjecutor = @uD1;
         SET @t3 = (SELECT idToma FROM #b2tA WHERE estado = 1 AND numero = @n);
-        IF @t3 IS NULL THROW 57241, 'TEST FAILED CULM001_B2_TOM_04: no se pudo abrir una de las 4 tomas permitidas.', 1;
+        IF @t3 IS NULL THROW 57241, 'TEST FAILED CULM001_B2_TOM_04: no se pudo abrir una de las 20 tomas permitidas.', 1;
         INSERT INTO #b2tC EXEC dbo.usp_cerrar_toma_asistencia @idToma = @t3, @marcarAusentes = 0, @idCorrelacion = @corr, @idUsuarioEjecutor = @uD1;
         SET @n += 1;
     END
@@ -318,14 +324,14 @@ BEGIN TRY
     INSERT INTO #b2tA EXEC dbo.usp_abrir_toma_asistencia @idSesion = @sNow4, @codigoModo = N'MANUAL', @idCorrelacion = @corr, @idUsuarioEjecutor = @uD2;
     INSERT INTO #b2tA EXEC dbo.usp_abrir_toma_asistencia @idSesion = @sNow4, @codigoModo = N'MANUAL', @idCorrelacion = @corr, @idUsuarioEjecutor = @uE1;
     INSERT INTO #b2tA EXEC dbo.usp_abrir_toma_asistencia @idSesion = @sNow4, @codigoModo = N'MANUAL', @idCorrelacion = @corr, @idUsuarioEjecutor = NULL;
-    IF (SELECT COUNT(*) FROM dbo.TomaAsistencia WHERE sesion = @sNow3) <> 4 OR EXISTS (SELECT 1 FROM dbo.TomaAsistencia WHERE sesion = @sNow4)
-       OR NOT EXISTS (SELECT 1 FROM #b2tA WHERE estado = 0 AND mt LIKE N'DBCODE=TOM[_]004|%' AND mu LIKE N'%4%')
+    IF (SELECT COUNT(*) FROM dbo.TomaAsistencia WHERE sesion = @sNow3) <> 20 OR EXISTS (SELECT 1 FROM dbo.TomaAsistencia WHERE sesion = @sNow4)
+       OR NOT EXISTS (SELECT 1 FROM #b2tA WHERE estado = 0 AND mt LIKE N'DBCODE=TOM[_]004|%' AND mu LIKE N'%20%')
        OR NOT EXISTS (SELECT 1 FROM #b2tA WHERE estado = 0 AND mt LIKE N'DBCODE=TOM[_]002|%')
        OR NOT EXISTS (SELECT 1 FROM #b2tA WHERE estado = 0 AND mt LIKE N'DBCODE=SEC[_]002|%')
        OR NOT EXISTS (SELECT 1 FROM #b2tA WHERE estado = 0 AND mt LIKE N'DBCODE=SEC[_]001|%')
        OR NOT EXISTS (SELECT 1 FROM #b2tA WHERE estado = 0 AND mt LIKE N'DBCODE=GEN[_]002|%')
        OR EXISTS (SELECT 1 FROM #b2tA WHERE estado = 1)
-        THROW 57242, 'TEST FAILED CULM001_B2_TOM_04: quinta toma TOM_004, modo FOO TOM_002, no titular SEC_002, estudiante SEC_001, sin ejecutor GEN_002.', 1;
+        THROW 57242, 'TEST FAILED CULM001_B2_TOM_04: toma 21 TOM_004, modo FOO TOM_002, no titular SEC_002, estudiante SEC_001, sin ejecutor GEN_002.', 1;
     TRUNCATE TABLE #b2tA; TRUNCATE TABLE #b2tC;
     PRINT 'TEST_PASS:CULM001_B2_TOM_04_REGLAS_DE_APERTURA';
 
@@ -441,7 +447,7 @@ BEGIN TRY
     PRINT 'TEST_PASS:CULM001_B2_TOM_09_FALTANTES_Y_CORRECCION';
 
     -- --------------------------------------------------------------------------------------------------------
-    -- B2-TOM-07: cerrar una toma MANUAL sin @marcarAusentes no infiere faltas; con @marcarAusentes = 1 si
+    -- B2-TOM-07: cerrar una toma MANUAL sin @marcarAusentes marca SJC (PC; antes no inferia faltas); con @marcarAusentes = 1 tambien
     -- --------------------------------------------------------------------------------------------------------
     SET @corr = NEWID();
     INSERT INTO #b2tA EXEC dbo.usp_abrir_toma_asistencia @idSesion = @sNow2, @codigoModo = N'MANUAL', @idCorrelacion = @corr, @idUsuarioEjecutor = @uD1;
@@ -450,10 +456,12 @@ BEGIN TRY
     SET @json = CONCAT(N'[{"idEstudiante":"', @e1, N'","estado":"AN"}]');
     INSERT INTO #b2tL EXEC dbo.usp_registrar_asistencias_toma @idToma = @t3, @asistenciaJSON = @json, @idCorrelacion = @corr, @idUsuarioEjecutor = @uD1;
     INSERT INTO #b2tC EXEC dbo.usp_cerrar_toma_asistencia @idToma = @t3, @marcarAusentes = NULL, @idCorrelacion = @corr, @idUsuarioEjecutor = @uD1;
-    IF @t3 IS NULL OR NOT EXISTS (SELECT 1 FROM #b2tC WHERE estado = 1 AND totalAusentesMarcados = 0 AND totalFaltantes = 3)
-       OR (SELECT COUNT(*) FROM dbo.DetalleAsistencia WHERE toma = @t3) <> 1
-       OR (SELECT COUNT(*) FROM dbo.uv_faltantes_toma WHERE idToma = @t3 AND tieneRegistro = 0 AND idDetalleAsistencia IS NULL AND codigoRazonCausa IS NULL AND fueMarcadoAlCerrar = 0) <> 3
-        THROW 57270, 'TEST FAILED CULM001_B2_TOM_07: cerrar una toma MANUAL sin @marcarAusentes no debe inferir faltas (regla actual).', 1;
+    -- PC (puntos de control): antes la MANUAL con @marcarAusentes NULL no marcaba (0 marcados, 3 faltantes sin registro); ahora
+    -- marca SJC a los 3 activos sin registro, igual que la QR.
+    IF @t3 IS NULL OR NOT EXISTS (SELECT 1 FROM #b2tC WHERE estado = 1 AND totalAusentesMarcados = 3 AND totalFaltantes = 3)
+       OR (SELECT COUNT(*) FROM dbo.DetalleAsistencia WHERE toma = @t3) <> 4
+       OR (SELECT COUNT(*) FROM dbo.uv_faltantes_toma WHERE idToma = @t3 AND tieneRegistro = 1 AND codigoRazonCausa = N'SJC' AND fueMarcadoAlCerrar = 1) <> 3
+        THROW 57270, 'TEST FAILED CULM001_B2_TOM_07: cerrar una toma MANUAL sin @marcarAusentes debe marcar SJC a los activos sin registro (PC).', 1;
     TRUNCATE TABLE #b2tC; TRUNCATE TABLE #b2tL;
     SET @corr = NEWID();
     INSERT INTO #b2tA EXEC dbo.usp_abrir_toma_asistencia @idSesion = @sNow2, @codigoModo = N'MANUAL', @idCorrelacion = @corr, @idUsuarioEjecutor = @uD1;
@@ -513,7 +521,8 @@ BEGIN TRY
     SET @corr = NEWID();
     INSERT INTO #b2tS EXEC dbo.usp_consultar_tomas_sesion @idUsuarioEjecutor = @uD1, @idCorrelacion = @corr, @idSesion = @sNow;
     IF (SELECT COUNT(*) FROM #b2tS) <> 2
-       OR NOT EXISTS (SELECT 1 FROM #b2tS WHERE numero = 1 AND idToma = @t1 AND codigoModo = N'MANUAL' AND ventanaAbierta = 1 AND maximoTomas = 4
+       -- PC (puntos de control): maximoTomas pasa de 4 a 20
+       OR NOT EXISTS (SELECT 1 FROM #b2tS WHERE numero = 1 AND idToma = @t1 AND codigoModo = N'MANUAL' AND ventanaAbierta = 1 AND maximoTomas = 20
                       AND totalTomasSesion = 2 AND horasSesion = 2.000000 AND horasToma = 1.000000 AND estaSesionCancelada = 0 AND tieneQrActivo = 0)
        OR NOT EXISTS (SELECT 1 FROM #b2tS WHERE numero = 2 AND idToma = @t2 AND codigoModo = N'QR' AND totalPresentes = 3 AND totalExcusas = 1)
         THROW 57320, 'TEST FAILED CULM001_B2_CONSULTAS: usp_consultar_tomas_sesion debe devolver las tomas de la sesion en orden con su ventana.', 1;

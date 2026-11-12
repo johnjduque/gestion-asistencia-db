@@ -546,3 +546,19 @@ BEGIN
     ALTER TABLE [dbo].[SesionSolicitud] ADD CONSTRAINT [FK_SesionSolicitud_UsuarioResolucion] FOREIGN KEY ([usuarioResolucion]) REFERENCES [dbo].[Usuario] ([id]);
 END
 GO
+-- PC (puntos de control): SolicitudRevisionAsistencia -> TomaAsistencia (toma reclamada) y -> RazonCausa (resultado de la
+-- aprobacion), sin ON DELETE CASCADE, e indice (asistencia, toma) INCLUDE (estado) para validar "un reclamo no retirado por toma".
+IF COL_LENGTH('dbo.SolicitudRevisionAsistencia', 'toma') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_SolicitudRevisionAsistencia_TomaAsistencia')
+    ALTER TABLE [dbo].[SolicitudRevisionAsistencia] ADD CONSTRAINT [FK_SolicitudRevisionAsistencia_TomaAsistencia]
+    FOREIGN KEY ([toma]) REFERENCES [dbo].[TomaAsistencia] ([id]);
+GO
+IF COL_LENGTH('dbo.SolicitudRevisionAsistencia', 'razonCausaResolucion') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_SolicitudRevisionAsistencia_RazonCausaResolucion')
+    ALTER TABLE [dbo].[SolicitudRevisionAsistencia] ADD CONSTRAINT [FK_SolicitudRevisionAsistencia_RazonCausaResolucion]
+    FOREIGN KEY ([razonCausaResolucion]) REFERENCES [dbo].[RazonCausa] ([id]);
+GO
+IF COL_LENGTH('dbo.SolicitudRevisionAsistencia', 'toma') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.SolicitudRevisionAsistencia') AND name = 'IX_SolicitudRevisionAsistencia_Asistencia_Toma')
+    CREATE NONCLUSTERED INDEX [IX_SolicitudRevisionAsistencia_Asistencia_Toma] ON [dbo].[SolicitudRevisionAsistencia] ([asistencia], [toma]) INCLUDE ([estado]);
+GO

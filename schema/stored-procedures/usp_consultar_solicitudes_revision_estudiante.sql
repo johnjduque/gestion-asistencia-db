@@ -31,6 +31,8 @@ GO
 -- CULM-001 D.2 (CONTRACT §3.2, HU015/TD-060): un reclamo puede tener varios soportes. Las columnas de soporte siguen siendo las del PRIMER
 -- soporte adjuntado y se agregan AL FINAL codigoCategoria, nombreCategoria (NULL si el reclamo es anterior a la categoria persistida) y
 -- soportesJson: arreglo JSON [{idArchivo, nombreOriginal, tipoContenido, tamanioBytes}] ordenado por adjuncion ('[]' sin soportes).
+-- PC (puntos de control, reclamo por toma): AL FINAL idToma, numeroToma y fechaPuntoControlUtc de la toma reclamada (NULL en un
+-- reclamo de la sesion completa) y codigoResultadoAprobacion (AN = estuvo presente, EX = ausencia justificada; NULL si no aprobado).
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_solicitudes_revision_estudiante]
 (
@@ -115,7 +117,11 @@ BEGIN
         nombreCategoria               = cat.nombre,
         soportesJson                  = ISNULL((SELECT s.idArchivo AS idArchivo, s.nombreOriginal AS nombreOriginal, s.tipoContenido AS tipoContenido,
                                                               s.tamanioBytes AS tamanioBytes
-                                                       FROM dbo.uv_soporte_reclamo s WHERE s.idSolicitud = sra.id ORDER BY s.orden FOR JSON PATH), N'[]')
+                                                       FROM dbo.uv_soporte_reclamo s WHERE s.idSolicitud = sra.id ORDER BY s.orden FOR JSON PATH), N'[]'),
+        idToma                        = sra.toma,
+        numeroToma                    = pct.numero,
+        fechaPuntoControlUtc          = pct.fechaPuntoControlUtc,
+        codigoResultadoAprobacion     = rcr.codigo
     FROM dbo.SolicitudRevisionAsistencia sra
     INNER JOIN dbo.Estado est             ON est.id = sra.estado
     INNER JOIN dbo.Asistencia asi         ON asi.id = sra.asistencia
@@ -130,6 +136,8 @@ BEGIN
                  WHERE a.solicitudRevisionAsistencia = sra.id AND a.estado = @estadoAdjunto
                  ORDER BY a.fechaAdjuncionUtc, a.id) arc
     LEFT  JOIN dbo.CategoriaJustificacion cat ON cat.id = sra.categoriaJustificacion
+    LEFT  JOIN dbo.uv_toma_punto_control pct  ON pct.idToma = sra.toma AND pct.idSesion = asi.sesion
+    LEFT  JOIN dbo.RazonCausa rcr             ON rcr.id = sra.razonCausaResolucion
     WHERE estu.usuario = @idUsuarioDefecto
       AND (@estadoFiltro IS NULL OR est.codigo = @estadoFiltro)
     ORDER BY sra.fecha DESC, sra.nombre ASC, sra.id ASC

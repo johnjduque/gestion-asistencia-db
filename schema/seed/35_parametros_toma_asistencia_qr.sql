@@ -8,13 +8,14 @@ GO
 -- CULM-001 B.2 (CONTRACT §2.11): parametros de las tomas de asistencia y del QR de asistencia (DEC-015).
 -- Patron 29_parametros_matricula_qr.sql: idempotente y sin pisar el valor administrado (WHEN MATCHED solo actualiza
 -- tipoDato y valorDefecto). El backend tiene en codigo un valor por defecto igual a la semilla (DEC-018).
---   TOMA_ASISTENCIA/MAXIMO_TOMAS_POR_SESION ([SUPUESTO-B-07]); LOTE_CIERRE_AUTOMATICO: tomas por pasada del job.
+--   TOMA_ASISTENCIA/MAXIMO_TOMAS_POR_SESION ([SUPUESTO-B-07]; PC puntos de control: 20, antes 4; la migracion 37 actualiza el
+--   valor de una base existente solo si sigue en 4); LOTE_CIERRE_AUTOMATICO: tomas por pasada del job.
 --   ASISTENCIA/CODIGO_RAZON_*: codigos de RazonCausa que leen los SP nuevos ([SUPUESTO-B-03]).
 --   ASISTENCIA_QR/*: interruptor, rotacion, tolerancia del token anterior, lote del job, limites de intentos
 --   ([SUPUESTO-B-12]: por IP solo cuentan los rechazos) y URL base del frontend para el QR.
 MERGE INTO [dbo].[CatalogoParametro] AS Target
 USING (VALUES
-    ('TOMA_ASISTENCIA', 'MAXIMO_TOMAS_POR_SESION',       N'4',     'INT',     N'4'),
+    ('TOMA_ASISTENCIA', 'MAXIMO_TOMAS_POR_SESION',       N'20',    'INT',     N'20'),
     ('TOMA_ASISTENCIA', 'LOTE_CIERRE_AUTOMATICO',        N'200',   'INT',     N'200'),
     ('ASISTENCIA',      'CODIGO_RAZON_PRESENTE',         N'AN',    'STRING',  N'AN'),
     ('ASISTENCIA',      'CODIGO_RAZON_SIN_JUSTA_CAUSA',  N'SJC',   'STRING',  N'SJC'),

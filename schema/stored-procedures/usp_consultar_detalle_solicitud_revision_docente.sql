@@ -29,6 +29,9 @@ GO
 -- CULM-001 D.2 (CONTRACT §3.2, HU015/TD-060): un reclamo puede tener varios soportes. Las columnas de soporte siguen siendo las del PRIMER
 -- soporte adjuntado y se agregan AL FINAL codigoCategoria, nombreCategoria (NULL si el reclamo es anterior a la categoria persistida) y
 -- soportesJson: arreglo JSON [{idArchivo, nombreOriginal, tipoContenido, tamanioBytes}] ordenado por adjuncion ('[]' sin soportes).
+-- PC (puntos de control, reclamo por toma): AL FINAL idToma, numeroToma, fechaPuntoControlUtc (NULL en un reclamo de la sesion),
+-- codigoResultadoAprobacion (AN/EX), codigoRazonCausaToma (marca actual del estudiante en la toma reclamada; NULL sin detalle) y
+-- minutosSesion / minutosAsistidos de la sesion por tramos (uv_asistencia_sesion_horas; NULL sin cabecera).
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_detalle_solicitud_revision_docente]
 (
@@ -118,7 +121,14 @@ BEGIN
         nombreCategoria               = cat.nombre,
         soportesJson                  = ISNULL((SELECT s.idArchivo AS idArchivo, s.nombreOriginal AS nombreOriginal, s.tipoContenido AS tipoContenido,
                                                               s.tamanioBytes AS tamanioBytes
-                                                       FROM dbo.uv_soporte_reclamo s WHERE s.idSolicitud = sra.id ORDER BY s.orden FOR JSON PATH), N'[]')
+                                                       FROM dbo.uv_soporte_reclamo s WHERE s.idSolicitud = sra.id ORDER BY s.orden FOR JSON PATH), N'[]'),
+        idToma                        = sra.toma,
+        numeroToma                    = pct.numero,
+        fechaPuntoControlUtc          = pct.fechaPuntoControlUtc,
+        codigoResultadoAprobacion     = rcr.codigo,
+        codigoRazonCausaToma          = rct.codigo,
+        minutosSesion                 = det.minutosSesion,
+        minutosAsistidos              = det.minutosAsistidos
     FROM dbo.SolicitudRevisionAsistencia sra
     INNER JOIN dbo.Estado est             ON est.id = sra.estado
     INNER JOIN dbo.Asistencia asi         ON asi.id = sra.asistencia
@@ -130,13 +140,19 @@ BEGIN
     INNER JOIN dbo.Docente doc            ON doc.id = gru.docente
     INNER JOIN dbo.Asignatura asg         ON asg.id = gru.asignatura
     -- CULM-001 B.2 (CONTRACT §2.9): estado consolidado de la sesion (una fila aunque haya varias tomas)
-    OUTER APPLY (SELECT h.codigoRazonCausaConsolidado FROM dbo.uv_asistencia_sesion_horas h WHERE h.idAsistencia = asi.id) det
+    OUTER APPLY (SELECT h.codigoRazonCausaConsolidado, h.minutosSesion, h.minutosAsistidos
+                 FROM dbo.uv_asistencia_sesion_horas h WHERE h.idAsistencia = asi.id) det
     LEFT  JOIN dbo.RazonCausa rzc         ON rzc.codigo = det.codigoRazonCausaConsolidado
     OUTER APPLY (SELECT TOP 1 a.id, a.nombreOriginal, a.tipoContenido, a.tamanioBytes, a.fechaRegistroUtc
                  FROM dbo.ArchivoSoporte a
                  WHERE a.solicitudRevisionAsistencia = sra.id AND a.estado = @estadoAdjunto
                  ORDER BY a.fechaAdjuncionUtc, a.id) arc
     LEFT  JOIN dbo.CategoriaJustificacion cat ON cat.id = sra.categoriaJustificacion
+    -- PC (puntos de control): toma reclamada, su marca actual y el resultado de la aprobacion
+    LEFT  JOIN dbo.uv_toma_punto_control pct  ON pct.idToma = sra.toma AND pct.idSesion = asi.sesion
+    LEFT  JOIN dbo.RazonCausa rcr             ON rcr.id = sra.razonCausaResolucion
+    LEFT  JOIN dbo.DetalleAsistencia dtt      ON dtt.asistencia = asi.id AND dtt.toma = sra.toma
+    LEFT  JOIN dbo.RazonCausa rct             ON rct.id = dtt.razonCausa
     WHERE sra.id = @idSolicitudDefecto
       AND doc.usuario = @idUsuarioDefecto;
 END;

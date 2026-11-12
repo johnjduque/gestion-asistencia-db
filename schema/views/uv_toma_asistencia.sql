@@ -9,6 +9,10 @@ GO
 --   horasSesion = ufn_horas_sesion(inicio, fin); totalTomasSesion = tomas de la sesion; horasToma = horasSesion /
 --   totalTomasSesion (0 si la sesion esta cancelada). Conteos de la toma por RazonCausa (literales de catalogo cerrado,
 --   [SUPUESTO-B-03]): totalPresentes AN, totalAusentes SJC, totalExcusas EX. tieneQrActivo = token sin fechaCierreUtc.
+-- PC (puntos de control, docs/work-items/PC-puntos-control-tomas/CONTRACT.md §A.2): agrega al final el punto de control de la
+--   toma (uv_toma_punto_control): fechaPuntoControlUtc, ordenPuntoControl, minutosTramoAnterior, minutosTramoSiguiente y
+--   fechaAperturaSiguienteUtc. horasToma (1/n) queda OBSOLETO (expand & contract): se conserva por compatibilidad y ningun
+--   calculo de horas debe usarlo; las horas salen de uv_asistencia_sesion_horas.
 CREATE OR ALTER VIEW [dbo].[uv_toma_asistencia]
 AS
 SELECT  idToma = t.id,
@@ -39,7 +43,12 @@ SELECT  idToma = t.id,
         totalPresentes = ISNULL(d.totalPresentes, 0),
         totalAusentes = ISNULL(d.totalAusentes, 0),
         totalExcusas = ISNULL(d.totalExcusas, 0),
-        tieneQrActivo = CAST(IIF(EXISTS (SELECT 1 FROM dbo.TokenAsistenciaToma tk WHERE tk.toma = t.id AND tk.fechaCierreUtc IS NULL), 1, 0) AS BIT)
+        tieneQrActivo = CAST(IIF(EXISTS (SELECT 1 FROM dbo.TokenAsistenciaToma tk WHERE tk.toma = t.id AND tk.fechaCierreUtc IS NULL), 1, 0) AS BIT),
+        fechaPuntoControlUtc = pc.fechaPuntoControlUtc,
+        ordenPuntoControl = pc.ordenPuntoControl,
+        minutosTramoAnterior = pc.minutosTramoAnterior,
+        minutosTramoSiguiente = pc.minutosTramoSiguiente,
+        fechaAperturaSiguienteUtc = pc.fechaAperturaSiguienteUtc
 FROM    dbo.TomaAsistencia t
 INNER JOIN dbo.Sesion s
 ON      s.id = t.sesion
@@ -49,6 +58,8 @@ INNER JOIN dbo.EstadoTomaAsistencia e
 ON      e.id = t.estado
 LEFT JOIN dbo.SesionCancelacion sc
 ON      sc.sesion = t.sesion
+INNER JOIN dbo.uv_toma_punto_control pc
+ON      pc.idToma = t.id AND pc.idSesion = t.sesion
 CROSS APPLY (SELECT horasSesion = dbo.ufn_horas_sesion(s.fechaHoraInicio, s.fechaHoraFin)) h
 CROSS APPLY (SELECT totalTomas = COUNT(1) FROM dbo.TomaAsistencia t2 WHERE t2.sesion = t.sesion) n
 OUTER APPLY (

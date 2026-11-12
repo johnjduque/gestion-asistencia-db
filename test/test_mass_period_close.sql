@@ -174,9 +174,11 @@ BEGIN TRY
     SELECT id, CONCAT(N'QA Cierre C ', seq), seq, LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8), 1, @group,
         DATEADD(HOUR, 8, DATEADD(DAY, seq, CAST(@firstDay AS DATETIME2))), DATEADD(HOUR, 11, DATEADD(DAY, seq, CAST(@firstDay AS DATETIME2))), N'UTC_V2'
     FROM @s;
-    -- 3 tomas cerradas en cada sesion
+    -- 3 tomas cerradas en cada sesion. PC (puntos de control): se abren en los minutos 0, 60 y 120 (antes todas en el inicio; con
+    -- tramos solo contaria la ultima y la falta de la toma 1 de @egTres valdria 0 h). Asi la toma 1 SJC de @egTres da 1 h de falta
+    -- por sesion ([0, 60] con un extremo SJC) y las 3 SJC de @egUna dan 3 h: los mismos 33 % de antes.
     INSERT INTO dbo.TomaAsistencia (id, sesion, numero, modo, estado, esImplicita, docenteApertura, fechaAperturaUtc, fechaCierreUtc, idCorrelacionApertura)
-    SELECT NEWID(), s.id, v.n, @modoManual, @cerrada, 0, @teacher, CAST(se.fechaHoraInicio AS DATETIME2(0)), CAST(se.fechaHoraFin AS DATETIME2(0)), NEWID()
+    SELECT NEWID(), s.id, v.n, @modoManual, @cerrada, 0, @teacher, CAST(DATEADD(MINUTE, (v.n - 1) * 60, se.fechaHoraInicio) AS DATETIME2(0)), CAST(se.fechaHoraFin AS DATETIME2(0)), NEWID()
     FROM @s s INNER JOIN dbo.Sesion se ON se.id = s.id CROSS JOIN (VALUES (1), (2), (3)) v(n);
     INSERT dbo.Asistencia (id, estudianteGrupo, sesion) SELECT NEWID(), @egTres, id FROM @s;
     INSERT dbo.Asistencia (id, estudianteGrupo, sesion) SELECT NEWID(), @egUna, id FROM @s WHERE seq = 1;

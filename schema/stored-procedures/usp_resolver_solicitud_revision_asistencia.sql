@@ -18,7 +18,16 @@ GO
 --   * Auditoria oficial (dbo.AuditoriaEvento) en la MISMA transaccion: actor, accion, estado previo y nuevo de la
 --     solicitud y del detalle, respuesta y correlacion.
 --   * No usa la ventana de registro ordinario (SES-01): la rectificacion por reclamo es valida despues del cierre.
---   * Firma y resultset canonico de 4 columnas sin cambio.
+--   * Resultset canonico de 4 columnas sin cambio.
+-- PC (puntos de control, reclamo por toma): parametro opcional al final @codigoResultadoAprobacion (NULL = EX):
+--   * valores validos ASISTENCIA/CODIGO_RAZON_PRESENTE (AN, "si estuvo presente") y ASISTENCIA/CODIGO_RAZON_EXCUSA (EX,
+--     "ausencia justificada"); cualquier otro => REV_028, sin escrituras.
+--   * Solicitud CON toma: se bloquea y modifica solo el detalle (asistencia, toma). APROBADA + AN => AN con asistio = 1;
+--     APROBADA + EX => EX con asistio = 0, solo en esa toma; RECHAZADA no toca el detalle. Sin detalle REV_004; detalle AN REV_003.
+--   * Solicitud SIN toma (reclamo de la sesion, legado): APROBADA + AN => REV_029; EX conserva SES-04 (todos los SJC pasan a EX).
+--   * La aprobacion guarda razonCausaResolucion. Reintento con la misma accion y el mismo resultado => exito sin escrituras;
+--     resultado distinto sobre una solicitud ya aprobada (sin resultado guardado cuenta como EX) => REV_002.
+--   * La auditoria agrega idToma y resultadoAprobacion.
 CREATE OR ALTER PROCEDURE [dbo].[usp_resolver_solicitud_revision_asistencia]
 (
     @idSolicitud        UNIQUEIDENTIFIER,
@@ -26,7 +35,8 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_resolver_solicitud_revision_asistencia]
     @accion             NVARCHAR(20),
     @respuestaDocente   NVARCHAR(MAX),
     @idCorrelacion      UNIQUEIDENTIFIER,
-    @idUsuarioEjecutor  UNIQUEIDENTIFIER = NULL
+    @idUsuarioEjecutor  UNIQUEIDENTIFIER = NULL,
+    @codigoResultadoAprobacion NVARCHAR(5) = NULL
 )
 AS
     DECLARE @idCorrelacionDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
@@ -46,6 +56,12 @@ AS
     DECLARE @idEstadoNuevo         UNIQUEIDENTIFIER;
     DECLARE @idRazonJustificada    UNIQUEIDENTIFIER;
     DECLARE @modificaDetalle       BIT = 0;
+    DECLARE @codigoPresente        NVARCHAR(5) = CAST(dbo.ufn_obtener_parametro('ASISTENCIA', 'CODIGO_RAZON_PRESENTE') AS NVARCHAR(5));
+    DECLARE @codigoExcusa          NVARCHAR(5) = CAST(dbo.ufn_obtener_parametro('ASISTENCIA', 'CODIGO_RAZON_EXCUSA') AS NVARCHAR(5));
+    DECLARE @codigoResultado       NVARCHAR(5);
+    DECLARE @codigoResultadoPrevio NVARCHAR(5);
+    DECLARE @idTomaSolicitud       UNIQUEIDENTIFIER;
+    DECLARE @idRazonResultado      UNIQUEIDENTIFIER;
 
     -- Variables locales de respuesta
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -101,6 +117,20 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 1.7 (PC): resultado de la aprobacion (NULL = EX); solo AN o EX
+        SET @codigoResultado = UPPER(TRIM(ISNULL(@codigoResultadoAprobacion, @codigoExcusa)));
+        IF @estadoResultado = 1 AND (@codigoResultado IS NULL OR @codigoResultado NOT IN (@codigoPresente, @codigoExcusa))
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'REV_028',
+                @p_param1 = @codigoResultadoAprobacion,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
         -- PASO 2: Resolución atómica. La solicitud, su estado y su detalle se leen bajo bloqueo dentro de la
         --         transacción; los rechazos de negocio confirman una transacción sin escrituras (así no hay ROLLBACK
         --         dentro de un INSERT ... EXEC del llamador).
@@ -111,9 +141,12 @@ BEGIN
             SELECT TOP 1
                 @docenteTitularGrupo = g.docente,
                 @idAsistencia = sra.asistencia,
-                @codigoEstadoActual = e.codigo
+                @codigoEstadoActual = e.codigo,
+                @idTomaSolicitud = sra.toma,
+                @codigoResultadoPrevio = rcr.codigo
             FROM dbo.SolicitudRevisionAsistencia sra WITH (UPDLOCK, HOLDLOCK)
             INNER JOIN dbo.Estado e ON e.id = sra.estado
+            LEFT JOIN dbo.RazonCausa rcr ON rcr.id = sra.razonCausaResolucion
             INNER JOIN dbo.Asistencia ast ON sra.asistencia = ast.id
             INNER JOIN dbo.Sesion s ON ast.sesion = s.id
             INNER JOIN dbo.Grupo g ON s.grupo = g.id
@@ -143,16 +176,30 @@ BEGIN
                 SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
                 SET @estadoResultado = 0;
             END
+            -- 2.2b (PC): "si estuvo presente" solo aplica a un reclamo de una toma
+            ELSE IF @accionDefecto = N'APROBADA' AND @idTomaSolicitud IS NULL AND @codigoResultado = @codigoPresente
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'REV_029',
+                    @p_param1 = @idSolicitudDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
 
             IF @estadoResultado = 1
             BEGIN
                 SET @codigoEstadoNuevo = CASE WHEN @accionDefecto = N'APROBADA' THEN 'A' ELSE 'R' END;
 
                 -- 2.3: solo una solicitud pendiente se resuelve. La misma decision ya aplicada es un reintento
-                --      idempotente (sin escrituras); una decision distinta es un conflicto.
+                --      idempotente (sin escrituras); una decision distinta es un conflicto. PC: una aprobacion con otro
+                --      resultado tambien es un conflicto (sin resultado guardado, la aprobacion anterior fue EX).
                 IF @codigoEstadoActual <> 'P'
                 BEGIN
                     IF @codigoEstadoActual <> @codigoEstadoNuevo
+                       OR (@codigoEstadoNuevo = 'A' AND ISNULL(@codigoResultadoPrevio, @codigoExcusa) <> @codigoResultado)
                     BEGIN
                         EXEC dbo.usp_obtener_mensaje_catalogo
                             @p_codigo = 'REV_002',
@@ -173,9 +220,11 @@ BEGIN
                         @idDetalle = d.id,
                         @asistioAnterior = d.asistio,
                         @codigoCausaAnterior = rc.codigo
+                    -- PC: con toma, solo el detalle de esa toma.
                     FROM dbo.DetalleAsistencia d WITH (UPDLOCK, HOLDLOCK)
                     INNER JOIN dbo.RazonCausa rc ON rc.id = d.razonCausa
                     WHERE d.asistencia = @idAsistencia
+                      AND (@idTomaSolicitud IS NULL OR d.toma = @idTomaSolicitud)
                     ORDER BY CASE rc.codigo WHEN N'SJC' THEN 0 WHEN N'EX' THEN 1 ELSE 2 END, d.id;
 
                     IF @idDetalle IS NULL
@@ -206,28 +255,30 @@ BEGIN
                     IF @estadoResultado = 1
                     BEGIN
                         SELECT @idEstadoNuevo = id FROM dbo.Estado WHERE codigo = @codigoEstadoNuevo;
-                        SELECT @idRazonJustificada = id FROM dbo.RazonCausa WHERE codigo = N'EX';
+                        SELECT @idRazonJustificada = id FROM dbo.RazonCausa WHERE codigo = @codigoResultado;
                         IF @idEstadoNuevo IS NULL OR (@codigoEstadoNuevo = 'A' AND @idRazonJustificada IS NULL)
                             THROW 52401, 'SES04_CATALOGO_INCONSISTENTE: falta Estado A/R o RazonCausa EX.', 1;
 
-                        SET @modificaDetalle = CASE WHEN @codigoEstadoNuevo = 'A' AND @codigoCausaAnterior <> N'EX' THEN 1 ELSE 0 END;
+                        SET @modificaDetalle = CASE WHEN @codigoEstadoNuevo = 'A' AND @codigoCausaAnterior <> @codigoResultado THEN 1 ELSE 0 END;
 
-                        -- 2.7: la solicitud queda resuelta con la respuesta del docente
+                        -- 2.7: la solicitud queda resuelta con la respuesta del docente (PC: y el resultado si se aprueba)
                         UPDATE dbo.SolicitudRevisionAsistencia
                         SET estado = @idEstadoNuevo,
-                            justificacionRespuesta = CASE WHEN @respuestaDefecto IS NOT NULL THEN @respuestaDefecto ELSE '' END
+                            justificacionRespuesta = CASE WHEN @respuestaDefecto IS NOT NULL THEN @respuestaDefecto ELSE '' END,
+                            razonCausaResolucion = CASE WHEN @codigoEstadoNuevo = 'A' THEN @idRazonJustificada ELSE razonCausaResolucion END
                         WHERE id = @idSolicitudDefecto;
 
-                        -- 2.8: aprobacion => JUSTIFICADA (EX, asistio = 0). El rechazo no toca DetalleAsistencia.
+                        -- 2.8: aprobacion => resultado (EX con asistio = 0, o AN con asistio = 1 si el reclamo es de una toma).
+                        --      Sin toma (legado) todos los SJC pasan a EX; con toma solo su detalle. El rechazo no toca DetalleAsistencia.
                         IF @modificaDetalle = 1
                         BEGIN
                             UPDATE d
                             SET razonCausa = @idRazonJustificada,
-                                asistio = 0
+                                asistio = IIF(@codigoResultado = @codigoPresente, 1, 0)
                             FROM dbo.DetalleAsistencia d
                             INNER JOIN dbo.RazonCausa rc ON rc.id = d.razonCausa
                             WHERE d.asistencia = @idAsistencia
-                              AND (d.id = @idDetalle OR rc.codigo = N'SJC');
+                              AND (d.id = @idDetalle OR (@idTomaSolicitud IS NULL AND rc.codigo = N'SJC'));
                         END
 
                         -- 2.9: auditoria oficial con estado previo y nuevo, en la misma transaccion
@@ -255,9 +306,11 @@ BEGIN
                                     idDetalleAsistencia = CAST(@idDetalle AS NVARCHAR(36)),
                                     razonCausaAnterior = @codigoCausaAnterior,
                                     asistioAnterior = @asistioAnterior,
-                                    razonCausaNueva = CASE WHEN @modificaDetalle = 1 THEN N'EX' ELSE @codigoCausaAnterior END,
-                                    asistioNuevo = CASE WHEN @modificaDetalle = 1 THEN CAST(0 AS BIT) ELSE @asistioAnterior END,
-                                    respuestaDocente = @respuestaDefecto
+                                    razonCausaNueva = CASE WHEN @modificaDetalle = 1 THEN @codigoResultado ELSE @codigoCausaAnterior END,
+                                    asistioNuevo = CASE WHEN @modificaDetalle = 1 THEN CAST(IIF(@codigoResultado = @codigoPresente, 1, 0) AS BIT) ELSE @asistioAnterior END,
+                                    respuestaDocente = @respuestaDefecto,
+                                    idToma = CAST(@idTomaSolicitud AS NVARCHAR(36)),
+                                    resultadoAprobacion = CASE WHEN @codigoEstadoNuevo = 'A' THEN @codigoResultado END
                              FOR JSON PATH, WITHOUT_ARRAY_WRAPPER)
                         );
                     END

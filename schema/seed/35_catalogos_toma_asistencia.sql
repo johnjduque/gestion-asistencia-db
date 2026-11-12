@@ -6,10 +6,12 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 -- CULM-001 B.2 (CONTRACT §2.1): catalogos ModoTomaAsistencia y EstadoTomaAsistencia con ids fijos (patron 08_razon_causa.sql).
+-- PC (puntos de control): el modo MANUAL tambien marca SJC al cerrar (marcaAusentesAlCerrar = 1), igual que el QR; las tomas
+-- MANUAL ya cerradas no se rellenan (CONTRACT F4).
 -- Idempotente. Los SP los resuelven por las banderas usaCodigoQr / marcaAusentesAlCerrar / estaAbierta, nunca por el codigo.
 MERGE INTO [dbo].[ModoTomaAsistencia] AS Target
 USING (VALUES
-    (CAST('7C1E0B20-5E51-4C0A-9A01-000000000001' AS UNIQUEIDENTIFIER), N'MANUAL', N'Registro manual del docente', CAST(0 AS BIT), CAST(0 AS BIT)),
+    (CAST('7C1E0B20-5E51-4C0A-9A01-000000000001' AS UNIQUEIDENTIFIER), N'MANUAL', N'Registro manual del docente', CAST(0 AS BIT), CAST(1 AS BIT)),
     (CAST('7C1E0B20-5E51-4C0A-9A01-000000000002' AS UNIQUEIDENTIFIER), N'QR',     N'Código QR y PIN rotativos',  CAST(1 AS BIT), CAST(1 AS BIT))
 ) AS Source (id, codigo, nombre, usaCodigoQr, marcaAusentesAlCerrar)
 ON (Target.id = Source.id)

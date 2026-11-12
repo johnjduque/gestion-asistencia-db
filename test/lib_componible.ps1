@@ -18,7 +18,8 @@ function Get-DownChainText {
         Where-Object { $_.Name -match '^(\d+)_' -and [int]$Matches[1] -gt $Despues } |
         Sort-Object { [int]($_.Name -split '_')[0] } -Descending)
     # Confirmaciones destructivas en 0: nunca colapsan datos (sin soportes/tomas multiples el down no las necesita)
-    $lines = @(':setvar CONFIRMAR_COLAPSO_SOPORTES 0')
+    # PC (migracion 37): CONFIRMAR_RETIRO_RECLAMO_TOMA en 0 (el down solo la necesita si hay reclamos por toma).
+    $lines = @(':setvar CONFIRMAR_COLAPSO_SOPORTES 0', ':setvar CONFIRMAR_RETIRO_RECLAMO_TOMA 0')
     foreach ($f in $files) { $lines += ":r $RemoteMigrationsDir/$($f.Name)"; $lines += 'GO' }
     return ($lines -join "`n")
 }

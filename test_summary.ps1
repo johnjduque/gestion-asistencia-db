@@ -705,6 +705,19 @@ try {
 catch {
     $resultFailures += "HU177_RETIRO_RUNNER $($_.Exception.Message)"
 }
+# PC puntos de control: migracion 37 (up/down/up componible y down sin confirmacion) en test/test_pc_migracion_37.ps1.
+$pcMigIds = @('PC_MIG_01_UP_DOWN_UP', 'PC_MIG_02_DOWN_SIN_CONFIRMACION')
+try {
+    $pcMigOutput = @(& (Join-Path $PSScriptRoot 'test/test_pc_migracion_37.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $pcMigOutput) { Write-Host $line }
+    foreach ($id in $pcMigIds) {
+        if ($pcMigOutput -contains "TEST_PASS:$id") { $clientPassed += $id }
+        else { $resultFailures += "$id not reported by test_pc_migracion_37.ps1" }
+    }
+}
+catch {
+    $resultFailures += "PC_MIG_RUNNER $($_.Exception.Message)"
+}
 # CULM-001 D.2: migracion 21 (up/down/up), down sin confirmacion y orden de rollback D-RB-01 en test/test_culm001_d2.ps1.
 $culm001D2Ids = @('CULM001_D2_13_UP_DOWN_UP', 'CULM001_D2_13_DOWN_SIN_CONFIRMACION', 'CULM001_D_RB_01_ORDEN_DE_DOWN')
 try {
@@ -1012,6 +1025,16 @@ $criticalIds = @(
     # HU018 / HU019 (test/test_hu018_hu019_plan_horas_estudiante.sql, test/test_hu018_hu019.ps1, test/test_public_objects.sql)
     'HU018_PLAN_ESTRUCTURA_ORDEN', 'HU018_PLAN_EXCLUSIONES', 'HU018_PLAN_CURSANDO', 'HU018_PLAN_PRIVACIDAD', 'HU018_PLAN_COLUMNAS',
     'HU019_HORAS_PROGRAMADAS', 'HU019_HORAS_VALIDACIONES', 'HU018_HU019_SEG_01', 'HU018_HU019_MIG_UP_DOWN_UP',
+    # PC BD-1: tomas como puntos de control, minutos por tramos (test/test_pc_calculo_tramos.sql)
+    'PC_CAL_01', 'PC_CAL_02', 'PC_CAL_03', 'PC_CAL_04', 'PC_CAL_05', 'PC_CAL_06', 'PC_CAL_07', 'PC_CAL_08', 'PC_CAL_09', 'PC_CAL_10',
+    'PC_CAL_11', 'PC_CAL_12', 'PC_CAL_13', 'PC_CAL_14', 'PC_INV_01', 'PC_CAL_TRANCOUNT_ZERO',
+    # PC BD-2 / BD-3 / BD-4: ciclo de vida de la toma, reclamo por toma, permisos y migracion 37 (test/test_pc_puntos_control.sql,
+    # test/test_public_objects.sql, test/test_pc_migracion_37.ps1)
+    'PC_TOM_00_OBJETOS_Y_SEMILLAS', 'PC_TOM_01_EDICION_HASTA_SIGUIENTE', 'PC_TOM_02_ULTIMA_HASTA_MARGEN', 'PC_TOM_03_CIERRE_MANUAL_MARCA',
+    'PC_TOM_04_TOPE_20', 'PC_TOM_05_CONSULTAS', 'PC_REC_01_RADICAR_V4', 'PC_REC_02_TOMA_SIN_AUSENCIA', 'PC_REC_03_DUPLICADO',
+    'PC_REC_04_TOMA_DE_OTRA_SESION', 'PC_REC_05_APROBADA_PRESENTE', 'PC_REC_06_APROBADA_JUSTIFICADA_SOLO_LA_TOMA', 'PC_REC_07_LEGADO_SESION',
+    'PC_REC_08_IDEMPOTENCIA_Y_RESULTADO', 'PC_REC_09_RETIRADO_PERMITE_OTRO', 'PC_REC_10_CONSULTAS_RECLAMOS', 'PC_TRANCOUNT_ZERO', 'PC_SEG_01',
+    'PC_MIG_01_UP_DOWN_UP', 'PC_MIG_02_DOWN_SIN_CONFIRMACION',
     # CULM-001 / DEC-065 (test/test_mrm_solicitud_sesion.sql, test/test_mrm_solicitud_sesion.ps1, test/test_public_objects.sql)
     'CULM001_MRM_00_OBJETOS_Y_SEMILLAS', 'CULM001_MRM_01_DOCENTE_CREA_SOLICITUD_PENDIENTE', 'CULM001_MRM_02_VISTAS_ESTADO_SOLICITUD',
     'CULM001_MRM_03_ESTUDIANTE_NO_VE_PENDIENTE', 'CULM001_MRM_04_PENDIENTE_NO_ADMITE_TOMAS', 'CULM001_MRM_05_APROBAR', 'CULM001_MRM_06_RECHAZAR',
