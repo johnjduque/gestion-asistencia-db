@@ -93,7 +93,8 @@ CREATE TABLE #r2 (idSolicitudRevisionAsistencia UNIQUEIDENTIFIER, nombreSolicitu
     nombreGrupo NVARCHAR(100), idAsignatura UNIQUEIDENTIFIER, codigoAsignatura NVARCHAR(100), nombreAsignatura NVARCHAR(100),
     idArchivoSoporte UNIQUEIDENTIFIER, nombreSoporte NVARCHAR(250), tipoContenidoSoporte VARCHAR(50),
     tamanioSoporteBytes BIGINT, fechaRegistroSoporteUtc DATETIME2(7), totalRegistros INT,
-    codigoCategoria NVARCHAR(5), nombreCategoria NVARCHAR(50), totalSoportes INT);
+    codigoCategoria NVARCHAR(5), nombreCategoria NVARCHAR(50), totalSoportes INT,
+    idToma UNIQUEIDENTIFIER, numeroToma SMALLINT, fechaPuntoControlUtc DATETIME2(7));
 
 BEGIN TRANSACTION;
 BEGIN TRY

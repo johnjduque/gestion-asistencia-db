@@ -156,6 +156,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_pc_calculo_tramos.sql
 -- PC BD-2 / BD-3 (ciclo de vida de la toma y reclamo por toma): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_pc_puntos_control.sql
+-- PC (mejora bandeja de reclamos del docente: toma en R2, migracion 38): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_pc_toma_en_bandeja_reclamos.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN
