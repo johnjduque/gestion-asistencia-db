@@ -28,6 +28,8 @@ GO
 -- CULM-001 D.2 (CONTRACT §3.2, HU015/TD-060/TD-061): un reclamo puede tener varios soportes. Las columnas de soporte siguen siendo las
 -- del PRIMER soporte adjuntado (contrato posicional) y se agregan AL FINAL codigoCategoria, nombreCategoria (NULL si el reclamo es anterior a
 -- la categoria persistida) y totalSoportes. El estado adjunto sale de ARCHIVO/ESTADO_ADJUNTO (sin literal 'quemado').
+-- PC (puntos de control, mejora bandeja 2026-11-12, migracion 38): AL FINAL idToma, numeroToma y fechaPuntoControlUtc de la toma reclamada
+-- (NULL en un reclamo de la sesion completa), con la misma resolucion que usp_consultar_detalle_solicitud_revision_docente.
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_solicitudes_revision_docente]
 (
@@ -110,7 +112,10 @@ BEGIN
         totalRegistros                = COUNT(*) OVER(),
         codigoCategoria               = cat.codigo,
         nombreCategoria               = cat.nombre,
-        totalSoportes                 = (SELECT COUNT(*) FROM dbo.uv_soporte_reclamo s WHERE s.idSolicitud = sra.id)
+        totalSoportes                 = (SELECT COUNT(*) FROM dbo.uv_soporte_reclamo s WHERE s.idSolicitud = sra.id),
+        idToma                        = sra.toma,
+        numeroToma                    = pct.numero,
+        fechaPuntoControlUtc          = pct.fechaPuntoControlUtc
     FROM dbo.SolicitudRevisionAsistencia sra
     INNER JOIN dbo.Estado est             ON est.id = sra.estado
     INNER JOIN dbo.Asistencia asi         ON asi.id = sra.asistencia
@@ -126,6 +131,8 @@ BEGIN
                  WHERE a.solicitudRevisionAsistencia = sra.id AND a.estado = @estadoAdjunto
                  ORDER BY a.fechaAdjuncionUtc, a.id) arc
     LEFT  JOIN dbo.CategoriaJustificacion cat ON cat.id = sra.categoriaJustificacion
+    -- PC (puntos de control): toma reclamada (LEFT JOIN: NULL en un reclamo de la sesion completa)
+    LEFT  JOIN dbo.uv_toma_punto_control pct  ON pct.idToma = sra.toma AND pct.idSesion = asi.sesion
     WHERE doc.usuario = @idUsuarioDefecto
       AND (@estadoFiltro IS NULL OR est.codigo = @estadoFiltro)
     ORDER BY sra.fecha DESC, sra.nombre ASC, sra.id ASC
