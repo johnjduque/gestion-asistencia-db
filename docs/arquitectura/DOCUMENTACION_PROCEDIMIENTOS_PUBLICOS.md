@@ -447,3 +447,21 @@ Decisión de John del 2026-11-10. El estudiante solo ve lo propio: los dos SP re
 | `dbo.usp_consultar_horas_programadas_estudiante` | Lectura nueva (4 columnas): `idEstudianteGrupo`, `idGrupo`, `sesionesProgramadas` y `horasProgramadas` de cada matrícula inscrita. Cuenta las sesiones no canceladas del grupo, dictadas o por dictar (`uv_cumplimiento_sesion_grupo`); un grupo sin sesiones devuelve 0 y 0 | estudiante ejecutor | `VAL_001` (THROW) |
 
 Sin objetos modificados. Permiso aditivo: `schema/security/rol_asistencias_runtime_hu018_hu019.sql`. Migración: `33_hu018_hu019_plan_horas_estudiante_up|down.sql`. Pruebas: `test/test_hu018_hu019_plan_horas_estudiante.sql` y `test/test_hu018_hu019.ps1`. Work item: `docs/work-items/HU018-HU019-plan-horas-estudiante/PLAN.md`.
+
+## Addendum PC — tomas de asistencia como puntos de control (2026-11-11)
+
+Las horas de la sesión se calculan por tramos entre las tomas (puntos de control) y el estudiante reclama una toma concreta. Contrato: `docs/work-items/PC-puntos-control-tomas/CONTRACT.md`. Todas las columnas nuevas van al final.
+
+| Objeto | Qué entrega o cambia | Ámbito | Códigos |
+|---|---|---|---|
+| `dbo.usp_consultar_resumen_tomas_sesion(@idUsuarioEjecutor, @idCorrelacion, @idSesion)` | Lectura NUEVA (9 columnas): `idEstudiante`, `nombreCompletoEstudiante`, `minutosSesion`, `minutosAsistidos`, `minutosFalta`, `minutosExcusa`, `minutosSinRegistro`, `codigoEstadoSesionEstudiante`, `tomasAusentes`; una fila por matrícula activa (`MATRICULA/ESTADO_INSCRITA`), ordenada por nombre. Sin cabecera: todo sin registro y `NO_DISPONIBLE` | docente titular de la sesión | `GEN_002`, `SEC_001`, `SEC_002` (THROW 51000) |
+| `dbo.usp_consultar_tomas_sesion` | Agrega `fechaPuntoControlUtc`, `ordenPuntoControl`, `minutosTramoAnterior`, `minutosTramoSiguiente`, `esEditable`, `editableHastaUtc` (NULL en la fila de una sesión sin tomas). `maximoTomas` vale 20. `horasToma` queda obsoleto | sin cambio | sin cambio |
+| `dbo.usp_registrar_asistencias_toma` | Una toma cerrada con toma posterior ya no se corrige | sin cambio | `TOM_012` nuevo |
+| `dbo.usp_cerrar_toma_asistencia` / `dbo.usp_cerrar_tomas_vencidas` | Sin cambio de código: el modo MANUAL ahora marca SJC al cerrar (`@marcarAusentes` NULL o cierre automático) | sin cambio | sin cambio |
+| `dbo.usp_radicar_solicitud_revision_asistencia_v4(@idEstudiante, @idSesion, @idToma, @categoria, @justificacion, @idsArchivoSoporte, @idCorrelacion, @idUsuarioEjecutor)` | Comando NUEVO: reclamo de una toma; 7 columnas (`idCorrelacion`, `mensajeUsuarioResultado`, `mensajeTecnicoResultado`, `estadoResultado`, `idSolicitudRevision`, `totalSoportes`, `idToma`) | estudiante dueño de la matrícula | `GEN_002` (sin toma), `TOM_001`, `REV_026`, `REV_027` y los de v3 |
+| `dbo.usp_resolver_solicitud_revision_asistencia` | Parámetro opcional al final `@codigoResultadoAprobacion` (`AN` = sí estuvo presente, `EX` = ausencia justificada; NULL = EX). Con toma solo cambia esa toma; sin toma, AN no se admite | docente titular | `REV_028`, `REV_029` nuevos |
+| `dbo.usp_consultar_solicitudes_revision_estudiante` | Agrega `idToma`, `numeroToma`, `fechaPuntoControlUtc`, `codigoResultadoAprobacion` | sin cambio | sin cambio |
+| `dbo.usp_consultar_detalle_solicitud_revision_docente` | Agrega `idToma`, `numeroToma`, `fechaPuntoControlUtc`, `codigoResultadoAprobacion`, `codigoRazonCausaToma`, `minutosSesion`, `minutosAsistidos` | sin cambio | sin cambio |
+| `dbo.uv_asistencia_toma_estudiante` | Vista NUEVA (lectura del backend): una fila por cabecera y toma con la marca, el estado (`PRESENTE`, `AUSENTE`, `JUSTIFICADA`, `SIN_REGISTRO`), los minutos de los tramos vecinos, la solicitud no retirada y `esReclamable` | filtra el backend por estudiante | — |
+
+`usp_radicar_solicitud_revision_asistencia_v3` y `usp_consultar_solicitudes_revision_docente` no cambian. Permisos: `schema/security/rol_asistencias_runtime_puntos_control.sql`. Migración: `37_pc_tomas_puntos_control_up|down.sql`. Pruebas: `test/test_pc_puntos_control.sql`, `test/test_pc_calculo_tramos.sql` y `test/test_pc_migracion_37.ps1`.

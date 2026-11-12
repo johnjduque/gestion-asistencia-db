@@ -152,6 +152,10 @@ PRINT '======================================================================';
 :r /tmp/test/test_culm001_d8_kpis_horas.sql
 -- HU018 / HU019 (plan de estudios por semestres y horas programadas del estudiante): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_hu018_hu019_plan_horas_estudiante.sql
+-- PC BD-1 (tomas como puntos de control: minutos por tramos): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_pc_calculo_tramos.sql
+-- PC BD-2 / BD-3 (ciclo de vida de la toma y reclamo por toma): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_pc_puntos_control.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN

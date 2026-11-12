@@ -91,7 +91,9 @@ CREATE TABLE #r (idSolicitudRevisionAsistencia UNIQUEIDENTIFIER, nombreSolicitud
     nombreGrupo NVARCHAR(100), idAsignatura UNIQUEIDENTIFIER, codigoAsignatura NVARCHAR(100), nombreAsignatura NVARCHAR(100),
     idArchivoSoporte UNIQUEIDENTIFIER, nombreSoporte NVARCHAR(250), tipoContenidoSoporte VARCHAR(50),
     tamanioSoporteBytes BIGINT, fechaRegistroSoporteUtc DATETIME2(7), totalRegistros INT,
-    codigoCategoria NVARCHAR(5), nombreCategoria NVARCHAR(50), soportesJson NVARCHAR(MAX));
+    codigoCategoria NVARCHAR(5), nombreCategoria NVARCHAR(50), soportesJson NVARCHAR(MAX),
+    -- PC (puntos de control): columnas nuevas al final
+    idToma UNIQUEIDENTIFIER, numeroToma SMALLINT, fechaPuntoControlUtc DATETIME2(7), codigoResultadoAprobacion NVARCHAR(10));
 
 BEGIN TRANSACTION;
 BEGIN TRY

@@ -77,7 +77,9 @@ CREATE TABLE #r (idSolicitudRevisionAsistencia UNIQUEIDENTIFIER, nombreSolicitud
     asistio BIT, codigoRazonCausa NVARCHAR(5), nombreRazonCausa NVARCHAR(50),
     idArchivoSoporte UNIQUEIDENTIFIER, nombreSoporte NVARCHAR(250), tipoContenidoSoporte VARCHAR(50),
     tamanioSoporteBytes BIGINT, fechaRegistroSoporteUtc DATETIME2(7),
-    codigoCategoria NVARCHAR(5), nombreCategoria NVARCHAR(50), soportesJson NVARCHAR(MAX));
+    codigoCategoria NVARCHAR(5), nombreCategoria NVARCHAR(50), soportesJson NVARCHAR(MAX),
+    -- PC (puntos de control): columnas nuevas al final
+    idToma UNIQUEIDENTIFIER, numeroToma SMALLINT, fechaPuntoControlUtc DATETIME2(7), codigoResultadoAprobacion NVARCHAR(10), codigoRazonCausaToma NVARCHAR(10), minutosSesion INT, minutosAsistidos INT);
 
 BEGIN TRANSACTION;
 BEGIN TRY
@@ -122,7 +124,9 @@ BEGIN TRY
         + N'fechaHoraInicioSesion,procedenciaTemporalSesion,idGrupo,codigoGrupo,nombreGrupo,idAsignatura,codigoAsignatura,'
         + N'nombreAsignatura,asistio,codigoRazonCausa,nombreRazonCausa,idArchivoSoporte,nombreSoporte,tipoContenidoSoporte,'
         + N'tamanioSoporteBytes,fechaRegistroSoporteUtc,'
-        + N'codigoCategoria,nombreCategoria,soportesJson', 1, 0);   -- CULM-001 D.2 (CONTRACT §3.2): columnas nuevas AL FINAL
+        + N'codigoCategoria,nombreCategoria,soportesJson,'
+        -- PC (puntos de control): reclamo por toma, columnas nuevas AL FINAL
+        + N'idToma,numeroToma,fechaPuntoControlUtc,codigoResultadoAprobacion,codigoRazonCausaToma,minutosSesion,minutosAsistidos', 1, 0);   -- CULM-001 D.2 (CONTRACT §3.2): columnas nuevas AL FINAL
     EXEC #hu35_expect 'DB01_COLUMN_NAMES_AND_ORDER', @ok;
 
     -- ---------------------------------------------------------------- DB-02 otro docente => 0 filas

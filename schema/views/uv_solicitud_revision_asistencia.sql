@@ -19,7 +19,12 @@ SELECT		id = sr.id,
 			idCategoriaJustificacion = cat.id,
 			codigoCategoria = cat.codigo,
 			nombreCategoria = cat.nombre,
-			totalSoportes = (SELECT COUNT(*) FROM uv_soporte_reclamo sop WHERE sop.idSolicitud = sr.id)
+			totalSoportes = (SELECT COUNT(*) FROM uv_soporte_reclamo sop WHERE sop.idSolicitud = sr.id),
+			-- PC (puntos de control, reclamo por toma; columnas al final): toma reclamada (NULL = reclamo de la sesion) y resultado
+			-- de la aprobacion (AN = estuvo presente, EX = ausencia justificada; NULL si no se aprobo o se aprobo antes de PC)
+			idToma = sr.toma,
+			numeroToma = tom.numero,
+			codigoResultadoAprobacion = rcr.codigo
 
 FROM		SolicitudRevisionAsistencia sr
 INNER JOIN	uv_asistencia asi
@@ -28,4 +33,8 @@ INNER JOIN	uv_estado est
 ON			sr.estado = est.id
 LEFT JOIN	CategoriaJustificacion cat
 ON			sr.categoriaJustificacion = cat.id
+LEFT JOIN	TomaAsistencia tom
+ON			sr.toma = tom.id
+LEFT JOIN	RazonCausa rcr
+ON			sr.razonCausaResolucion = rcr.id
 GO

@@ -121,7 +121,9 @@ CREATE TABLE #b2hR (idSolicitudRevisionAsistencia UNIQUEIDENTIFIER, nombreSolici
     asistio BIT, codigoRazonCausa NVARCHAR(5), nombreRazonCausa NVARCHAR(50),
     idArchivoSoporte UNIQUEIDENTIFIER, nombreSoporte NVARCHAR(250), tipoContenidoSoporte VARCHAR(50),
     tamanioSoporteBytes BIGINT, fechaRegistroSoporteUtc DATETIME2(7),
-    codigoCategoria NVARCHAR(5), nombreCategoria NVARCHAR(50), soportesJson NVARCHAR(MAX));
+    codigoCategoria NVARCHAR(5), nombreCategoria NVARCHAR(50), soportesJson NVARCHAR(MAX),
+    -- PC (puntos de control): columnas nuevas al final
+    idToma UNIQUEIDENTIFIER, numeroToma SMALLINT, fechaPuntoControlUtc DATETIME2(7), codigoResultadoAprobacion NVARCHAR(10), codigoRazonCausaToma NVARCHAR(10), minutosSesion INT, minutosAsistidos INT);
 
 DECLARE @corr UNIQUEIDENTIFIER;
 
@@ -170,9 +172,13 @@ BEGIN TRY
     SELECT s.id, CONCAT(N'CULMB2 ', s.k), ROW_NUMBER() OVER (PARTITION BY s.grupo ORDER BY s.diasAtras DESC), CONCAT(N'CB2H', s.k), 1, g.id,
            DATEADD(HOUR, -s.horas, DATEADD(DAY, -s.diasAtras, SYSUTCDATETIME())), DATEADD(DAY, -s.diasAtras, SYSUTCDATETIME()), N'UTC_V2'
     FROM #b2hS s INNER JOIN #b2hG g ON g.k = s.grupo;
-    -- Tomas cerradas (numero 1..n) por insercion directa
+    -- Tomas cerradas (numero 1..n) por insercion directa. PC (puntos de control): la toma k se abre en inicio + (k - 1) * duracion / n
+    -- (antes todas en el inicio; con la regla de tramos solo contaria la ultima). La apertura se trunca al segundo para que no pase
+    -- al minuto siguiente al redondear a DATETIME2(0).
     INSERT INTO dbo.TomaAsistencia (id, sesion, numero, modo, estado, esImplicita, docenteApertura, fechaAperturaUtc, fechaCierreUtc, idCorrelacionApertura)
-    SELECT NEWID(), s.id, v.n, @modoManual, @estCerrada, 0, @d, CAST(se.fechaHoraInicio AS DATETIME2(0)), CAST(se.fechaHoraFin AS DATETIME2(0)), NEWID()
+    SELECT NEWID(), s.id, v.n, @modoManual, @estCerrada, 0, @d,
+           CAST(DATEADD(MINUTE, (v.n - 1) * s.horas * 60 / s.tomas, DATEADD(NANOSECOND, -DATEPART(NANOSECOND, se.fechaHoraInicio), se.fechaHoraInicio)) AS DATETIME2(0)),
+           CAST(se.fechaHoraFin AS DATETIME2(0)), NEWID()
     FROM #b2hS s INNER JOIN dbo.Sesion se ON se.id = s.id
     INNER JOIN (VALUES (1), (2), (3), (4)) v(n) ON v.n <= s.tomas;
     -- Detalles: sesion, estudiante, numero de toma, codigo
@@ -211,21 +217,23 @@ BEGIN TRY
     DECLARE @e3 UNIQUEIDENTIFIER = (SELECT idEstudiante FROM #b2hE WHERE n = 3);
 
     -- --------------------------------------------------------------------------------------------------------
-    -- B2-HOR-01: sesion de 2 h con 2 tomas; AN en la toma 1 y SJC en la toma 2
+    -- B2-HOR-01: sesion de 2 h con 2 tomas (minutos 0 y 60); AN en la toma 1 y SJC en la toma 2
+    -- PC (puntos de control): antes 1 h asistida + 1 h de falta (reparto 1/n) y parcial; con tramos, [0, 60] tiene un extremo SJC
+    -- y [60, 120] lo gobierna la toma 2 (SJC) => 0 h asistidas, 2 h de falta, no parcial (sin minutos asistidos).
     -- --------------------------------------------------------------------------------------------------------
     IF EXISTS (SELECT 1 FROM dbo.uv_toma_asistencia t INNER JOIN #b2hS s ON s.id = t.idSesion WHERE s.k = N'H1S1' AND (t.horasToma <> 1.000000 OR t.totalTomasSesion <> 2))
        OR NOT EXISTS (SELECT 1 FROM dbo.uv_asistencia_sesion_horas h INNER JOIN #b2hS s ON s.id = h.idSesion INNER JOIN #b2hEG x ON x.id = h.idEstudianteGrupo
                       WHERE s.k = N'H1S1' AND x.est = 1 AND h.totalTomasSesion = 2 AND h.tomasConRegistro = 2 AND h.horasSesion = 2.000000
-                        AND h.horasAsistidas = 1.000000 AND h.horasFalta = 1.000000 AND h.horasExcusa = 0 AND h.horasSinRegistro = 0
-                        AND h.esParcial = 1 AND h.codigoRazonCausaConsolidado = N'SJC' AND h.tieneFaltaSinJustaCausa = 1)
+                        AND h.horasAsistidas = 0 AND h.horasFalta = 2.000000 AND h.horasExcusa = 0 AND h.horasSinRegistro = 0
+                        AND h.esParcial = 0 AND h.codigoRazonCausaConsolidado = N'SJC' AND h.tieneFaltaSinJustaCausa = 1)
        OR NOT EXISTS (SELECT 1 FROM dbo.uv_asistencia_sesion_horas h INNER JOIN #b2hS s ON s.id = h.idSesion INNER JOIN #b2hEG x ON x.id = h.idEstudianteGrupo
                       WHERE s.k = N'H1S1' AND x.est = 2 AND h.horasAsistidas = 2.000000 AND h.esParcial = 0 AND h.codigoRazonCausaConsolidado = N'AN' AND h.tieneFaltaSinJustaCausa = 0)
        OR NOT EXISTS (SELECT 1 FROM dbo.uv_detalle_asistencia_v2 v INNER JOIN #b2hS s ON s.id = v.idSesion WHERE s.k = N'H1S1' AND v.horasToma = 1.000000 AND v.numeroToma = 2 AND v.codigoModoToma = N'MANUAL')
        OR NOT EXISTS (SELECT 1 FROM dbo.uv_resumen_asistencia_estudiante_grupo r WHERE r.idGrupo = @gH1 AND r.idEstudiante = @e1
-                      AND r.sesionesEjecutadas = 1 AND r.tomasDictadas = 2 AND r.horasDictadas = 2.000000 AND r.horasFalta = 1.000000 AND r.horasAsistidas = 1.000000
-                      AND r.asistencias = 1 AND r.faltasSinJustaCausa = 1 AND r.porcentajeInasistencia = 50.00 AND r.porcentajeInasistenciaSesiones = 100.00
+                      AND r.sesionesEjecutadas = 1 AND r.tomasDictadas = 2 AND r.horasDictadas = 2.000000 AND r.horasFalta = 2.000000 AND r.horasAsistidas = 0
+                      AND r.asistencias = 1 AND r.faltasSinJustaCausa = 1 AND r.porcentajeInasistencia = 100.00 AND r.porcentajeInasistenciaSesiones = 100.00
                       AND r.sesionesConFaltaSinJustaCausa = 1 AND r.sesionesAsistidas = 0)
-        THROW 57620, 'TEST FAILED CULM001_B2_HOR_01: con 2 tomas de una sesion de 2 h, AN + SJC deben dar 1 h asistida, 1 h de falta, parcial y consolidado SJC.', 1;
+        THROW 57620, 'TEST FAILED CULM001_B2_HOR_01: con 2 tomas de una sesion de 2 h (minutos 0 y 60), AN + SJC deben dar 0 h asistidas, 2 h de falta y consolidado SJC (PC).', 1;
     PRINT 'TEST_PASS:CULM001_B2_HOR_01_DOS_TOMAS';
 
     -- --------------------------------------------------------------------------------------------------------
@@ -298,9 +306,10 @@ BEGIN TRY
     DECLARE @hFalta DECIMAL(12,6), @hDict DECIMAL(12,6), @tDict INT, @esperado DECIMAL(5,2);
     SELECT @hFalta = SUM(r.horasFalta), @hDict = SUM(r.horasDictadas), @tDict = SUM(r.tomasDictadas)
     FROM dbo.uv_resumen_asistencia_estudiante_grupo r WHERE r.idPeriodoAcademico = @per AND r.codigoEstadoEstudiante = N'A';
-    -- H1 1 + H2 4 + H3 1 + H4 1 + H5 (3 + 4) + HK (1 + 4) = 19 h de falta; dictadas por estudiante 2 + 6 + 2 + 4 + 20 + 2 + 6 = 42 => 168
-    IF @hFalta <> 19.000000 OR @hDict <> 168.000000
-        THROW 57627, 'TEST FAILED CULM001_B2_HOR_07: el fixture de horas no suma 19 h de falta sobre 168 h dictadas.', 1;
+    -- H1 2 + H2 4 + H3 1 + H4 1 + H5 (3 + 4) + HK (2 + 4) = 21 h de falta; dictadas por estudiante 2 + 6 + 2 + 4 + 20 + 2 + 6 = 42 => 168
+    -- PC (puntos de control): antes 19 h; AN + SJC en 2 tomas (H1S1 y HKA del estudiante 1) pasa de 1 h a 2 h de falta por tramos.
+    IF @hFalta <> 21.000000 OR @hDict <> 168.000000
+        THROW 57627, 'TEST FAILED CULM001_B2_HOR_07: el fixture de horas no suma 21 h de falta sobre 168 h dictadas.', 1;
     SET @esperado = CAST(100.0 * @hFalta / @hDict AS DECIMAL(5,2));
     SET @corr = NEWID();
     INSERT INTO #b2hKd EXEC dbo.usp_consultar_kpis_decano @idUsuarioEjecutor = @uDec, @idCorrelacion = @corr, @idPeriodoAcademico = @per;
