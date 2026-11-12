@@ -193,10 +193,10 @@ Todos los procedimientos listados en esta documentación han sido compilados y p
 
 Contrato completo, decisiones y limitaciones: `docs/work-items/CC-003G-01-public-user-plan-providers/CONTRACT.md`.
 
-### 7. `dbo.usp_sincronizar_usuario`
-- **Caso de uso**: alta idempotente de usuario base para `POST /api/v1/usuarios` (el backend crea luego la cuenta de identidad). Nunca actualiza un usuario existente ni toca su password.
-- **Parametros**: `@idTipoIdIdentificacion`, `@numeroIdentificacion`, `@primerApellido`, `@segundoApellido`, `@primerNombre`, `@segundoNombre`, `@correo`, `@password` (hash), `@idCorrelacion`. Sin `@idUsuarioEjecutor` (el endpoint es AUTENTICADO).
-- **Flujo**: correlacion, limites de longitud, transaccion propia/savepoint, barrido serializable de unicidad, reintento exacto => exito sin escribir, si no => `usp_sincronizar_usuario_interno`.
+### 7. ~~`dbo.usp_sincronizar_usuario`~~ (RETIRADO, VAL ROL-05, 2026-11-12)
+- **Estado**: retirado con la migracion `39_val_retiro_alta_usuarios_sin_ambito_up.sql` (decision de John). Era el alta generica de usuario base para `POST /api/v1/usuarios`, que cualquier usuario autenticado podia llamar sin ejecutor ni ambito; el backend retiro esa ruta y el SP quedo sin llamadores. Se retiraron el SP y su `GRANT EXECUTE` a `rol_asistencias_runtime`.
+- **Lo que no cambia**: `dbo.usp_sincronizar_usuario_interno` sigue siendo el nucleo de los altas con ambito (`usp_crear_decano_interno`, `usp_crear_coordinador_interno`, `usp_vincular_docente_programa`, `usp_admitir_estudiante`, `usp_registrar_estudiante_en_grupo`, `usp_internal_matricular_por_token`) y sigue con `DENY EXECUTE` al runtime.
+- **Prueba**: `test/test_val_retiro_alta_usuarios_sin_ambito.sql` (`VAL_ROL05_*`). El down de la migracion 39 recrea el SP y su permiso tal como estaban.
 
 ### 8. `dbo.usp_registrar_o_actualizar_plan_estudio`
 - **Caso de uso**: alta/actualizacion del `inp` de un plan por el COORDINADOR titular del programa (`/api/v1/coordinador/planes-estudio`).

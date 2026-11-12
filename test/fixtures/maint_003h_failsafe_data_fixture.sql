@@ -30,12 +30,9 @@ DECLARE @dayMonday UNIQUEIDENTIFIER;
 DECLARE @tipo UNIQUEIDENTIFIER;
 DECLARE @emptyTeacherUser UNIQUEIDENTIFIER;
 DECLARE @correlation UNIQUEIDENTIFIER = NEWID();
-DECLARE @result TABLE (
-    idCorrelacion UNIQUEIDENTIFIER,
-    mensajeUsuarioResultado NVARCHAR(4000),
-    mensajeTecnicoResultado NVARCHAR(4000),
-    estadoResultado BIT
-);
+DECLARE @mensajeUsuario NVARCHAR(4000);
+DECLARE @mensajeTecnico NVARCHAR(4000);
+DECLARE @estado BIT;
 
 BEGIN TRANSACTION;
 
@@ -74,14 +71,16 @@ DROP TABLE #g2;
 INSERT INTO dbo.Horario (id, grupo, dia, horaInicio, horaFin)
 VALUES (@scheduleId, @baseGroup, @dayMonday, '05:00', '05:30');
 
--- 3) Teacher with no groups: user through the PUBLIC provider, then the Docente role row
-INSERT INTO @result
-EXEC dbo.usp_sincronizar_usuario
+-- 3) Teacher with no groups: user through the internal user core (the public provider usp_sincronizar_usuario was retired
+--    by VAL ROL-05, migration 39), then the Docente role row
+EXEC dbo.usp_sincronizar_usuario_interno
     @idTipoIdIdentificacion = @tipo, @numeroIdentificacion = 1800000001,
     @primerApellido = N'Fixture', @segundoApellido = N'Maint003h', @primerNombre = N'Docente', @segundoNombre = N'SinGrupo',
-    @correo = @emptyTeacherEmail, @password = N'HashBackend_Maint003hFixture_NotASecret', @idCorrelacion = @correlation;
-IF NOT EXISTS (SELECT 1 FROM @result WHERE estadoResultado = 1)
-    THROW 52302, 'MAINT-003H fixture user creation was rejected by usp_sincronizar_usuario.', 1;
+    @correo = @emptyTeacherEmail, @password = N'HashBackend_Maint003hFixture_NotASecret', @idCorrelacion = @correlation,
+    @mensajeUsuarioResultado = @mensajeUsuario OUTPUT, @mensajeTecnicoResultado = @mensajeTecnico OUTPUT,
+    @estadoResultado = @estado OUTPUT;
+IF ISNULL(@estado, 0) <> 1
+    THROW 52302, 'MAINT-003H fixture user creation was rejected by usp_sincronizar_usuario_interno.', 1;
 SELECT @emptyTeacherUser = id FROM dbo.Usuario WHERE correo = @emptyTeacherEmail;
 INSERT INTO dbo.Docente (id, usuario) VALUES (NEWID(), @emptyTeacherUser);
 

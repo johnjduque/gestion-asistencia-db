@@ -1,3 +1,14 @@
+-- ============================================================================
+-- MIGRACION DOWN 39: restaura dbo.usp_sincronizar_usuario y su GRANT EXECUTE a rol_asistencias_runtime tal como estaban
+-- antes de VAL ROL-05 (copia de schema/stored-procedures/usp_sincronizar_usuario.sql y de rol_asistencias_runtime_cc003g01.sql).
+-- Solo tiene sentido si tambien se restaura POST /api/v1/usuarios en el backend. Idempotente (CREATE OR ALTER).
+-- ============================================================================
+:on error exit
+USE [gestionasistenciadb];
+GO
+PRINT 'MIGRACION 39 DOWN: restaura usp_sincronizar_usuario';
+GO
+-- ---- schema/stored-procedures/usp_sincronizar_usuario.sql (antes de VAL ROL-05)
 USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
@@ -237,4 +248,12 @@ BEGIN
         mensajeTecnicoResultado = @mensajeTecnicoResultado,
         estadoResultado         = @estadoResultado;
 END;
+GO
+IF DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime') IS NULL
+    CREATE ROLE [rol_asistencias_runtime] AUTHORIZATION [dbo];
+GO
+GRANT EXECUTE ON [dbo].[usp_sincronizar_usuario] TO [rol_asistencias_runtime];
+DENY EXECUTE ON [dbo].[usp_sincronizar_usuario_interno] TO [rol_asistencias_runtime];
+GO
+PRINT 'MIGRACION 39 DOWN OK';
 GO

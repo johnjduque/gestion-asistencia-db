@@ -120,8 +120,9 @@ Esta documentación especifica la arquitectura, reglas de negocio, contrato de f
 
 ---
 
-### 5. `dbo.usp_sincronizar_usuario`
-- **Propósito**: Punto de entrada externo para registrar o sincronizar usuarios institucionales.
+### 5. ~~`dbo.usp_sincronizar_usuario`~~ (RETIRADO, VAL ROL-05, 2026-11-12)
+- **Estado**: retirado con la migración 39 junto con `POST /api/v1/usuarios` (alta sin ejecutor ni ámbito). Se conserva esta sección como registro histórico; el alta de usuarios va por los flujos con ámbito, que usan `usp_sincronizar_usuario_interno`. Ver `DOCUMENTACION_PROCEDIMIENTOS_PUBLICOS.md`, sección 7.
+- **Propósito (histórico)**: Punto de entrada externo para registrar o sincronizar usuarios institucionales.
 - **Parámetros de Entrada**:
   - `@idTipoIdIdentificacion UNIQUEIDENTIFIER`
   - `@numeroIdentificacion INT`
