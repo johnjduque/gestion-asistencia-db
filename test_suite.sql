@@ -35,6 +35,9 @@ PRINT '======================================================================';
 :r /tmp/test/test_val_oleada2_parametro_y_ambito.sql
 -- VAL-oleada3 MSG-05 (migracion 41): mensajes de usuario del backend en el catalogo
 :r /tmp/test/test_val_oleada3_mensajes_aplicacion.sql
+-- VAL oleada 3: PRU-14 (bordes del umbral de horas) y OBS-03 (procedimientos sin @idCorrelacion)
+:r /tmp/test/test_val_umbral_horas_bordes.sql
+:r /tmp/test/test_val_obs03_id_correlacion.sql
 :r /tmp/test/test_usp_registrar_o_actualizar_plan_estudio.sql
 :r /tmp/test/test_usp_plan_estudio_estado_semestres.sql
 :r /tmp/test/test_usp_periodo_academico_gestion.sql

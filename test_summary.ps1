@@ -736,6 +736,20 @@ try {
 catch {
     $resultFailures += "HU018_HU019_RUNNER $($_.Exception.Message)"
 }
+# VAL F12-12: tarea de migracion scripts/migrar.ps1 y registro dbo.MigracionAplicada (BD temporal propia) en test/test_val_migrar.ps1.
+$valMigrarIds = @('VAL_F1212_01_ESTADO_SOLO_LECTURA', 'VAL_F1212_02_APLICA_Y_REGISTRA', 'VAL_F1212_03_SALTA_APLICADAS', 'VAL_F1212_04_FALLA_NO_REGISTRA',
+    'VAL_F1212_05_DERIVA_DETIENE', 'VAL_F1212_06_BASELINE_SIN_EJECUTAR', 'VAL_F1212_07_INVENTARIO_REAL')
+try {
+    $valMigrarOutput = @(& (Join-Path $PSScriptRoot 'test/test_val_migrar.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $valMigrarOutput) { Write-Host $line }
+    foreach ($id in $valMigrarIds) {
+        if ($valMigrarOutput -contains "TEST_PASS:$id") { $clientPassed += $id }
+        else { $resultFailures += "$id not reported by test_val_migrar.ps1" }
+    }
+}
+catch {
+    $resultFailures += "VAL_F1212_RUNNER $($_.Exception.Message)"
+}
 # CULM-001 B.2 (B2-CON-01, NB-4): 5 grupos x 40 estudiantes por token a la vez; solo bajo demanda (-Concurrencia).
 if ($Concurrencia) {
     try {
@@ -909,6 +923,14 @@ $criticalIds = @(
     'VAL_PAR06_01_PARAMETRO_SEMBRADO', 'VAL_PAR06_02_RANGO_Y_NO_EDITABLE', 'VAL_ROL12_01_DECANO_CON_FACULTAD', 'VAL_ROL12_02_COORDINADOR_CON_PROGRAMA', 'VAL_OLEADA2_TRANCOUNT_ZERO',
     # VAL-oleada3 MSG-05 (test/test_val_oleada3_mensajes_aplicacion.sql): mensajes de usuario del backend (migracion 41)
     'VAL_MSG05_01_MENSAJES_SEMBRADOS', 'VAL_MSG05_02_TEXTOS_Y_MARCADORES', 'VAL_OLEADA3_MSG_TRANCOUNT_ZERO',
+    # VAL oleada 3: PRU-14 bordes del umbral de horas (test/test_val_umbral_horas_bordes.sql), OBS-03 lista blanca de @idCorrelacion
+    # (test/test_val_obs03_id_correlacion.sql) y F12-12 tarea de migracion (test/test_val_migrar.ps1)
+    'VAL_PRU14_01_PORCENTAJE_FRONTERA', 'VAL_PRU14_02_CLASIFICACION_FRONTERA', 'VAL_PRU14_03_PARAMETRO_AUSENTE', 'VAL_PRU14_04_MAXIMO',
+    'VAL_PRU14_05_VISTA_MISMA_REGLA', 'VAL_PRU14_TRANCOUNT_ZERO',
+    'VAL_OBS03_01_SIN_CORRELACION_EN_LISTA', 'VAL_OBS03_02_LISTA_SIN_ENTRADAS_VIEJAS', 'VAL_OBS03_03_LECTURA_NO_ESCRIBE',
+    'VAL_OBS03_04_NUCLEOS_SIN_EXECUTE_Y_CON_LLAMADOR', 'VAL_OBS03_TRANCOUNT_ZERO',
+    'VAL_F1212_01_ESTADO_SOLO_LECTURA', 'VAL_F1212_02_APLICA_Y_REGISTRA', 'VAL_F1212_03_SALTA_APLICADAS', 'VAL_F1212_04_FALLA_NO_REGISTRA',
+    'VAL_F1212_05_DERIVA_DETIENE', 'VAL_F1212_06_BASELINE_SIN_EJECUTAR', 'VAL_F1212_07_INVENTARIO_REAL',
     'PLAN_PUBLIC_METADATA', 'PLAN_PUBLIC_CREATE', 'PLAN_PUBLIC_VIEW_CONSISTENT', 'PLAN_PUBLIC_IDEMPOTENT', 'PLAN_PUBLIC_UPDATE',
     'PLAN_PUBLIC_TWO_ACTORS', 'PLAN_PUBLIC_EXECUTOR_REQUIRED', 'PLAN_PUBLIC_RBAC', 'PLAN_PUBLIC_FOREIGN_PROGRAM_SCOPE',
     'PLAN_PUBLIC_INVALID_INPUT', 'PLAN_PUBLIC_DUPLICATE_BUSINESS_KEY', 'PLAN_PUBLIC_UPDATE_TO_TAKEN_INP', 'PLAN_PUBLIC_FOREIGN_PLAN',
