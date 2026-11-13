@@ -12,7 +12,29 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **291**.
+Total de códigos: **398**.
+
+## ACC
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `ACC_APP_001` | SECURITY_ERROR | ALTO | El docente autenticado no tiene titularidad sobre el grupo consultado. | Backend (FORBIDDEN): El docente autenticado no tiene titularidad sobre el grupo consultado. | `62_val_mensajes_aplicacion.sql` |
+| `ACC_APP_002` | SECURITY_ERROR | ALTO | El docente autenticado no tiene titularidad sobre el grupo solicitado. | Backend (FORBIDDEN): El docente autenticado no tiene titularidad sobre el grupo solicitado. | `62_val_mensajes_aplicacion.sql` |
+| `ACC_APP_003` | SECURITY_ERROR | ALTO | No fue posible resolver el docente autenticado. | Backend (FORBIDDEN): No fue posible resolver el docente autenticado. | `62_val_mensajes_aplicacion.sql` |
+| `ACC_APP_004` | SECURITY_ERROR | ALTO | No fue posible resolver el estudiante autenticado. | Backend (FORBIDDEN): No fue posible resolver el estudiante autenticado. | `62_val_mensajes_aplicacion.sql` |
+| `ACC_APP_005` | SECURITY_ERROR | ALTO | No fue posible resolver el usuario autenticado. | Backend (FORBIDDEN): No fue posible resolver el usuario autenticado. | `62_val_mensajes_aplicacion.sql` |
+| `ACC_APP_006` | SECURITY_ERROR | ALTO | No fue posible resolver el programa del coordinador autenticado. | Backend (FORBIDDEN): No fue posible resolver el programa del coordinador autenticado. | `62_val_mensajes_aplicacion.sql` |
+| `ACC_APP_007` | SECURITY_ERROR | ALTO | No fue posible resolver el programa ni la facultad del usuario autenticado. | Backend (FORBIDDEN): No fue posible resolver el programa ni la facultad del usuario autenticado. | `62_val_mensajes_aplicacion.sql` |
+| `ACC_APP_008` | SECURITY_ERROR | ALTO | El plan de estudio solicitado no pertenece al ámbito del usuario autenticado. | Backend (FORBIDDEN): El plan de estudio solicitado no pertenece al ambito del usuario autenticado. | `62_val_mensajes_aplicacion.sql` |
+| `ACC_APP_009` | SECURITY_ERROR | ALTO | La asignatura no pertenece al programa del coordinador autenticado. | Backend (FORBIDDEN): La asignatura no pertenece al programa del coordinador autenticado. | `62_val_mensajes_aplicacion.sql` |
+| `ACC_APP_010` | SECURITY_ERROR | ALTO | El plan de estudio no pertenece al programa del coordinador autenticado. | Backend (FORBIDDEN): El plan de estudio no pertenece al programa del coordinador autenticado. | `62_val_mensajes_aplicacion.sql` |
+| `ACC_APP_011` | SECURITY_ERROR | ALTO | No fue posible resolver la facultad del decano autenticado. | Backend (FORBIDDEN): No fue posible resolver la facultad del decano autenticado. | `62_val_mensajes_aplicacion.sql` |
+| `ACC_APP_012` | SECURITY_ERROR | ALTO | El usuario autenticado no puede gestionar cuentas de acceso. | Backend (FORBIDDEN): El usuario autenticado no puede gestionar cuentas de acceso. | `62_val_mensajes_aplicacion.sql` |
+| `ACC_APP_013` | SECURITY_ERROR | ALTO | La cuenta indicada está fuera del alcance del usuario autenticado. | Backend (FORBIDDEN): La cuenta indicada esta fuera del alcance del usuario autenticado. | `62_val_mensajes_aplicacion.sql` |
+| `ACC_APP_014` | SECURITY_ERROR | ALTO | El usuario autenticado no tiene autorización institucional para consultar el reporte del grupo. | Backend (FORBIDDEN): El usuario autenticado no tiene autorizacion institucional para consultar el reporte del grupo. | `62_val_mensajes_aplicacion.sql` |
+| `ACC_APP_015` | SECURITY_ERROR | ALTO | El usuario autenticado no tiene relación institucional con la sesión consultada. | Backend (FORBIDDEN): El usuario autenticado no tiene relacion institucional con la sesion consultada. | `62_val_mensajes_aplicacion.sql` |
+| `ACC_APP_016` | SECURITY_ERROR | ALTO | El docente autenticado no tiene titularidad sobre la sesión consultada. | Backend (FORBIDDEN): El docente autenticado no tiene titularidad sobre la sesion consultada. | `62_val_mensajes_aplicacion.sql` |
+| `ACC_APP_017` | SECURITY_ERROR | ALTO | El usuario autenticado no tiene acceso al grupo solicitado. | Backend (FORBIDDEN): El usuario autenticado no tiene acceso al grupo solicitado. | `62_val_mensajes_aplicacion.sql` |
 
 ## ADS
 
@@ -142,6 +164,12 @@ Total de códigos: **291**.
 | `DEC_002` | BUSINESS_ERROR | ALTO | No se puede desactivar al decano de una facultad con programas activos. | Regla: el decano [{}] dirige una facultad con el programa activo [{}]; no se desactiva. | `33_culm001_a_mensajes.sql` |
 | `DEC_003` | SUCCESS | BAJO | Se actualizó el estado del decano. | Actualizacion: Decano.estado del decano [{}] actualizado (regla D1 aplicada a Usuario.estado). | `33_culm001_a_mensajes.sql` |
 | `DEC_020` | BUSINESS_ERROR | MEDIO | La persona ya está registrada como decano. | Regla: la persona ya tiene un registro de Decano activo (Decano.estado = 1); sin escrituras. | `59_culm001_d9_mensajes.sql` |
+
+## DIS
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `DIS_APP_001` | BUSINESS_ERROR | MEDIO | La generación automática de sesiones al crear el grupo aún no está disponible (fase F2: precarga de sesiones). | Backend (FEATURE_UNAVAILABLE): La generacion automatica de sesiones al crear el grupo aun no esta disponible (fase F2: precarga de sesiones). | `62_val_mensajes_aplicacion.sql` |
 
 ## DOC
 
@@ -287,6 +315,25 @@ Total de códigos: **291**.
 | `MQR_006` | BUSINESS_ERROR | BAJO | No fue posible generar un código único. Inténtalo de nuevo. | Unicidad: el PIN ya está en uso por el token vigente o anterior de otra ventana activa. | `29_mensajes_matricula_qr.sql` |
 | `MQR_007` | BUSINESS_ERROR | MEDIO | Debes indicar el código QR o el PIN, pero no ambos. | Validación: debe indicarse exactamente uno entre tokenHash y pin. | `29_mensajes_matricula_qr.sql` |
 | `MQR_008` | BUSINESS_ERROR | MEDIO | No se pudo determinar tu programa en este grupo. Pide a tu docente que te matricule. | Regla S3: el token no tiene programaPorDefecto y el grupo tiene varios programas. | `38_mensajes_asignatura_plan.sql` |
+
+## NOF
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `NOF_APP_001` | BUSINESS_ERROR | MEDIO | El decano especificado no existe en el sistema. | Backend (RESOURCE_NOT_FOUND): El decano especificado no existe en el sistema. | `62_val_mensajes_aplicacion.sql` |
+| `NOF_APP_002` | BUSINESS_ERROR | MEDIO | La facultad indicada para crear decano no existe. | Backend (RESOURCE_NOT_FOUND): La facultad indicada para crear decano no existe. | `62_val_mensajes_aplicacion.sql` |
+| `NOF_APP_003` | BUSINESS_ERROR | MEDIO | El estudiante no existe en su ámbito. | Backend (RESOURCE_NOT_FOUND): El estudiante no existe en su ambito. | `62_val_mensajes_aplicacion.sql` |
+| `NOF_APP_004` | BUSINESS_ERROR | MEDIO | El docente no existe o no está vinculado a su programa. | Backend (RESOURCE_NOT_FOUND): El docente no existe o no esta vinculado a su programa. | `62_val_mensajes_aplicacion.sql` |
+| `NOF_APP_005` | BUSINESS_ERROR | MEDIO | El plan de estudio indicado no existe en el programa del coordinador. | Backend (RESOURCE_NOT_FOUND): El plan de estudio indicado no existe en el programa del coordinador. | `62_val_mensajes_aplicacion.sql` |
+| `NOF_APP_006` | BUSINESS_ERROR | MEDIO | El programa académico especificado no existe en el sistema. | Backend (RESOURCE_NOT_FOUND): El programa academico especificado no existe en el sistema. | `62_val_mensajes_aplicacion.sql` |
+| `NOF_APP_007` | BUSINESS_ERROR | MEDIO | El estudiante no existe en la facultad del decano. | Backend (RESOURCE_NOT_FOUND): El estudiante no existe en la facultad del decano. | `62_val_mensajes_aplicacion.sql` |
+| `NOF_APP_008` | BUSINESS_ERROR | MEDIO | La solicitud de revisión no existe. | Backend (RESOURCE_NOT_FOUND): La solicitud de revision no existe. | `62_val_mensajes_aplicacion.sql` |
+| `NOF_APP_009` | BUSINESS_ERROR | MEDIO | El estudiante especificado no se encuentra registrado. | Backend (RESOURCE_NOT_FOUND): El estudiante especificado no se encuentra registrado. | `62_val_mensajes_aplicacion.sql` |
+| `NOF_APP_010` | BUSINESS_ERROR | MEDIO | La cuenta indicada no existe. | Backend (RESOURCE_NOT_FOUND): La cuenta indicada no existe. | `62_val_mensajes_aplicacion.sql` |
+| `NOF_APP_011` | BUSINESS_ERROR | MEDIO | La matrícula por código no está disponible en este momento. | Backend (RESOURCE_NOT_FOUND): La matrícula por código no está disponible en este momento. | `62_val_mensajes_aplicacion.sql` |
+| `NOF_APP_012` | BUSINESS_ERROR | MEDIO | No se encontró el perfil del usuario autenticado. | Backend (RESOURCE_NOT_FOUND): No se encontro el perfil del usuario autenticado. | `62_val_mensajes_aplicacion.sql` |
+| `NOF_APP_013` | BUSINESS_ERROR | MEDIO | La facultad especificada no existe en el sistema. | Backend (RESOURCE_NOT_FOUND): La facultad especificada no existe en el sistema. | `62_val_mensajes_aplicacion.sql` |
+| `NOF_APP_014` | BUSINESS_ERROR | MEDIO | El archivo solicitado no existe. | Backend (RESOURCE_NOT_FOUND): El archivo solicitado no existe. | `62_val_mensajes_aplicacion.sql` |
 
 ## NTF
 
@@ -512,6 +559,81 @@ Total de códigos: **291**.
 | `VAL_005` | BUSINESS_ERROR | MEDIO | El correo electrónico es obligatorio y debe tener un formato válido. | Validación de formato: La dirección de correo electrónico no cumple con la estructura estándar. | `04_mensaje.sql` |
 | `VAL_006` | BUSINESS_ERROR | ALTO | La dirección de correo electrónico ya se encuentra registrada. | Fallo de unicidad: El correo electrónico ya existe en la vista uv_usuario. | `04_mensaje.sql` |
 | `VAL_007` | BUSINESS_ERROR | ALTO | La contraseña no cumple con los requisitos mínimos de seguridad. | Validación de seguridad: La contraseña no satisface las políticas de complejidad establecidas. | `04_mensaje.sql` |
+| `VAL_APP_001` | VALIDATION_ERROR | BAJO | Los datos de la facultad son obligatorios. | Backend (VALIDATION_ERROR): Los datos de la facultad son obligatorios. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_002` | VALIDATION_ERROR | BAJO | El identificador de la facultad es obligatorio. | Backend (VALIDATION_ERROR): El identificador de la facultad es obligatorio. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_003` | VALIDATION_ERROR | BAJO | Debe indicar al menos el nombre o el decano de la facultad. | Backend (VALIDATION_ERROR): Debe indicar al menos el nombre o el decano de la facultad. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_004` | VALIDATION_ERROR | BAJO | El nombre de la facultad debe tener entre 3 y 50 caracteres. | Backend (VALIDATION_ERROR): El nombre de la facultad debe tener entre 3 y 50 caracteres. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_005` | VALIDATION_ERROR | BAJO | Los datos para actualizar el parámetro no son válidos. | Backend (VALIDATION_ERROR): Los datos para actualizar el parametro no son validos. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_006` | VALIDATION_ERROR | BAJO | Los datos del cambio de estado del decano son obligatorios. | Backend (VALIDATION_ERROR): Los datos del cambio de estado del decano son obligatorios. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_007` | VALIDATION_ERROR | BAJO | El decano es obligatorio. | Backend (VALIDATION_ERROR): El decano es obligatorio. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_008` | VALIDATION_ERROR | BAJO | El usuario autenticado es obligatorio. | Backend (VALIDATION_ERROR): El usuario autenticado es obligatorio. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_009` | VALIDATION_ERROR | BAJO | El estado deseado de la facultad es obligatorio. | Backend (VALIDATION_ERROR): El estado deseado de la facultad es obligatorio. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_010` | VALIDATION_ERROR | BAJO | El parámetro es obligatorio. | Backend (VALIDATION_ERROR): El parametro es obligatorio. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_011` | VALIDATION_ERROR | BAJO | Los datos de la consulta son obligatorios. | Backend (VALIDATION_ERROR): Los datos de la consulta son obligatorios. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_012` | VALIDATION_ERROR | BAJO | La granularidad debe ser SEMANA o MES. | Backend (VALIDATION_ERROR): La granularidad debe ser SEMANA o MES. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_013` | VALIDATION_ERROR | BAJO | Indique una facultad existente o una facultad nueva, no ambas. | Backend (VALIDATION_ERROR): Indique una facultad existente o una facultad nueva, no ambas. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_014` | VALIDATION_ERROR | BAJO | El nombre de la facultad es obligatorio y debe tener entre 3 y 50 caracteres. | Backend (VALIDATION_ERROR): El nombre de la facultad es obligatorio y debe tener entre 3 y 50 caracteres. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_015` | VALIDATION_ERROR | BAJO | El decano titular de la facultad es obligatorio. | Backend (VALIDATION_ERROR): El decano titular de la facultad es obligatorio. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_016` | VALIDATION_ERROR | BAJO | El usuario ejecutor es obligatorio. | Backend (VALIDATION_ERROR): El usuario ejecutor es obligatorio. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_017` | VALIDATION_ERROR | BAJO | El período académico a modificar es obligatorio. | Backend (VALIDATION_ERROR): El periodo academico a modificar es obligatorio. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_018` | VALIDATION_ERROR | BAJO | El período académico a eliminar es obligatorio. | Backend (VALIDATION_ERROR): El periodo academico a eliminar es obligatorio. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_019` | VALIDATION_ERROR | BAJO | El nombre del período académico es obligatorio. | Backend (VALIDATION_ERROR): El nombre del periodo academico es obligatorio. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_020` | VALIDATION_ERROR | BAJO | La fecha de inicio del período debe ser anterior a la fecha de fin. | Backend (VALIDATION_ERROR): La fecha de inicio del periodo debe ser anterior a la fecha de fin. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_021` | VALIDATION_ERROR | BAJO | El archivo adjunto no puede estar vacío. | Backend (VALIDATION_ERROR): El archivo adjunto no puede estar vacio. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_022` | VALIDATION_ERROR | BAJO | El archivo excede el tamaño máximo permitido ({}). | Backend (VALIDATION_ERROR): El archivo excede el tamano maximo permitido ({}). | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_023` | VALIDATION_ERROR | BAJO | Formato de archivo no permitido. Solo se aceptan archivos PDF, PNG o JPG. | Backend (VALIDATION_ERROR): Formato de archivo no permitido. Solo se aceptan archivos PDF, PNG o JPG. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_024` | VALIDATION_ERROR | BAJO | El Content-Type declarado no coincide con la extensión del archivo. | Backend (VALIDATION_ERROR): El Content-Type declarado no coincide con la extension del archivo. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_025` | VALIDATION_ERROR | BAJO | El contenido del archivo no coincide con su extensión declarada. | Backend (VALIDATION_ERROR): El contenido del archivo no coincide con su extension declarada. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_026` | VALIDATION_ERROR | BAJO | Nombre de archivo no válido. | Backend (VALIDATION_ERROR): Nombre de archivo no valido. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_027` | VALIDATION_ERROR | BAJO | El nombre del archivo excede la longitud máxima permitida (250 caracteres). | Backend (VALIDATION_ERROR): El nombre del archivo excede la longitud maxima permitida (250 caracteres). | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_028` | VALIDATION_ERROR | BAJO | El archivo fue rechazado: se detectó una firma de malware conocida. | Backend (VALIDATION_ERROR): El archivo fue rechazado: se detecto una firma de malware conocida. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_029` | VALIDATION_ERROR | BAJO | El estado de vínculo debe ser ACTIVO, SIN_Vínculo o TODOS. | Backend (VALIDATION_ERROR): El estado de vinculo debe ser ACTIVO, SIN_VINCULO o TODOS. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_030` | VALIDATION_ERROR | BAJO | El estudiante es obligatorio. | Backend (VALIDATION_ERROR): El estudiante es obligatorio. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_031` | VALIDATION_ERROR | BAJO | La fecha inicial debe ser anterior a la fecha final. | Backend (VALIDATION_ERROR): La fecha inicial debe ser anterior a la fecha final. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_032` | VALIDATION_ERROR | BAJO | El rango de fechas no puede superar {} días. | Backend (VALIDATION_ERROR): El rango de fechas no puede superar {} dias. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_033` | VALIDATION_ERROR | BAJO | El resultado debe ser SUCCESS o FAILURE. | Backend (VALIDATION_ERROR): El resultado debe ser SUCCESS o FAILURE. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_034` | VALIDATION_ERROR | BAJO | El filtro {} excede la longitud permitida. | Backend (VALIDATION_ERROR): El filtro {} excede la longitud permitida. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_035` | VALIDATION_ERROR | BAJO | Los filtros de consulta son obligatorios. | Backend (VALIDATION_ERROR): Los filtros de consulta son obligatorios. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_036` | VALIDATION_ERROR | BAJO | El semáforo debe ser VERDE, AMBAR o ROJO. | Backend (VALIDATION_ERROR): El semaforo debe ser VERDE, AMBAR o ROJO. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_037` | VALIDATION_ERROR | BAJO | La fecha desde no puede ser posterior a la fecha hasta. | Backend (VALIDATION_ERROR): La fecha desde no puede ser posterior a la fecha hasta. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_038` | VALIDATION_ERROR | BAJO | La página debe ser mayor o igual a 1. | Backend (VALIDATION_ERROR): La pagina debe ser mayor o igual a 1. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_039` | VALIDATION_ERROR | BAJO | El tamaño de página debe estar entre 1 y {}. | Backend (VALIDATION_ERROR): El tamano de pagina debe estar entre 1 y {}. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_040` | VALIDATION_ERROR | BAJO | El número de semestre debe ser un entero positivo. | Backend (VALIDATION_ERROR): El numero de semestre debe ser un entero positivo. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_041` | VALIDATION_ERROR | BAJO | El número de página debe ser mayor o igual a 1. | Backend (VALIDATION_ERROR): El numero de pagina debe ser mayor o igual a 1. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_042` | VALIDATION_ERROR | BAJO | El tamaño de página debe ser mayor o igual a 1. | Backend (VALIDATION_ERROR): El tamano de pagina debe ser mayor o igual a 1. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_043` | VALIDATION_ERROR | BAJO | Los datos del programa son obligatorios. | Backend (VALIDATION_ERROR): Los datos del programa son obligatorios. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_044` | VALIDATION_ERROR | BAJO | La búsqueda excede la longitud permitida. | Backend (VALIDATION_ERROR): La busqueda excede la longitud permitida. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_045` | VALIDATION_ERROR | BAJO | El nombre del programa académico es obligatorio. | Backend (VALIDATION_ERROR): El nombre del programa academico es obligatorio. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_046` | VALIDATION_ERROR | BAJO | El nombre del programa académico no puede superar {} caracteres. | Backend (VALIDATION_ERROR): El nombre del programa academico no puede superar {} caracteres. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_047` | VALIDATION_ERROR | BAJO | Los parámetros de paginación deben ser mayores o iguales a 1. | Backend (VALIDATION_ERROR): Los parametros de paginacion deben ser mayores o iguales a 1. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_048` | VALIDATION_ERROR | BAJO | Indique un programa existente o un programa nuevo, no ambos. | Backend (VALIDATION_ERROR): Indique un programa existente o un programa nuevo, no ambos. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_049` | VALIDATION_ERROR | BAJO | El tipo del programa nuevo es obligatorio. | Backend (VALIDATION_ERROR): El tipo del programa nuevo es obligatorio. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_050` | VALIDATION_ERROR | BAJO | La contraseña inicial del coordinador es obligatoria. | Backend (VALIDATION_ERROR): La contrasena inicial del coordinador es obligatoria. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_051` | VALIDATION_ERROR | BAJO | La solicitud de revisión es obligatoria. | Backend (VALIDATION_ERROR): La solicitud de revision es obligatoria. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_052` | VALIDATION_ERROR | BAJO | El estado de la solicitud no es válido. | Backend (VALIDATION_ERROR): El estado de la solicitud no es valido. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_053` | VALIDATION_ERROR | BAJO | El grupo y el estudiante son obligatorios. | Backend (VALIDATION_ERROR): El grupo y el estudiante son obligatorios. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_054` | VALIDATION_ERROR | BAJO | El motivo del retiro es obligatorio y no puede superar 500 caracteres. | Backend (VALIDATION_ERROR): El motivo del retiro es obligatorio y no puede superar 500 caracteres. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_055` | VALIDATION_ERROR | BAJO | Los datos del retiro del reclamo son obligatorios. | Backend (VALIDATION_ERROR): Los datos del retiro del reclamo son obligatorios. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_056` | VALIDATION_ERROR | BAJO | El reclamo a retirar es obligatorio. | Backend (VALIDATION_ERROR): El reclamo a retirar es obligatorio. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_057` | VALIDATION_ERROR | BAJO | Los datos de la búsqueda son obligatorios. | Backend (VALIDATION_ERROR): Los datos de la busqueda son obligatorios. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_058` | VALIDATION_ERROR | BAJO | El grupo es obligatorio. | Backend (VALIDATION_ERROR): El grupo es obligatorio. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_059` | VALIDATION_ERROR | BAJO | El tipo de identificación es obligatorio. | Backend (VALIDATION_ERROR): El tipo de identificacion es obligatorio. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_060` | VALIDATION_ERROR | BAJO | El número de documento debe ser un entero positivo. | Backend (VALIDATION_ERROR): El numero de documento debe ser un entero positivo. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_061` | VALIDATION_ERROR | BAJO | El tipo de usuario a corregir no es válido. | Backend (VALIDATION_ERROR): El tipo de usuario a corregir no es valido. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_062` | VALIDATION_ERROR | BAJO | Los datos del registro son obligatorios. | Backend (VALIDATION_ERROR): Los datos del registro son obligatorios. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_063` | VALIDATION_ERROR | BAJO | El cuerpo de la petición es obligatorio. | Backend (VALIDATION_ERROR): El cuerpo de la peticion es obligatorio. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_064` | VALIDATION_ERROR | BAJO | El tipo de programa es obligatorio. | Backend (VALIDATION_ERROR): El tipo de programa es obligatorio. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_065` | VALIDATION_ERROR | BAJO | El coordinador del programa es obligatorio. | Backend (VALIDATION_ERROR): El coordinador del programa es obligatorio. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_066` | VALIDATION_ERROR | BAJO | El estado deseado del programa es obligatorio. | Backend (VALIDATION_ERROR): El estado deseado del programa es obligatorio. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_067` | VALIDATION_ERROR | BAJO | Cada franja del horario es obligatoria. | Backend (respuesta ERR_CAMPO_OBLIGATORIO): Cada franja del horario es obligatoria. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_068` | VALIDATION_ERROR | BAJO | El campo dias es obligatorio cuando se envía el horario. | Backend (respuesta ERR_CAMPO_OBLIGATORIO): El campo dias es obligatorio cuando se envia el horario. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_069` | VALIDATION_ERROR | BAJO | El campo {} es obligatorio. | Backend (respuesta ERR_CAMPO_OBLIGATORIO): El campo {} es obligatorio. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_070` | VALIDATION_ERROR | BAJO | El campo {} debe usar formato ISO local {}. | Backend (respuesta ERR_FECHA_HORA_INVALIDA): El campo {} debe usar formato ISO local {}. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_071` | VALIDATION_ERROR | BAJO | Los datos de la consulta no son válidos. | Backend (VALIDATION_ERROR): Los datos de la consulta no son validos. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_072` | VALIDATION_ERROR | BAJO | La sesión es obligatoria. | Backend (VALIDATION_ERROR): La sesion es obligatoria. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_073` | VALIDATION_ERROR | BAJO | El identificador del estudiante es obligatorio. | Backend (VALIDATION_ERROR): El identificador del estudiante es obligatorio. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_074` | VALIDATION_ERROR | BAJO | El identificador del docente es obligatorio. | Backend (VALIDATION_ERROR): El identificador del docente es obligatorio. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_075` | VALIDATION_ERROR | BAJO | El identificador del programa es obligatorio. | Backend (VALIDATION_ERROR): El identificador del programa es obligatorio. | `62_val_mensajes_aplicacion.sql` |
 
 ## VCE
 
