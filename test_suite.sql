@@ -33,6 +33,8 @@ PRINT '======================================================================';
 -- VAL ROL-05 (migracion 39): usp_sincronizar_usuario retirado; reemplaza a test_usp_sincronizar_usuario.sql
 :r /tmp/test/test_val_retiro_alta_usuarios_sin_ambito.sql
 :r /tmp/test/test_val_oleada2_parametro_y_ambito.sql
+-- VAL-oleada3 MSG-05 (migracion 41): mensajes de usuario del backend en el catalogo
+:r /tmp/test/test_val_oleada3_mensajes_aplicacion.sql
 :r /tmp/test/test_usp_registrar_o_actualizar_plan_estudio.sql
 :r /tmp/test/test_usp_plan_estudio_estado_semestres.sql
 :r /tmp/test/test_usp_periodo_academico_gestion.sql
