@@ -49,6 +49,11 @@ Guía operativa del repositorio de base de datos para Claude Code y asistentes d
 # 4. Regenerar o verificar el catálogo de mensajes desde schema/seed (docs/catalogos/catalogo-mensajes.md)
 .\scripts\generar-catalogo-mensajes.ps1
 .\scripts\generar-catalogo-mensajes.ps1 -Check
+
+# 5. Tarea de migración (registro en dbo.MigracionAplicada; ver docs/work-items/VAL-oleada3-bd-pendientes/PLAN.md)
+.\scripts\migrar.ps1                                   # estado (solo lectura)
+.\scripts\migrar.ps1 -Modo Baseline -HastaVersion 40   # registrar sin ejecutar en una base que ya las tiene
+.\scripts\migrar.ps1 -Modo Aplicar                     # aplicar solo las pendientes
 ```
 
 ---
