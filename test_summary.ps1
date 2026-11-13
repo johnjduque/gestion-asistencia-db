@@ -921,6 +921,8 @@ $criticalIds = @(
     'VAL_ROL05_04_ALTAS_CON_AMBITO_USAN_EL_NUCLEO', 'VAL_ROL05_TRANCOUNT_ZERO',
     # VAL PAR-06 y ROL-12 (test/test_val_oleada2_parametro_y_ambito.sql): parametro de auditoria y ambito de cuentas semilla (migracion 40)
     'VAL_PAR06_01_PARAMETRO_SEMBRADO', 'VAL_PAR06_02_RANGO_Y_NO_EDITABLE', 'VAL_ROL12_01_DECANO_CON_FACULTAD', 'VAL_ROL12_02_COORDINADOR_CON_PROGRAMA', 'VAL_OLEADA2_TRANCOUNT_ZERO',
+    # VAL-oleada3 MSG-05 (test/test_val_oleada3_mensajes_aplicacion.sql): mensajes de usuario del backend (migracion 41)
+    'VAL_MSG05_01_MENSAJES_SEMBRADOS', 'VAL_MSG05_02_TEXTOS_Y_MARCADORES', 'VAL_OLEADA3_MSG_TRANCOUNT_ZERO',
     # VAL oleada 3: PRU-14 bordes del umbral de horas (test/test_val_umbral_horas_bordes.sql), OBS-03 lista blanca de @idCorrelacion
     # (test/test_val_obs03_id_correlacion.sql) y F12-12 tarea de migracion (test/test_val_migrar.ps1)
     'VAL_PRU14_01_PORCENTAJE_FRONTERA', 'VAL_PRU14_02_CLASIFICACION_FRONTERA', 'VAL_PRU14_03_PARAMETRO_AUSENTE', 'VAL_PRU14_04_MAXIMO',

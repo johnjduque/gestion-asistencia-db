@@ -33,6 +33,8 @@ PRINT '======================================================================';
 -- VAL ROL-05 (migracion 39): usp_sincronizar_usuario retirado; reemplaza a test_usp_sincronizar_usuario.sql
 :r /tmp/test/test_val_retiro_alta_usuarios_sin_ambito.sql
 :r /tmp/test/test_val_oleada2_parametro_y_ambito.sql
+-- VAL-oleada3 MSG-05 (migracion 41): mensajes de usuario del backend en el catalogo
+:r /tmp/test/test_val_oleada3_mensajes_aplicacion.sql
 -- VAL oleada 3: PRU-14 (bordes del umbral de horas) y OBS-03 (procedimientos sin @idCorrelacion)
 :r /tmp/test/test_val_umbral_horas_bordes.sql
 :r /tmp/test/test_val_obs03_id_correlacion.sql
