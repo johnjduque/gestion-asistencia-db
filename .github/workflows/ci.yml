@@ -173,6 +173,18 @@ jobs:
         run: |
           ./deploy_schema.ps1 -ContainerName "sqlserver" -Password $env:MSSQL_SA_PASSWORD
 
+      # VAL F12-12: la base recien desplegada ya contiene el efecto de migrations/; se registra como BASELINE y se verifica
+      # que no quede nada pendiente ni con deriva (la tarea de migracion es scripts/migrar.ps1).
+      - name: Register migration baseline (migrar.ps1)
+        id: migrar-baseline
+        shell: pwsh
+        run: |
+          ./scripts/migrar.ps1 -Modo Baseline -ContainerName "sqlserver" -Password $env:MSSQL_SA_PASSWORD
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $estado = @(./scripts/migrar.ps1 -Modo Estado -ContainerName "sqlserver" -Password $env:MSSQL_SA_PASSWORD *>&1 | ForEach-Object { "$_" })
+          $estado | ForEach-Object { Write-Host $_ }
+          if ($LASTEXITCODE -ne 0 -or -not ($estado -match 'MIGRAR_RESUMEN .* pendientes=0 deriva=0')) { exit 1 }
+
       - name: Prepare LB-004D test fixture
         id: lb004d-fixture
         shell: pwsh
