@@ -46,3 +46,16 @@ if (($outputData | Out-String) -notmatch 'TEST_FIXTURE_READY\|maint003h\|multi=1
     throw 'MAINT-003H data fixture did not produce its readiness evidence.'
 }
 Write-Host 'TEST_PASS:MAINT_003H_JAVA_DATA_FIXTURE'
+
+# VAL-PRU-04 (oleada 3): 12 estudiantes del directorio del primer administrador (CoreViewQueriesJpaParityIT pagina 3 x 5)
+$fixtureDirectorio = Join-Path $PSScriptRoot 'fixtures/val_pru04_directorio_estudiantes_fixture.sql'
+docker cp $fixtureDirectorio "$($ContainerName):/tmp/val_pru04_directorio_estudiantes_fixture.sql" | Out-Null
+if ($LASTEXITCODE -ne 0) { throw 'Could not copy the VAL-PRU-04 directory fixture into the isolated container.' }
+$outputDirectorio = docker exec $ContainerName /opt/mssql-tools18/bin/sqlcmd `
+    -S localhost -d $database -U sa -P $AdminPassword -C -b -h -1 -W `
+    -i /tmp/val_pru04_directorio_estudiantes_fixture.sql 2>&1
+if ($LASTEXITCODE -ne 0) { throw "VAL-PRU-04 directory fixture failed: $($outputDirectorio | Out-String)" }
+if (($outputDirectorio | Out-String) -notmatch 'TEST_FIXTURE_READY\|valpru04\|estudiantesDirectorio=12') {
+    throw 'VAL-PRU-04 directory fixture did not produce its readiness evidence.'
+}
+Write-Host 'TEST_PASS:VAL_PRU04_JAVA_DIRECTORY_FIXTURE'
