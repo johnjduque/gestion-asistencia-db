@@ -149,6 +149,14 @@ BEGIN
                         @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
                     SET @estadoResultado = 0;
                 END
+                -- DEC-073: el docente nuevo usa el correo institucional (VCE_008)
+                IF @estadoResultado = 1
+                EXEC dbo.usp_validar_correo_institucional_personal_interno
+                    @correo = @correo,
+                    @idCorrelacion = @idCorrelacionDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                    @estadoResultado = @estadoResultado OUTPUT;
             END
             ELSE IF @modoUsuario = 1
             BEGIN

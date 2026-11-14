@@ -15,6 +15,7 @@ GO
 -- de otro grupo del mismo docente se rechaza con SES_017 (usp_validar_solape_sesion_interno); el rechazo no escribe.
 -- CULM-001 / DEC-065 (2): la sesion creada por el docente nace con una solicitud PENDIENTE (SesionSolicitud, estado con esFinal = 0)
 -- de aprobacion del coordinador, en la misma transaccion; el exito es SES_022. El ejecutor siempre es DOCENTE titular (PASOS 0-2.1).
+-- DEC-072/DEC-073 (PASO 2.6): una sesion que cruza la medianoche en la zona institucional se rechaza con SES_028, sin escribir.
 CREATE OR ALTER PROCEDURE [dbo].[usp_crear_sesion_interno]
 (
     @idGrupo                 UNIQUEIDENTIFIER,
@@ -98,6 +99,18 @@ BEGIN
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT,
                 @faseValidacion = 2;
+        END
+
+        -- PASO 2.6 (DEC-072/DEC-073): la sesion empieza y termina el mismo dia en la zona institucional (SES_028)
+        IF @estadoResultado = 1
+        BEGIN
+            EXEC dbo.usp_validar_sesion_mismo_dia_interno
+                @fechaHoraInicio = @fechaHoraInicio,
+                @fechaHoraFin = @fechaHoraFin,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
         END
 
         -- PASO 3: Cálculo transaccional del correlativo de sesión e inserción

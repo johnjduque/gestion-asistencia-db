@@ -127,6 +127,20 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
+        -- PASO 3B (DEC-073): el codigo del grupo es un entero mayor que cero (ERR_CODIGO_GRUPO_INVALIDO); 0 o negativo no se
+        --          ignora en silencio.
+        IF @estadoResultado = 1 AND @codigo IS NOT NULL AND @codigo <= 0
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'ERR_CODIGO_GRUPO_INVALIDO',
+                @p_param1 = @codigo,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
         -- PASO 4: Validar conflicto de unicidad de código
         IF @estadoResultado = 1 AND @codigo IS NOT NULL AND @codigo > 0
         BEGIN

@@ -136,6 +136,16 @@ BEGIN
                 @documentoCambiado = @documentoCambiado OUTPUT,
                 @soloValidar = 1;
 
+            -- DEC-073: un correo nuevo debe ser institucional (VCE_008); el correo ya guardado no se revalida
+            IF @estadoResultado = 1 AND NULLIF(TRIM(@correo), N'') IS NOT NULL
+               AND NOT EXISTS (SELECT 1 FROM dbo.uv_usuario WHERE id = @idUsuarioCoordinador AND correo = LOWER(TRIM(@correo)))
+            EXEC dbo.usp_validar_correo_institucional_personal_interno
+                @correo = @correo,
+                @idCorrelacion = @idCorrelacion,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+
             IF @estadoResultado = 1
             EXEC dbo.usp_actualizar_datos_usuario_interno
                 @idUsuario = @idUsuarioCoordinador,

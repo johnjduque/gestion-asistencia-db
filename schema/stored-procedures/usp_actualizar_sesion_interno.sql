@@ -129,6 +129,17 @@ BEGIN
 
             IF @inicioActual IS NULL OR @finActual IS NULL OR @inicioActual <> @fechaHoraInicio OR @finActual <> @fechaHoraFin
             BEGIN
+                -- DEC-072/DEC-073: el horario nuevo empieza y termina el mismo dia en la zona institucional (SES_028). Si el
+                -- horario no cambia (solo se renombra) una sesion antigua que cruza la medianoche se puede editar.
+                EXEC dbo.usp_validar_sesion_mismo_dia_interno
+                    @fechaHoraInicio = @fechaHoraInicio,
+                    @fechaHoraFin = @fechaHoraFin,
+                    @idCorrelacion = @idCorrelacionDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                    @estadoResultado = @estadoResultado OUTPUT;
+
+                IF @estadoResultado = 1
                 EXEC dbo.usp_validar_solape_sesion_interno
                     @idGrupo = @idGrupoSesion,
                     @idSesionExcluir = @idSesionDefecto,
@@ -152,7 +163,7 @@ BEGIN
             WHERE id = @idSesionDefecto;
         END
 
-        -- Cierre de la transaccion propia (el rechazo por solape no escribe)
+        -- Cierre de la transaccion propia (el rechazo por solape o por SES_028 no escribe)
         IF @transaccionPropia = 1
         BEGIN
             IF XACT_STATE() = 1

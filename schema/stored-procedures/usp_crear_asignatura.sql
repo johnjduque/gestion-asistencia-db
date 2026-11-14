@@ -35,6 +35,7 @@ AS
     DECLARE @idPlanEstudioDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idPlanEstudio, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idUsuarioEjecutorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @codigoDefecto            NVARCHAR(50)     = UPPER(TRIM(@codigo));
+    DECLARE @creditosMaximo           INT              = dbo.ufn_obtener_parametro_int(NULL, 'ASIGNATURA', 'CREDITOS_MAXIMO');
     DECLARE @nombreDefecto            NVARCHAR(50)     = TRIM(@nombre);
     DECLARE @nombreAreaDefecto        NVARCHAR(100)    = TRIM(@nombreArea);
     DECLARE @nombreCompDefecto        NVARCHAR(100)    = TRIM(@nombreComponente);
@@ -101,6 +102,19 @@ BEGIN
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'ASI_001',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
+        -- PASO 2.1b (DEC-073): los creditos no superan ASIGNATURA/CREDITOS_MAXIMO (ASI_008). Limite ausente: fail-closed.
+        IF @estadoResultado = 1 AND @creditos IS NOT NULL AND (@creditosMaximo IS NULL OR @creditos > @creditosMaximo)
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'ASI_008',
+                @p_param1 = @creditosMaximo,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
