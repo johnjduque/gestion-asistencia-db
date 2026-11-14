@@ -54,7 +54,11 @@ Guía operativa del repositorio de base de datos para Claude Code y asistentes d
 .\scripts\migrar.ps1                                   # estado (solo lectura)
 .\scripts\migrar.ps1 -Modo Baseline -HastaVersion 40   # registrar sin ejecutar en una base que ya las tiene
 .\scripts\migrar.ps1 -Modo Aplicar                     # aplicar solo las pendientes
+.\scripts\migrar.ps1 -Modo Detectar                    # solo lectura: que migraciones ya estan en la base (scripts/migrar-marcadores.json)
+.\scripts\migrar.ps1 -Modo Baseline -SoloDetectadas    # base vieja sin registro: registra solo las detectadas (ver docs/runbooks/ACTUALIZAR_BD_LOCAL_EXISTENTE.md)
 ```
+
+Una migración nueva debe agregar sus marcadores en `scripts/migrar-marcadores.json` (lo exige `test/test_val_migrar_detectar.ps1`).
 
 ---
 

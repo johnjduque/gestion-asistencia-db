@@ -179,6 +179,10 @@ jobs:
         id: migrar-baseline
         shell: pwsh
         run: |
+          # VAL-migrar-detectar: la base recien desplegada debe salir con todas las migraciones APLICADA_DETECTADA (marcadores al dia).
+          $det = @(./scripts/migrar.ps1 -Modo Detectar -ContainerName "sqlserver" -Password $env:MSSQL_SA_PASSWORD *>&1 | ForEach-Object { "$_" })
+          $det | Where-Object { $_ -notmatch '^MIGRAR_DETECTAR_APLICADA_DETECTADA' } | ForEach-Object { Write-Host $_ }
+          if ($LASTEXITCODE -ne 0 -or -not ($det -match 'MIGRAR_DETECTAR_RESUMEN .* ausentes=0 parciales=0 sin_marcadores=0')) { exit 1 }
           ./scripts/migrar.ps1 -Modo Baseline -ContainerName "sqlserver" -Password $env:MSSQL_SA_PASSWORD
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $estado = @(./scripts/migrar.ps1 -Modo Estado -ContainerName "sqlserver" -Password $env:MSSQL_SA_PASSWORD *>&1 | ForEach-Object { "$_" })
