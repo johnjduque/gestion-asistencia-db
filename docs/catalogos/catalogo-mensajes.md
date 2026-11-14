@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **497**.
+Total de códigos: **482**.
 
 ## ACC
 
@@ -122,26 +122,6 @@ Total de códigos: **497**.
 |---|---|---|---|---|---|
 | `AUD_001` | BUSINESS_ERROR | MEDIO | La consulta de auditoría requiere una sola institución activa. | SUPUESTO-D-16: hay {} instituciones activas; la auditoría no tiene ámbito por institución. | `56_culm001_d6_mensajes.sql` |
 | `AUD_002` | VALIDATION_ERROR | BAJO | Los filtros de solo asistencia y solo administración no se pueden combinar. | @soloAsistencia = 1 y @soloAdministracion = 1 son excluyentes; el llamador debe enviar los dos parametros explicitos. | `56_culm001_d6_mensajes.sql` |
-
-## CMA
-
-| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
-|---|---|---|---|---|---|
-| `CMA_001` | VALIDATION_ERROR | MEDIO | El archivo supera {} filas. | HU171: cantidad de filas {} supera CARGA_MASIVA/MAXIMO_FILAS ({}). | `55_culm001_d5_mensajes.sql` |
-| `CMA_002` | VALIDATION_ERROR | MEDIO | El archivo supera el tamaño permitido. | HU171: tamano de archivo {} bytes supera CARGA_MASIVA/TAMANIO_MAXIMO_BYTES ({}). | `55_culm001_d5_mensajes.sql` |
-| `CMA_003` | BUSINESS_ERROR | ALTO | El archivo cambió desde la validación. Valídalo de nuevo. | HU171: huella SHA-256 no coincide con la validada previamente. | `55_culm001_d5_mensajes.sql` |
-| `CMA_004` | VALIDATION_ERROR | MEDIO | La cabecera no coincide con la plantilla: {}. | HU171: cabecera del CSV no valida o incompleta: {}. | `55_culm001_d5_mensajes.sql` |
-| `CMA_005` | VALIDATION_ERROR | BAJO | Número de documento inválido. | HU171: numero de documento no es un entero positivo en rango INT. | `55_culm001_d5_mensajes.sql` |
-| `CMA_006` | VALIDATION_ERROR | BAJO | Código de {} desconocido: {}. | HU171: codigo de {} '{}' no existe en catalogo. | `55_culm001_d5_mensajes.sql` |
-| `CMA_007` | BUSINESS_ERROR | MEDIO | «{}» no está en tu ámbito. | HU171: entidad '{}' no pertenece al ambito de custodia del ejecutor. | `55_culm001_d5_mensajes.sql` |
-| `CMA_008` | BUSINESS_ERROR | MEDIO | El documento y el correo corresponden a personas distintas. | HU171: documento y correo corresponden a diferentes personas existentes. | `55_culm001_d5_mensajes.sql` |
-| `CMA_009` | BUSINESS_ERROR | ALTO | Tu rol no puede cargar este tipo de cuentas. | HU171: jerarquia no permitida en JerarquiaAltaUsuario para este perfil ejecutor y destino. | `55_culm001_d5_mensajes.sql` |
-| `CMA_010` | VALIDATION_ERROR | BAJO | Fila repetida en el archivo (línea {}). | HU171: documento o correo repetido respecto a la linea {}. | `55_culm001_d5_mensajes.sql` |
-| `CMA_011` | VALIDATION_ERROR | MEDIO | Valor no permitido en la columna {}. | HU171: intento de inyeccion de formulas o caracteres no permitidos en columna {}. | `55_culm001_d5_mensajes.sql` |
-| `CMA_012` | VALIDATION_ERROR | BAJO | Falta la clave inicial para una persona nueva. | HU171: persona nueva requiere clave inicial valida segun PasswordRegistroRule. | `55_culm001_d5_mensajes.sql` |
-| `CMA_013` | VALIDATION_ERROR | MEDIO | El archivo no es un CSV UTF-8 válido. | HU171: codificacion del archivo no es UTF-8 valida o archivo malformado. | `55_culm001_d5_mensajes.sql` |
-| `CMA_014` | BUSINESS_ERROR | MEDIO | Has superado el número de cargas por minuto. | HU171: tasa de peticiones supera CARGA_MASIVA/LIMITE_POR_MINUTO. | `55_culm001_d5_mensajes.sql` |
-| `CMA_015` | SUCCESS | BAJO | Carga procesada: {} creadas, {} ya existentes, {} con error. | HU171: resultado de ejecucion: creadas={}, yaExistentes={}, conError={}. | `55_culm001_d5_mensajes.sql` |
 
 ## COO
 

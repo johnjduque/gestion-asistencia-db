@@ -514,17 +514,6 @@ IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_TransicionRevisio
 GO
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_TransicionRevisionCancelacion_Destino')
     ALTER TABLE [dbo].[TransicionRevisionCancelacion] ADD CONSTRAINT [FK_TransicionRevisionCancelacion_Destino] FOREIGN KEY ([estadoDestino]) REFERENCES [dbo].[EstadoRevisionCancelacion] ([id]);
--- CULM-001 D.5 (CONTRACT §6.3, HU171): JerarquiaAltaUsuario -> Perfil
-IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_JerarquiaAltaUsuario_PerfilEjecutor')
-BEGIN
-    ALTER TABLE [dbo].[JerarquiaAltaUsuario] ADD CONSTRAINT [FK_JerarquiaAltaUsuario_PerfilEjecutor] FOREIGN KEY ([perfilEjecutor]) REFERENCES [dbo].[Perfil] ([id]);
-END
-GO
-IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_JerarquiaAltaUsuario_PerfilDestino')
-BEGIN
-    ALTER TABLE [dbo].[JerarquiaAltaUsuario] ADD CONSTRAINT [FK_JerarquiaAltaUsuario_PerfilDestino] FOREIGN KEY ([perfilDestino]) REFERENCES [dbo].[Perfil] ([id]);
-END
-GO
 -- CULM-001 / DEC-065 (2): solicitud de sesion extraordinaria con aval del coordinador
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_SesionSolicitud_Sesion')
 BEGIN

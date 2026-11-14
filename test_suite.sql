@@ -147,8 +147,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_mrm_registro_compuesto.sql
 :r /tmp/test/test_culm001_d3_parametros.sql
 :r /tmp/test/test_culm001_d6_auditoria.sql
--- CULM-001 D.5 (carga masiva por CSV de roles no estudiantes HU171): registro por nombre exacto (DEC-028, sin comodin)
-:r /tmp/test/test_culm001_d5_carga_masiva.sql
+-- Alta individual con tipo de documento (casos de D.5 conservados al retirar la carga masiva, DEC-074): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_alta_individual_tipo_documento.sql
 -- CULM-001 D.4 (admision de estudiantes HU156): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_culm001_d4_admision.sql
 -- CULM-001 D.1 (plazo de excusas HU026B): registro por nombre exacto (DEC-028, sin comodin)
@@ -169,6 +169,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_pc_toma_en_bandeja_reclamos.sql
 -- DEC-073 (validaciones de formularios, migracion 43): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_dec073_validaciones.sql
+-- DEC-074 (retiro de la carga masiva, migracion 44): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_dec074_retiro_carga_masiva.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN

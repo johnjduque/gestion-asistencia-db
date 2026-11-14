@@ -70,13 +70,7 @@ USING (
         ('ARCHIVOS',      'LIMITE_SUBIDAS_POR_MINUTO',            1, 1,      60,      NULL,                 NULL, NULL,
             N'Límite de subidas por minuto', N'Archivos por minuto que puede subir un mismo usuario.', N'por minuto', N'Soportes', 20),
         ('ARCHIVOS',      'MAXIMO_SOPORTES_POR_RECLAMO',          1, 1,      10,      NULL,                 NULL, NULL,
-            N'Máximo de soportes por reclamo', N'Cantidad máxima de archivos de soporte en un mismo reclamo.', N'soportes', N'Soportes', 30),
-        ('CARGA_MASIVA',  'MAXIMO_FILAS',                         1, 1,      500,     NULL,                 NULL, NULL,
-            N'Máximo de filas por carga', N'Filas máximas de un archivo de carga masiva de cuentas.', N'filas', N'Carga masiva', 10),
-        ('CARGA_MASIVA',  'LIMITE_POR_MINUTO',                    1, 1,      20,      NULL,                 NULL, NULL,
-            N'Límite de cargas por minuto', N'Cargas masivas por minuto permitidas a un mismo usuario.', N'por minuto', N'Carga masiva', 20),
-        ('CARGA_MASIVA',  'TAMANIO_MAXIMO_BYTES',                 1, 10240,  2097152, NULL,                 NULL, NULL,
-            N'Tamaño máximo del archivo de carga', N'Bytes máximos del archivo CSV de una carga masiva.', N'bytes', N'Carga masiva', 30)
+            N'Máximo de soportes por reclamo', N'Cantidad máxima de archivos de soporte en un mismo reclamo.', N'soportes', N'Soportes', 30)
     ) AS v (grupo, clave, esEditable, valorMinimo, valorMaximo, valoresPermitidos, grupoMenor, claveMenor, etiqueta, descripcion, unidad, categoriaVisual, orden)
     INNER JOIN [dbo].[CatalogoParametro] p ON p.grupo = v.grupo AND p.clave = v.clave
     LEFT JOIN [dbo].[CatalogoParametro] m ON m.grupo = v.grupoMenor AND m.clave = v.claveMenor
