@@ -223,12 +223,9 @@
       { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'IDENTIDAD' AND clave = 'PERFILES_CORRECCION_DECANO'" }
     ],
     "24_culm001_d5_carga_masiva": [
-      { "tabla": "dbo.JerarquiaAltaUsuario" },
-      { "restriccion": "UQ_JerarquiaAltaUsuario_Pares" },
-      { "objeto": "dbo.usp_validar_carga_masiva_usuarios" },
-      { "objeto": "dbo.uv_jerarquia_alta_usuario" },
-      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'CMA_015'" },
-      { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'CARGA_MASIVA' AND clave = 'MAXIMO_FILAS'" }
+      { "objeto": "dbo.usp_crear_coordinador", "contiene": "@idTipoIdIdentificacion  UNIQUEIDENTIFIER = NULL" },
+      { "objeto": "dbo.usp_crear_decano", "contiene": "@idTipoIdIdentificacion  UNIQUEIDENTIFIER = NULL" },
+      { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'IDENTIDAD' AND clave = 'TIPO_IDENTIFICACION_DEFECTO'" }
     ],
     "25_culm001_d6_auditoria_admin": [
       { "objeto": "dbo.usp_consultar_auditoria_eventos_paginado", "contiene": "@soloAdministracion" },
@@ -353,6 +350,13 @@
       { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'RECLAMO' AND clave = 'RESPUESTA_LONGITUD_MAXIMA'" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'VCE_008'" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'SES_028'" }
+    ],
+    "44_dec074_retiro_carga_masiva": [
+      { "objeto": "dbo.usp_validar_carga_masiva_usuarios", "existe": false },
+      { "objeto": "dbo.uv_jerarquia_alta_usuario", "existe": false },
+      { "tabla": "dbo.JerarquiaAltaUsuario", "existe": false },
+      { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'CARGA_MASIVA'", "existe": false },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo LIKE 'CMA[_]___'", "existe": false }
     ]
   }
 }

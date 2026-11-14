@@ -10,11 +10,12 @@ param (
 #           estado de una base local que se quedo atras (el caso que resuelve docs/runbooks/ACTUALIZAR_BD_LOCAL_EXISTENTE.md).
 #   VAL_MDET_01_MARCADORES_COMPLETOS     Cada migracion administrada tiene marcadores en scripts/migrar-marcadores.json y no sobra ninguna.
 #   VAL_MDET_02_DESPLIEGUE_LIMPIO_TODAS  Un despliegue limpio sale con todas APLICADA_DETECTADA; Detectar no escribe en el registro.
-#   VAL_MDET_03_ESTADO_16_CLASIFICA      La base del estado 16: 05..16 detectadas, 20 y 36 detectadas fuera de orden, el resto AUSENTE,
+#   VAL_MDET_03_ESTADO_16_CLASIFICA      La base del estado 16: 05..16 detectadas, 20, 36 y 44 detectadas fuera de orden (44: retiro de la
+#                                        carga masiva, DEC-074, objetos que esa base nunca tuvo), el resto AUSENTE,
 #                                        ninguna PARCIAL; Detectar no crea dbo.MigracionAplicada.
 #   VAL_MDET_04_PARCIAL_BLOQUEA          Con una migracion a medias, Detectar la marca PARCIAL (con lo que falta) y -SoloDetectadas no
 #                                        registra nada (ni crea el registro) y devuelve 1.
-#   VAL_MDET_05_SOLO_DETECTADAS_REGISTRA -SoloDetectadas registra como BASELINE solo el tramo contiguo detectado (05..16); 20 y 36
+#   VAL_MDET_05_SOLO_DETECTADAS_REGISTRA -SoloDetectadas registra como BASELINE solo el tramo contiguo detectado (05..16); 20, 36 y 44
 #                                        quedan PENDIENTE.
 #   VAL_MDET_06_APLICAR_EN_ORDEN         -Modo Aplicar ejecuta las pendientes en orden de version (17, 18, 19, 20, 21, ...), aunque haya
 #                                        registradas posteriores a una pendiente, y Estado queda en pendientes=0 deriva=0.
@@ -142,7 +143,7 @@ try {
     $registro = (Invoke-Sql "SELECT IIF(OBJECT_ID('dbo.MigracionAplicada', 'U') IS NULL, 0, 1);" $dbS16) -join ''
     $malas = @()
     foreach ($m in $inventario) {
-        $esperado = if ($m.Version -le 16) { 'APLICADA_DETECTADA' } elseif ($m.Version -in 20, 36) { 'APLICADA_DETECTADA+FUERA' } else { 'AUSENTE' }
+        $esperado = if ($m.Version -le 16) { 'APLICADA_DETECTADA' } elseif ($m.Version -in 20, 36, 44) { 'APLICADA_DETECTADA+FUERA' } else { 'AUSENTE' }
         if ($e[$m.Nombre] -ne $esperado) { $malas += "$($m.Nombre)=$($e[$m.Nombre])" }
     }
     $hasta16 = @($inventario | Where-Object { $_.Version -le 16 })
