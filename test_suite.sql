@@ -165,6 +165,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_pc_puntos_control.sql
 -- PC (mejora bandeja de reclamos del docente: toma en R2, migracion 38): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_pc_toma_en_bandeja_reclamos.sql
+-- DEC-073 (validaciones de formularios, migracion 43): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_dec073_validaciones.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN

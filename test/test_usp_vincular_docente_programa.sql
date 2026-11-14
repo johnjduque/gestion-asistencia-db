@@ -30,12 +30,12 @@ BEGIN TRY
 
     INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
     VALUES
-      (@uC1,    @tipoCC, 920000001, N'Coord', N'Uno',  N'Carlos', N'Qa', N'qa.coord1.hu091@test.local',  1, 1, N'HashBackend_Fixture1'),
-      (@uC2,    @tipoCC, 920000002, N'Coord', N'Dos',  N'Diana',  N'Qa', N'qa.coord2.hu091@test.local',  1, 1, N'HashBackend_Fixture2'),
-      (@uC3,    @tipoCC, 920000003, N'Coord', N'Tres', N'Tomas',  N'Qa', N'qa.coord3.hu091@test.local',  1, 1, N'HashBackend_Fixture3'),
-      (@uD1,    @tipoCC, 920000011, N'Docente', N'Uno', N'Daniel', N'Qa', N'qa.docente1.hu091@test.local', 1, 1, N'HashBackend_Fixture4'),
-      (@uD3,    @tipoCC, 920000013, N'Docente', N'Tres', N'Dora',  N'Qa', N'qa.docente3.hu091@test.local', 1, 1, N'HashBackend_Fixture5'),
-      (@uSinRol,@tipoCC, 920000019, N'Sin', N'Rol',    N'Sara',   N'Qa', N'qa.sinrol.hu091@test.local',   1, 1, N'HashBackend_Fixture6');
+      (@uC1,    @tipoCC, 920000001, N'Coord', N'Uno',  N'Carlos', N'Qa', N'qa.coord1.hu091@uco.edu.co',  1, 1, N'HashBackend_Fixture1'),
+      (@uC2,    @tipoCC, 920000002, N'Coord', N'Dos',  N'Diana',  N'Qa', N'qa.coord2.hu091@uco.edu.co',  1, 1, N'HashBackend_Fixture2'),
+      (@uC3,    @tipoCC, 920000003, N'Coord', N'Tres', N'Tomas',  N'Qa', N'qa.coord3.hu091@uco.edu.co',  1, 1, N'HashBackend_Fixture3'),
+      (@uD1,    @tipoCC, 920000011, N'Docente', N'Uno', N'Daniel', N'Qa', N'qa.docente1.hu091@uco.edu.co', 1, 1, N'HashBackend_Fixture4'),
+      (@uD3,    @tipoCC, 920000013, N'Docente', N'Tres', N'Dora',  N'Qa', N'qa.docente3.hu091@uco.edu.co', 1, 1, N'HashBackend_Fixture5'),
+      (@uSinRol,@tipoCC, 920000019, N'Sin', N'Rol',    N'Sara',   N'Qa', N'qa.sinrol.hu091@uco.edu.co',   1, 1, N'HashBackend_Fixture6');
     INSERT INTO dbo.Coordinador (id, usuario) VALUES (@cC1, @uC1), (@cC2, @uC2), (@cC3, @uC3);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@dD1, @uD1), (@dD3, @uD3);
 
@@ -64,7 +64,7 @@ BEGIN TRY
     DECLARE @tiposId UNIQUEIDENTIFIER = @tipoCC;
 
     -- ================= T-091-01: modo nuevo, camino feliz =================
-    DECLARE @correoNuevo NVARCHAR(100) = N'qa.nuevo.hu091@test.local';
+    DECLARE @correoNuevo NVARCHAR(100) = N'qa.nuevo.hu091@uco.edu.co';
     INSERT INTO #r EXEC dbo.usp_vincular_docente_programa
         @idTipoIdentificacion = @tipoCC, @numeroIdentificacion = 920000101,
         @primerNombre = N'Nora', @segundoNombre = N'Qa', @primerApellido = N'Nueva', @segundoApellido = N'Docente',
@@ -119,14 +119,14 @@ BEGIN TRY
     INSERT INTO #r EXEC dbo.usp_vincular_docente_programa   -- documento repetido
         @idTipoIdentificacion = @tipoCC, @numeroIdentificacion = 920000019,
         @primerNombre = N'Otra', @segundoNombre = N'Qa', @primerApellido = N'Persona', @segundoApellido = N'Qa',
-        @correo = N'qa.otro.correo.hu091@test.local', @password = N'HashBackend_Otro01',
+        @correo = N'qa.otro.correo.hu091@uco.edu.co', @password = N'HashBackend_Otro01',
         @idTipoVinculacion = @tvCat, @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msg) THROW 52050, 'T-091-05 FAILED: documento existente no retorno DOC_003.', 1;
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_vincular_docente_programa   -- correo repetido
         @idTipoIdentificacion = @tipoCC, @numeroIdentificacion = 920000102,
         @primerNombre = N'Otra', @segundoNombre = N'Qa', @primerApellido = N'Persona', @segundoApellido = N'Qa',
-        @correo = N'qa.sinrol.hu091@test.local', @password = N'HashBackend_Otro02',
+        @correo = N'qa.sinrol.hu091@uco.edu.co', @password = N'HashBackend_Otro02',
         @idTipoVinculacion = @tvCat, @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msg) THROW 52051, 'T-091-05 FAILED: correo existente no retorno DOC_003.', 1;
     IF (SELECT COUNT(*) FROM dbo.Usuario) <> @usuariosAntes THROW 52052, 'T-091-05 FAILED: creo usuarios parciales.', 1;
@@ -151,7 +151,7 @@ BEGIN TRY
     INSERT INTO #r EXEC dbo.usp_vincular_docente_programa    -- inexistente
         @idTipoIdentificacion = @tipoCC, @numeroIdentificacion = 920000103,
         @primerNombre = N'Ines', @segundoNombre = N'Qa', @primerApellido = N'Tipo', @segundoApellido = N'Malo',
-        @correo = N'qa.tipo.inexistente.hu091@test.local', @password = N'HashBackend_Tipo01',
+        @correo = N'qa.tipo.inexistente.hu091@uco.edu.co', @password = N'HashBackend_Tipo01',
         @idTipoVinculacion = '15151515-1515-1515-1515-151515151515', @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msg) THROW 52070, 'T-091-07 FAILED: tipo inexistente no retorno DOC_004.', 1;
     TRUNCATE TABLE #r;
@@ -232,7 +232,7 @@ BEGIN TRY
     EXEC dbo.usp_vincular_docente_programa
         @idTipoIdentificacion = @tipoCCE, @numeroIdentificacion = 920000106,
         @primerNombre = N'Externa', @segundoNombre = N'Qa', @primerApellido = N'Transaccion', @segundoApellido = N'Qa',
-        @correo = N'qa.externa.hu091@test.local', @password = N'HashBackend_Externa01',
+        @correo = N'qa.externa.hu091@uco.edu.co', @password = N'HashBackend_Externa01',
         @idTipoVinculacion = @tvE, @idPrograma = @pCoordE, @idCorrelacion = @corrE, @idUsuarioEjecutor = @uCoordE;
 END TRY
 BEGIN CATCH
@@ -242,7 +242,7 @@ IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;   -- el llamador (propietario) deshace 
 DROP TRIGGER IF EXISTS dbo.trg_qa_hu091_falla3;
 IF @propagado = 0 THROW 52142, 'T-091-12 FAILED: el error con transaccion externa doomed debio propagarse al propietario.', 1;
 IF @@TRANCOUNT <> 0 THROW 52143, 'T-091-12 FAILED: quedo una transaccion abierta.', 1;
-IF EXISTS (SELECT 1 FROM dbo.Usuario WHERE correo = N'qa.externa.hu091@test.local')
+IF EXISTS (SELECT 1 FROM dbo.Usuario WHERE correo = N'qa.externa.hu091@uco.edu.co')
     THROW 52144, 'T-091-11 FAILED: el rollback del propietario no elimino el usuario creado.', 1;
 PRINT 'TEST_PASS:T-091-12_EXTERNAL';
 GO
@@ -263,7 +263,7 @@ BEGIN TRY
     EXEC dbo.usp_vincular_docente_programa
         @idTipoIdentificacion = @tipoCC2, @numeroIdentificacion = 920000105,
         @primerNombre = N'Propia', @segundoNombre = N'Qa', @primerApellido = N'Transaccion', @segundoApellido = N'Qa',
-        @correo = N'qa.propia.hu091@test.local', @password = N'HashBackend_Propia01',
+        @correo = N'qa.propia.hu091@uco.edu.co', @password = N'HashBackend_Propia01',
         @idTipoVinculacion = @tv, @idPrograma = @pCoord, @idCorrelacion = @corr, @idUsuarioEjecutor = @uCoord;
 END TRY
 BEGIN CATCH
@@ -275,7 +275,7 @@ BEGIN
     ROLLBACK TRANSACTION;
     THROW 52132, 'T-091-11 FAILED: el SP dejo una transaccion abierta (@@TRANCOUNT <> 0).', 1;
 END
-IF EXISTS (SELECT 1 FROM dbo.Usuario WHERE correo = N'qa.propia.hu091@test.local')
+IF EXISTS (SELECT 1 FROM dbo.Usuario WHERE correo = N'qa.propia.hu091@uco.edu.co')
     THROW 52133, 'T-091-11 FAILED: transaccion propia no hizo rollback del usuario.', 1;
 PRINT 'TEST_PASS:T-091-11_OWNED';
 GO

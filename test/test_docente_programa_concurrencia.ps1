@@ -21,8 +21,8 @@ DECLARE @fac UNIQUEIDENTIFIER = (SELECT TOP 1 idFacultad FROM dbo.uv_programa);
 DECLARE @tp UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.TipoPrograma);
 DECLARE @uC UNIQUEIDENTIFIER = NEWID(), @cC UNIQUEIDENTIFIER = NEWID(), @uD UNIQUEIDENTIFIER = NEWID(), @dD UNIQUEIDENTIFIER = NEWID(), @p UNIQUEIDENTIFIER = NEWID();
 INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password) VALUES
- (@uC, @tipo, 960000001, N'Conc', N'Qa', N'Coord', N'Qa', N'qa.conc.coord@test.local', 1, 1, N'HashBackend_C1'),
- (@uD, @tipo, 960000002, N'Conc', N'Qa', N'Docente', N'Qa', N'qa.conc.doc@test.local', 1, 1, N'HashBackend_C2');
+ (@uC, @tipo, 960000001, N'Conc', N'Qa', N'Coord', N'Qa', N'qa.conc.coord@uco.edu.co', 1, 1, N'HashBackend_C1'),
+ (@uD, @tipo, 960000002, N'Conc', N'Qa', N'Docente', N'Qa', N'qa.conc.doc@uco.edu.co', 1, 1, N'HashBackend_C2');
 INSERT INTO dbo.Coordinador (id, usuario) VALUES (@cC, @uC);
 INSERT INTO dbo.Docente (id, usuario) VALUES (@dD, @uD);
 INSERT INTO dbo.Programa (id, facultad, tipoDePrograma, nombre, coordinador, estado) VALUES (@p, @fac, @tp, N'QA-CONC Programa', @cC, 1);
@@ -48,5 +48,5 @@ try {
     Write-Host 'TEST_PASS:T-091-13' -ForegroundColor Green
 }
 finally {
-    Invoke-Sql "SET NOCOUNT ON; DELETE FROM dbo.DocentePrograma WHERE docente='$dD'; DELETE FROM dbo.Programa WHERE id='$p'; DELETE FROM dbo.Docente WHERE id='$dD'; DELETE FROM dbo.Coordinador WHERE usuario='$uC'; DELETE FROM dbo.Usuario WHERE correo IN (N'qa.conc.coord@test.local', N'qa.conc.doc@test.local');" | Out-Null
+    Invoke-Sql "SET NOCOUNT ON; DELETE FROM dbo.DocentePrograma WHERE docente='$dD'; DELETE FROM dbo.Programa WHERE id='$p'; DELETE FROM dbo.Docente WHERE id='$dD'; DELETE FROM dbo.Coordinador WHERE usuario='$uC'; DELETE FROM dbo.Usuario WHERE correo IN (N'qa.conc.coord@uco.edu.co', N'qa.conc.doc@uco.edu.co');" | Out-Null
 }

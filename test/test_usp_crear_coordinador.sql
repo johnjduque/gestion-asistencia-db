@@ -50,7 +50,7 @@ BEGIN TRY
     DECLARE @corrSuccess UNIQUEIDENTIFIER = NEWID();
     DECLARE @idCoordinadorSuccess UNIQUEIDENTIFIER = NEWID();
 
-    DECLARE @correo1 NVARCHAR(100) = N'coord.mismatch.qa@test.local';
+    DECLARE @correo1 NVARCHAR(100) = N'coord.mismatch.qa@uco.edu.co';
     INSERT INTO #coordinadorResultado
     EXEC dbo.usp_crear_coordinador
         @idCoordinador = NULL,
@@ -73,7 +73,7 @@ BEGIN TRY
         THROW 51406, 'TEST FAILED: mismatch Programa/Facultad creo Usuario parcial.', 1;
 
     TRUNCATE TABLE #coordinadorResultado;
-    DECLARE @correo2 NVARCHAR(100) = N'coord.programa-missing.qa@test.local';
+    DECLARE @correo2 NVARCHAR(100) = N'coord.programa-missing.qa@uco.edu.co';
     INSERT INTO #coordinadorResultado
     EXEC dbo.usp_crear_coordinador
         @idCoordinador = NULL,
@@ -96,7 +96,7 @@ BEGIN TRY
         THROW 51408, 'TEST FAILED: Programa inexistente creo Usuario parcial.', 1;
 
     TRUNCATE TABLE #coordinadorResultado;
-    DECLARE @correo3 NVARCHAR(100) = N'coord.facultad-missing.qa@test.local';
+    DECLARE @correo3 NVARCHAR(100) = N'coord.facultad-missing.qa@uco.edu.co';
     INSERT INTO #coordinadorResultado
     EXEC dbo.usp_crear_coordinador
         @idCoordinador = NULL,
@@ -119,7 +119,7 @@ BEGIN TRY
         THROW 51410, 'TEST FAILED: Facultad inexistente creo Usuario parcial.', 1;
 
     TRUNCATE TABLE #coordinadorResultado;
-    DECLARE @correo4 NVARCHAR(100) = N'coord.success.qa@test.local';
+    DECLARE @correo4 NVARCHAR(100) = N'coord.success.qa@uco.edu.co';
     INSERT INTO #coordinadorResultado
     EXEC dbo.usp_crear_coordinador
         @idCoordinador = @idCoordinadorSuccess,
@@ -150,7 +150,7 @@ BEGIN TRY
     TRUNCATE TABLE #coordinadorResultado;
     DECLARE @corrSinPrograma UNIQUEIDENTIFIER = NEWID();
     DECLARE @idCoordinadorSinProg UNIQUEIDENTIFIER = NEWID();
-    DECLARE @correo5 NVARCHAR(100) = N'coord.sin-programa.qa@test.local';
+    DECLARE @correo5 NVARCHAR(100) = N'coord.sin-programa.qa@uco.edu.co';
     INSERT INTO #coordinadorResultado
     EXEC dbo.usp_crear_coordinador
         @idCoordinador = @idCoordinadorSinProg,

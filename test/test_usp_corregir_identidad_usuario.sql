@@ -43,23 +43,23 @@ BEGIN TRY
     -- y D1 docente vinculado al programa.
     EXEC dbo.usp_sincronizar_usuario_interno @idTipoIdIdentificacion = @tipoCC, @numeroIdentificacion = 915900001,
         @primerApellido = N'Gomes', @segundoApellido = N'Ruis', @primerNombre = N'Ana', @segundoNombre = N'',
-        @correo = N'est1.qa159@test.local', @password = N'HashBackend_QaIde1234567890', @idCorrelacion = @corr,
+        @correo = N'est1.qa159@uco.edu.co', @password = N'HashBackend_QaIde1234567890', @idCorrelacion = @corr,
         @mensajeUsuarioResultado = @mu OUTPUT, @mensajeTecnicoResultado = @mt OUTPUT, @estadoResultado = @ok OUTPUT;
     IF @ok <> 1 THROW 56301, 'TEST FAILED: no se pudo crear el usuario del estudiante E1.', 1;
     EXEC dbo.usp_sincronizar_usuario_interno @idTipoIdIdentificacion = @tipoCC, @numeroIdentificacion = 915900002,
         @primerApellido = N'Otro', @segundoApellido = N'Programa', @primerNombre = N'Luis', @segundoNombre = N'',
-        @correo = N'est2.qa159@test.local', @password = N'HashBackend_QaIde1234567890', @idCorrelacion = @corr,
+        @correo = N'est2.qa159@uco.edu.co', @password = N'HashBackend_QaIde1234567890', @idCorrelacion = @corr,
         @mensajeUsuarioResultado = @mu OUTPUT, @mensajeTecnicoResultado = @mt OUTPUT, @estadoResultado = @ok OUTPUT;
     IF @ok <> 1 THROW 56302, 'TEST FAILED: no se pudo crear el usuario del estudiante E2.', 1;
     EXEC dbo.usp_sincronizar_usuario_interno @idTipoIdIdentificacion = @tipoCC, @numeroIdentificacion = 915900003,
         @primerApellido = N'Docente', @segundoApellido = N'Qa', @primerNombre = N'Pedro', @segundoNombre = N'',
-        @correo = N'doc1.qa159@test.local', @password = N'HashBackend_QaIde1234567890', @idCorrelacion = @corr,
+        @correo = N'doc1.qa159@uco.edu.co', @password = N'HashBackend_QaIde1234567890', @idCorrelacion = @corr,
         @mensajeUsuarioResultado = @mu OUTPUT, @mensajeTecnicoResultado = @mt OUTPUT, @estadoResultado = @ok OUTPUT;
     IF @ok <> 1 THROW 56303, 'TEST FAILED: no se pudo crear el usuario del docente D1.', 1;
 
-    DECLARE @uE1 UNIQUEIDENTIFIER = (SELECT id FROM dbo.Usuario WHERE correo = N'est1.qa159@test.local');
-    DECLARE @uE2 UNIQUEIDENTIFIER = (SELECT id FROM dbo.Usuario WHERE correo = N'est2.qa159@test.local');
-    DECLARE @uD1 UNIQUEIDENTIFIER = (SELECT id FROM dbo.Usuario WHERE correo = N'doc1.qa159@test.local');
+    DECLARE @uE1 UNIQUEIDENTIFIER = (SELECT id FROM dbo.Usuario WHERE correo = N'est1.qa159@uco.edu.co');
+    DECLARE @uE2 UNIQUEIDENTIFIER = (SELECT id FROM dbo.Usuario WHERE correo = N'est2.qa159@uco.edu.co');
+    DECLARE @uD1 UNIQUEIDENTIFIER = (SELECT id FROM dbo.Usuario WHERE correo = N'doc1.qa159@uco.edu.co');
     DECLARE @e1 UNIQUEIDENTIFIER = NEWID(), @e2 UNIQUEIDENTIFIER = NEWID(), @d1 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.Estudiante (id, usuario) VALUES (@e1, @uE1), (@e2, @uE2);
     INSERT INTO dbo.EstudiantePrograma (id, estudiante, programa) VALUES (NEWID(), @e1, @idPrograma);
@@ -82,10 +82,10 @@ BEGIN TRY
         @primerApellido = N'Gomez', @segundoApellido = N'Ruiz', @motivo = N'  Error de digitacion al inscribir  ',
         @idCorrelacion = @corr, @idUsuarioEjecutor = @uCoord;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 1 AND mensajeUsuarioResultado = @msgExito AND idUsuario = @uE1
-                   AND correo = N'est1.qa159@test.local' AND numeroIdentificacion = 915900011)
+                   AND correo = N'est1.qa159@uco.edu.co' AND numeroIdentificacion = 915900011)
         THROW 56306, 'TEST FAILED HU159_SUCCESS: la correccion no retorno IDE_002 con idUsuario, correo y documento nuevo.', 1;
     IF NOT EXISTS (SELECT 1 FROM dbo.Usuario WHERE id = @uE1 AND tipoIdIdentificacion = @tipoOtro AND numeroIdentificacion = 915900011
-                   AND segundoNombre = N'Maria' AND primerApellido = N'Gomez' AND segundoApellido = N'Ruiz' AND correo = N'est1.qa159@test.local')
+                   AND segundoNombre = N'Maria' AND primerApellido = N'Gomez' AND segundoApellido = N'Ruiz' AND correo = N'est1.qa159@uco.edu.co')
         THROW 56307, 'TEST FAILED HU159_SUCCESS: dbo.Usuario no refleja la correccion o cambio el correo.', 1;
     IF NOT EXISTS (SELECT 1 FROM dbo.AuditoriaEvento WHERE action = 'CORREGIR_IDENTIDAD_ESTUDIANTE' AND resourceId = CAST(@e1 AS NVARCHAR(120))
                    AND actorId = CAST(@uCoord AS NVARCHAR(120)) AND correlationId = @corr
@@ -281,7 +281,7 @@ BEGIN CATCH
 END CATCH
 ROLLBACK TRANSACTION;
 
-IF EXISTS (SELECT 1 FROM dbo.Usuario WHERE correo LIKE N'%.qa159@test.local')
+IF EXISTS (SELECT 1 FROM dbo.Usuario WHERE correo LIKE N'%.qa159@uco.edu.co')
     THROW 56327, 'TEST FAILED: la correccion de identidad dejo datos permanentes.', 1;
 IF dbo.ufn_obtener_parametro_int(NULL, 'IDENTIDAD', 'PERMITIR_CORREGIR_DOCUMENTO') <> 1
     THROW 56328, 'TEST FAILED: la prueba dejo apagado el parametro de correccion de documento.', 1;

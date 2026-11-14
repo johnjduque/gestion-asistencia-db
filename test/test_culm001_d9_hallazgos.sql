@@ -73,7 +73,7 @@ BEGIN TRANSACTION;
 BEGIN TRY
     -- Facultad ajena: decano nuevo de una facultad sin grupos (para los casos fuera de ambito)
     INSERT dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uAjeno, @tipoCC, 916900001, N'Ajeno', N'Qa', N'Decano', N'D9', N'decano.ajeno.qa.d9@test.local', 1, 1, @hash);
+    VALUES (@uAjeno, @tipoCC, 916900001, N'Ajeno', N'Qa', N'Decano', N'D9', N'decano.ajeno.qa.d9@uco.edu.co', 1, 1, @hash);
     INSERT dbo.Decano (id, usuario) VALUES (@decAjeno, @uAjeno);
     INSERT dbo.Facultad (id, nombre, institucion, decano, estado) VALUES (@facAjena, N'QA D9 Facultad ajena', @inst, @decAjeno, 1);
 
@@ -104,10 +104,10 @@ BEGIN TRY
     SET @corr = NEWID();
     DELETE FROM #c;
     INSERT #c EXEC dbo.usp_crear_decano @idDecano = NULL, @numeroIdentificacion = 916900077, @primerNombre = N'Nuevo', @segundoNombre = N'',
-        @primerApellido = N'Decano', @segundoApellido = N'D9', @correo = N'decano.nuevo.qa.d9@test.local', @idFacultad = NULL, @nombreFacultad = NULL,
+        @primerApellido = N'Decano', @segundoApellido = N'D9', @correo = N'decano.nuevo.qa.d9@uco.edu.co', @idFacultad = NULL, @nombreFacultad = NULL,
         @password = @hash, @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdmin, @idTipoIdIdentificacion = @tipoCE;
     SET @ok = IIF(EXISTS (SELECT 1 FROM #c WHERE estadoResultado = 1)
-                  AND EXISTS (SELECT 1 FROM dbo.Usuario WHERE correo = N'decano.nuevo.qa.d9@test.local' AND tipoIdIdentificacion = @tipoCE), 1, 0);
+                  AND EXISTS (SELECT 1 FROM dbo.Usuario WHERE correo = N'decano.nuevo.qa.d9@uco.edu.co' AND tipoIdIdentificacion = @tipoCE), 1, 0);
     EXEC #d9_expect 'D9_DEC_05_TIPO_DOCUMENTO', @ok;
     PRINT 'TEST_PASS:CULM001_D9_DEC_05';
 
