@@ -343,6 +343,16 @@
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ERR_TOMA_NO_RECLAMABLE'" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ERR_SESION_CANCELADA'" },
       { "tabla": "dbo.CatalogoMensajeTecnico", "donde": "codigo = 'ERR_TOMA_NO_RECLAMABLE'" }
+    ],
+    "43_dec073_validaciones_formularios": [
+      { "objeto": "dbo.usp_validar_sesion_mismo_dia_interno" },
+      { "objeto": "dbo.usp_validar_correo_institucional_personal_interno" },
+      { "objeto": "dbo.usp_crear_grupo", "contiene": "@p_codigo = 'ERR_CODIGO_GRUPO_INVALIDO'," },
+      { "objeto": "dbo.usp_resolver_solicitud_revision_asistencia", "contiene": "@p_codigo = 'ERR_RESPUESTA_RECLAMO_LONGITUD_INVALIDA'," },
+      { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'ASIGNATURA' AND clave = 'CREDITOS_MAXIMO'" },
+      { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'RECLAMO' AND clave = 'RESPUESTA_LONGITUD_MAXIMA'" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'VCE_008'" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'SES_028'" }
     ]
   }
 }

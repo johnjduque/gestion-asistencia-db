@@ -51,7 +51,7 @@ PRINT 'TEST_PASS:OWNERSHIP_STUDENT';
 BEGIN TRANSACTION;
 BEGIN TRY
     DECLARE @beforeCoord INT = @@TRANCOUNT;
-    DECLARE @correoCoord NVARCHAR(100) = N'ownership.coordinador@test.local';
+    DECLARE @correoCoord NVARCHAR(100) = N'ownership.coordinador@uco.edu.co';
     DECLARE @corrCoord UNIQUEIDENTIFIER = NEWID();
 
     EXEC dbo.usp_crear_coordinador
@@ -91,7 +91,7 @@ BEGIN TRY
         @segundoNombre = N'',
         @primerApellido = NULL,
         @segundoApellido = N'',
-        @correo = N'ownership.decano@test.local',
+        @correo = N'ownership.decano@uco.edu.co',
         @idFacultad = @idFacultad,
         @nombreFacultad = NULL,
         @password = NULL,
@@ -99,7 +99,7 @@ BEGIN TRY
         @idUsuarioEjecutor = @adminUser;
 
     IF @@TRANCOUNT <> @beforeDec THROW 51509, 'TEST FAILED: decano hizo rollback/commit total de transaccion externa.', 1;
-    IF EXISTS (SELECT 1 FROM dbo.Usuario WHERE correo = N'ownership.decano@test.local') THROW 51510, 'TEST FAILED: decano dejo Usuario parcial tras fallo post-savepoint.', 1;
+    IF EXISTS (SELECT 1 FROM dbo.Usuario WHERE correo = N'ownership.decano@uco.edu.co') THROW 51510, 'TEST FAILED: decano dejo Usuario parcial tras fallo post-savepoint.', 1;
 END TRY
 BEGIN CATCH
     IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;

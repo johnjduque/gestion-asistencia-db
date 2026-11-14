@@ -66,7 +66,7 @@ BEGIN TRY
     DECLARE @corrCx UNIQUEIDENTIFIER = NEWID();
     INSERT INTO #crea EXEC dbo.usp_crear_coordinador @idCoordinador = @idCx, @numeroIdentificacion = 917000001,
         @primerNombre = N'Coord', @segundoNombre = N'Facultad', @primerApellido = N'QA', @segundoApellido = N'Esquema',
-        @correo = N'coord.facultad.qa12x@test.local', @idPrograma = NULL, @idFacultad = @idFacultadF1,
+        @correo = N'coord.facultad.qa12x@uco.edu.co', @idPrograma = NULL, @idFacultad = @idFacultadF1,
         @password = N'HashBackend_QaCoord1234567890', @idCorrelacion = @corrCx, @idUsuarioEjecutor = @idUsuarioD1;
     IF NOT EXISTS (SELECT 1 FROM #crea WHERE estadoResultado = 1)
         THROW 51708, 'TEST FAILED T-120R-02: no se pudo crear el coordinador sin programa.', 1;
@@ -82,7 +82,7 @@ BEGIN CATCH
 END CATCH
 ROLLBACK TRANSACTION;
 
-IF EXISTS (SELECT 1 FROM dbo.uv_usuario WHERE correo = N'coord.facultad.qa12x@test.local')
+IF EXISTS (SELECT 1 FROM dbo.uv_usuario WHERE correo = N'coord.facultad.qa12x@uco.edu.co')
     THROW 51711, 'TEST FAILED: el esquema de coordinador dejo datos permanentes.', 1;
 IF @@TRANCOUNT <> 0 THROW 51712, 'TEST FAILED: el esquema de coordinador dejo transacciones abiertas.', 1;
 PRINT 'TEST_PASS:COORDINATOR_SCHEMA_COLUMNS';

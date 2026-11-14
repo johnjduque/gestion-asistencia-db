@@ -940,6 +940,9 @@ $criticalIds = @(
     'VAL_MSG05_01_MENSAJES_SEMBRADOS', 'VAL_MSG05_02_TEXTOS_Y_MARCADORES', 'VAL_OLEADA3_MSG_TRANCOUNT_ZERO',
     # VAL MSG-03 (test/test_val_mensajes_err_pendientes.sql): mensajes ERR_* del backend (migracion 42)
     'VAL_MSG03_01_MENSAJES_SEMBRADOS', 'VAL_MSG03_02_TEXTOS_Y_TIPOS', 'VAL_MSG03_TRANCOUNT_ZERO',
+    # DEC-073 (test/test_dec073_validaciones.sql): reglas de formularios en la BD (migracion 43)
+    'DEC073_SESSION_SAME_DAY_OK', 'DEC073_SESSION_CROSSES_MIDNIGHT', 'DEC073_STAFF_EMAIL_REJECTED', 'DEC073_STAFF_EMAIL_ACCEPTED',
+    'DEC073_CLAIM_RESPONSE_LENGTH', 'DEC073_CLAIM_RESPONSE_VALID', 'DEC073_SUBJECT_CREDITS_MAX', 'DEC073_GROUP_CODE_POSITIVE',
     # VAL oleada 3: PRU-14 bordes del umbral de horas (test/test_val_umbral_horas_bordes.sql), OBS-03 lista blanca de @idCorrelacion
     # (test/test_val_obs03_id_correlacion.sql) y F12-12 tarea de migracion (test/test_val_migrar.ps1)
     'VAL_PRU14_01_PORCENTAJE_FRONTERA', 'VAL_PRU14_02_CLASIFICACION_FRONTERA', 'VAL_PRU14_03_PARAMETRO_AUSENTE', 'VAL_PRU14_04_MAXIMO',

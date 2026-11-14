@@ -49,7 +49,10 @@ BEGIN TRY
         estadoResultado BIT NOT NULL, idSesion UNIQUEIDENTIFIER NULL, idGrupo UNIQUEIDENTIFIER NULL, fechaHoraInicio DATETIME2 NULL, totalEstudiantesActivos INT NULL);
 
     -- MRM_01: el docente crea sesiones manuales por v2 y v1 => PENDIENTE + SES_022
-    DECLARE @i1 DATETIME2 = DATEADD(DAY, 3, SYSUTCDATETIME()), @i2 DATETIME2 = DATEADD(DAY, 4, SYSUTCDATETIME());
+    -- DEC-072: la sesion empieza y termina el mismo dia local; las horas se anclan a las 05:00 locales de un dia futuro (franja sin clases)
+    -- (no a la hora de ejecucion, que entre las 23:00 y la medianoche cruzaria el dia).
+    DECLARE @anclaQa DATETIME2 = CAST(DATEADD(HOUR, 5, CAST(CAST(DATEADD(DAY, 3, SYSUTCDATETIME()) AS DATE) AS DATETIME2)) AT TIME ZONE CONVERT(SYSNAME, dbo.ufn_obtener_parametro('TIEMPO', 'ZONA_HORARIA_SQLSERVER')) AT TIME ZONE 'UTC' AS DATETIME2);
+    DECLARE @i1 DATETIME2 = @anclaQa, @i2 DATETIME2 = DATEADD(DAY, 1, @anclaQa);
     DECLARE @f1 DATETIME2 = DATEADD(HOUR, 2, @i1), @f2 DATETIME2 = DATEADD(HOUR, 2, @i2), @fMala DATETIME2 = DATEADD(HOUR, -2, @i1), @fk DATETIME2;
     DECLARE @msg022 NVARCHAR(4000) = (SELECT contenido FROM dbo.uv_mensaje_usuario WHERE codigo = 'SES_022');
     INSERT #mrm_r EXEC dbo.usp_crear_sesion_v2 @idGrupo = @grupoG, @nombre = N'MRM v2', @fechaHoraInicio = @i1, @fechaHoraFin = @f1, @idCorrelacion = @c, @idUsuarioEjecutor = @uT;
@@ -245,7 +248,7 @@ BEGIN TRY
     DECLARE @k INT = 0, @ik DATETIME2;
     WHILE @k < 3
     BEGIN
-        SET @ik = DATEADD(DAY, 10 + @k, SYSUTCDATETIME());
+        SET @ik = DATEADD(DAY, 7 + @k, @anclaQa);
         SET @fk = DATEADD(HOUR, 2, @ik);
         INSERT #mrm_r EXEC dbo.usp_crear_sesion_v2 @idGrupo = @grupoG, @nombre = N'MRM pag', @fechaHoraInicio = @ik, @fechaHoraFin = @fk, @idCorrelacion = @c, @idUsuarioEjecutor = @uT;
         SET @k += 1;

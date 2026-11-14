@@ -105,6 +105,20 @@ BEGIN
             END
         END
 
+        -- PASO 2.6 (DEC-073): un decano nuevo usa el correo institucional (VCE_008); una persona que ya existe conserva el suyo.
+        --          Se decide ANTES de abrir la transaccion: el rechazo no escribe y el SP sigue siendo apto para INSERT ... EXEC (DEC-036).
+        IF @estadoResultado = 1
+           AND NOT EXISTS (SELECT 1 FROM [dbo].[uv_usuario]
+                           WHERE correo = LOWER(TRIM(@correo)) OR numeroIdentificacion = CAST(@numeroIdentificacion AS VARCHAR(20)))
+        BEGIN
+            EXEC dbo.usp_validar_correo_institucional_personal_interno
+                @correo = @correo,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
+
         -- PASO 3: apertura de transaccion (o savepoint) y delegacion de persona + rol Decano al nucleo usp_crear_decano_interno (DEC-065 (5))
         IF @estadoResultado = 1
         BEGIN

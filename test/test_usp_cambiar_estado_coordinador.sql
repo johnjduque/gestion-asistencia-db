@@ -50,10 +50,10 @@ BEGIN TRY
     DECLARE @corr UNIQUEIDENTIFIER = NEWID();
     EXEC dbo.usp_sincronizar_usuario_interno @idTipoIdIdentificacion = @tipoId, @numeroIdentificacion = 915000001,
         @primerApellido = N'Decano', @segundoApellido = N'Dos', @primerNombre = N'QA', @segundoNombre = N'F2',
-        @correo = N'decano.f2.qa122@test.local', @password = N'HashBackend_QaCoord1234567890', @idCorrelacion = @corr,
+        @correo = N'decano.f2.qa122@uco.edu.co', @password = N'HashBackend_QaCoord1234567890', @idCorrelacion = @corr,
         @mensajeUsuarioResultado = @mu OUTPUT, @mensajeTecnicoResultado = @mt OUTPUT, @estadoResultado = @ok OUTPUT;
     IF @ok <> 1 THROW 51505, 'TEST FAILED: no se pudo crear el usuario del decano F2.', 1;
-    DECLARE @idUsuarioD2 UNIQUEIDENTIFIER = (SELECT id FROM dbo.uv_usuario WHERE correo = N'decano.f2.qa122@test.local');
+    DECLARE @idUsuarioD2 UNIQUEIDENTIFIER = (SELECT id FROM dbo.uv_usuario WHERE correo = N'decano.f2.qa122@uco.edu.co');
     DECLARE @idDecanoF2 UNIQUEIDENTIFIER = NEWID();
     DECLARE @idFacultadF2 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.Decano (id, usuario) VALUES (@idDecanoF2, @idUsuarioD2);
@@ -63,15 +63,15 @@ BEGIN TRY
     DECLARE @idC2 UNIQUEIDENTIFIER = NEWID(), @idC3 UNIQUEIDENTIFIER = NEWID(), @idC4 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO #crea EXEC dbo.usp_crear_coordinador @idCoordinador = @idC2, @numeroIdentificacion = 915000002,
         @primerNombre = N'Coord', @segundoNombre = N'Dos', @primerApellido = N'QA', @segundoApellido = N'F1',
-        @correo = N'coord.c2.qa122@test.local', @idPrograma = NULL, @idFacultad = @idFacultadF1,
+        @correo = N'coord.c2.qa122@uco.edu.co', @idPrograma = NULL, @idFacultad = @idFacultadF1,
         @password = N'HashBackend_QaCoord1234567890', @idCorrelacion = @corr, @idUsuarioEjecutor = @idUsuarioD1;
     INSERT INTO #crea EXEC dbo.usp_crear_coordinador @idCoordinador = @idC3, @numeroIdentificacion = 915000003,
         @primerNombre = N'Coord', @segundoNombre = N'Tres', @primerApellido = N'QA', @segundoApellido = N'F2',
-        @correo = N'coord.c3.qa122@test.local', @idPrograma = NULL, @idFacultad = @idFacultadF2,
+        @correo = N'coord.c3.qa122@uco.edu.co', @idPrograma = NULL, @idFacultad = @idFacultadF2,
         @password = N'HashBackend_QaCoord1234567890', @idCorrelacion = @corr, @idUsuarioEjecutor = @idUsuarioD2;
     INSERT INTO #crea EXEC dbo.usp_crear_coordinador @idCoordinador = @idC4, @numeroIdentificacion = 915000004,
         @primerNombre = N'Coord', @segundoNombre = N'Cuatro', @primerApellido = N'QA', @segundoApellido = N'F1',
-        @correo = N'coord.c4.qa122@test.local', @idPrograma = NULL, @idFacultad = @idFacultadF1,
+        @correo = N'coord.c4.qa122@uco.edu.co', @idPrograma = NULL, @idFacultad = @idFacultadF1,
         @password = N'HashBackend_QaCoord1234567890', @idCorrelacion = @corr, @idUsuarioEjecutor = @idUsuarioD1;
     IF (SELECT COUNT(*) FROM #crea WHERE estadoResultado = 1) <> 3 THROW 51506, 'TEST FAILED: fixture de coordinadores no se creo.', 1;
     INSERT INTO dbo.Programa (id, facultad, tipoDePrograma, nombre, coordinador, estado)
@@ -169,7 +169,7 @@ BEGIN CATCH
 END CATCH
 ROLLBACK TRANSACTION;
 
-IF EXISTS (SELECT 1 FROM dbo.uv_usuario WHERE correo LIKE N'%.qa122@test.local')
+IF EXISTS (SELECT 1 FROM dbo.uv_usuario WHERE correo LIKE N'%.qa122@uco.edu.co')
     THROW 51526, 'TEST FAILED: cambiar estado de coordinador dejo datos permanentes.', 1;
 IF @@TRANCOUNT <> 0 THROW 51527, 'TEST FAILED: cambiar estado de coordinador dejo transacciones abiertas.', 1;
 PRINT 'TEST_PASS:COORDINATOR_STATE_TOGGLE';

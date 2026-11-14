@@ -29,8 +29,15 @@ DECLARE @attendanceCorrelation UNIQUEIDENTIFIER = NEWID();
 DECLARE @existingSessionCount INT;
 -- SES-01: el registro ordinario solo se acepta con la sesion activa y procedencia UTC confirmada, por eso la
 -- sesion del fixture se crea con el contrato v2 (UTC_V2) abierta en el instante de preparacion.
-DECLARE @sessionStartUtc DATETIME2 = DATEADD(MINUTE, -30, SYSUTCDATETIME());
-DECLARE @sessionEndUtc DATETIME2 = DATEADD(HOUR, 2, SYSUTCDATETIME());
+-- DEC-072: la sesion empieza y termina el mismo dia local (TIEMPO/ZONA_HORARIA_SQLSERVER). La ventana de 30 min antes a
+-- 2 h despues se recorta al dia local en curso; solo en el ultimo segundo antes de la medianoche dejaria de estar abierta.
+DECLARE @zonaFixture SYSNAME = CONVERT(SYSNAME, dbo.ufn_obtener_parametro('TIEMPO', 'ZONA_HORARIA_SQLSERVER'));
+DECLARE @inicioDiaLocalUtc DATETIME2 = CAST(CAST(CAST((SYSUTCDATETIME() AT TIME ZONE 'UTC') AT TIME ZONE @zonaFixture AS DATE) AS DATETIME2)
+    AT TIME ZONE @zonaFixture AT TIME ZONE 'UTC' AS DATETIME2);
+DECLARE @finDiaLocalUtc DATETIME2 = DATEADD(SECOND, -1, CAST(DATEADD(DAY, 1, CAST(CAST((SYSUTCDATETIME() AT TIME ZONE 'UTC') AT TIME ZONE @zonaFixture AS DATE) AS DATETIME2))
+    AT TIME ZONE @zonaFixture AT TIME ZONE 'UTC' AS DATETIME2));
+DECLARE @sessionStartUtc DATETIME2 = IIF(DATEADD(MINUTE, -30, SYSUTCDATETIME()) < @inicioDiaLocalUtc, @inicioDiaLocalUtc, DATEADD(MINUTE, -30, SYSUTCDATETIME()));
+DECLARE @sessionEndUtc DATETIME2 = IIF(DATEADD(HOUR, 2, SYSUTCDATETIME()) > @finDiaLocalUtc, @finDiaLocalUtc, DATEADD(HOUR, 2, SYSUTCDATETIME()));
 DECLARE @result TABLE (
     idCorrelacion UNIQUEIDENTIFIER,
     mensajeUsuarioResultado NVARCHAR(4000),

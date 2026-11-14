@@ -38,8 +38,11 @@ BEGIN TRY
     DECLARE @corrIntrusa UNIQUEIDENTIFIER = NEWID();
     DECLARE @corrActualizar UNIQUEIDENTIFIER = NEWID();
     DECLARE @corrRenombrar UNIQUEIDENTIFIER = NEWID();
-    DECLARE @inicioSesion DATETIME2 = DATEADD(HOUR, 1, SYSUTCDATETIME());
-    DECLARE @finSesion DATETIME2 = DATEADD(HOUR, 2, SYSUTCDATETIME());
+    -- DEC-072: la sesion empieza y termina el mismo dia local; las horas se anclan a las 05:00 locales de un dia futuro (franja sin clases)
+    -- (no a la hora de ejecucion, que entre las 23:00 y la medianoche cruzaria el dia).
+    DECLARE @anclaQa DATETIME2 = CAST(DATEADD(HOUR, 5, CAST(CAST(DATEADD(DAY, 2, SYSUTCDATETIME()) AS DATE) AS DATETIME2)) AT TIME ZONE CONVERT(SYSNAME, dbo.ufn_obtener_parametro('TIEMPO', 'ZONA_HORARIA_SQLSERVER')) AT TIME ZONE 'UTC' AS DATETIME2);
+    DECLARE @inicioSesion DATETIME2 = @anclaQa;
+    DECLARE @finSesion DATETIME2 = DATEADD(HOUR, 1, @anclaQa);
 
     UPDATE dbo.PeriodoAcademico
     SET fechaInicio = DATEADD(MONTH, -1, GETDATE()), fechaFin = DATEADD(MONTH, 3, GETDATE())
@@ -207,13 +210,13 @@ BEGIN TRY
 
     INSERT INTO dbo.Sesion (id, nombre, numero, codigo, numeroSemana, grupo, fechaHoraInicio, fechaHoraFin)
     VALUES
-        (NEWID(), N'Fixture Secuencia 1', 1, N'SES-01', 1, @idGrupoSecuencia, DATEADD(HOUR, 40, SYSUTCDATETIME()), DATEADD(HOUR, 41, SYSUTCDATETIME())),
-        (NEWID(), N'Fixture Secuencia 3', 3, N'SES-03', 3, @idGrupoSecuencia, DATEADD(HOUR, 42, SYSUTCDATETIME()), DATEADD(HOUR, 43, SYSUTCDATETIME()));
+        (NEWID(), N'Fixture Secuencia 1', 1, N'SES-01', 1, @idGrupoSecuencia, DATEADD(DAY, 1, @anclaQa), DATEADD(HOUR, 1, DATEADD(DAY, 1, @anclaQa))),
+        (NEWID(), N'Fixture Secuencia 3', 3, N'SES-03', 3, @idGrupoSecuencia, DATEADD(DAY, 2, @anclaQa), DATEADD(HOUR, 1, DATEADD(DAY, 2, @anclaQa)));
 
     TRUNCATE TABLE #sesionResultado;
     DECLARE @corrSecuencia UNIQUEIDENTIFIER = NEWID();
-    DECLARE @inicioSecuencia DATETIME2 = DATEADD(HOUR, 44, SYSUTCDATETIME());
-    DECLARE @finSecuencia DATETIME2 = DATEADD(HOUR, 45, SYSUTCDATETIME());
+    DECLARE @inicioSecuencia DATETIME2 = DATEADD(DAY, 3, @anclaQa);
+    DECLARE @finSecuencia DATETIME2 = DATEADD(HOUR, 1, DATEADD(DAY, 3, @anclaQa));
     INSERT INTO #sesionResultado
     EXEC dbo.usp_crear_sesion
         @idGrupo = @idGrupoSecuencia,
@@ -230,12 +233,12 @@ BEGIN TRY
         THROW 52102, 'TEST FAILED: SESSION_SEQUENCE_USES_MAX_NOT_COUNT numero/codigo incorrecto (esperado 4/SES-04).', 1;
 
     INSERT INTO dbo.Sesion (id, nombre, numero, codigo, numeroSemana, grupo, fechaHoraInicio, fechaHoraFin)
-    VALUES (NEWID(), N'Fixture Secuencia 99', 99, N'SES-99', 99, @idGrupoSecuencia, DATEADD(HOUR, 46, SYSUTCDATETIME()), DATEADD(HOUR, 47, SYSUTCDATETIME()));
+    VALUES (NEWID(), N'Fixture Secuencia 99', 99, N'SES-99', 99, @idGrupoSecuencia, DATEADD(DAY, 4, @anclaQa), DATEADD(HOUR, 1, DATEADD(DAY, 4, @anclaQa)));
 
     TRUNCATE TABLE #sesionResultado;
     DECLARE @corrSobre99 UNIQUEIDENTIFIER = NEWID();
-    DECLARE @inicioSobre99 DATETIME2 = DATEADD(HOUR, 48, SYSUTCDATETIME());
-    DECLARE @finSobre99 DATETIME2 = DATEADD(HOUR, 49, SYSUTCDATETIME());
+    DECLARE @inicioSobre99 DATETIME2 = DATEADD(DAY, 5, @anclaQa);
+    DECLARE @finSobre99 DATETIME2 = DATEADD(HOUR, 1, DATEADD(DAY, 5, @anclaQa));
     INSERT INTO #sesionResultado
     EXEC dbo.usp_crear_sesion
         @idGrupo = @idGrupoSecuencia,

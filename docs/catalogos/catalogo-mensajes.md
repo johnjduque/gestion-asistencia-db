@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **492**.
+Total de códigos: **497**.
 
 ## ACC
 
@@ -106,6 +106,7 @@ Total de códigos: **492**.
 | `ASI_005` | BUSINESS_ERROR | ALTO | No puedes quitar la asignatura de este plan: tiene grupos o estudiantes del programa en el periodo vigente o en periodos futuros. | Regla: hay grupos vigentes o futuros, o matriculas activas, cuyo unico programa comun es el del plan. | `38_mensajes_asignatura_plan.sql` |
 | `ASI_006` | BUSINESS_ERROR | MEDIO | La asignatura es compartida con programas que no coordinas; solo puedes cambiar su semestre y su carácter en tu plan. | Regla S2: el catalogo de una asignatura compartida solo lo cambia quien coordina todos sus programas con vinculo activo. | `38_mensajes_asignatura_plan.sql` |
 | `ASI_007` | BUSINESS_ERROR | MEDIO | El carácter de la asignatura no es válido. | Validacion: codigoCaracter no existe en CaracterAsignaturaPlan o esta inactivo. | `38_mensajes_asignatura_plan.sql` |
+| `ASI_008` | BUSINESS_ERROR | MEDIO | Los créditos de la asignatura no pueden superar {}. | Regla DEC-073: @creditos supera ASIGNATURA/CREDITOS_MAXIMO ({}) o el parametro no existe. | `64_dec073_validaciones.sql` |
 
 ## ATT
 
@@ -198,6 +199,7 @@ Total de códigos: **492**.
 | `ERR_CAPACIDAD_GRUPO_INVALIDA` | SYSTEM_ERROR | CRITICO | No fue posible determinar una capacidad máxima válida para el grupo. | El parametro GRUPO/CAPACIDAD_MAXIMA_DEFECTO es nulo, cero o negativo: {}. | `04_mensaje.sql` |
 | `ERR_CATEGORIA_JUSTIFICACION_INVALIDA` | VALIDATION_ERROR | BAJO | La categoría de justificación no es válida. | Backend (VALIDATION_ERROR, AsistenciaErrorCode): La categoria de justificacion no es valida. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_CATEGORIA_REVISION_REQUERIDA` | VALIDATION_ERROR | BAJO | La categoría de la revisión es obligatoria. | Backend (VALIDATION_ERROR, AsistenciaErrorCode): La categoria de la revision es obligatoria. | `63_val_mensajes_err_pendientes.sql` |
+| `ERR_CODIGO_GRUPO_INVALIDO` | BUSINESS_ERROR | MEDIO | El código del grupo debe ser un número entero mayor que cero. | Regla DEC-073: @codigo nulo, cero o negativo ({}). | `64_dec073_validaciones.sql` |
 | `ERR_CODIGO_VERIFICACION_REQUERIDO` | VALIDATION_ERROR | BAJO | El código de verificación es obligatorio. | Backend (VALIDATION_ERROR, AsistenciaErrorCode): El codigo de verificacion es obligatorio. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_CONFIGURACION_PLAZO_JUSTIFICACION` | TECHNICAL_ERROR | ALTO | No es posible validar el plazo de justificación en este momento. Intente más tarde. | Backend (TECHNICAL, AsistenciaErrorCode): Faltan ASISTENCIA/DIAS_LIMITE_JUSTIFICACION o TIEMPO/ZONA_HORARIA_SQLSERVER (REV_025). | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_CORRELACION_REQUERIDA` | BUSINESS_ERROR | ALTO | El codigo de correlacion es requerido. | Error: idCorrelacion no esta presente o es invalido. | `04_mensaje.sql` |
@@ -275,6 +277,7 @@ Total de códigos: **492**.
 | `ERR_RECLAMO_TOMA_DUPLICADO` | BUSINESS_ERROR | MEDIO | Ya existe un reclamo para esta toma. | Backend (CONFLICT, AsistenciaErrorCode): Ya existe un reclamo para esta toma. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_RECLAMO_YA_RESUELTO` | BUSINESS_ERROR | MEDIO | El reclamo ya fue resuelto con una decisión distinta. | Backend (CONFLICT, AsistenciaErrorCode): El reclamo ya fue resuelto con una decision distinta. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_REGISTROS_ASISTENCIA_REQUERIDOS` | VALIDATION_ERROR | BAJO | Los registros de asistencia son obligatorios. | Backend (VALIDATION_ERROR, AsistenciaErrorCode): Los registros de asistencia son obligatorios. | `63_val_mensajes_err_pendientes.sql` |
+| `ERR_RESPUESTA_RECLAMO_LONGITUD_INVALIDA` | BUSINESS_ERROR | MEDIO | Al rechazar, la respuesta es obligatoria ({} a {} caracteres); al aprobar es opcional (máx. {}). | Regla DEC-073: respuestaDocente fuera de RECLAMO/RESPUESTA_RECHAZO_LONGITUD_MINIMA ({}) .. RESPUESTA_LONGITUD_MAXIMA ({}). | `64_dec073_validaciones.sql` |
 | `ERR_RESULTADO_APROBACION_INVALIDO` | VALIDATION_ERROR | BAJO | El resultado de la aprobación debe ser PRESENTE o JUSTIFICADA. | Backend (VALIDATION_ERROR, AsistenciaErrorCode): El resultado de la aprobacion debe ser PRESENTE o JUSTIFICADA. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_SESION_ASISTENCIA_REQUERIDA` | VALIDATION_ERROR | BAJO | La sesión de asistencia es obligatoria. | Backend (VALIDATION_ERROR, AsistenciaErrorCode): La sesion de asistencia es obligatoria. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_SESION_CANCELADA` | BUSINESS_ERROR | MEDIO | La sesión fue cancelada; no admite registro de asistencia. | Backend (CONFLICT, AsistenciaErrorCode): La sesion fue cancelada; no admite registro de asistencia. | `63_val_mensajes_err_pendientes.sql` |
@@ -599,6 +602,7 @@ Total de códigos: **492**.
 | `SES_025` | BUSINESS_ERROR | MEDIO | La sesión no tiene una solicitud de aprobación. | Regla: la sesión [{}] no tiene fila en SesionSolicitud (generada o anterior a DEC-065); sin escrituras. | `60_sesiones_manuales_mensajes.sql` |
 | `SES_026` | SUCCESS | BAJO | La solicitud de sesión extraordinaria fue aprobada. | Solicitud de la sesión [{}] aprobada por el coordinador. | `60_sesiones_manuales_mensajes.sql` |
 | `SES_027` | SUCCESS | BAJO | La solicitud de sesión extraordinaria fue rechazada y la sesión quedó cancelada. | Solicitud de la sesión [{}] rechazada por el coordinador; la sesión quedó cancelada (tipo manual). | `60_sesiones_manuales_mensajes.sql` |
+| `SES_028` | BUSINESS_ERROR | MEDIO | La sesión debe terminar el mismo día en que empieza; no puede pasar de la medianoche. | Regla DEC-072: fechaHoraInicio y fechaHoraFin caen en dias distintos en la zona {}. | `64_dec073_validaciones.sql` |
 
 ## SUC
 
@@ -740,4 +744,5 @@ Total de códigos: **492**.
 | `VCE_005` | BUSINESS_ERROR | BAJO | El correo de este estudiante ya fue verificado. | Estado: Usuario.correoConfirmado ya es 1. | `27_mensajes_ident001.sql` |
 | `VCE_006` | SUCCESS | BAJO | Su correo fue verificado. Ya puede iniciar sesión. | Token consumido y Usuario.correoConfirmado = 1. | `27_mensajes_ident001.sql` |
 | `VCE_007` | BUSINESS_ERROR | MEDIO | El usuario no existe o no está activo. | Existencia: no hay dbo.Usuario activo con el id indicado. | `27_mensajes_ident001.sql` |
+| `VCE_008` | BUSINESS_ERROR | MEDIO | El correo debe ser institucional y terminar en {}. | Regla DEC-073: el correo de personal nuevo no cumple REGISTRO/DOMINIO_CORREO_ESTUDIANTE ({}). | `64_dec073_validaciones.sql` |
 

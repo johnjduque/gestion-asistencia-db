@@ -45,6 +45,10 @@ AS
     DECLARE @idUsuarioEjecutorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @accionDefecto            NVARCHAR(20)     = UPPER(TRIM(@accion));
     DECLARE @respuestaDefecto         NVARCHAR(MAX)    = TRIM(@respuestaDocente);
+    -- DEC-073: limites de la respuesta del docente (RECLAMO/RESPUESTA_*); al rechazar es obligatoria.
+    DECLARE @respuestaRechazoMinimo   INT = dbo.ufn_obtener_parametro_int(NULL, 'RECLAMO', 'RESPUESTA_RECHAZO_LONGITUD_MINIMA');
+    DECLARE @respuestaMaximo          INT = dbo.ufn_obtener_parametro_int(NULL, 'RECLAMO', 'RESPUESTA_LONGITUD_MAXIMA');
+    DECLARE @respuestaLongitud        INT = ISNULL(LEN(TRIM(@respuestaDocente)), 0);
 
     DECLARE @docenteTitularGrupo   UNIQUEIDENTIFIER;
     DECLARE @idAsistencia          UNIQUEIDENTIFIER;
@@ -124,6 +128,25 @@ BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'REV_028',
                 @p_param1 = @codigoResultadoAprobacion,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
+        -- PASO 1.8 (DEC-073): la respuesta (sin espacios laterales) no supera RESPUESTA_LONGITUD_MAXIMA y, al rechazar, tiene
+        --          al menos RESPUESTA_RECHAZO_LONGITUD_MINIMA caracteres. Limites ausentes: fail-closed (se rechaza).
+        IF @estadoResultado = 1
+           AND (@respuestaRechazoMinimo IS NULL OR @respuestaMaximo IS NULL
+                OR @respuestaLongitud > @respuestaMaximo
+                OR (@accionDefecto = N'RECHAZADA' AND @respuestaLongitud < @respuestaRechazoMinimo))
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'ERR_RESPUESTA_RECLAMO_LONGITUD_INVALIDA',
+                @p_param1 = @respuestaRechazoMinimo,
+                @p_param2 = @respuestaMaximo,
+                @p_param3 = @respuestaMaximo,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 

@@ -72,8 +72,10 @@ BEGIN TRY
         estadoResultado BIT NOT NULL
     );
     DECLARE @sessionCorr UNIQUEIDENTIFIER = NEWID();
-    DECLARE @sessionStart DATETIME2 = DATEADD(HOUR, 1, SYSUTCDATETIME());
-    DECLARE @sessionEnd DATETIME2 = DATEADD(HOUR, 2, SYSUTCDATETIME());
+    -- DEC-072: la sesion empieza y termina el mismo dia local; las horas se anclan a las 05:00 locales de un dia futuro (franja sin clases)
+    -- (no a la hora de ejecucion, que entre las 23:00 y la medianoche cruzaria el dia).
+    DECLARE @sessionStart DATETIME2 = CAST(DATEADD(HOUR, 5, CAST(CAST(DATEADD(DAY, 2, SYSUTCDATETIME()) AS DATE) AS DATETIME2)) AT TIME ZONE CONVERT(SYSNAME, dbo.ufn_obtener_parametro('TIEMPO', 'ZONA_HORARIA_SQLSERVER')) AT TIME ZONE 'UTC' AS DATETIME2);
+    DECLARE @sessionEnd DATETIME2 = DATEADD(HOUR, 1, @sessionStart);
     INSERT INTO #sessionOnFullGroup
     EXEC dbo.usp_crear_sesion
         @idGrupo = @fullGroup, @nombre = N'Sesion QA Grupo Lleno',
