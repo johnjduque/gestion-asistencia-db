@@ -750,6 +750,21 @@ try {
 catch {
     $resultFailures += "VAL_F1212_RUNNER $($_.Exception.Message)"
 }
+# VAL-migrar-detectar: -Modo Detectar y -Modo Baseline -SoloDetectadas sobre BD temporales propias (despliegue limpio y estado 16)
+# en test/test_val_migrar_detectar.ps1. Necesita la historia de develop (commit 8f18b76) para el estado 16.
+$valMdetIds = @('VAL_MDET_01_MARCADORES_COMPLETOS', 'VAL_MDET_02_DESPLIEGUE_LIMPIO_TODAS', 'VAL_MDET_03_ESTADO_16_CLASIFICA', 'VAL_MDET_04_PARCIAL_BLOQUEA',
+    'VAL_MDET_05_SOLO_DETECTADAS_REGISTRA', 'VAL_MDET_06_APLICAR_EN_ORDEN', 'VAL_MDET_07_TRAS_APLICAR_TODAS', 'VAL_MDET_08_REAPLICAR_PARCIALES')
+try {
+    $valMdetOutput = @(& (Join-Path $PSScriptRoot 'test/test_val_migrar_detectar.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $valMdetOutput) { Write-Host $line }
+    foreach ($id in $valMdetIds) {
+        if ($valMdetOutput -contains "TEST_PASS:$id") { $clientPassed += $id }
+        else { $resultFailures += "$id not reported by test_val_migrar_detectar.ps1" }
+    }
+}
+catch {
+    $resultFailures += "VAL_MDET_RUNNER $($_.Exception.Message)"
+}
 # CULM-001 B.2 (B2-CON-01, NB-4): 5 grupos x 40 estudiantes por token a la vez; solo bajo demanda (-Concurrencia).
 if ($Concurrencia) {
     try {
@@ -936,6 +951,9 @@ $criticalIds = @(
     'VAL_OBS03_04_NUCLEOS_SIN_EXECUTE_Y_CON_LLAMADOR', 'VAL_OBS03_TRANCOUNT_ZERO',
     'VAL_F1212_01_ESTADO_SOLO_LECTURA', 'VAL_F1212_02_APLICA_Y_REGISTRA', 'VAL_F1212_03_SALTA_APLICADAS', 'VAL_F1212_04_FALLA_NO_REGISTRA',
     'VAL_F1212_05_DERIVA_DETIENE', 'VAL_F1212_06_BASELINE_SIN_EJECUTAR', 'VAL_F1212_07_INVENTARIO_REAL',
+    # VAL-migrar-detectar (test/test_val_migrar_detectar.ps1): deteccion de migraciones por marcadores y registro de solo detectadas
+    'VAL_MDET_01_MARCADORES_COMPLETOS', 'VAL_MDET_02_DESPLIEGUE_LIMPIO_TODAS', 'VAL_MDET_03_ESTADO_16_CLASIFICA', 'VAL_MDET_04_PARCIAL_BLOQUEA',
+    'VAL_MDET_05_SOLO_DETECTADAS_REGISTRA', 'VAL_MDET_06_APLICAR_EN_ORDEN', 'VAL_MDET_07_TRAS_APLICAR_TODAS', 'VAL_MDET_08_REAPLICAR_PARCIALES',
     'PLAN_PUBLIC_METADATA', 'PLAN_PUBLIC_CREATE', 'PLAN_PUBLIC_VIEW_CONSISTENT', 'PLAN_PUBLIC_IDEMPOTENT', 'PLAN_PUBLIC_UPDATE',
     'PLAN_PUBLIC_TWO_ACTORS', 'PLAN_PUBLIC_EXECUTOR_REQUIRED', 'PLAN_PUBLIC_RBAC', 'PLAN_PUBLIC_FOREIGN_PROGRAM_SCOPE',
     'PLAN_PUBLIC_INVALID_INPUT', 'PLAN_PUBLIC_DUPLICATE_BUSINESS_KEY', 'PLAN_PUBLIC_UPDATE_TO_TAKEN_INP', 'PLAN_PUBLIC_FOREIGN_PLAN',
