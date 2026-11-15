@@ -357,6 +357,9 @@
       { "tabla": "dbo.JerarquiaAltaUsuario", "existe": false },
       { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'CARGA_MASIVA'", "existe": false },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo LIKE 'CMA[_]___'", "existe": false }
+    ],
+    "45_int003_sincronizar_mensajes": [
+      { "objeto": "dbo.usp_sincronizar_mensaje_usuario" }
     ]
   }
 }
