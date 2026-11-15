@@ -1,0 +1,809 @@
+{
+ "version": 1,
+ "usuarios": [
+  {
+   "username": "uco-administrador",
+   "email": "admin.institucional@uco.edu.co",
+   "firstName": "Gabriel Esteban",
+   "lastName": "Vélez Uribe",
+   "idUsuario": "e1f2a3b4-0000-0000-0000-000000000000",
+   "roles": [
+    "ADMINISTRADOR"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "uco-decano",
+   "email": "decano.ingenieria@uco.edu.co",
+   "firstName": "Jorge Iván",
+   "lastName": "Restrepo Gil",
+   "idUsuario": "e1f2a3b4-0000-0000-0000-000000000001",
+   "roles": [
+    "DECANO"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "luz.cardona",
+   "email": "luz.cardona@uco.edu.co",
+   "firstName": "Luz Marina",
+   "lastName": "Cardona Ríos",
+   "idUsuario": "dfb93b48-2883-5769-9580-7591b40f8380",
+   "roles": [
+    "DECANO"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "hernan.valencia",
+   "email": "hernan.valencia@uco.edu.co",
+   "firstName": "Hernán Darío",
+   "lastName": "Valencia Mejía",
+   "idUsuario": "6473713c-0b93-50f7-b99f-a6c2e0096492",
+   "roles": [
+    "DECANO"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "paula.zuluaga",
+   "email": "paula.zuluaga@uco.edu.co",
+   "firstName": "Paula Andrea",
+   "lastName": "Zuluaga Henao",
+   "idUsuario": "cc5a139a-7ec1-510c-95b9-c9ca2b4f85f7",
+   "roles": [
+    "DECANO"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "andres.ospina",
+   "email": "andres.ospina@uco.edu.co",
+   "firstName": "Andrés Felipe",
+   "lastName": "Ospina Arango",
+   "idUsuario": "b67782d9-9b72-5408-90c0-2398e9a0060f",
+   "roles": [
+    "DECANO"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "uco-coordinador",
+   "email": "coordinador.sistemas@uco.edu.co",
+   "firstName": "Natalia",
+   "lastName": "Gómez Arbeláez",
+   "idUsuario": "e1f2a3b4-0000-0000-0000-000000000002",
+   "roles": [
+    "COORDINADOR"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "carlos.jaramillo",
+   "email": "carlos.jaramillo@uco.edu.co",
+   "firstName": "Carlos Mario",
+   "lastName": "Jaramillo Duque",
+   "idUsuario": "e797ff82-9b59-5e55-9588-f2e01c4e734f",
+   "roles": [
+    "COORDINADOR"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "diana.londono",
+   "email": "diana.londono@uco.edu.co",
+   "firstName": "Diana Marcela",
+   "lastName": "Londoño Vélez",
+   "idUsuario": "7530b035-ec7a-59b3-b944-d827ef3cd5d2",
+   "roles": [
+    "COORDINADOR",
+    "DOCENTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "juan.henao",
+   "email": "juan.henao@uco.edu.co",
+   "firstName": "Juan Pablo",
+   "lastName": "Henao Correa",
+   "idUsuario": "83365ed9-c7f8-5477-bdf3-9a3cfaa6e77d",
+   "roles": [
+    "COORDINADOR"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "sandra.ocampo",
+   "email": "sandra.ocampo@uco.edu.co",
+   "firstName": "Sandra Milena",
+   "lastName": "Ocampo Giraldo",
+   "idUsuario": "749913bf-2ab6-529a-bb21-489b4635d4d6",
+   "roles": [
+    "COORDINADOR"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "ricardo.betancur",
+   "email": "ricardo.betancur@uco.edu.co",
+   "firstName": "Ricardo Alonso",
+   "lastName": "Betancur Salazar",
+   "idUsuario": "25f221ef-99c0-520c-a0d1-72389e4426af",
+   "roles": [
+    "COORDINADOR"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "lina.agudelo",
+   "email": "lina.agudelo@uco.edu.co",
+   "firstName": "Lina María",
+   "lastName": "Agudelo Franco",
+   "idUsuario": "df12bd2a-4089-5686-933c-d66ec0de4100",
+   "roles": [
+    "COORDINADOR"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "mauricio.quintero",
+   "email": "mauricio.quintero@uco.edu.co",
+   "firstName": "Mauricio Alejandro",
+   "lastName": "Quintero Ramírez",
+   "idUsuario": "e460bca4-f2f0-5c02-a84a-3a86e7095176",
+   "roles": [
+    "COORDINADOR"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "claudia.montoya",
+   "email": "claudia.montoya@uco.edu.co",
+   "firstName": "Claudia Patricia",
+   "lastName": "Montoya Echeverri",
+   "idUsuario": "417a7ebd-c11c-55d7-88d9-321ad8376112",
+   "roles": [
+    "COORDINADOR"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "esteban.rendon",
+   "email": "esteban.rendon@uco.edu.co",
+   "firstName": "Esteban",
+   "lastName": "Rendón Castaño",
+   "idUsuario": "f54ec5eb-9cf0-50ca-95ba-5b5cb4e65815",
+   "roles": [
+    "COORDINADOR"
+   ],
+   "enabled": false
+  },
+  {
+   "username": "uco-docente",
+   "email": "maria.rostagno@uco.edu.co",
+   "firstName": "María Elena",
+   "lastName": "Rostagno Valencia",
+   "idUsuario": "e1f2a3b4-0000-0000-0000-000000000003",
+   "roles": [
+    "DOCENTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "felipe.castano",
+   "email": "felipe.castano@uco.edu.co",
+   "firstName": "Felipe Andrés",
+   "lastName": "Castaño Ruiz",
+   "idUsuario": "9949011e-05a6-572d-9f4c-74989a28f1bc",
+   "roles": [
+    "DOCENTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "gloria.marin",
+   "email": "gloria.marin@uco.edu.co",
+   "firstName": "Gloria Inés",
+   "lastName": "Marín Sánchez",
+   "idUsuario": "75937ed4-6991-525f-a4b6-9d2bdff899af",
+   "roles": [
+    "DOCENTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "sebastian.toro",
+   "email": "sebastian.toro@uco.edu.co",
+   "firstName": "Sebastián",
+   "lastName": "Toro Alzate",
+   "idUsuario": "35c7b494-4e83-505e-984e-fcfe136b2736",
+   "roles": [
+    "DOCENTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "adriana.vargas",
+   "email": "adriana.vargas@uco.edu.co",
+   "firstName": "Adriana Lucía",
+   "lastName": "Vargas Botero",
+   "idUsuario": "ed082cad-a9b7-5613-9a29-68fe45632737",
+   "roles": [
+    "DOCENTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "oscar.patino",
+   "email": "oscar.patino@uco.edu.co",
+   "firstName": "Óscar Eduardo",
+   "lastName": "Patiño Mesa",
+   "idUsuario": "3b7a42bd-2680-52c0-ba9a-9a2c8bef4db6",
+   "roles": [
+    "DOCENTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "beatriz.arango",
+   "email": "beatriz.arango@uco.edu.co",
+   "firstName": "Beatriz Elena",
+   "lastName": "Arango Pineda",
+   "idUsuario": "60619138-0a1d-57a5-86a5-352db8bb007b",
+   "roles": [
+    "DOCENTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "hugo.serna",
+   "email": "hugo.serna@uco.edu.co",
+   "firstName": "Hugo Alberto",
+   "lastName": "Serna López",
+   "idUsuario": "0e4302b0-657f-54a0-95e3-65343e55b5d0",
+   "roles": [
+    "DOCENTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "monica.ruiz",
+   "email": "monica.ruiz@uco.edu.co",
+   "firstName": "Mónica Isabel",
+   "lastName": "Ruiz Tobón",
+   "idUsuario": "013fe30e-891d-5f29-b7a3-6f33f58e8cd8",
+   "roles": [
+    "DOCENTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "camilo.bedoya",
+   "email": "camilo.bedoya@uco.edu.co",
+   "firstName": "Camilo Andrés",
+   "lastName": "Bedoya Muñoz",
+   "idUsuario": "1b0bcdd8-02a9-5606-9498-5a6afa279f4f",
+   "roles": [
+    "DOCENTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "teresa.gallego",
+   "email": "teresa.gallego@uco.edu.co",
+   "firstName": "Teresa de Jesús",
+   "lastName": "Gallego Orozco",
+   "idUsuario": "fa0fee79-4e63-57c1-ad8f-f0c106b345fc",
+   "roles": [
+    "DOCENTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "alejandro.cardenas",
+   "email": "alejandro.cardenas@uco.edu.co",
+   "firstName": "Alejandro José",
+   "lastName": "Cárdenas Villa",
+   "idUsuario": "d89fa6cf-900c-528f-9dd8-5acfb1027e65",
+   "roles": [
+    "DOCENTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "julian.hoyos",
+   "email": "julian.hoyos@uco.edu.co",
+   "firstName": "Julián David",
+   "lastName": "Hoyos Montes",
+   "idUsuario": "d42ff4c7-5f17-535c-8ba7-aaad2d93cdad",
+   "roles": [
+    "DOCENTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "liliana.mejia",
+   "email": "liliana.mejia@uco.edu.co",
+   "firstName": "Liliana Patricia",
+   "lastName": "Mejía Osorio",
+   "idUsuario": "f2e77ca5-432d-51c9-892f-a00d80c6f05a",
+   "roles": [
+    "DOCENTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "fernando.rios",
+   "email": "fernando.rios@uco.edu.co",
+   "firstName": "Fernando León",
+   "lastName": "Ríos Cifuentes",
+   "idUsuario": "5b2719c4-32c2-53f5-9122-1aedfe60fea9",
+   "roles": [
+    "DOCENTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "uco-estudiante",
+   "email": "carlos.zapata@uco.edu.co",
+   "firstName": "Carlos Andrés",
+   "lastName": "Zapata Gómez",
+   "idUsuario": "e1f2a3b4-0000-0000-0000-000000000004",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "ana.gomez",
+   "email": "ana.gomez@uco.edu.co",
+   "firstName": "Ana Sofía",
+   "lastName": "Gómez Ríos",
+   "idUsuario": "e1f2a3b4-0000-0000-0000-000000000005",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "santiago.restrepo",
+   "email": "santiago.restrepo@uco.edu.co",
+   "firstName": "Santiago Alejandro",
+   "lastName": "Restrepo Mora",
+   "idUsuario": "7c4a6254-075f-5aa5-8a23-e03423ec8f0f",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "valentina.isaza",
+   "email": "valentina.isaza@uco.edu.co",
+   "firstName": "Valentina",
+   "lastName": "Isaza Cárdenas",
+   "idUsuario": "bb62be6d-257e-538e-810f-cbc99d79c312",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "mateo.giraldo",
+   "email": "mateo.giraldo@uco.edu.co",
+   "firstName": "Mateo",
+   "lastName": "Giraldo Herrera",
+   "idUsuario": "6b220fbd-67c9-5e6d-bd0c-ef7b87973604",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "isabella.montoya",
+   "email": "isabella.montoya@uco.edu.co",
+   "firstName": "Isabella",
+   "lastName": "Montoya Salazar",
+   "idUsuario": "43ef808b-0b8d-53de-a1eb-1f66bdd11f9a",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "samuel.ochoa",
+   "email": "samuel.ochoa@uco.edu.co",
+   "firstName": "Samuel David",
+   "lastName": "Ochoa Pérez",
+   "idUsuario": "686c6b4a-8f4b-5468-911f-11f2e75d75dd",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "mariana.echeverri",
+   "email": "mariana.echeverri@uco.edu.co",
+   "firstName": "Mariana",
+   "lastName": "Echeverri Gil",
+   "idUsuario": "07ee46d8-7db1-5f23-bb1d-e1e3ea8c8b17",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "tomas.arango",
+   "email": "tomas.arango@uco.edu.co",
+   "firstName": "Tomás",
+   "lastName": "Arango Duque",
+   "idUsuario": "303bcd11-165f-5883-901d-5622b6b5771c",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "sara.henao",
+   "email": "sara.henao@uco.edu.co",
+   "firstName": "Sara Lucía",
+   "lastName": "Henao Vélez",
+   "idUsuario": "7c31671b-39e1-5b26-bc56-69ee6f1d738a",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "jeronimo.castano",
+   "email": "jeronimo.castano@uco.edu.co",
+   "firstName": "Jerónimo",
+   "lastName": "Castaño Muñoz",
+   "idUsuario": "bfc4d2c9-21f5-5454-aa94-db07d0e9a030",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "laura.cardona",
+   "email": "laura.cardona@uco.edu.co",
+   "firstName": "Laura Daniela",
+   "lastName": "Cardona Rendón",
+   "idUsuario": "aeaa8730-f7c0-54cc-9478-a793bca46a08",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "emilio.bedoya",
+   "email": "emilio.bedoya@uco.edu.co",
+   "firstName": "Emilio José",
+   "lastName": "Bedoya Zapata",
+   "idUsuario": "3324f72a-835e-5ad2-a324-49c8fd30bea4",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "antonia.marin",
+   "email": "antonia.marin@uco.edu.co",
+   "firstName": "Antonia",
+   "lastName": "Marín Rúa",
+   "idUsuario": "49b3b436-7e0d-5e7c-9714-50b4bf4ec552",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "juan.correa",
+   "email": "juan.correa@uco.edu.co",
+   "firstName": "Juan José",
+   "lastName": "Correa Patiño",
+   "idUsuario": "f1464179-73ab-5e73-a153-5fb1297000f8",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "daniela.rios",
+   "email": "daniela.rios@uco.edu.co",
+   "firstName": "Daniela Alejandra",
+   "lastName": "Ríos Gaviria",
+   "idUsuario": "9bbc2ef4-7b85-54fc-94ac-db277a096da2",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "kevin.londono",
+   "email": "kevin.londono@uco.edu.co",
+   "firstName": "Kevin Andrés",
+   "lastName": "Londoño Ruiz",
+   "idUsuario": "27151d52-1b2f-59cf-9089-afaf2a341cf6",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "manuela.sierra",
+   "email": "manuela.sierra@uco.edu.co",
+   "firstName": "Manuela",
+   "lastName": "Sierra Ospina",
+   "idUsuario": "ee3d2eaa-ea44-511c-9963-e73eb2d0ef75",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "cristian.valencia",
+   "email": "cristian.valencia@uco.edu.co",
+   "firstName": "Cristian Camilo",
+   "lastName": "Valencia Ríos",
+   "idUsuario": "c41fa226-3a82-5d90-8ebf-849caf81601a",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "yuliana.mesa",
+   "email": "yuliana.mesa@uco.edu.co",
+   "firstName": "Yuliana",
+   "lastName": "Mesa Cano",
+   "idUsuario": "eb2a3921-4875-52ac-8763-7b9f3a41273c",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "sofia.ramirez",
+   "email": "sofia.ramirez@uco.edu.co",
+   "firstName": "Sofía",
+   "lastName": "Ramírez Botero",
+   "idUsuario": "b6a51196-5ede-5df4-9a83-45ce23c63a25",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "nicolas.gutierrez",
+   "email": "nicolas.gutierrez@uco.edu.co",
+   "firstName": "Nicolás",
+   "lastName": "Gutiérrez Álvarez",
+   "idUsuario": "16221b0f-9e78-5ed8-b2c7-d4f42b667063",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "gabriela.hoyos",
+   "email": "gabriela.hoyos@uco.edu.co",
+   "firstName": "Gabriela",
+   "lastName": "Hoyos Franco",
+   "idUsuario": "b441dd6a-5672-5f6f-ba45-a900dc975db3",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "alejandro.pineda",
+   "email": "alejandro.pineda@uco.edu.co",
+   "firstName": "Alejandro",
+   "lastName": "Pineda Serna",
+   "idUsuario": "ff985e15-695c-5a73-b5c5-0c3779ea65af",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "camila.villa",
+   "email": "camila.villa@uco.edu.co",
+   "firstName": "Camila Andrea",
+   "lastName": "Villa Restrepo",
+   "idUsuario": "e555f767-5440-57de-89e8-bbc83298db6f",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "david.orozco",
+   "email": "david.orozco@uco.edu.co",
+   "firstName": "David Esteban",
+   "lastName": "Orozco Toro",
+   "idUsuario": "c0ab402d-5787-57ff-8230-da78d81e1800",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "luisa.zuluaga",
+   "email": "luisa.zuluaga@uco.edu.co",
+   "firstName": "Luisa Fernanda",
+   "lastName": "Zuluaga Mejía",
+   "idUsuario": "f76930f7-37cd-57c6-a190-e02cfa9cf247",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "brayan.munoz",
+   "email": "brayan.munoz@uco.edu.co",
+   "firstName": "Brayan Stiven",
+   "lastName": "Muñoz Arias",
+   "idUsuario": "6b59ab09-3399-51b0-b5d4-2caec520ae14",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "catalina.ospina",
+   "email": "catalina.ospina@uco.edu.co",
+   "firstName": "Catalina",
+   "lastName": "Ospina Jaramillo",
+   "idUsuario": "69573039-f81e-57ee-a7e5-6d06f04719ae",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "juan.ruiz",
+   "email": "juan.ruiz@uco.edu.co",
+   "firstName": "Juan Esteban",
+   "lastName": "Ruiz Cardona",
+   "idUsuario": "e29d350b-79e2-57f5-860c-0ad7648dc2ec",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "melissa.gallo",
+   "email": "melissa.gallo@uco.edu.co",
+   "firstName": "Melissa",
+   "lastName": "Gallo Henao",
+   "idUsuario": "12170456-738d-5fb8-b31b-27af7d50bd14",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "sebastian.rincon",
+   "email": "sebastian.rincon@uco.edu.co",
+   "firstName": "Sebastián Darío",
+   "lastName": "Rincón Vargas",
+   "idUsuario": "2625db46-ba62-55b4-b0ed-6d1de326f013",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "valeria.agudelo",
+   "email": "valeria.agudelo@uco.edu.co",
+   "firstName": "Valeria",
+   "lastName": "Agudelo Restrepo",
+   "idUsuario": "865596e9-2cc2-536b-bab7-1c1687526ac3",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "martin.franco",
+   "email": "martin.franco@uco.edu.co",
+   "firstName": "Martín Elías",
+   "lastName": "Franco Gil",
+   "idUsuario": "8d9fec6e-b604-5d8c-98c2-f2cb798153b3",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "juliana.arbelaez",
+   "email": "juliana.arbelaez@uco.edu.co",
+   "firstName": "Juliana",
+   "lastName": "Arbeláez Posada",
+   "idUsuario": "2620b2eb-0e91-532e-bf5e-6556a10f8c9d",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "simon.perez",
+   "email": "simon.perez@uco.edu.co",
+   "firstName": "Simón Darío",
+   "lastName": "Pérez Lozano",
+   "idUsuario": "6e822d46-e33c-50c1-b67b-47b17ec775e7",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "alejandra.velez",
+   "email": "alejandra.velez@uco.edu.co",
+   "firstName": "Alejandra",
+   "lastName": "Vélez Marín",
+   "idUsuario": "cd165505-b392-5f3c-ad10-4f89301c3c11",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "miguel.rojas",
+   "email": "miguel.rojas@uco.edu.co",
+   "firstName": "Miguel Ángel",
+   "lastName": "Rojas Castaño",
+   "idUsuario": "f2df4e0e-09bf-56a2-bb77-32000fadd3f6",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "jhon.salazar",
+   "email": "jhon.salazar@uco.edu.co",
+   "firstName": "Jhon Fredy",
+   "lastName": "Salazar Ocampo",
+   "idUsuario": "ba07b949-4c38-5b86-8166-197f2f53a0f6",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "marcela.duque",
+   "email": "marcela.duque@uco.edu.co",
+   "firstName": "Marcela Patricia",
+   "lastName": "Duque Arango",
+   "idUsuario": "a1eab669-37ee-57e6-a6e7-c5577c9ac6b9",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "hernando.cifuentes",
+   "email": "hernando.cifuentes@uco.edu.co",
+   "firstName": "Hernando José",
+   "lastName": "Cifuentes Mora",
+   "idUsuario": "29b43e02-e177-56ec-bd9b-bbef1ff5fbc3",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  },
+  {
+   "username": "lorena.taborda",
+   "email": "lorena.taborda@uco.edu.co",
+   "firstName": "Lorena Isabel",
+   "lastName": "Taborda Ríos",
+   "idUsuario": "03e56db9-a158-587f-9617-a142ea7fd2ef",
+   "roles": [
+    "ESTUDIANTE"
+   ],
+   "enabled": true
+  }
+ ]
+}
