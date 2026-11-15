@@ -171,6 +171,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_dec073_validaciones.sql
 -- DEC-074 (retiro de la carga masiva, migracion 44): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_dec074_retiro_carga_masiva.sql
+-- INT-003 (sincronizacion de mensajes desde MessageUcoLab, migracion 45): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_int003_sincronizar_mensaje.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN
