@@ -100,7 +100,8 @@ FACULTADES = [  # (clave, id, nombre)
     ("F-SAL", None, "Facultad de Ciencias de la Salud"),
 ]
 PROGRAMAS = [  # (clave, id, facultad, tipo, nombre, coordinador, modalidad, jornada, semestres, planId)
-    ("P-SIS", "B2C3D4E5-0000-0000-0000-000000000001", "F-ING", "PRE", "Ingeniería de Sistemas", "C-SIS", "PRE", "DIU", 10,
+    # Plan 2024 de 9 semestres (el plan 2018 inactivo tenia 10): deja cupo para probar "anadir semestre" (el catalogo llega a S10).
+    ("P-SIS", "B2C3D4E5-0000-0000-0000-000000000001", "F-ING", "PRE", "Ingeniería de Sistemas", "C-SIS", "PRE", "DIU", 9,
      "C2D3E4F5-0000-0000-0000-000000000001"),
     ("P-IND", None, "F-ING", "PRE", "Ingeniería Industrial", "C-IND", "PRE", "DIU", 10, None),
     ("P-TDS", None, "F-ING", "PRE", "Tecnología en Desarrollo de Software", "C-TDS", "PRE", "NOC", 6, None),
@@ -464,6 +465,8 @@ def main():
             sid = SPE_ID.get((p[0], s)) or gid("semestre", f"{p[0]}-{s}")
             spe[(p[0], s)] = sid
             srows.append([g(sid), g(plan_id[p[0]]), q(f"S{s}")])
+    for s in range(1, 11):  # el plan 2018 (inactivo) conserva su estructura de 10 semestres, como un plan real reemplazado
+        srows.append([g(gid("semestre", f"P-SIS-2018-{s}")), g(gid("plan", "P-SIS-2018")), q(f"S{s}")])
     w("INSERT INTO dbo.SemestrePlanEstudio (id, planEstudio, semestre)\nSELECT v.id, v.planEstudio, se.id\nFROM (VALUES\n" +
       values(srows) + "\n) AS v (id, planEstudio, semestre)\nJOIN dbo.Semestre se ON se.codigo = v.semestre\n"
       "WHERE NOT EXISTS (SELECT 1 FROM dbo.SemestrePlanEstudio t WHERE t.id = v.id);\n\n")
@@ -552,6 +555,12 @@ def main():
           "    INSERT INTO dbo.CargaDiaFestivo (id, anio, fuente, totalFestivos, festivosInsertados, festivosActualizados, "
           "festivosDesactivados, diferenciasCalculoLocal, usuarioEjecutor, fechaCargaUtc, idCorrelacion)\n"
           "    VALUES (NEWID(), %s, N'CALENDARIOS_NACIONALES', %d, %d, 0, 0, 0, NULL, SYSUTCDATETIME(), NEWID());\n" % (anio, anio, tot, tot))
+    # Red del campus del LABORATORIO: con el backend en contenedor, las peticiones del navegador o de las pruebas llegan desde
+    # la puerta de enlace de la red de Docker (p. ej. 192.168.80.1), no desde 127.0.0.1. Se agregan los rangos privados que usa
+    # Docker (y la LAN de la casa, para probar el QR desde un celular). Solo para pruebas locales; en otro ambiente el
+    # administrador lo define en Parametros (RED/CIDRS_CAMPUS) o en el Catalogo de Parametros.
+    w("\nUPDATE dbo.CatalogoParametro SET valor = N'127.0.0.1/32,::1/128,172.16.0.0/12,192.168.0.0/16'\n"
+      "WHERE grupo = N'RED' AND clave = N'CIDRS_CAMPUS';\n")
     w("\nCOMMIT TRANSACTION;\nPRINT N'01_estructura: OK';\n")
     open(os.path.join(HERE, "01_estructura.sql"), "w", encoding="utf-8").write("".join(out))
 
