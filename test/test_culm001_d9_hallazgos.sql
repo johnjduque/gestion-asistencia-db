@@ -44,12 +44,14 @@ SELECT TOP 1 @uDecano = d.usuario, @facultad = f.id, @docDecano = u.numeroIdenti
 FROM dbo.Facultad f INNER JOIN dbo.Decano d ON d.id = f.decano INNER JOIN dbo.Usuario u ON u.id = d.usuario
 WHERE f.institucion = @inst AND d.estado = 1 ORDER BY f.id;
 DECLARE @grupo UNIQUEIDENTIFIER = CAST('A1B2C3D4-E5F6-7A8B-9C0D-1E2F3A4B5C6D' AS UNIQUEIDENTIFIER);
-DECLARE @grupo2 UNIQUEIDENTIFIER = CAST('A1B2C3D4-E5F6-7A8B-9C0D-1E2F3A4B5C23' AS UNIQUEIDENTIFIER);
+-- El grupo 2 de D9-CRU-01 se crea dentro de la transaccion revertida (ver ese caso): ningun seed versionado sembro
+-- nunca el id A1B2C3D4-...-5C23 que se usaba antes, por lo que la precondicion fallaba en un despliegue limpio.
+DECLARE @grupo2 UNIQUEIDENTIFIER = NEWID();
 SELECT TOP 1 @uDocente = dc.usuario FROM dbo.Grupo g INNER JOIN dbo.Docente dc ON dc.id = g.docente WHERE g.id = @grupo;
 SELECT TOP 1 @uCoord = c.usuario FROM dbo.Programa p INNER JOIN dbo.Coordinador c ON c.id = p.coordinador ORDER BY p.id;
 IF @uAdmin IS NULL OR @uDecano IS NULL OR @uDocente IS NULL OR @uCoord IS NULL
-   OR NOT EXISTS (SELECT 1 FROM dbo.Grupo WHERE id = @grupo) OR NOT EXISTS (SELECT 1 FROM dbo.Grupo WHERE id = @grupo2)
-    THROW 52901, 'TEST FAILED: CULM001_D9 faltan fixtures del seed (administrador, decano, docente, coordinador o grupos).', 1;
+   OR NOT EXISTS (SELECT 1 FROM dbo.Grupo WHERE id = @grupo)
+    THROW 52901, 'TEST FAILED: CULM001_D9 faltan fixtures del seed (administrador, decano, docente, coordinador o grupo).', 1;
 
 DECLARE @tipoCC UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.TipoIdentificacion WHERE tipoIdentificacion = 'CC');
 DECLARE @tipoCE UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.TipoIdentificacion WHERE tipoIdentificacion = 'CE');
@@ -257,6 +259,17 @@ BEGIN TRY
     -- ---------------------------------------------------------------- D9-CRU-01 el cruce solo cuenta matriculas inscritas
     -- Estudiante con matricula A en el grupo 1 e I (inactiva) en el grupo 2; ambos grupos con la misma franja de domingo.
     DECLARE @dia UNIQUEIDENTIFIER = (SELECT id FROM dbo.Dia WHERE codigo = 'DO');
+    -- Grupo 2: copia del grupo 1 (misma asignatura, periodo y docente) y matricula I de un estudiante con matricula A en el grupo 1.
+    INSERT dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron,
+                      cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)
+    SELECT @grupo2, g.asignatura, g.periodoAcademico, (SELECT MAX(codigo) + 1 FROM dbo.Grupo), N'QA D9 CRU grupo 2', 0, 0, 0, 0, g.docente
+    FROM dbo.Grupo g WHERE g.id = @grupo;
+    INSERT dbo.EstudianteGrupo (id, estado, estudiante, grupo)
+    SELECT TOP 1 NEWID(), (SELECT id FROM dbo.EstadoEstudianteGrupo WHERE codigo = 'I'), eg1.estudiante, @grupo2
+    FROM dbo.EstudianteGrupo eg1
+    INNER JOIN dbo.EstadoEstudianteGrupo e1 ON e1.id = eg1.estado AND e1.codigo = 'A'
+    WHERE eg1.grupo = @grupo
+    ORDER BY eg1.id;
     DECLARE @est UNIQUEIDENTIFIER = (SELECT eg1.estudiante FROM dbo.EstudianteGrupo eg1
                                      INNER JOIN dbo.EstadoEstudianteGrupo e1 ON e1.id = eg1.estado AND e1.codigo = 'A'
                                      INNER JOIN dbo.EstudianteGrupo eg2 ON eg2.estudiante = eg1.estudiante AND eg2.grupo = @grupo2
