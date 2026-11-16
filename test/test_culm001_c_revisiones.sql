@@ -306,9 +306,41 @@ BEGIN TRY
         @numeroPagina = 1, @tamanoPagina = 50;
     IF (SELECT COUNT(*) FROM #c1lt) <> (SELECT COUNT(*) FROM dbo.RevisionCancelacion r INNER JOIN dbo.EstudianteGrupo eg ON eg.id = r.estudianteGrupo WHERE eg.grupo = @grupoG)
        OR NOT EXISTS (SELECT 1 FROM #c1lt WHERE id = @revEA) OR NOT EXISTS (SELECT 1 FROM #c1lt WHERE id = @revEB) OR NOT EXISTS (SELECT 1 FROM #c1lt WHERE id = @rev0)
-       OR EXISTS (SELECT 1 FROM #c1lt WHERE idGrupo <> @grupoG OR idUsuarioDocenteTitular <> @uT OR esResolutorActual <> 0 OR accionesPermitidas <> N'')
+       OR EXISTS (SELECT 1 FROM #c1lt WHERE idGrupo <> @grupoG OR idUsuarioDocenteTitular <> @uT OR esResolutorActual <> 0)
        OR (SELECT MIN(totalRegistros) FROM #c1lt) <> (SELECT COUNT(*) FROM #c1lt) OR (SELECT MAX(totalRegistros) FROM #c1lt) <> (SELECT COUNT(*) FROM #c1lt)
         THROW 58231, 'TEST FAILED: C-DB-35 el docente titular ve todas las revisiones de su grupo con totalRegistros.', 1;
+    -- FIX-CIERRE-001 (decision de producto 2026-11-16): la prueba anterior exigia accionesPermitidas siempre vacio (DEC-065 (6)); la regla cambio:
+    -- el docente recibe las decisiones que el catalogo le permite en el estado actual (TransicionRevisionCancelacion con esDecisionResolutor = 0, la
+    -- misma regla de la sabana del docente) si la matricula sigue inscrita, y vacio en cualquier otro caso. esResolutorActual sigue en 0.
+    DECLARE @codInscritaFix NVARCHAR(10) = CAST(dbo.ufn_obtener_parametro('MATRICULA', 'ESTADO_INSCRITA') AS NVARCHAR(10));
+    IF EXISTS (SELECT 1 FROM #c1lt t
+               WHERE t.accionesPermitidas <> CASE WHEN t.codigoEstadoMatricula = @codInscritaFix
+                                                  THEN ISNULL((SELECT STRING_AGG(x.codigoDecision, N',') WITHIN GROUP (ORDER BY x.codigoDecision ASC)
+                                                               FROM dbo.TransicionRevisionCancelacion x WHERE x.estadoOrigen = t.idEstado AND x.esDecisionResolutor = 0), N'')
+                                                  ELSE N'' END)
+        THROW 58237, 'TEST FAILED: C-DB-35 (FIX-CIERRE-001) accionesPermitidas del docente debe salir del catalogo de transiciones del estado actual.', 1;
+    IF NOT EXISTS (SELECT 1 FROM #c1lt WHERE id = @revEB AND codigoEstado = N'PROPUESTA' AND accionesPermitidas = N'')
+        THROW 58238, 'TEST FAILED: C-DB-35 (FIX-CIERRE-001) una revision PROPUESTA no ofrece acciones al docente (espera al coordinador).', 1;
+    -- Caso positivo determinista: se fuerza (dentro de la transaccion revertida) la revision de EB a PENDIENTE_DOCENTE con matricula inscrita
+    DECLARE @estadoOrigFix UNIQUEIDENTIFIER = (SELECT estado FROM dbo.RevisionCancelacion WHERE id = @revEB);
+    DECLARE @egEBFix UNIQUEIDENTIFIER = (SELECT estudianteGrupo FROM dbo.RevisionCancelacion WHERE id = @revEB);
+    UPDATE dbo.RevisionCancelacion SET estado = (SELECT id FROM dbo.EstadoRevisionCancelacion WHERE codigo = N'PENDIENTE_DOCENTE') WHERE id = @revEB;
+    DELETE FROM #c1lt;
+    INSERT INTO #c1lt EXEC dbo.usp_consultar_revisiones_cancelacion_docente_paginado @idUsuario = @uT, @idCorrelacion = @c, @soloPendientes = 1, @idGrupo = @grupoG, @estado = NULL,
+        @numeroPagina = 1, @tamanoPagina = 50;
+    IF NOT EXISTS (SELECT 1 FROM #c1lt WHERE id = @revEB AND codigoEstado = N'PENDIENTE_DOCENTE' AND codigoEstadoMatricula = @codInscritaFix
+                   AND accionesPermitidas = N'MANTENER,PROPONER' AND esResolutorActual = 0)
+        THROW 58239, 'TEST FAILED: C-DB-35 (FIX-CIERRE-001) una revision PENDIENTE_DOCENTE de matricula inscrita ofrece MANTENER,PROPONER al docente.', 1;
+    -- Con la matricula no inscrita (cancelada o finalizada) no hay acciones
+    DECLARE @estMatrizOrigFix UNIQUEIDENTIFIER = (SELECT estado FROM dbo.EstudianteGrupo WHERE id = @egEBFix);
+    UPDATE dbo.EstudianteGrupo SET estado = (SELECT TOP 1 id FROM dbo.EstadoEstudianteGrupo WHERE codigo <> @codInscritaFix ORDER BY id) WHERE id = @egEBFix;
+    DELETE FROM #c1lt;
+    INSERT INTO #c1lt EXEC dbo.usp_consultar_revisiones_cancelacion_docente_paginado @idUsuario = @uT, @idCorrelacion = @c, @soloPendientes = 0, @idGrupo = @grupoG, @estado = NULL,
+        @numeroPagina = 1, @tamanoPagina = 50;
+    IF NOT EXISTS (SELECT 1 FROM #c1lt WHERE id = @revEB AND codigoEstadoMatricula <> @codInscritaFix AND accionesPermitidas = N'')
+        THROW 58240, 'TEST FAILED: C-DB-35 (FIX-CIERRE-001) con la matricula no inscrita el docente no recibe acciones.', 1;
+    UPDATE dbo.EstudianteGrupo SET estado = @estMatrizOrigFix WHERE id = @egEBFix;
+    UPDATE dbo.RevisionCancelacion SET estado = @estadoOrigFix WHERE id = @revEB;
     DELETE FROM #c1lt;
     INSERT INTO #c1lt EXEC dbo.usp_consultar_revisiones_cancelacion_docente_paginado @idUsuario = @uT, @idCorrelacion = @c, @soloPendientes = 1, @idGrupo = @grupoG, @estado = NULL,
         @numeroPagina = 1, @tamanoPagina = 50;

@@ -11,8 +11,10 @@ GO
 -- READ_QUERY_RESULTSET paginado (THROW 51000 si la validacion falla). RBAC DOCENTE. Revisiones de cancelacion por inasistencia de los
 -- grupos donde el ejecutor es docente titular (uv_revision_cancelacion), en cualquier estado: el docente sigue la propuesta y la decision
 -- del coordinador sin poder resolver. Mismas columnas que usp_consultar_revisiones_cancelacion_coordinador_paginado: uv_revision_cancelacion
--- + idPrograma, nombrePrograma, porcentajeActual, horasFaltaActual, horasDictadasActual, umbralPerdida, esResolutorActual (siempre 0),
--- accionesPermitidas (siempre vacio) y totalRegistros. @soloPendientes = revisiones que esperan la decision del docente (estado con
+-- + idPrograma, nombrePrograma, porcentajeActual, horasFaltaActual, horasDictadasActual, umbralPerdida, esResolutorActual (siempre 0:
+-- el docente nunca resuelve), accionesPermitidas (FIX-CIERRE-001: las decisiones del docente que el catalogo permite en el estado actual,
+-- TransicionRevisionCancelacion con esDecisionResolutor = 0, separadas por coma como en la sabana del docente; vacio si la matricula
+-- no esta inscrita o el estado espera al coordinador) y totalRegistros. @soloPendientes = revisiones que esperan la decision del docente (estado con
 -- requiereAccionDocente, PENDIENTE_DOCENTE). Orden: fecha de cruce (creacion) DESC. @idGrupo que no es suyo -> SEC_002;
 -- @estado inexistente -> RCN_002.
 -- ============================================================================
@@ -37,6 +39,7 @@ BEGIN
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado BIT = 1;
+    DECLARE @codigoInscrita NVARCHAR(10) = CAST(dbo.ufn_obtener_parametro('MATRICULA', 'ESTADO_INSCRITA') AS NVARCHAR(10));
     DECLARE @offset INT;
     DECLARE @p1 NVARCHAR(500), @p2 NVARCHAR(500);
 
@@ -90,9 +93,13 @@ BEGIN
         horasDictadasActual = rs.horasDictadas,
         umbralPerdida = rs.umbralPerdida,
         esResolutorActual = CAST(0 AS BIT),
-        accionesPermitidas = CAST(N'' AS NVARCHAR(200)),
+        accionesPermitidas = CAST(CASE WHEN rv.codigoEstadoMatricula = @codigoInscrita THEN ISNULL(acc.acciones, N'') ELSE N'' END AS NVARCHAR(200)),
         totalRegistros = COUNT(1) OVER()
     FROM dbo.uv_revision_cancelacion rv
+    OUTER APPLY (
+        SELECT acciones = STRING_AGG(t.codigoDecision, N',') WITHIN GROUP (ORDER BY t.codigoDecision ASC)
+        FROM dbo.TransicionRevisionCancelacion t WHERE t.estadoOrigen = rv.idEstado AND t.esDecisionResolutor = 0
+    ) acc
     OUTER APPLY (
         SELECT TOP 1 idPrograma = p.id, p.nombre
         FROM dbo.EstudiantePrograma ep
