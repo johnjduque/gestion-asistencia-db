@@ -84,7 +84,12 @@ BEGIN
             programas             = (SELECT STRING_AGG(CONVERT(NVARCHAR(MAX), x.nombrePrograma), N', ') WITHIN GROUP (ORDER BY x.nombrePrograma)
                                      FROM (SELECT DISTINCT nombrePrograma FROM matriculas WHERE id = c.id) x),
             totalGrupos           = c.totalGrupos,
-            totalRegistros        = COUNT(*) OVER()
+            totalRegistros        = COUNT(*) OVER(),
+            -- CIERRE-W1B (punto 4): nombres separados, al final para no mover las columnas previas
+            primerNombre          = u.primerNombre,
+            segundoNombre         = u.segundoNombre,
+            primerApellido        = u.primerApellido,
+            segundoApellido       = u.segundoApellido
         FROM candidatos c
         LEFT JOIN dbo.uv_usuario u ON u.id = c.idUsuario
         WHERE

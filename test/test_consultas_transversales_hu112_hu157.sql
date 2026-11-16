@@ -35,14 +35,19 @@ CREATE TABLE #programas (
 CREATE TABLE #docentes (
     idDocente UNIQUEIDENTIFIER, idUsuario UNIQUEIDENTIFIER, numeroIdentificacion BIGINT, nombreCompleto NVARCHAR(250),
     correo NVARCHAR(255), estaActivoUsuario BIT, programas NVARCHAR(MAX), totalProgramas INT, totalGrupos INT, totalRegistros INT,
-    tieneVinculoActivo BIT);
+    tieneVinculoActivo BIT,
+    -- CIERRE-W1B (punto 4): nombres separados y tipo de documento, al final del resultset.
+    primerNombre NVARCHAR(100), segundoNombre NVARCHAR(100), primerApellido NVARCHAR(100), segundoApellido NVARCHAR(100),
+    idTipoIdentificacion UNIQUEIDENTIFIER, codigoTipoIdentificacion NVARCHAR(50));
 CREATE TABLE #asignaturas (
     idAsignatura UNIQUEIDENTIFIER, codigo NVARCHAR(50), nombre NVARCHAR(50), credito INT, nombreArea NVARCHAR(100),
     nombreComponente NVARCHAR(100), planes NVARCHAR(1000), totalPlanes INT,
     estaActivaAsignatura BIT, totalRegistros INT);   -- CULM-001 B2NM (CONTRACT B2 fila 114): planes / totalPlanes
 CREATE TABLE #estudiantes (
     idEstudiante UNIQUEIDENTIFIER, idUsuario UNIQUEIDENTIFIER, numeroIdentificacion BIGINT, nombreCompleto NVARCHAR(250),
-    correo NVARCHAR(255), estaActivoUsuario BIT, facultades NVARCHAR(MAX), programas NVARCHAR(MAX), totalGrupos INT, totalRegistros INT);
+    correo NVARCHAR(255), estaActivoUsuario BIT, facultades NVARCHAR(MAX), programas NVARCHAR(MAX), totalGrupos INT, totalRegistros INT,
+    -- CIERRE-W1B (punto 4): nombres separados, al final del resultset.
+    primerNombre NVARCHAR(100), segundoNombre NVARCHAR(100), primerApellido NVARCHAR(100), segundoApellido NVARCHAR(100));
 CREATE TABLE #historial (
     idEstudiante UNIQUEIDENTIFIER, idUsuario UNIQUEIDENTIFIER, tipoIdentificacion NVARCHAR(50), numeroIdentificacion BIGINT,
     nombreCompleto NVARCHAR(250), correo NVARCHAR(255), estaActivoUsuario BIT, idFacultad UNIQUEIDENTIFIER, nombreFacultad NVARCHAR(100),

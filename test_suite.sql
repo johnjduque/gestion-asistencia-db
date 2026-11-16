@@ -186,6 +186,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_fix_cierre_001_cierre_masivo.sql
 -- FIX-CIERRE-001 (alta de decano con facultad por id o nombre exacto): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_fix_cierre_001_decano.sql
+-- CIERRE-W1B (directorios de personas con ambito y paginacion): RBAC por perfil exacto, coordinadores paginados del decano y nombres separados
+:r /tmp/test/test_w1b_directorios.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN

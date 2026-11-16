@@ -49,15 +49,22 @@ BEGIN
         END
 
         -- PASO 3: Validación del perfil / rol activo asignado en uv_usuario_perfil
-        -- Soporta tanto un rol individual ('DOCENTE') como múltiples roles separados por coma ('ESTUDIANTE,DOCENTE,COORDINADOR')
+        -- Soporta tanto un rol individual ('DOCENTE') como múltiples roles separados por coma ('ESTUDIANTE,DOCENTE,COORDINADOR').
+        -- CIERRE-W1B (decision 2026-11-16): coincidencia EXACTA con el codigo del perfil ('DE') o con su nombre completo
+        -- ('decano'), sin distinguir mayusculas; ya no hay subcadenas ni comodines y los elementos vacios de la lista se
+        -- descartan (antes 'DOCENTE,' producia el patron '%%', que coincidia con cualquier perfil).
         IF @estadoResultado = 1 AND (@codigoPerfilDefecto IS NOT NULL AND @codigoPerfilDefecto <> '')
         BEGIN
             IF NOT EXISTS (
                 SELECT 1 
                 FROM dbo.uv_usuario_perfil up
-                INNER JOIN STRING_SPLIT(@codigoPerfilDefecto, ',') s ON 
-                    up.codigoPerfil = TRIM(s.value) 
-                    OR UPPER(up.nombrePerfil) LIKE CONCAT('%', UPPER(TRIM(s.value)), '%')
+                INNER JOIN (
+                    SELECT valorPerfil = UPPER(TRIM(s.value))
+                    FROM STRING_SPLIT(@codigoPerfilDefecto, ',') s
+                    WHERE TRIM(s.value) <> ''
+                ) pedido ON
+                    UPPER(up.codigoPerfil) = pedido.valorPerfil
+                    OR UPPER(up.nombrePerfil) = pedido.valorPerfil
                 WHERE up.idUsuario = @idUsuarioDefecto
             )
             BEGIN
