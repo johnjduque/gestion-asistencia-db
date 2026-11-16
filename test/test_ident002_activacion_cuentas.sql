@@ -32,7 +32,7 @@ BEGIN TRY
                      AND p.grantee_principal_id = DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime')
                      AND p.permission_name = 'EXECUTE' AND p.state = 'G')
         THROW 56004, 'TEST FAILED ACT-A00: rol_asistencias_runtime no tiene EXECUTE sobre el SP de reenvio.', 1;
-    PRINT 'TEST_PASS:ACT-A00';
+    PRINT 'TEST_PASS:IDENT002_ACT_A00';
 
     -- =========================================================================
     -- Fixtures: una cuenta pendiente de activacion y un administrador ejecutor
@@ -69,7 +69,7 @@ BEGIN TRY
         @idUsuario = @pendiente, @idUsuarioEjecutor = @admin, @idCorrelacion = @corr;
     IF (SELECT COUNT(*) FROM #reenvio WHERE idUsuario = @pendiente) <> 1
         THROW 56010, 'TEST FAILED ACT-R01: el administrador debio obtener el usuario pendiente.', 1;
-    PRINT 'TEST_PASS:ACT-R01';
+    PRINT 'TEST_PASS:IDENT002_ACT_R01';
 
     -- =========================================================================
     -- ACT-R02: un ejecutor sin perfil ADMINISTRADOR/DECANO/COORDINADOR es rechazado
@@ -86,7 +86,7 @@ BEGIN TRY
     END CATCH
     IF @capturado = N'' OR (SELECT COUNT(*) FROM #reenvio) <> 0
         THROW 56011, 'TEST FAILED ACT-R02: un estudiante no debe poder reenviar activaciones.', 1;
-    PRINT 'TEST_PASS:ACT-R02';
+    PRINT 'TEST_PASS:IDENT002_ACT_R02';
 
     -- =========================================================================
     -- ACT-R03: espera minima entre envios (VCE_003)
@@ -108,7 +108,7 @@ BEGIN TRY
     END CATCH
     IF @capturado NOT LIKE N'%DBCODE=VCE_003%'
         THROW 56013, 'TEST FAILED ACT-R03: el reenvio inmediato debio rechazarse con VCE_003.', 1;
-    PRINT 'TEST_PASS:ACT-R03';
+    PRINT 'TEST_PASS:IDENT002_ACT_R03';
 
     -- =========================================================================
     -- ACT-R04: cuenta ya activada (ACT_002) y usuario inexistente (VCE_007)
@@ -135,7 +135,7 @@ BEGIN TRY
     END CATCH
     IF @capturado NOT LIKE N'%DBCODE=VCE_007%'
         THROW 56015, 'TEST FAILED ACT-R04: un usuario inexistente debio rechazarse con VCE_007.', 1;
-    PRINT 'TEST_PASS:ACT-R04';
+    PRINT 'TEST_PASS:IDENT002_ACT_R04';
 
     DROP TABLE #reenvio;
     DROP TABLE #r;
@@ -151,7 +151,7 @@ END CATCH;
 IF @@TRANCOUNT <> 0
     THROW 56099, 'TEST FAILED ACT-G01: test_ident002_activacion_cuentas dejo transacciones abiertas.', 1;
 
-PRINT 'TEST_PASS:ACT-G01';
+PRINT 'TEST_PASS:IDENT002_ACT_G01';
 PRINT '==================================================';
 PRINT 'TEST PASS: test_ident002_activacion_cuentas (OK)';
 PRINT '==================================================';
