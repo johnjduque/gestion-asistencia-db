@@ -716,6 +716,26 @@ try {
 catch {
     $resultFailures += "CULM001_D8_RUNNER $($_.Exception.Message)"
 }
+# CULM-001 D.9-a: migracion 28 (up/down/up, D-RB-03) en test/test_culm001_d9.ps1.
+try {
+    $culm001D9Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d9.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $culm001D9Output) { Write-Host $line }
+    if ($culm001D9Output -contains 'TEST_PASS:CULM001_D9_MIG_UP_DOWN_UP') { $clientPassed += 'CULM001_D9_MIG_UP_DOWN_UP' }
+    else { $resultFailures += 'CULM001_D9_MIG_UP_DOWN_UP not reported by test_culm001_d9.ps1' }
+}
+catch {
+    $resultFailures += "CULM001_D9_RUNNER $($_.Exception.Message)"
+}
+# CULM-001 / DEC-064: migracion 29 (sesiones manuales, up/down/up) en test/test_sesiones_manuales_notificacion.ps1.
+try {
+    $smnOutput = @(& (Join-Path $PSScriptRoot 'test/test_sesiones_manuales_notificacion.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $smnOutput) { Write-Host $line }
+    if ($smnOutput -contains 'TEST_PASS:SMN_MIG_UP_DOWN_UP') { $clientPassed += 'SMN_MIG_UP_DOWN_UP' }
+    else { $resultFailures += 'SMN_MIG_UP_DOWN_UP not reported by test_sesiones_manuales_notificacion.ps1' }
+}
+catch {
+    $resultFailures += "SMN_RUNNER $($_.Exception.Message)"
+}
 # HU018 / HU019: migracion 33 (up/down/up) en test/test_hu018_hu019.ps1.
 try {
     $hu018Output = @(& (Join-Path $PSScriptRoot 'test/test_hu018_hu019.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
@@ -1065,7 +1085,18 @@ $criticalIds = @(
     # Migracion 34: validaciones compartidas de sesion (test/test_dedup_validaciones_sesion.ps1)
     'DVS_MIG_UP_DOWN_UP',
     # HU177: retiro del flujo propio de recuperacion de contrasena (test/test_hu177_retiro.ps1)
-    'HU177_RETIRO_MIG'
+    'HU177_RETIRO_MIG',
+    # CULM-001 D.9-a: hallazgos medios y bajos (test/test_culm001_d9_hallazgos.sql) y migracion 28 (test/test_culm001_d9.ps1).
+    # Estaban escritos desde 2026-11-08 pero ningun runner los ejecutaba (auditoria de pruebas 2026-11-15).
+    'CULM001_D9_MSG_01', 'CULM001_D9_DEC_01', 'CULM001_D9_DEC_05', 'CULM001_D9_DEC_02', 'CULM001_D9_DEC_03', 'CULM001_D9_DEC_04',
+    'CULM001_D9_NTF_01', 'CULM001_D9_NTF_02', 'CULM001_D9_PER_01', 'CULM001_D9_PER_02', 'CULM001_D9_HOR_01', 'CULM001_D9_TRX_01',
+    'CULM001_D9_CRU_01', 'CULM001_D9_TRX_02', 'CULM001_D9_TRX_03', 'CULM001_D9_MIG_UP_DOWN_UP',
+    # CULM-001 / DEC-064: sesiones manuales (test/test_sesiones_manuales_notificacion.sql) y migracion 29 (.ps1). Mismo caso.
+    'CULM001_SMN_00_OBJETOS_Y_SEMILLAS', 'CULM001_SMN_01_DESTINATARIOS_GRUPO_MIXTO', 'CULM001_SMN_01_COORDINADOR_DOS_PROGRAMAS_UNA_FILA',
+    'CULM001_SMN_02_SESION_NO_MANUAL_SIN_DESTINATARIOS', 'CULM001_SMN_03_SOLO_DOCENTE', 'CULM001_SMN_04_COORDINADOR_INACTIVO_OMITIDO',
+    'CULM001_SMN_05_COORDINADOR_CANCELA', 'CULM001_SMN_05_GRUPO_MIXTO_SEGUNDO_COORDINADOR', 'CULM001_SMN_06_RECHAZOS',
+    'CULM001_SMN_07_MOTIVOS', 'CULM001_SMN_07_MOTIVOS_SOLO_COORDINADOR', 'CULM001_SMN_TRANCOUNT_ZERO',
+    'CULM001_SESIONES_MANUALES_NOTIFICACION', 'SMN_MIG_UP_DOWN_UP'
 )
 if ($Concurrencia) { $criticalIds += 'CULM001_B2_CON_01_5X40' }
 $sqlPasses = @([regex]::Matches($outputStr, '(?m)^TEST_PASS:([A-Z0-9_]+)\s*$') | ForEach-Object { $_.Groups[1].Value })
