@@ -180,6 +180,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_culm001_d9_hallazgos.sql
 -- CULM-001 / DEC-064 (sesiones manuales: destinatarios y cancelacion por el coordinador, migracion 29): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_sesiones_manuales_notificacion.sql
+-- FIX-CIERRE-001 (cierre masivo sin caer al periodo mas reciente): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_fix_cierre_001_cierre_masivo.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN

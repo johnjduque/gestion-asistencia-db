@@ -16,6 +16,8 @@ GO
 --   MATRICULA/ESTADO_FINALIZADA), contadores de Grupo (cantidadEstudiantesCancelaronAutomaticamente = matriculas en CI al cierre,
 --   SUPUESTO-C-20) y AuditoriaEvento CIERRE_MASIVO_PERIODO con motorHabilitado, umbralesValidos, perdidasSinRevision y
 --   revisionesPendientes. Devuelve SIEMPRE una sola fila (tupla canonica), tambien con INSERT ... EXEC.
+-- FIX-CIERRE-001: el periodo se resuelve solo por @codigoPeriodo (nombre o codigo). Sin codigo -> GEN_002; codigo que no existe -> PER_001;
+-- en ambos casos no se cierra nada (antes se cerraba el periodo mas reciente).
 -- Bloqueos (orden de §2.0): RevisionCancelacion -> EstudianteGrupo (UPDLOCK, HOLDLOCK) -> lectura de uv_resumen_* sin pistas ->
 -- Grupo. Transaccion propia o savepoint si hay una externa.
 -- ============================================================================
@@ -97,34 +99,39 @@ BEGIN
         END
 
         -- PASO 2: Buscar período académico objetivo consultando uv_periodo_academico
+        -- FIX-CIERRE-001: el periodo se resuelve SOLO por el codigo indicado (nombre o codigo numerico). Sin codigo (nulo o vacio) o con un
+        -- codigo que no coincide con ningun periodo NO se cierra nada: antes caia al periodo mas reciente y lo cerraba (accion destructiva).
         IF @estadoResultado = 1
         BEGIN
-            IF @codigoPeriodoDefecto IS NOT NULL AND @codigoPeriodoDefecto <> ''
+            IF @codigoPeriodoDefecto IS NULL OR @codigoPeriodoDefecto = ''
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'GEN_002',
+                    @p_param1 = 'codigoPeriodo',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+            ELSE
             BEGIN
                 SELECT TOP 1 @idPeriodoTarget = id
                 FROM [dbo].[uv_periodo_academico]
                 WHERE nombre = @codigoPeriodoDefecto
                    OR CAST(codigo AS NVARCHAR(50)) = @codigoPeriodoDefecto
                 ORDER BY anio DESC;
-            END
 
-            IF @idPeriodoTarget IS NULL
-            BEGIN
-                SELECT TOP 1 @idPeriodoTarget = id
-                FROM [dbo].[uv_periodo_academico]
-                ORDER BY anio DESC, codigo DESC;
-            END
+                IF @idPeriodoTarget IS NULL
+                BEGIN
+                    EXEC dbo.usp_obtener_mensaje_catalogo
+                        @p_codigo = 'PER_001',
+                        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-            IF @idPeriodoTarget IS NULL
-            BEGIN
-                EXEC dbo.usp_obtener_mensaje_catalogo
-                    @p_codigo = 'VAL_002',
-                    @p_param1 = 'PeriodoAcademico',
-                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-
-                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-                SET @estadoResultado = 0;
+                    SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Periodo indicado: ', @codigoPeriodoDefecto, ' Correlacion: ', @idCorrelacionDefecto);
+                    SET @estadoResultado = 0;
+                END
             END
         END
 
