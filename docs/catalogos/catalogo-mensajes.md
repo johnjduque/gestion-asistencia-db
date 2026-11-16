@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **482**.
+Total de códigos: **485**.
 
 ## ACC
 
@@ -35,6 +35,13 @@ Total de códigos: **482**.
 | `ACC_APP_015` | SECURITY_ERROR | ALTO | El usuario autenticado no tiene relación institucional con la sesión consultada. | Backend (FORBIDDEN): El usuario autenticado no tiene relacion institucional con la sesion consultada. | `62_val_mensajes_aplicacion.sql` |
 | `ACC_APP_016` | SECURITY_ERROR | ALTO | El docente autenticado no tiene titularidad sobre la sesión consultada. | Backend (FORBIDDEN): El docente autenticado no tiene titularidad sobre la sesion consultada. | `62_val_mensajes_aplicacion.sql` |
 | `ACC_APP_017` | SECURITY_ERROR | ALTO | El usuario autenticado no tiene acceso al grupo solicitado. | Backend (FORBIDDEN): El usuario autenticado no tiene acceso al grupo solicitado. | `62_val_mensajes_aplicacion.sql` |
+
+## ACT
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `ACT_001` | SUCCESS | BAJO | Se envió de nuevo el enlace de activación al correo institucional. | Aviso ACTIVACION_CUENTA registrado en el outbox para el usuario indicado. | `65_ident002_activacion_cuentas.sql` |
+| `ACT_002` | BUSINESS_ERROR | BAJO | La cuenta ya está activa; no es necesario enviar el enlace de activación. | Estado: Usuario.correoConfirmado ya es 1 (cuenta activada). | `65_ident002_activacion_cuentas.sql` |
 
 ## ADS
 
@@ -725,4 +732,5 @@ Total de códigos: **482**.
 | `VCE_006` | SUCCESS | BAJO | Su correo fue verificado. Ya puede iniciar sesión. | Token consumido y Usuario.correoConfirmado = 1. | `27_mensajes_ident001.sql` |
 | `VCE_007` | BUSINESS_ERROR | MEDIO | El usuario no existe o no está activo. | Existencia: no hay dbo.Usuario activo con el id indicado. | `27_mensajes_ident001.sql` |
 | `VCE_008` | BUSINESS_ERROR | MEDIO | El correo debe ser institucional y terminar en {}. | Regla DEC-073: el correo de personal nuevo no cumple REGISTRO/DOMINIO_CORREO_ESTUDIANTE ({}). | `64_dec073_validaciones.sql` |
+| `VCE_009` | BUSINESS_ERROR | BAJO | Defina su contraseña para activar su cuenta. | Regla: la cuenta del proveedor de identidad no tiene credencial y la activación no incluyó contraseña; el token no se consumió. | `65_ident002_activacion_cuentas.sql` |
 

@@ -119,6 +119,7 @@ PRINT '======================================================================';
 :r /tmp/test/test_notificacion_migracion_catalogo.sql
 :r /tmp/test/test_notif002a_plantillas_contacto.sql
 :r /tmp/test/test_ident001_correo_verificacion.sql
+:r /tmp/test/test_ident002_activacion_cuentas.sql
 :r /tmp/test/test_usp_abrir_ventana_matricula_grupo.sql
 :r /tmp/test/test_usp_cerrar_ventana_matricula_grupo.sql
 :r /tmp/test/test_usp_rotar_token_matricula_grupo.sql
