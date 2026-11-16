@@ -360,6 +360,11 @@
     ],
     "45_int003_sincronizar_mensajes": [
       { "objeto": "dbo.usp_sincronizar_mensaje_usuario" }
+    ],
+    "46_ident002_activacion_cuentas": [
+      { "objeto": "dbo.usp_consultar_reenvio_activacion_cuenta" },
+      { "tabla": "dbo.PlantillaNotificacion", "donde": "tipo = 'ACTIVACION_CUENTA'" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ACT_002'" }
     ]
   }
 }
