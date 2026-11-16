@@ -532,6 +532,8 @@
 | `GET /api/v1/estudiante/oferta-academica` | `usp_consultar_oferta_grupos_estudiante` | HU008 |
 | `GET /api/v1/estudiantes` y `/{id}` | `usp_consultar_directorio_estudiantes_paginado` | CULM-001 A.2-1 |
 | `GET /api/v1/grupos/{grupoId}/estudiantes` | `usp_consultar_estudiantes_grupo_ambito_paginado` | CULM-001 A.2-2 |
+| `GET /api/v1/docente/grupos/{grupoId}/estudiantes?pagina&tamano&busqueda` | `usp_consultar_estudiantes_grupo_ambito_paginado` (con `@numeroPagina`, `@tamanoPagina`, `@busqueda`) | CIERRE-W1A (ruta nueva, padrón paginado del docente titular) |
+| `GET /api/v1/docente/reclamos?busqueda&grupoId` | `usp_consultar_solicitudes_revision_docente` (con `@busqueda`, `@idGrupo`) | CIERRE-W1A |
 | `GET /api/v1/grupos/{grupoId}/asistencias` | `usp_consultar_asistencias_grupo_ambito_paginado` | CULM-001 A.2-2 |
 | `GET /api/v1/grupos/{grupoId}/estudiantes/busqueda` | `usp_buscar_estudiante_por_documento_grupo` | CULM-001 A.2-15 (DEC-027) |
 | `GET /api/v1/estudiante/materias` / `GET /api/v1/estudiante/horario` | `usp_consultar_materias_estudiante` / `usp_consultar_horario_estudiante` | CULM-001 A.2-11 |

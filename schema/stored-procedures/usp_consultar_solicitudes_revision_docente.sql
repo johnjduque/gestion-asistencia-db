@@ -30,6 +30,10 @@ GO
 -- la categoria persistida) y totalSoportes. El estado adjunto sale de ARCHIVO/ESTADO_ADJUNTO (sin literal 'quemado').
 -- PC (puntos de control, mejora bandeja 2026-11-12, migracion 38): AL FINAL idToma, numeroToma y fechaPuntoControlUtc de la toma reclamada
 -- (NULL en un reclamo de la sesion completa), con la misma resolucion que usp_consultar_detalle_solicitud_revision_docente.
+-- CIERRE-W1A (docs/work-items/CIERRE-W1A-docente-reclamos-padron/CONTRACT.md): dos filtros opcionales AL FINAL de los parametros (el resultset NO cambia):
+--   @busqueda  subcadena (CHARINDEX, collation de la BD) en el nombre del estudiante, nombre y codigo de la asignatura y la justificacion de la solicitud;
+--   @idGrupo   solo las solicitudes de ese grupo. La titularidad (doc.usuario = ejecutor) se mantiene, asi que un grupo ajeno da 0 filas.
+-- Con ambos NULL el comportamiento es el anterior. totalRegistros (COUNT OVER) ya cuenta con los filtros.
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_solicitudes_revision_docente]
 (
@@ -37,7 +41,9 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_solicitudes_revision_docente]
     @idCorrelacion      UNIQUEIDENTIFIER,
     @codigoEstado       NVARCHAR(5) = NULL,
     @numeroPagina       INT         = 1,
-    @tamanoPagina       INT         = 10
+    @tamanoPagina       INT         = 10,
+    @busqueda           NVARCHAR(100)    = NULL,
+    @idGrupo            UNIQUEIDENTIFIER = NULL
 )
 AS
 BEGIN
@@ -53,6 +59,7 @@ BEGIN
     DECLARE @tamano INT = IIF(@tamanoPagina IS NULL OR @tamanoPagina < 1, 10, IIF(@tamanoPagina > 100, 100, @tamanoPagina));
     DECLARE @offset INT = (@pagina - 1) * @tamano;
     DECLARE @estadoFiltro NVARCHAR(5) = NULLIF(TRIM(@codigoEstado), '');
+    DECLARE @busquedaFiltro NVARCHAR(100) = NULLIF(TRIM(@busqueda), '');
     DECLARE @estadoAdjunto VARCHAR(10) = CAST(dbo.ufn_obtener_parametro('ARCHIVO', 'ESTADO_ADJUNTO') AS VARCHAR(10));
 
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -135,6 +142,14 @@ BEGIN
     LEFT  JOIN dbo.uv_toma_punto_control pct  ON pct.idToma = sra.toma AND pct.idSesion = asi.sesion
     WHERE doc.usuario = @idUsuarioDefecto
       AND (@estadoFiltro IS NULL OR est.codigo = @estadoFiltro)
+      AND (@idGrupo IS NULL OR gru.id = @idGrupo)
+      AND (@busquedaFiltro IS NULL
+           OR CHARINDEX(@busquedaFiltro, CONCAT_WS(N' ',
+                  NULLIF(TRIM(usu.primerNombre), N''), NULLIF(TRIM(usu.segundoNombre), N''),
+                  NULLIF(TRIM(usu.primerApellido), N''), NULLIF(TRIM(usu.segundoApellido), N''))) > 0
+           OR CHARINDEX(@busquedaFiltro, asg.nombre) > 0
+           OR CHARINDEX(@busquedaFiltro, asg.codigo) > 0
+           OR CHARINDEX(@busquedaFiltro, CAST(sra.justificacionSolicitud AS NVARCHAR(MAX))) > 0)
     ORDER BY sra.fecha DESC, sra.nombre ASC, sra.id ASC
     OFFSET @offset ROWS
     FETCH NEXT @tamano ROWS ONLY;
