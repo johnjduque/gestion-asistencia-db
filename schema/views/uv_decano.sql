@@ -21,7 +21,12 @@ SELECT		di.id,
 			nombrePerfil = p.nombre,
 			-- CULM-001 A.2-8 (A2-C5): el estado propio del rol (Decano.estado) tambien cuenta.
 			estaActivoDecano = IIF(di.estaActivoUsuario = 1 AND d.estado = 1 AND (f.id IS NULL OR f.estaActivaFacultad = 1), 1, 0),
-			estaActivoTextoDecano = IIF(di.estaActivoUsuario = 1 AND d.estado = 1 AND (f.id IS NULL OR f.estaActivaFacultad = 1), 'SI', 'NO')
+			estaActivoTextoDecano = IIF(di.estaActivoUsuario = 1 AND d.estado = 1 AND (f.id IS NULL OR f.estaActivaFacultad = 1), 'SI', 'NO'),
+			-- CIERRE-W1B (punto 4): nombres separados, al final para no mover las columnas previas
+			di.primerNombre,
+			di.segundoNombre,
+			di.primerApellido,
+			di.segundoApellido
 
 FROM		uv_decano_identidad di
 INNER JOIN	Decano d

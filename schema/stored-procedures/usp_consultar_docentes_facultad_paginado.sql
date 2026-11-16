@@ -76,6 +76,8 @@ BEGIN
         -- PASO 2: Consulta y retorno de resultados
         WITH vinculos AS (
             SELECT  dp.idDocente, dp.idUsuario, dp.numeroIdentificacion, dp.nombreCompleto, dp.correo,
+                    dp.primerNombre, dp.segundoNombre, dp.primerApellido, dp.segundoApellido,
+                    dp.idTipoIdentificacion, dp.codigoTipoIdentificacion,
                     dp.estaActivoUsuario, dp.idPrograma, dp.nombrePrograma, dp.idFacultad, dp.totalGruposPrograma,
                     dp.estaActivoVinculacion
             FROM    dbo.uv_auth_docente_programa dp
@@ -89,13 +91,17 @@ BEGIN
         ),
         docentes AS (
             SELECT  v.idDocente, v.idUsuario, v.numeroIdentificacion, v.nombreCompleto, v.correo, v.estaActivoUsuario,
+                    v.primerNombre, v.segundoNombre, v.primerApellido, v.segundoApellido,
+                    v.idTipoIdentificacion, v.codigoTipoIdentificacion,
                     totalProgramas = COUNT(DISTINCT IIF(v.estaActivoVinculacion = 1, v.idPrograma, NULL)),
                     totalGrupos = SUM(IIF(v.estaActivoVinculacion = 1, v.totalGruposPrograma, 0)),
                     programas = STRING_AGG(IIF(v.estaActivoVinculacion = 1, CONVERT(NVARCHAR(MAX), v.nombrePrograma), NULL), N', ')
                                 WITHIN GROUP (ORDER BY v.nombrePrograma),
                     tieneVinculoActivo = CAST(MAX(IIF(v.estaActivoVinculacion = 1, 1, 0)) AS BIT)
             FROM    vinculos v
-            GROUP BY v.idDocente, v.idUsuario, v.numeroIdentificacion, v.nombreCompleto, v.correo, v.estaActivoUsuario
+            GROUP BY v.idDocente, v.idUsuario, v.numeroIdentificacion, v.nombreCompleto, v.correo, v.estaActivoUsuario,
+                     v.primerNombre, v.segundoNombre, v.primerApellido, v.segundoApellido,
+                     v.idTipoIdentificacion, v.codigoTipoIdentificacion
         )
         SELECT
             d.idDocente,
@@ -108,7 +114,14 @@ BEGIN
             d.totalProgramas,
             d.totalGrupos,
             totalRegistros = COUNT(*) OVER(),
-            d.tieneVinculoActivo
+            d.tieneVinculoActivo,
+            -- CIERRE-W1B (punto 4): nombres separados y tipo de documento, al final para no mover las columnas previas
+            d.primerNombre,
+            d.segundoNombre,
+            d.primerApellido,
+            d.segundoApellido,
+            d.idTipoIdentificacion,
+            d.codigoTipoIdentificacion
         FROM docentes d
         WHERE
             (@modoVinculo = 'TODOS' OR d.tieneVinculoActivo = IIF(@modoVinculo = 'ACTIVO', 1, 0))
