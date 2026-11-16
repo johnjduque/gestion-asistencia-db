@@ -172,6 +172,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_pc_toma_en_bandeja_reclamos.sql
 -- DEC-073 (validaciones de formularios, migracion 43): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_dec073_validaciones.sql
+-- CIERRE-W1A (busqueda y filtro de grupo en reclamos del docente; busqueda en el padron): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_cierre_w1a_docente_reclamos_padron.sql
 -- DEC-074 (retiro de la carga masiva, migracion 44): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_dec074_retiro_carga_masiva.sql
 -- INT-003 (sincronizacion de mensajes desde MessageUcoLab, migracion 45): registro por nombre exacto (DEC-028, sin comodin)

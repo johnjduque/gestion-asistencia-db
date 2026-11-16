@@ -17,6 +17,9 @@ GO
 --     EstudiantePrograma en alguno de sus programas (DEC-031 §4; B2 completa la relacion N:M).
 --   * Grupo inexistente o fuera de ambito: THROW 51000 con el mensaje tecnico de SEC_002 (DBCODE=SEC_002 -> 403).
 -- @tamanoPagina NULL = todas las filas (A2-C3: el contrato WORM fija listas completas); con valor, 1..100. Solo lectura.
+-- CIERRE-W1A (docs/work-items/CIERRE-W1A-docente-reclamos-padron/CONTRACT.md): @busqueda opcional AL FINAL (el resultset NO cambia): subcadena
+-- (CHARINDEX, collation de la BD) en el nombre completo o el documento, aplicada ANTES de paginar; totalRegistros cuenta con el filtro.
+-- NULL o vacio = sin filtro (comportamiento anterior). El ambito se valida antes de leer filas, igual que sin busqueda.
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_estudiantes_grupo_ambito_paginado]
 (
@@ -24,13 +27,15 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_estudiantes_grupo_ambito_paginado
     @idUsuarioEjecutor UNIQUEIDENTIFIER,
     @idCorrelacion     UNIQUEIDENTIFIER,
     @numeroPagina      INT = 1,
-    @tamanoPagina      INT = NULL
+    @tamanoPagina      INT = NULL,
+    @busqueda          NVARCHAR(100) = NULL
 )
 AS
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @pagina INT = IIF(@numeroPagina IS NULL OR @numeroPagina < 1, 1, @numeroPagina);
     DECLARE @tamano INT = IIF(@tamanoPagina IS NULL, 2147483647, IIF(@tamanoPagina < 1, 1, IIF(@tamanoPagina > 100, 100, @tamanoPagina)));
     DECLARE @offset INT = IIF(@tamanoPagina IS NULL, 0, (@pagina - 1) * @tamano);
+    DECLARE @busquedaFiltro NVARCHAR(100) = NULLIF(TRIM(@busqueda), '');
     DECLARE @ejecutorActivo BIT = 0;
     DECLARE @verTodos BIT = 0;
     DECLARE @esCoordinador BIT = 0;
@@ -114,6 +119,9 @@ BEGIN
     INNER JOIN dbo.uv_estudiante_identidad ei ON ei.id = eg.idEstudiante
     INNER JOIN dbo.uv_usuario u ON u.id = ei.idUsuario
     WHERE eg.idGrupo = @idGrupo
+      AND (@busquedaFiltro IS NULL
+           OR CHARINDEX(@busquedaFiltro, ei.nombreCompleto) > 0
+           OR CHARINDEX(@busquedaFiltro, CONVERT(NVARCHAR(20), ei.numeroIdentificacion)) > 0)
       AND (@verTodos = 1
            OR eg.id IN (SELECT v.idEstudianteGrupo FROM dbo.ufn_estudiantes_grupo_visibles(@idGrupo, @idUsuarioEjecutor) v))   -- CULM-001 B2NM R6
     ORDER BY ei.nombreCompleto ASC, eg.id ASC
