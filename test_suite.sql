@@ -188,6 +188,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_fix_cierre_001_decano.sql
 -- CIERRE-W1B (directorios de personas con ambito y paginacion): RBAC por perfil exacto, coordinadores paginados del decano y nombres separados
 :r /tmp/test/test_w1b_directorios.sql
+-- CIERRE-W2A (listados del coordinador en la base): filtro por caracter, opciones del consolidado con ambito y estado del periodo
+:r /tmp/test/test_w2a_coordinador_listados.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN

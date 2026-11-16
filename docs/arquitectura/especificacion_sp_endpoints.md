@@ -452,6 +452,9 @@
 | `uv_estudiante`, `uv_estudiante_identidad` | Listar/buscar estudiantes del programa | `GET /api/v1/estudiante/materias`, `GET /api/v1/coordinador/estudiantes` | `ESTUDIANTE`, `COORDINADOR` |
 | `uv_docente`, `uv_docente_identidad` | Listar/buscar docentes | `GET /api/v1/coordinador/docentes`, `GET /api/v1/docentes` | `COORDINADOR`, `DECANO`, `ADMIN` |
 | `uv_coordinador`, `uv_coordinador_identidad` | Listar coordinadores de la facultad | `GET /api/v1/decano/coordinadores` | `DECANO` |
+| `GET /api/v1/{coordinador,decano}/consolidado-asistencia/opciones` (`idPeriodoAcademico`) | `usp_consultar_asignaturas_ambito_consolidado` y `usp_consultar_docentes_ambito_consolidado` | CIERRE-W2A |
+| `GET /api/v1/coordinador/asignaturas` (`caracter`, además de `programaId`, `busqueda`, `estaActiva`, `pagina`, `tamano`) | `usp_consultar_asignaturas_coordinador_paginado` (`@codigoCaracter`) | CIERRE-W2A |
+| `GET /api/v1/coordinador/periodos-academicos` (`estado`; el DTO trae `estado`) | `uv_periodo_academico` (columna `estado`) | CIERRE-W2A |
 | `uv_decano`, `uv_decano_identidad` | Listar decanos institucionales | `GET /api/v1/admin/decanos` | `ADMINISTRADOR` |
 | `uv_facultad` | Listar facultades | `GET /api/v1/admin/facultades`, `GET /api/v1/decano/facultad` | `ADMINISTRADOR`, `DECANO` |
 | `uv_programa` | Listar programas | `GET /api/v1/decano/facultad` *(programas de la facultad)* | `DECANO`, `COORDINADOR` |
