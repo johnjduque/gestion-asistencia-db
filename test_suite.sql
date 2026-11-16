@@ -173,6 +173,10 @@ PRINT '======================================================================';
 :r /tmp/test/test_dec074_retiro_carga_masiva.sql
 -- INT-003 (sincronizacion de mensajes desde MessageUcoLab, migracion 45): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_int003_sincronizar_mensaje.sql
+-- CULM-001 D.9-a (hallazgos medios y bajos, migracion 28): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_culm001_d9_hallazgos.sql
+-- CULM-001 / DEC-064 (sesiones manuales: destinatarios y cancelacion por el coordinador, migracion 29): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_sesiones_manuales_notificacion.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN
