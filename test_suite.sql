@@ -182,6 +182,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_sesiones_manuales_notificacion.sql
 -- FIX-CIERRE-001 (cierre masivo sin caer al periodo mas reciente): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_fix_cierre_001_cierre_masivo.sql
+-- FIX-CIERRE-001 (alta de decano con facultad por id o nombre exacto): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_fix_cierre_001_decano.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN

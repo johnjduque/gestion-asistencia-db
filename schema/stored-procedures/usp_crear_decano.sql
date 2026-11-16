@@ -6,6 +6,8 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 -- CULM-001 D.9-a (F-ADM-024): DEC_020 si la persona ya es decano activo (sobre la firma con @idTipoIdIdentificacion de D.5).
+-- FIX-CIERRE-001: la facultad se resuelve por id o por nombre exacto (sin LIKE); una facultad indicada que no existe -> FAC_001 sin crear nada;
+-- sin facultad (id y nombre nulos o vacios) se crea el decano sin facultad (HU178).
 CREATE OR ALTER PROCEDURE [dbo].[usp_crear_decano]
 (
     @idDecano               UNIQUEIDENTIFIER = NULL,
@@ -74,14 +76,31 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
-        -- PASO 2: Resolver facultad destino si se suministra el nombre
+        -- PASO 2 (FIX-CIERRE-001): la facultad destino se resuelve solo por identificador o por nombre EXACTO (sin distinguir mayusculas ni
+        -- espacios extremos). Antes el nombre coincidia por LIKE '%x%' y se tomaba la primera facultad alfabetica. Si se indica una facultad
+        -- (id o nombre) y no existe -> FAC_001 y no se crea nada; si no se indica ninguna, el decano se crea sin facultad (HU178). Se decide
+        -- ANTES de abrir la transaccion: el rechazo no escribe y el SP sigue siendo apto para INSERT ... EXEC.
         IF @estadoResultado = 1 AND @idFacultadDefecto IS NULL AND @nombreFacultadDef IS NOT NULL AND @nombreFacultadDef <> ''
         BEGIN
             SELECT TOP 1 @idFacultadDefecto = id
             FROM [dbo].[uv_facultad]
-            WHERE LOWER(nombreFacultad) = LOWER(@nombreFacultadDef)
-               OR LOWER(nombreFacultad) LIKE LOWER(CONCAT('%', @nombreFacultadDef, '%'))
-            ORDER BY nombreFacultad ASC;
+            WHERE LOWER(TRIM(nombreFacultad)) = LOWER(@nombreFacultadDef)
+            ORDER BY id ASC;
+        END
+
+        IF @estadoResultado = 1
+           AND (@idFacultad IS NOT NULL OR (@nombreFacultadDef IS NOT NULL AND @nombreFacultadDef <> ''))
+           AND (@idFacultadDefecto IS NULL OR NOT EXISTS (SELECT 1 FROM [dbo].[uv_facultad] WHERE id = @idFacultadDefecto))
+        BEGIN
+            DECLARE @facultadIndicada NVARCHAR(150) = COALESCE(CONVERT(NVARCHAR(36), @idFacultad), @nombreFacultadDef);
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'FAC_001',
+                @p_param1 = @facultadIndicada,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
         END
 
         -- PASO 2.5 (D.9-a, F-ADM-024): la persona ya es decano activo. Se decide ANTES de abrir la transaccion o el savepoint:
