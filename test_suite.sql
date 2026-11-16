@@ -37,6 +37,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_val_oleada3_mensajes_aplicacion.sql
 -- VAL MSG-03 (migracion 42): mensajes ERR_* del backend en el catalogo
 :r /tmp/test/test_val_mensajes_err_pendientes.sql
+-- REA-02 (VAL-oleada9, migracion 47): mensaje del almacenamiento no disponible
+:r /tmp/test/test_val_oleada9_mensaje_almacenamiento.sql
 -- VAL oleada 3: PRU-14 (bordes del umbral de horas) y OBS-03 (procedimientos sin @idCorrelacion)
 :r /tmp/test/test_val_umbral_horas_bordes.sql
 :r /tmp/test/test_val_obs03_id_correlacion.sql

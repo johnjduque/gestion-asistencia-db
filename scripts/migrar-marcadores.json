@@ -365,6 +365,9 @@
       { "objeto": "dbo.usp_consultar_reenvio_activacion_cuenta" },
       { "tabla": "dbo.PlantillaNotificacion", "donde": "tipo = 'ACTIVACION_CUENTA'" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ACT_002'" }
+    ],
+    "47_val_mensaje_almacenamiento": [
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ERR_ALMACENAMIENTO_NO_DISPONIBLE'" }
     ]
   }
 }
