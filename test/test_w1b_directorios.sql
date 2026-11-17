@@ -258,12 +258,13 @@ BEGIN TRY
     CREATE TABLE #est (
         idEstudiante UNIQUEIDENTIFIER, idUsuario UNIQUEIDENTIFIER, numeroIdentificacion BIGINT, nombreCompleto NVARCHAR(250),
         correo NVARCHAR(255), estaActivoUsuario BIT, facultades NVARCHAR(MAX), programas NVARCHAR(MAX), totalGrupos INT, totalRegistros INT,
-        primerNombre NVARCHAR(100), segundoNombre NVARCHAR(100), primerApellido NVARCHAR(100), segundoApellido NVARCHAR(100));
+        primerNombre NVARCHAR(100), segundoNombre NVARCHAR(100), primerApellido NVARCHAR(100), segundoApellido NVARCHAR(100), tipoIdentificacion NVARCHAR(20));
     INSERT #est EXEC dbo.usp_buscar_estudiantes_institucion_paginado @idUsuarioEjecutor = @uAdminDoc, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 100;
     SET @ok = IIF(EXISTS (SELECT 1 FROM #est)
                   AND NOT EXISTS (SELECT 1 FROM #est e INNER JOIN dbo.Usuario u ON u.id = e.idUsuario
                                   WHERE ISNULL(e.primerNombre, N'') <> ISNULL(u.primerNombre, N'') OR ISNULL(e.segundoNombre, N'') <> ISNULL(u.segundoNombre, N'')
-                                     OR ISNULL(e.primerApellido, N'') <> ISNULL(u.primerApellido, N'') OR ISNULL(e.segundoApellido, N'') <> ISNULL(u.segundoApellido, N'')), 1, 0);
+                                     OR ISNULL(e.primerApellido, N'') <> ISNULL(u.primerApellido, N'') OR ISNULL(e.segundoApellido, N'') <> ISNULL(u.segundoApellido, N'')
+                                     OR e.tipoIdentificacion IS NULL OR e.tipoIdentificacion <> (SELECT t.tipoIdentificacion FROM dbo.TipoIdentificacion t WHERE t.id = u.tipoIdIdentificacion)), 1, 0);
     DROP TABLE #est;
     IF @ok <> 1 THROW 55033, 'TEST FAILED W1B_NOM_02: el buscador de estudiantes debe traer los nombres separados reales.', 1;
     PRINT 'TEST_PASS:W1B_NOM_02_ESTUDIANTES';
@@ -273,6 +274,12 @@ BEGIN TRY
                           AND primerApellido = N'DecanoA' AND segundoApellido = N'Qa'), 1, 0);
     IF @ok <> 1 THROW 55034, 'TEST FAILED W1B_NOM_03: uv_decano debe exponer primerNombre, segundoNombre, primerApellido y segundoApellido.', 1;
     PRINT 'TEST_PASS:W1B_NOM_03_DECANOS';
+
+    -- W1B_NOM_04: uv_decano expone el correo y el tipo de documento reales del usuario.
+    SET @ok = IIF(EXISTS (SELECT 1 FROM dbo.uv_decano WHERE idUsuario = @uDecA AND correo = N'decano.a.qa.w1b@uco.edu.co'
+                          AND TipoIdentificacion = (SELECT t.tipoIdentificacion FROM dbo.TipoIdentificacion t WHERE t.id = @tipoCC)), 1, 0);
+    IF @ok <> 1 THROW 55035, 'TEST FAILED W1B_NOM_04: uv_decano debe exponer correo y TipoIdentificacion del usuario.', 1;
+    PRINT 'TEST_PASS:W1B_NOM_04_DECANOS_CORREO_TIPO';
 
     IF @@TRANCOUNT <> 1 THROW 55090, 'TEST FAILED W1B: las pruebas dejaron una transaccion distinta de la propia.', 1;
     ROLLBACK TRANSACTION;
