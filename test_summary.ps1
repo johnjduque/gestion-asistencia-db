@@ -1112,7 +1112,10 @@ $criticalIds = @(
     # CIERRE-W2A: filtro por caracter, opciones del consolidado con ambito y estado del periodo (test/test_w2a_coordinador_listados.sql)
     'W2A_ASI_01_FILTRO_CARACTER', 'W2A_ASI_02_TOTAL_POR_CARACTER', 'W2A_ASI_03_VACIO_E_INEXISTENTE', 'W2A_ASI_04_AISLAMIENTO', 'W2A_ASI_05_PROGRAMA_AJENO',
     'W2A_OPC_01_AMBITO_COORDINADOR', 'W2A_OPC_02_AISLAMIENTO', 'W2A_OPC_03_PERIODO', 'W2A_OPC_04_DECANO_Y_ADMINISTRADOR',
-    'W2A_OPC_05_RECHAZOS', 'W2A_PER_01_ESTADO', 'W2A_PER_02_SIEMPRE_CON_ESTADO', 'W2A_TRANCOUNT_ZERO'
+    'W2A_OPC_05_RECHAZOS', 'W2A_PER_01_ESTADO', 'W2A_PER_02_SIEMPRE_CON_ESTADO', 'W2A_TRANCOUNT_ZERO',
+    # CIERRE-W3M: matriz de asistencia del grupo y resumen de sesiones del docente (test/test_w3m_matriz_asistencia.sql)
+    'W3M_MAT_01_CELDAS', 'W3M_MAT_02_COMO_LA_VISTA', 'W3M_MAT_03_PAGINACION', 'W3M_MAT_04_BUSQUEDA', 'W3M_MAT_05_SIN_SESIONES', 'W3M_MAT_06_RESUMEN_BUSQ',
+    'W3M_SES_01_ESTADOS', 'W3M_SES_02_CONTEOS', 'W3M_SES_03_GRUPO', 'W3M_SES_04_SIN_SESIONES', 'W3M_AMB_01_RECHAZOS', 'W3M_TRANCOUNT_ZERO'
 )
 if ($Concurrencia) { $criticalIds += 'CULM001_B2_CON_01_5X40' }
 $sqlPasses = @([regex]::Matches($outputStr, '(?m)^TEST_PASS:([A-Z0-9_]+)\s*$') | ForEach-Object { $_.Groups[1].Value })
