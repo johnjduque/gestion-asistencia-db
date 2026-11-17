@@ -60,15 +60,15 @@ DECLARE @s1 UNIQUEIDENTIFIER = NEWID(), @s2 UNIQUEIDENTIFIER = NEWID(), @s3 UNIQ
         @sFalta UNIQUEIDENTIFIER = NEWID();
 DECLARE @total INT, @esperadoG1 INT, @esperadoG2 INT, @pagina INT, @tam INT = 3, @filas INT;
 
-CREATE TABLE #sm (pos INT IDENTITY(1,1), id UNIQUEIDENTIFIER, nombre NVARCHAR(250), numero INT, codigo NVARCHAR(50), numeroSemana INT,
+CREATE TABLE #w2b_sm (pos INT IDENTITY(1,1), id UNIQUEIDENTIFIER, nombre NVARCHAR(250), numero INT, codigo NVARCHAR(50), numeroSemana INT,
     idGrupo UNIQUEIDENTIFIER, codigoGrupo INT, nombreGrupo NVARCHAR(100), fechaHoraInicio DATETIME2(7), fechaHoraFin DATETIME2(7),
     fechaLimiteJustificacionUtc DATETIME2(7), plazoJustificacionVigente BIT, totalRegistros INT);
-CREATE TABLE #pg (pos INT IDENTITY(1,1), id UNIQUEIDENTIFIER, nombre NVARCHAR(250), numero INT, codigo NVARCHAR(50), numeroSemana INT,
+CREATE TABLE #w2b_pg (pos INT IDENTITY(1,1), id UNIQUEIDENTIFIER, nombre NVARCHAR(250), numero INT, codigo NVARCHAR(50), numeroSemana INT,
     idGrupo UNIQUEIDENTIFIER, codigoGrupo INT, nombreGrupo NVARCHAR(100), fechaHoraInicio DATETIME2(7), fechaHoraFin DATETIME2(7),
     fechaLimiteJustificacionUtc DATETIME2(7), plazoJustificacionVigente BIT, totalRegistros INT);
-CREATE TABLE #l (idAsignatura UNIQUEIDENTIFIER, nombreAsignatura NVARCHAR(250), idGrupo UNIQUEIDENTIFIER, nombreGrupo NVARCHAR(100), creditos INT);
-CREATE TABLE #r (totalMaterias INT, materiasEnRiesgo INT NULL, totalHorasFalta DECIMAL(12,2), totalCreditos INT);
-CREATE TABLE #rv (idEstudianteGrupo UNIQUEIDENTIFIER, codigoPermanencia NVARCHAR(10) NULL, horasFalta DECIMAL(12,6));
+CREATE TABLE #w2b_l (idAsignatura UNIQUEIDENTIFIER, nombreAsignatura NVARCHAR(250), idGrupo UNIQUEIDENTIFIER, nombreGrupo NVARCHAR(100), creditos INT);
+CREATE TABLE #w2b_r (totalMaterias INT, materiasEnRiesgo INT NULL, totalHorasFalta DECIMAL(12,2), totalCreditos INT);
+CREATE TABLE #w2b_rv (idEstudianteGrupo UNIQUEIDENTIFIER, codigoPermanencia NVARCHAR(10) NULL, horasFalta DECIMAL(12,6));
 
 BEGIN TRANSACTION;
 BEGIN TRY
@@ -107,31 +107,31 @@ BEGIN TRY
 
     -- ======================================================= W2B_SES: orden determinista y paginas
     SET @corr = NEWID();
-    INSERT INTO #sm (id, nombre, numero, codigo, numeroSemana, idGrupo, codigoGrupo, nombreGrupo, fechaHoraInicio, fechaHoraFin,
+    INSERT INTO #w2b_sm (id, nombre, numero, codigo, numeroSemana, idGrupo, codigoGrupo, nombreGrupo, fechaHoraInicio, fechaHoraFin,
                      fechaLimiteJustificacionUtc, plazoJustificacionVigente, totalRegistros)
     EXEC dbo.usp_consultar_sesiones_materia_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr, @idMateria = @asig,
         @numeroPagina = 1, @tamanoPagina = 100;
     SET @total = @esperadoG1 + @esperadoG2;
-    SET @ok = IIF((SELECT COUNT(*) FROM #sm) = @total
-                  AND NOT EXISTS (SELECT 1 FROM #sm x INNER JOIN #sm y ON y.pos = x.pos + 1
+    SET @ok = IIF((SELECT COUNT(*) FROM #w2b_sm) = @total
+                  AND NOT EXISTS (SELECT 1 FROM #w2b_sm x INNER JOIN #w2b_sm y ON y.pos = x.pos + 1
                                   WHERE NOT (x.fechaHoraInicio < y.fechaHoraInicio
                                              OR (x.fechaHoraInicio = y.fechaHoraInicio AND (x.numero < y.numero
                                                  OR (x.numero = y.numero AND x.id < y.id))))), 1, 0);
     EXEC #w2b_expect 'SES_01_ORDEN_CRONOLOGICO', @ok;
     -- la prueba es significativa: por numero el orden seria otro (s1 tiene un numero menor que s2 pero inicia despues)
-    SET @ok = IIF((SELECT pos FROM #sm WHERE id = @s2) < (SELECT pos FROM #sm WHERE id = @s1)
-                  AND (SELECT pos FROM #sm WHERE id = @s5) < (SELECT pos FROM #sm WHERE id = @s3)
-                  AND (SELECT pos FROM #sm WHERE id = @s3) < (SELECT pos FROM #sm WHERE id = @s4)
-                  AND (SELECT pos FROM #sm WHERE id = @s8) < (SELECT pos FROM #sm WHERE id = @s2), 1, 0);
+    SET @ok = IIF((SELECT pos FROM #w2b_sm WHERE id = @s2) < (SELECT pos FROM #w2b_sm WHERE id = @s1)
+                  AND (SELECT pos FROM #w2b_sm WHERE id = @s5) < (SELECT pos FROM #w2b_sm WHERE id = @s3)
+                  AND (SELECT pos FROM #w2b_sm WHERE id = @s3) < (SELECT pos FROM #w2b_sm WHERE id = @s4)
+                  AND (SELECT pos FROM #w2b_sm WHERE id = @s8) < (SELECT pos FROM #w2b_sm WHERE id = @s2), 1, 0);
     EXEC #w2b_expect 'SES_01_ORDEN_SIGNIFICATIVO', @ok;
     PRINT 'TEST_PASS:W2B_SES_01_ORDEN_CRONOLOGICO';
 
     -- desempate por identificador: s3 (grupo 1) y s7 (grupo 2) tienen igual inicio y numero; salen adyacentes y por id
-    SET @ok = IIF((SELECT numero FROM #sm WHERE id = @s3) = (SELECT numero FROM #sm WHERE id = @s7)
-                  AND (SELECT fechaHoraInicio FROM #sm WHERE id = @s3) = (SELECT fechaHoraInicio FROM #sm WHERE id = @s7)
-                  AND ABS((SELECT pos FROM #sm WHERE id = @s3) - (SELECT pos FROM #sm WHERE id = @s7)) = 1
-                  AND ((@s3 < @s7 AND (SELECT pos FROM #sm WHERE id = @s3) < (SELECT pos FROM #sm WHERE id = @s7))
-                       OR (@s7 < @s3 AND (SELECT pos FROM #sm WHERE id = @s7) < (SELECT pos FROM #sm WHERE id = @s3))), 1, 0);
+    SET @ok = IIF((SELECT numero FROM #w2b_sm WHERE id = @s3) = (SELECT numero FROM #w2b_sm WHERE id = @s7)
+                  AND (SELECT fechaHoraInicio FROM #w2b_sm WHERE id = @s3) = (SELECT fechaHoraInicio FROM #w2b_sm WHERE id = @s7)
+                  AND ABS((SELECT pos FROM #w2b_sm WHERE id = @s3) - (SELECT pos FROM #w2b_sm WHERE id = @s7)) = 1
+                  AND ((@s3 < @s7 AND (SELECT pos FROM #w2b_sm WHERE id = @s3) < (SELECT pos FROM #w2b_sm WHERE id = @s7))
+                       OR (@s7 < @s3 AND (SELECT pos FROM #w2b_sm WHERE id = @s7) < (SELECT pos FROM #w2b_sm WHERE id = @s3))), 1, 0);
     EXEC #w2b_expect 'SES_02_DESEMPATE_POR_ID', @ok;
     PRINT 'TEST_PASS:W2B_SES_02_DESEMPATE_POR_ID';
 
@@ -140,123 +140,123 @@ BEGIN TRY
     WHILE @pagina <= CEILING(@total / CAST(@tam AS FLOAT)) + 1
     BEGIN
         SET @corr = NEWID();
-        INSERT INTO #pg (id, nombre, numero, codigo, numeroSemana, idGrupo, codigoGrupo, nombreGrupo, fechaHoraInicio, fechaHoraFin,
+        INSERT INTO #w2b_pg (id, nombre, numero, codigo, numeroSemana, idGrupo, codigoGrupo, nombreGrupo, fechaHoraInicio, fechaHoraFin,
                          fechaLimiteJustificacionUtc, plazoJustificacionVigente, totalRegistros)
         EXEC dbo.usp_consultar_sesiones_materia_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr, @idMateria = @asig,
             @numeroPagina = @pagina, @tamanoPagina = @tam;
         SET @pagina += 1;
     END
-    SET @ok = IIF((SELECT COUNT(*) FROM #pg) = @total
-                  AND (SELECT COUNT(DISTINCT id) FROM #pg) = @total
-                  AND NOT EXISTS (SELECT 1 FROM #pg WHERE totalRegistros <> @total)
-                  AND NOT EXISTS (SELECT 1 FROM #sm s INNER JOIN #pg p ON p.pos = s.pos WHERE p.id <> s.id), 1, 0);
+    SET @ok = IIF((SELECT COUNT(*) FROM #w2b_pg) = @total
+                  AND (SELECT COUNT(DISTINCT id) FROM #w2b_pg) = @total
+                  AND NOT EXISTS (SELECT 1 FROM #w2b_pg WHERE totalRegistros <> @total)
+                  AND NOT EXISTS (SELECT 1 FROM #w2b_sm s INNER JOIN #w2b_pg p ON p.pos = s.pos WHERE p.id <> s.id), 1, 0);
     EXEC #w2b_expect 'SES_03_PAGINAS_SIN_REPETIR_NI_SALTAR', @ok;
     -- una pagina mas alla de la ultima no trae filas (la ultima del bucle ya lo cubre: se contaron exactamente @total)
     SET @corr = NEWID();
-    SET @filas = (SELECT COUNT(*) FROM #pg);
-    INSERT INTO #pg (id, nombre, numero, codigo, numeroSemana, idGrupo, codigoGrupo, nombreGrupo, fechaHoraInicio, fechaHoraFin,
+    SET @filas = (SELECT COUNT(*) FROM #w2b_pg);
+    INSERT INTO #w2b_pg (id, nombre, numero, codigo, numeroSemana, idGrupo, codigoGrupo, nombreGrupo, fechaHoraInicio, fechaHoraFin,
                      fechaLimiteJustificacionUtc, plazoJustificacionVigente, totalRegistros)
     EXEC dbo.usp_consultar_sesiones_materia_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr, @idMateria = @asig,
         @numeroPagina = 99, @tamanoPagina = @tam;
-    SET @ok = IIF((SELECT COUNT(*) FROM #pg) = @filas, 1, 0);
+    SET @ok = IIF((SELECT COUNT(*) FROM #w2b_pg) = @filas, 1, 0);
     EXEC #w2b_expect 'SES_03_PAGINA_FUERA_DE_RANGO_VACIA', @ok;
     PRINT 'TEST_PASS:W2B_SES_03_PAGINAS';
 
     -- filtro opcional por grupo: solo ese grupo y su total; NULL = todos los grupos inscritos
-    DELETE FROM #pg;
+    DELETE FROM #w2b_pg;
     SET @corr = NEWID();
-    INSERT INTO #pg (id, nombre, numero, codigo, numeroSemana, idGrupo, codigoGrupo, nombreGrupo, fechaHoraInicio, fechaHoraFin,
+    INSERT INTO #w2b_pg (id, nombre, numero, codigo, numeroSemana, idGrupo, codigoGrupo, nombreGrupo, fechaHoraInicio, fechaHoraFin,
                      fechaLimiteJustificacionUtc, plazoJustificacionVigente, totalRegistros)
     EXEC dbo.usp_consultar_sesiones_materia_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr, @idMateria = @asig,
         @numeroPagina = 1, @tamanoPagina = 100, @idGrupo = @g2;
-    SET @ok = IIF((SELECT COUNT(*) FROM #pg) = @esperadoG2 AND NOT EXISTS (SELECT 1 FROM #pg WHERE idGrupo <> @g2 OR totalRegistros <> @esperadoG2)
-                  AND EXISTS (SELECT 1 FROM #pg WHERE id = @s7) AND NOT EXISTS (SELECT 1 FROM #pg WHERE id = @s1), 1, 0);
+    SET @ok = IIF((SELECT COUNT(*) FROM #w2b_pg) = @esperadoG2 AND NOT EXISTS (SELECT 1 FROM #w2b_pg WHERE idGrupo <> @g2 OR totalRegistros <> @esperadoG2)
+                  AND EXISTS (SELECT 1 FROM #w2b_pg WHERE id = @s7) AND NOT EXISTS (SELECT 1 FROM #w2b_pg WHERE id = @s1), 1, 0);
     EXEC #w2b_expect 'SES_04_FILTRO_GRUPO_2', @ok;
-    DELETE FROM #pg;
+    DELETE FROM #w2b_pg;
     SET @corr = NEWID();
-    INSERT INTO #pg (id, nombre, numero, codigo, numeroSemana, idGrupo, codigoGrupo, nombreGrupo, fechaHoraInicio, fechaHoraFin,
+    INSERT INTO #w2b_pg (id, nombre, numero, codigo, numeroSemana, idGrupo, codigoGrupo, nombreGrupo, fechaHoraInicio, fechaHoraFin,
                      fechaLimiteJustificacionUtc, plazoJustificacionVigente, totalRegistros)
     EXEC dbo.usp_consultar_sesiones_materia_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr, @idMateria = @asig,
         @numeroPagina = 1, @tamanoPagina = 100, @idGrupo = @g1;
-    SET @ok = IIF((SELECT COUNT(*) FROM #pg) = @esperadoG1 AND NOT EXISTS (SELECT 1 FROM #pg WHERE idGrupo <> @g1 OR totalRegistros <> @esperadoG1), 1, 0);
+    SET @ok = IIF((SELECT COUNT(*) FROM #w2b_pg) = @esperadoG1 AND NOT EXISTS (SELECT 1 FROM #w2b_pg WHERE idGrupo <> @g1 OR totalRegistros <> @esperadoG1), 1, 0);
     EXEC #w2b_expect 'SES_04_FILTRO_GRUPO_1', @ok;
     -- un grupo desconocido o en el que el estudiante no esta inscrito no devuelve filas (igual que una materia ajena)
-    DELETE FROM #pg;
+    DELETE FROM #w2b_pg;
     SET @corr = NEWID();
-    INSERT INTO #pg (id, nombre, numero, codigo, numeroSemana, idGrupo, codigoGrupo, nombreGrupo, fechaHoraInicio, fechaHoraFin,
+    INSERT INTO #w2b_pg (id, nombre, numero, codigo, numeroSemana, idGrupo, codigoGrupo, nombreGrupo, fechaHoraInicio, fechaHoraFin,
                      fechaLimiteJustificacionUtc, plazoJustificacionVigente, totalRegistros)
     EXEC dbo.usp_consultar_sesiones_materia_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr, @idMateria = @asig,
         @numeroPagina = 1, @tamanoPagina = 100, @idGrupo = @sFalta;
-    SET @ok = IIF(NOT EXISTS (SELECT 1 FROM #pg), 1, 0);
+    SET @ok = IIF(NOT EXISTS (SELECT 1 FROM #w2b_pg), 1, 0);
     EXEC #w2b_expect 'SES_04_GRUPO_DESCONOCIDO_CERO_FILAS', @ok;
     PRINT 'TEST_PASS:W2B_SES_04_FILTRO_GRUPO';
 
     -- aislamiento: B solo ve las sesiones de su grupo; con el grupo de A no obtiene filas
-    DELETE FROM #pg;
+    DELETE FROM #w2b_pg;
     SET @corr = NEWID();
-    INSERT INTO #pg (id, nombre, numero, codigo, numeroSemana, idGrupo, codigoGrupo, nombreGrupo, fechaHoraInicio, fechaHoraFin,
+    INSERT INTO #w2b_pg (id, nombre, numero, codigo, numeroSemana, idGrupo, codigoGrupo, nombreGrupo, fechaHoraInicio, fechaHoraFin,
                      fechaLimiteJustificacionUtc, plazoJustificacionVigente, totalRegistros)
     EXEC dbo.usp_consultar_sesiones_materia_estudiante @idUsuarioEjecutor = @uB, @idCorrelacion = @corr, @idMateria = @asig,
         @numeroPagina = 1, @tamanoPagina = 100;
-    SET @ok = IIF((SELECT COUNT(*) FROM #pg) = @esperadoG2 AND NOT EXISTS (SELECT 1 FROM #pg WHERE idGrupo <> @g2)
-                  AND NOT EXISTS (SELECT 1 FROM #pg WHERE id IN (@s1, @s2, @s3, @s4, @s5, @s6, @sFalta)), 1, 0);
+    SET @ok = IIF((SELECT COUNT(*) FROM #w2b_pg) = @esperadoG2 AND NOT EXISTS (SELECT 1 FROM #w2b_pg WHERE idGrupo <> @g2)
+                  AND NOT EXISTS (SELECT 1 FROM #w2b_pg WHERE id IN (@s1, @s2, @s3, @s4, @s5, @s6, @sFalta)), 1, 0);
     EXEC #w2b_expect 'SES_05_AISLAMIENTO_B_SOLO_SU_GRUPO', @ok;
-    DELETE FROM #pg;
+    DELETE FROM #w2b_pg;
     SET @corr = NEWID();
-    INSERT INTO #pg (id, nombre, numero, codigo, numeroSemana, idGrupo, codigoGrupo, nombreGrupo, fechaHoraInicio, fechaHoraFin,
+    INSERT INTO #w2b_pg (id, nombre, numero, codigo, numeroSemana, idGrupo, codigoGrupo, nombreGrupo, fechaHoraInicio, fechaHoraFin,
                      fechaLimiteJustificacionUtc, plazoJustificacionVigente, totalRegistros)
     EXEC dbo.usp_consultar_sesiones_materia_estudiante @idUsuarioEjecutor = @uB, @idCorrelacion = @corr, @idMateria = @asig,
         @numeroPagina = 1, @tamanoPagina = 100, @idGrupo = @g1;
-    SET @ok = IIF(NOT EXISTS (SELECT 1 FROM #pg), 1, 0);
+    SET @ok = IIF(NOT EXISTS (SELECT 1 FROM #w2b_pg), 1, 0);
     EXEC #w2b_expect 'SES_05_AISLAMIENTO_B_GRUPO_AJENO', @ok;
     PRINT 'TEST_PASS:W2B_SES_05_AISLAMIENTO';
 
     -- ======================================================= W2B_RES: resumen coherente con el listado
     SET @corr = NEWID();
-    INSERT INTO #l EXEC dbo.usp_consultar_materias_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr;
-    INSERT INTO #r EXEC dbo.usp_consultar_resumen_materias_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr;
-    SET @ok = IIF((SELECT COUNT(*) FROM #l) = 2
-                  AND (SELECT COUNT(*) FROM #r) = 1
-                  AND (SELECT totalMaterias FROM #r) = (SELECT COUNT(*) FROM #l)
-                  AND (SELECT totalCreditos FROM #r) = (SELECT ISNULL(SUM(creditos), 0) FROM #l), 1, 0);
+    INSERT INTO #w2b_l EXEC dbo.usp_consultar_materias_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr;
+    INSERT INTO #w2b_r EXEC dbo.usp_consultar_resumen_materias_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr;
+    SET @ok = IIF((SELECT COUNT(*) FROM #w2b_l) = 2
+                  AND (SELECT COUNT(*) FROM #w2b_r) = 1
+                  AND (SELECT totalMaterias FROM #w2b_r) = (SELECT COUNT(*) FROM #w2b_l)
+                  AND (SELECT totalCreditos FROM #w2b_r) = (SELECT ISNULL(SUM(creditos), 0) FROM #w2b_l), 1, 0);
     EXEC #w2b_expect 'RES_01_COHERENTE_CON_EL_LISTADO', @ok;
     PRINT 'TEST_PASS:W2B_RES_01_COHERENCIA_CON_LISTADO';
 
     -- horas de falta y materias en riesgo contra la vista de resumen de asistencia (misma regla y umbrales que las alertas)
-    INSERT INTO #rv (idEstudianteGrupo, codigoPermanencia, horasFalta)
+    INSERT INTO #w2b_rv (idEstudianteGrupo, codigoPermanencia, horasFalta)
     SELECT r.idEstudianteGrupo, r.codigoPermanencia, r.horasFalta
     FROM dbo.uv_resumen_asistencia_estudiante_grupo r
     INNER JOIN dbo.uv_materia_estudiante m ON m.idEstudianteGrupo = r.idEstudianteGrupo
     WHERE m.idUsuario = @uA AND m.codigoEstadoEstudiante = @inscrita;
-    SET @ok = IIF((SELECT materiasEnRiesgo FROM #r) = 1
-                  AND (SELECT materiasEnRiesgo FROM #r) = (SELECT COUNT(*) FROM #rv WHERE codigoPermanencia IN (N'RIESGO', N'PERDIDA'))
-                  AND (SELECT totalHorasFalta FROM #r) = 1.00
-                  AND (SELECT totalHorasFalta FROM #r) = (SELECT SUM(ROUND(horasFalta, 2)) FROM #rv)
-                  AND EXISTS (SELECT 1 FROM #rv WHERE codigoPermanencia = N'PERDIDA' AND horasFalta = 1.0)
-                  AND EXISTS (SELECT 1 FROM #rv WHERE codigoPermanencia = N'REGULAR' AND horasFalta = 0), 1, 0);
+    SET @ok = IIF((SELECT materiasEnRiesgo FROM #w2b_r) = 1
+                  AND (SELECT materiasEnRiesgo FROM #w2b_r) = (SELECT COUNT(*) FROM #w2b_rv WHERE codigoPermanencia IN (N'RIESGO', N'PERDIDA'))
+                  AND (SELECT totalHorasFalta FROM #w2b_r) = 1.00
+                  AND (SELECT totalHorasFalta FROM #w2b_r) = (SELECT SUM(ROUND(horasFalta, 2)) FROM #w2b_rv)
+                  AND EXISTS (SELECT 1 FROM #w2b_rv WHERE codigoPermanencia = N'PERDIDA' AND horasFalta = 1.0)
+                  AND EXISTS (SELECT 1 FROM #w2b_rv WHERE codigoPermanencia = N'REGULAR' AND horasFalta = 0), 1, 0);
     EXEC #w2b_expect 'RES_02_RIESGO_Y_HORAS_DE_FALTA', @ok;
     PRINT 'TEST_PASS:W2B_RES_02_RIESGO_Y_HORAS_DE_FALTA';
 
     -- el umbral es del catalogo: con advertencia 0 toda materia queda en riesgo; con umbrales altos ninguna; sin umbral, sin dato
     UPDATE dbo.CatalogoParametro SET valor = N'0', estaActivo = 1 WHERE grupo = 'ASISTENCIA' AND clave = 'UMBRAL_ALERTA_ADVERTENCIA';
     UPDATE dbo.CatalogoParametro SET valor = N'100', estaActivo = 1 WHERE grupo = 'ASISTENCIA' AND clave = 'UMBRAL_ALERTA_PERDIDA';
-    DELETE FROM #r;
+    DELETE FROM #w2b_r;
     SET @corr = NEWID();
-    INSERT INTO #r EXEC dbo.usp_consultar_resumen_materias_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr;
-    SET @ok = IIF((SELECT materiasEnRiesgo FROM #r) = (SELECT totalMaterias FROM #r) AND (SELECT totalMaterias FROM #r) = 2, 1, 0);
+    INSERT INTO #w2b_r EXEC dbo.usp_consultar_resumen_materias_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr;
+    SET @ok = IIF((SELECT materiasEnRiesgo FROM #w2b_r) = (SELECT totalMaterias FROM #w2b_r) AND (SELECT totalMaterias FROM #w2b_r) = 2, 1, 0);
     EXEC #w2b_expect 'RES_03_UMBRAL_DEL_CATALOGO_TODAS_EN_RIESGO', @ok;
     UPDATE dbo.CatalogoParametro SET valor = N'200' WHERE grupo = 'ASISTENCIA' AND clave = 'UMBRAL_ALERTA_ADVERTENCIA';
     UPDATE dbo.CatalogoParametro SET valor = N'300' WHERE grupo = 'ASISTENCIA' AND clave = 'UMBRAL_ALERTA_PERDIDA';
-    DELETE FROM #r;
+    DELETE FROM #w2b_r;
     SET @corr = NEWID();
-    INSERT INTO #r EXEC dbo.usp_consultar_resumen_materias_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr;
-    SET @ok = IIF((SELECT materiasEnRiesgo FROM #r) = 0 AND (SELECT totalMaterias FROM #r) = 2, 1, 0);
+    INSERT INTO #w2b_r EXEC dbo.usp_consultar_resumen_materias_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr;
+    SET @ok = IIF((SELECT materiasEnRiesgo FROM #w2b_r) = 0 AND (SELECT totalMaterias FROM #w2b_r) = 2, 1, 0);
     EXEC #w2b_expect 'RES_03_UMBRAL_DEL_CATALOGO_NINGUNA_EN_RIESGO', @ok;
     UPDATE dbo.CatalogoParametro SET estaActivo = 0 WHERE grupo = 'ASISTENCIA' AND clave = 'UMBRAL_ALERTA_PERDIDA';
-    DELETE FROM #r;
+    DELETE FROM #w2b_r;
     SET @corr = NEWID();
-    INSERT INTO #r EXEC dbo.usp_consultar_resumen_materias_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr;
-    SET @ok = IIF((SELECT materiasEnRiesgo FROM #r) IS NULL AND (SELECT totalMaterias FROM #r) = 2 AND (SELECT totalHorasFalta FROM #r) = 1.00, 1, 0);
+    INSERT INTO #w2b_r EXEC dbo.usp_consultar_resumen_materias_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr;
+    SET @ok = IIF((SELECT materiasEnRiesgo FROM #w2b_r) IS NULL AND (SELECT totalMaterias FROM #w2b_r) = 2 AND (SELECT totalHorasFalta FROM #w2b_r) = 1.00, 1, 0);
     EXEC #w2b_expect 'RES_03_SIN_UMBRAL_ES_SIN_DATO', @ok;
     UPDATE dbo.CatalogoParametro SET valor = N'15', estaActivo = 1 WHERE grupo = 'ASISTENCIA' AND clave = 'UMBRAL_ALERTA_ADVERTENCIA';
     UPDATE dbo.CatalogoParametro SET valor = N'20', estaActivo = 1 WHERE grupo = 'ASISTENCIA' AND clave = 'UMBRAL_ALERTA_PERDIDA';
@@ -265,35 +265,35 @@ BEGIN TRY
     -- solo la matricula inscrita cuenta, igual que en el listado: la del grupo 2 pasa a retirada (I) y sale de las dos consultas
     UPDATE dbo.EstudianteGrupo SET estado = (SELECT id FROM dbo.EstadoEstudianteGrupo WHERE codigo = N'I')
     WHERE estudiante = @eA AND grupo = @g2;
-    DELETE FROM #l; DELETE FROM #r;
+    DELETE FROM #w2b_l; DELETE FROM #w2b_r;
     SET @corr = NEWID();
-    INSERT INTO #l EXEC dbo.usp_consultar_materias_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr;
-    INSERT INTO #r EXEC dbo.usp_consultar_resumen_materias_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr;
-    SET @ok = IIF((SELECT COUNT(*) FROM #l) = 1 AND (SELECT totalMaterias FROM #r) = 1
-                  AND (SELECT totalCreditos FROM #r) = (SELECT ISNULL(SUM(creditos), 0) FROM #l)
-                  AND (SELECT materiasEnRiesgo FROM #r) = 1, 1, 0);
+    INSERT INTO #w2b_l EXEC dbo.usp_consultar_materias_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr;
+    INSERT INTO #w2b_r EXEC dbo.usp_consultar_resumen_materias_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr;
+    SET @ok = IIF((SELECT COUNT(*) FROM #w2b_l) = 1 AND (SELECT totalMaterias FROM #w2b_r) = 1
+                  AND (SELECT totalCreditos FROM #w2b_r) = (SELECT ISNULL(SUM(creditos), 0) FROM #w2b_l)
+                  AND (SELECT materiasEnRiesgo FROM #w2b_r) = 1, 1, 0);
     EXEC #w2b_expect 'RES_04_SOLO_MATRICULA_INSCRITA', @ok;
     -- un estudiante sin ninguna matricula inscrita: cero materias, cero horas, cero creditos y cero en riesgo (no NULL)
     UPDATE dbo.EstudianteGrupo SET estado = (SELECT id FROM dbo.EstadoEstudianteGrupo WHERE codigo = N'I')
     WHERE estudiante = @eA AND grupo = @g1;
-    DELETE FROM #l; DELETE FROM #r;
+    DELETE FROM #w2b_l; DELETE FROM #w2b_r;
     SET @corr = NEWID();
-    INSERT INTO #l EXEC dbo.usp_consultar_materias_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr;
-    INSERT INTO #r EXEC dbo.usp_consultar_resumen_materias_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr;
-    SET @ok = IIF((SELECT COUNT(*) FROM #l) = 0 AND (SELECT COUNT(*) FROM #r) = 1 AND (SELECT totalMaterias FROM #r) = 0
-                  AND (SELECT materiasEnRiesgo FROM #r) = 0 AND (SELECT totalHorasFalta FROM #r) = 0
-                  AND (SELECT totalCreditos FROM #r) = 0, 1, 0);
+    INSERT INTO #w2b_l EXEC dbo.usp_consultar_materias_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr;
+    INSERT INTO #w2b_r EXEC dbo.usp_consultar_resumen_materias_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr;
+    SET @ok = IIF((SELECT COUNT(*) FROM #w2b_l) = 0 AND (SELECT COUNT(*) FROM #w2b_r) = 1 AND (SELECT totalMaterias FROM #w2b_r) = 0
+                  AND (SELECT materiasEnRiesgo FROM #w2b_r) = 0 AND (SELECT totalHorasFalta FROM #w2b_r) = 0
+                  AND (SELECT totalCreditos FROM #w2b_r) = 0, 1, 0);
     EXEC #w2b_expect 'RES_04_SIN_MATERIAS_CEROS', @ok;
     PRINT 'TEST_PASS:W2B_RES_04_SOLO_MATRICULA_INSCRITA';
 
     -- aislamiento: B ve solo lo suyo (una materia, sin horas de falta ni riesgo) aunque A tenga faltas
-    DELETE FROM #l; DELETE FROM #r;
+    DELETE FROM #w2b_l; DELETE FROM #w2b_r;
     SET @corr = NEWID();
-    INSERT INTO #l EXEC dbo.usp_consultar_materias_estudiante @idUsuarioEjecutor = @uB, @idCorrelacion = @corr;
-    INSERT INTO #r EXEC dbo.usp_consultar_resumen_materias_estudiante @idUsuarioEjecutor = @uB, @idCorrelacion = @corr;
-    SET @ok = IIF((SELECT totalMaterias FROM #r) = (SELECT COUNT(*) FROM #l) AND (SELECT COUNT(*) FROM #l) = 1
-                  AND (SELECT totalHorasFalta FROM #r) = 0 AND (SELECT materiasEnRiesgo FROM #r) = 0
-                  AND (SELECT totalCreditos FROM #r) = (SELECT ISNULL(SUM(creditos), 0) FROM #l), 1, 0);
+    INSERT INTO #w2b_l EXEC dbo.usp_consultar_materias_estudiante @idUsuarioEjecutor = @uB, @idCorrelacion = @corr;
+    INSERT INTO #w2b_r EXEC dbo.usp_consultar_resumen_materias_estudiante @idUsuarioEjecutor = @uB, @idCorrelacion = @corr;
+    SET @ok = IIF((SELECT totalMaterias FROM #w2b_r) = (SELECT COUNT(*) FROM #w2b_l) AND (SELECT COUNT(*) FROM #w2b_l) = 1
+                  AND (SELECT totalHorasFalta FROM #w2b_r) = 0 AND (SELECT materiasEnRiesgo FROM #w2b_r) = 0
+                  AND (SELECT totalCreditos FROM #w2b_r) = (SELECT ISNULL(SUM(creditos), 0) FROM #w2b_l), 1, 0);
     EXEC #w2b_expect 'RES_05_AISLAMIENTO_B_SOLO_LO_SUYO', @ok;
     PRINT 'TEST_PASS:W2B_RES_05_AISLAMIENTO';
 
@@ -310,7 +310,7 @@ BEGIN TRY
     SET @errNum = NULL;
     BEGIN TRY
         SET @corr = NEWID();
-        INSERT INTO #r EXEC dbo.usp_consultar_resumen_materias_estudiante @idUsuarioEjecutor = @uT, @idCorrelacion = @corr;
+        INSERT INTO #w2b_r EXEC dbo.usp_consultar_resumen_materias_estudiante @idUsuarioEjecutor = @uT, @idCorrelacion = @corr;
     END TRY
     BEGIN CATCH
         SET @errNum = ERROR_NUMBER();
@@ -320,7 +320,7 @@ BEGIN TRY
     SET @errNum = NULL;
     BEGIN TRY
         SET @corr = NEWID();
-        INSERT INTO #r EXEC dbo.usp_consultar_resumen_materias_estudiante @idUsuarioEjecutor = NULL, @idCorrelacion = @corr;
+        INSERT INTO #w2b_r EXEC dbo.usp_consultar_resumen_materias_estudiante @idUsuarioEjecutor = NULL, @idCorrelacion = @corr;
     END TRY
     BEGIN CATCH
         SET @errNum = ERROR_NUMBER();
@@ -333,7 +333,7 @@ BEGIN TRY
     SET @errNum = NULL;
     BEGIN TRY
         SET @corr = NEWID();
-        INSERT INTO #sm (id, nombre, numero, codigo, numeroSemana, idGrupo, codigoGrupo, nombreGrupo, fechaHoraInicio, fechaHoraFin,
+        INSERT INTO #w2b_sm (id, nombre, numero, codigo, numeroSemana, idGrupo, codigoGrupo, nombreGrupo, fechaHoraInicio, fechaHoraFin,
                          fechaLimiteJustificacionUtc, plazoJustificacionVigente, totalRegistros)
         EXEC dbo.usp_consultar_sesiones_materia_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr, @idMateria = @asig,
             @numeroPagina = 1, @tamanoPagina = 0, @idGrupo = @g1;
@@ -348,10 +348,10 @@ END TRY
 BEGIN CATCH
     DECLARE @fallo NVARCHAR(2000) = CONCAT(ERROR_MESSAGE(), N' (linea ', ERROR_LINE(), N')');
     IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
-    DROP TABLE IF EXISTS #sm; DROP TABLE IF EXISTS #pg; DROP TABLE IF EXISTS #l; DROP TABLE IF EXISTS #r; DROP TABLE IF EXISTS #rv;
+    DROP TABLE IF EXISTS #w2b_sm; DROP TABLE IF EXISTS #w2b_pg; DROP TABLE IF EXISTS #w2b_l; DROP TABLE IF EXISTS #w2b_r; DROP TABLE IF EXISTS #w2b_rv;
     THROW 56302, @fallo, 1;
 END CATCH
-DROP TABLE IF EXISTS #sm; DROP TABLE IF EXISTS #pg; DROP TABLE IF EXISTS #l; DROP TABLE IF EXISTS #r; DROP TABLE IF EXISTS #rv;
+DROP TABLE IF EXISTS #w2b_sm; DROP TABLE IF EXISTS #w2b_pg; DROP TABLE IF EXISTS #w2b_l; DROP TABLE IF EXISTS #w2b_r; DROP TABLE IF EXISTS #w2b_rv;
 IF @@TRANCOUNT <> 0 THROW 56303, 'TEST FAILED W2B_TRANCOUNT_ZERO: la prueba dejo una transaccion abierta.', 1;
 PRINT 'TEST_PASS:W2B_TRANCOUNT_ZERO';
 GO
