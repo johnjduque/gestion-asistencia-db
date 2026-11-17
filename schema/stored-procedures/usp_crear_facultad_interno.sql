@@ -23,7 +23,6 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_crear_facultad_interno]
     @estadoResultado         BIT OUTPUT
 )
 AS
-    -- 1. Declaración e inicialización estricta en cabecera (AS ... BEGIN)
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idInstitucionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idInstitucion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idDecanoDefecto      UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idDecano, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
