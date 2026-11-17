@@ -209,6 +209,15 @@ Esta documentación especifica la arquitectura, reglas de negocio, contrato de f
 
 ---
 
+### 8.5. `dbo.usp_validar_consulta_grupo_docente_titular_interno`
+- **Propósito**: CIERRE-W3M. Validación compartida de las consultas de solo lectura del docente titular sobre un grupo (matriz de asistencia, resumen de sesiones y resumen por horas), para no repetir el preámbulo en cada SP.
+- **Parámetros de Entrada**: `@idUsuarioEjecutor`, `@idCorrelacion`, `@idGrupo`, `@validarPaginacion BIT`, `@numeroPagina INT`, `@tamanoPagina INT` (los dos últimos solo se evalúan con `@validarPaginacion = 1`). **Salida**: triplete estándar.
+- **Códigos de Catálogo Consumidos**: los de `usp_validar_id_correlacion_esta_presente_interno`, `GEN_002` (ejecutor ausente), `SEC_001` (perfil DOCENTE), `PAG_001`, `ERR_GRUPO_NO_EXISTE` y `SEC_002` (titularidad).
+- **Flujo de Ejecución**: correlación, ejecutor, perfil DOCENTE, paginación (opcional), existencia del grupo y titularidad; el primer fallo gana y el caller hace `THROW 51000` con el mensaje técnico. Sin transacción (solo lectura). No recibe `GRANT` del runtime.
+- **Callers**: `usp_consultar_matriz_asistencia_grupo_docente_paginado`, `usp_consultar_resumen_sesiones_grupo_docente` y `usp_consultar_resumen_asistencia_grupo_docente_paginado`.
+
+---
+
 ### 9. `dbo.usp_validar_cruce_horario_estudiante_interno`
 - **Propósito**: Detecta traslapes de horario para un estudiante en los grupos matriculados.
 - **Parámetros de Entrada**: `@idEstudiante UNIQUEIDENTIFIER`, `@idGrupo UNIQUEIDENTIFIER`, `@idCorrelacion UNIQUEIDENTIFIER`.
