@@ -190,6 +190,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_w1b_directorios.sql
 -- CIERRE-W2A (listados del coordinador en la base): filtro por caracter, opciones del consolidado con ambito y estado del periodo
 :r /tmp/test/test_w2a_coordinador_listados.sql
+-- CIERRE-W3M (matriz de asistencia del docente en la base): matriz estudiantes x sesiones paginada, resumen de sesiones y busqueda del resumen
+:r /tmp/test/test_w3m_matriz_asistencia.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN
