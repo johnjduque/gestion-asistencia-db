@@ -198,7 +198,7 @@ BEGIN TRY
         estudiantesConMatriculaActiva INT, estudiantesRegistrados INT, docentesConGrupoActivo INT, docentesRegistrados INT,
         umbralAdvertencia DECIMAL(5,2), umbralPerdida DECIMAL(5,2),
         -- CULM-001 B.2 (CONTRACT §2.9, NB-2): columnas nuevas al final del resultset (forma del contrato, sin cambio de asercion).
-        tomasDictadas INT, horasDictadas DECIMAL(12,6), horasFalta DECIMAL(12,6));
+        tomasDictadas INT, horasDictadas DECIMAL(12,6), horasFalta DECIMAL(12,6), totalDecanos INT, decanosActivos INT, facultadesActivas INT);
     -- T-DB-05: cifras exactas de I1 (periodo por defecto)
     INSERT INTO #k EXEC dbo.usp_consultar_kpis_institucion @idUsuarioEjecutor = @uA1, @idCorrelacion = @c, @idPeriodoAcademico = NULL;
     IF NOT ((SELECT COUNT(*) FROM #k) = 1) THROW 54301, 'TEST FAILED: se esperaba exactamente 1 fila', 1;
