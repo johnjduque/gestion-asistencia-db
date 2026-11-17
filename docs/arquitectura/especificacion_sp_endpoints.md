@@ -413,7 +413,7 @@
 
 | Tabla | Transacción / Acción de Negocio | Procedimiento Almacenado (BD) | Método del Controlador (Backend) | Rol / Permiso Requerido | Descripción del procedimiento |
 |:---|:---|:---|:---|:---|:---|
-| `EstudianteGrupo`, `Grupo`, `DetalleAsistencia`, `AuditoriaEvento` | Ejecutar cierre masivo de periodo académico | `usp_ejecutar_cierre_masivo_periodo` | `POST /api/v1/admin/cierre-masivo` | `ADMINISTRADOR` | Resuelve el periodo objetivo. Calcula inasistencias acumuladas por estudiante/grupo. Marca con `'CI'` a quienes superen el umbral (≥ 3 faltas ó ≥ 20%). Marca con `'F'` al resto de activos. Actualiza contadores en `Grupo`. Registra evento de auditoría. Transacción completa. |
+| `EstudianteGrupo`, `Grupo`, `DetalleAsistencia`, `AuditoriaEvento` | Ejecutar cierre masivo de periodo académico | `usp_ejecutar_cierre_masivo_periodo` | `POST /api/v1/admin/cierre-masivo` | `ADMINISTRADOR` | Resuelve el periodo objetivo solo por el codigo indicado (`GEN_002` sin codigo, `PER_001` si no existe) y solo lo cierra si ya termino (`uv_periodo_academico.estado = CERRADO`); un periodo vigente o en planeacion responde `PER_007` sin cerrar ni auditar nada. Calcula inasistencias acumuladas por estudiante/grupo. Marca con `'CI'` a quienes superen el umbral (≥ 3 faltas ó ≥ 20%). Marca con `'F'` al resto de activos. Actualiza contadores en `Grupo`. Registra evento de auditoría. Transacción completa. |
 
 ## Módulo: Operaciones Simples sin SP (Backend Directo)
 

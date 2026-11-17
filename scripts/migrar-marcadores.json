@@ -368,6 +368,9 @@
     ],
     "47_val_mensaje_almacenamiento": [
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ERR_ALMACENAMIENTO_NO_DISPONIBLE'" }
+    ],
+    "48_fix_cierre_periodo_no_terminado": [
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'PER_007'" }
     ]
   }
 }

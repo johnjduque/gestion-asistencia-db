@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **485**.
+Total de códigos: **486**.
 
 ## ACC
 
@@ -452,6 +452,7 @@ Total de códigos: **485**.
 | `PER_004` | BUSINESS_ERROR | MEDIO | El período académico tiene grupos o sesiones asociados y no se puede eliminar. | Regla: existe dbo.Grupo que referencia el periodo a eliminar. | `17_mensajes_periodo_academico.sql` |
 | `PER_005` | BUSINESS_ERROR | MEDIO | No tiene una institución activa asignada como administrador para gestionar períodos académicos. | Ambito: el ejecutor no tiene dbo.Administrador en una institucion activa. | `17_mensajes_periodo_academico.sql` |
 | `PER_006` | SUCCESS | BAJO | Período académico eliminado exitosamente. | Eliminacion: dbo.PeriodoAcademico eliminado. | `17_mensajes_periodo_academico.sql` |
+| `PER_007` | BUSINESS_ERROR | MEDIO | El período académico aún no ha finalizado; el cierre masivo solo puede ejecutarse después de su fecha de fin ({}). | Regla: uv_periodo_academico.estado del periodo no es CERRADO (fecha local institucional <= fechaFin {}); usp_ejecutar_cierre_masivo_periodo no cierra ni audita nada. | `17_mensajes_periodo_academico.sql` |
 
 ## PLA
 
