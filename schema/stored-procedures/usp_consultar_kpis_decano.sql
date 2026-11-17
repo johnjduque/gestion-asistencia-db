@@ -11,6 +11,8 @@ GO
 -- Retencion = (regular + riesgo) / total (D2). Ausentismo = faltas / sesiones ejecutadas, ponderado por matricula activa (D1).
 -- sesionesEjecutadas = suma por matricula activa (denominador del ausentismo). Aforo = matriculados activos / cupo de los grupos habilitados (D4).
 -- Lo que no puede calcularse es NULL; nunca un valor por defecto.
+-- CIERRE-W3I: columnas nuevas AL FINAL: totalCoordinadores (coordinadores activos de la facultad) y totalDocentes (docentes con vinculo
+-- activo en algun programa de la facultad, contados una sola vez aunque esten en varios programas).
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_kpis_decano]
 (
@@ -33,6 +35,8 @@ BEGIN
     DECLARE @sesiones INT = 0, @faltas INT = 0;
     DECLARE @tomasDictadas INT = 0, @horasDictadas DECIMAL(12,6) = 0, @horasFalta DECIMAL(12,6) = 0;
     DECLARE @grupos INT = 0, @cupo INT = 0, @matriculados INT = 0;
+    DECLARE @coordinadores INT = (SELECT COUNT(DISTINCT c.id) FROM dbo.uv_coordinador c WHERE c.idFacultad = @idFacultad AND c.estaActivoCoordinador = 1);
+    DECLARE @docentes INT = (SELECT COUNT(DISTINCT dp.idDocente) FROM dbo.uv_docente_programa dp WHERE dp.idFacultad = @idFacultad AND dp.estaActivoDocentePrograma = 1);
 
     -- PASO 3: Calcular los indicadores del periodo
     IF @idPeriodo IS NOT NULL
@@ -93,7 +97,9 @@ BEGIN
         umbralPerdida = TRY_CAST(NULLIF(TRIM(dbo.ufn_obtener_parametro('ASISTENCIA', 'UMBRAL_ALERTA_PERDIDA')), '') AS DECIMAL(5,2)),
         tomasDictadas = @tomasDictadas,
         horasDictadas = @horasDictadas,
-        horasFalta = @horasFalta
+        horasFalta = @horasFalta,
+        totalCoordinadores = @coordinadores,
+        totalDocentes = @docentes
     FROM dbo.uv_facultad f
     LEFT JOIN dbo.uv_periodo_academico pa ON pa.id = @idPeriodo
     WHERE f.id = @idFacultad;

@@ -131,13 +131,16 @@ BEGIN TRY
         idPeriodoAcademico UNIQUEIDENTIFIER, codigoEstadoMatricula NVARCHAR(50), idTipo UNIQUEIDENTIFIER, codigoTipo NVARCHAR(20), nombreTipo NVARCHAR(50), nivel TINYINT,
         codigoMensajeUsuario VARCHAR(100), idEstado UNIQUEIDENTIFIER, codigoEstado NVARCHAR(20), estaVigente BIT, porcentajeCruce DECIMAL(5,2), umbralCruce DECIMAL(5,2),
         horasFaltaCruce DECIMAL(12,6), horasDictadasCruce DECIMAL(12,6), fechaCruceUtc DATETIME2(3), porcentajeUltimaEvaluacion DECIMAL(5,2),
-        fechaUltimaEvaluacionUtc DATETIME2(3), fechaLecturaUtc DATETIME2(3), estaLeida BIT, porcentajeActual DECIMAL(5,2), umbralPerdidaActual DECIMAL(5,2), totalRegistros INT);
+        fechaUltimaEvaluacionUtc DATETIME2(3), fechaLecturaUtc DATETIME2(3), estaLeida BIT, porcentajeActual DECIMAL(5,2), umbralPerdidaActual DECIMAL(5,2), totalRegistros INT, codigoPermanenciaActual NVARCHAR(10));
     DECLARE @uEA2 UNIQUEIDENTIFIER = @uEA;
     INSERT INTO #c1al EXEC dbo.usp_consultar_alertas_estudiante @idUsuarioEjecutor = @uEA2, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 20, @soloNoLeidas = 0, @soloVigentes = 0, @idGrupo = NULL;
     IF (SELECT COUNT(*) FROM #c1al) <> 2 OR EXISTS (SELECT 1 FROM #c1al WHERE idEstudianteGrupo <> @egEA) OR (SELECT MAX(totalRegistros) FROM #c1al) <> 2
         THROW 58026, 'TEST FAILED: C-DB-15 el estudiante solo ve sus 2 alertas.', 1;
     IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'tempdb..#c1al') AND name IN (N'codigoEstadoRevision', N'idUsuarioEstudiante', N'idDocenteTitular'))
         THROW 58027, 'TEST FAILED: C-DB-15 (plantilla de columnas).', 1;
+    -- CIERRE-W3I: el nivel vigente de cada alerta es el de la unica regla de permanencia (con el estado de la matricula), no un calculo del cliente
+    IF EXISTS (SELECT 1 FROM #c1al WHERE porcentajeActual IS NOT NULL AND (codigoPermanenciaActual IS NULL OR codigoPermanenciaActual <> dbo.ufn_clasificar_permanencia(porcentajeActual, codigoEstadoMatricula)))
+        THROW 58097, 'TEST FAILED: W3I codigoPermanenciaActual de las alertas no coincide con ufn_clasificar_permanencia.', 1;
     DELETE FROM #c1al;
     EXEC #c1_faltas @egEA, 3;
     EXEC #c1_eval @grupoG, @c;

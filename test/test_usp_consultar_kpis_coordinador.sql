@@ -172,7 +172,7 @@ BEGIN TRY
     CREATE TABLE #k (idPrograma UNIQUEIDENTIFIER, nombrePrograma NVARCHAR(50), idPeriodoAcademico UNIQUEIDENTIFIER, nombrePeriodoAcademico NVARCHAR(50),
         totalEstudiantes INT, estudiantesRegulares INT, estudiantesRiesgo INT, estudiantesPerdida INT, tasaPermanencia DECIMAL(5,2),
         sesionesProgramadas INT, sesionesVencidas INT, sesionesEjecutadas INT, sesionesVencidasSinRegistro INT, sesionesSinProcedenciaTemporal INT,
-        porcentajeCumplimiento DECIMAL(5,2), porcentajeProgresoCalendario DECIMAL(5,2), umbralAdvertencia DECIMAL(5,2), umbralPerdida DECIMAL(5,2));
+        porcentajeCumplimiento DECIMAL(5,2), porcentajeProgresoCalendario DECIMAL(5,2), umbralAdvertencia DECIMAL(5,2), umbralPerdida DECIMAL(5,2), totalDocentes INT, gruposActivos INT, cupoTotal INT, matriculadosActivos INT, tasaAforo DECIMAL(7,2), estudiantesRegistrados INT);
     DECLARE @err NVARCHAR(4000);
     SET @c = NEWID();
 

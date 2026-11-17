@@ -71,7 +71,7 @@ CREATE TABLE #d8Co (idGrupo UNIQUEIDENTIFIER, codigoGrupo INT, nombreGrupo NVARC
     idAsignatura UNIQUEIDENTIFIER, nombreAsignatura NVARCHAR(100), idDocente UNIQUEIDENTIFIER, nombreDocente NVARCHAR(250),
     estudiantesActivos INT, sesionesEjecutadas INT, asistencias INT, faltasSinJustaCausa INT, excusas INT,
     porcentajeAsistencia DECIMAL(5,2), porcentajeInasistencia DECIMAL(5,2), estudiantesRiesgo INT, estudiantesPerdida INT, totalRegistros INT,
-    horasDictadas DECIMAL(12,2), porcentajeExcusa DECIMAL(5,2), porcentajeSinRegistro DECIMAL(5,2));
+    horasDictadas DECIMAL(12,2), porcentajeExcusa DECIMAL(5,2), porcentajeSinRegistro DECIMAL(5,2), codigoPermanencia NVARCHAR(10));
 CREATE TABLE #d8Te (inicioIntervalo DATE, finIntervalo DATE, sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2),
     horasDictadasEstudiante DECIMAL(14,2), horasFalta DECIMAL(14,2));
 CREATE TABLE #d8Cf (idFacultad UNIQUEIDENTIFIER, nombreFacultad NVARCHAR(50), estaActivaFacultad BIT, totalProgramas INT, totalEstudiantes INT,

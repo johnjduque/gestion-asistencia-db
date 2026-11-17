@@ -194,6 +194,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_w2b_estudiante_resumen.sql
 -- CIERRE-W3M (matriz de asistencia del docente en la base): matriz estudiantes x sesiones paginada, resumen de sesiones y busqueda del resumen
 :r /tmp/test/test_w3m_matriz_asistencia.sql
+-- CIERRE-W3I (indicadores en la base): totales de los tableros por rol, aforo, resumen de grupos del docente y nivel de permanencia del consolidado
+:r /tmp/test/test_w3i_indicadores.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN

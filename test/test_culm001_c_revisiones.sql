@@ -128,11 +128,14 @@ BEGIN TRY
         idUsuarioResolucion UNIQUEIDENTIFIER, nombreCompletoResolucion NVARCHAR(400), codigoPerfilResolucion NVARCHAR(20), idProgramaResolucion UNIQUEIDENTIFIER,
         nombreProgramaResolucion NVARCHAR(100), porcentajeResolucion DECIMAL(5,2), fechaResolucionUtc DATETIME2(3), fechaActualizacionUtc DATETIME2(3),
         idPrograma UNIQUEIDENTIFIER, nombrePrograma NVARCHAR(100), porcentajeActual DECIMAL(5,2), horasFaltaActual DECIMAL(12,6), horasDictadasActual DECIMAL(12,6),
-        umbralPerdida DECIMAL(5,2), esResolutorActual BIT, accionesPermitidas NVARCHAR(200), totalRegistros INT);
+        umbralPerdida DECIMAL(5,2), esResolutorActual BIT, accionesPermitidas NVARCHAR(200), totalRegistros INT, codigoPermanenciaActual NVARCHAR(10));
     INSERT INTO #c1l EXEC dbo.usp_consultar_revisiones_cancelacion_coordinador_paginado @idUsuarioEjecutor = @uCA, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 50,
         @soloPendientes = 0, @codigoEstado = NULL, @idPrograma = NULL, @idGrupo = NULL;
     IF NOT EXISTS (SELECT 1 FROM #c1l WHERE id = @revEA AND esResolutorActual = 1 AND accionesPermitidas LIKE N'%APROBAR%') OR EXISTS (SELECT 1 FROM #c1l WHERE id IN (@revEB, @rev0))
         THROW 58141, 'TEST FAILED: C-DB-28 CA debe ver a EA (resolutor) y no a EB ni a E0.', 1;
+    -- CIERRE-W3I: el nivel vigente de cada revision es el de la unica regla de permanencia (con el estado de la matricula)
+    IF EXISTS (SELECT 1 FROM #c1l WHERE porcentajeActual IS NOT NULL AND (codigoPermanenciaActual IS NULL OR codigoPermanenciaActual <> dbo.ufn_clasificar_permanencia(porcentajeActual, codigoEstadoMatricula)))
+        THROW 58197, 'TEST FAILED: W3I codigoPermanenciaActual de las revisiones no coincide con ufn_clasificar_permanencia.', 1;
     DELETE FROM #c1l;
     INSERT INTO #c1l EXEC dbo.usp_consultar_revisiones_cancelacion_coordinador_paginado @idUsuarioEjecutor = @uCB, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 50,
         @soloPendientes = 0, @codigoEstado = NULL, @idPrograma = NULL, @idGrupo = NULL;
@@ -235,7 +238,7 @@ BEGIN TRY
         idUsuarioResolucion UNIQUEIDENTIFIER, nombreCompletoResolucion NVARCHAR(400), codigoPerfilResolucion NVARCHAR(20), idProgramaResolucion UNIQUEIDENTIFIER,
         nombreProgramaResolucion NVARCHAR(100), porcentajeResolucion DECIMAL(5,2), fechaResolucionUtc DATETIME2(3), fechaActualizacionUtc DATETIME2(3),
         idPrograma UNIQUEIDENTIFIER, nombrePrograma NVARCHAR(100), porcentajeActual DECIMAL(5,2), horasFaltaActual DECIMAL(12,6), horasDictadasActual DECIMAL(12,6),
-        umbralPerdida DECIMAL(5,2), esResolutorActual BIT, accionesPermitidas NVARCHAR(200), totalRegistros INT);
+        umbralPerdida DECIMAL(5,2), esResolutorActual BIT, accionesPermitidas NVARCHAR(200), totalRegistros INT, codigoPermanenciaActual NVARCHAR(10));
     INSERT INTO #c1ld EXEC dbo.usp_consultar_revisiones_cancelacion_decano_paginado @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 50,
         @soloPendientes = 0, @codigoEstado = NULL, @idPrograma = NULL;
     IF NOT EXISTS (SELECT 1 FROM #c1ld WHERE id = @revEA) OR NOT EXISTS (SELECT 1 FROM #c1ld WHERE id = @revEB) OR NOT EXISTS (SELECT 1 FROM #c1ld WHERE id = @rev0)
@@ -243,6 +246,8 @@ BEGIN TRY
                                            WHERE EXISTS (SELECT 1 FROM dbo.ufn_programas_grupo(eg.grupo) pg INNER JOIN dbo.Programa p ON p.id = pg.idPrograma WHERE p.facultad = @fac))
        OR EXISTS (SELECT 1 FROM #c1ld WHERE esResolutorActual <> 0 OR accionesPermitidas <> N'' OR idPrograma NOT IN (SELECT id FROM dbo.Programa WHERE facultad = @fac))
         THROW 58200, 'TEST FAILED: C-DB-33 (DEC-065) el decano ve todas las revisiones de su facultad (cualquier estado) sin acciones.', 1;
+    IF EXISTS (SELECT 1 FROM #c1ld WHERE porcentajeActual IS NOT NULL AND (codigoPermanenciaActual IS NULL OR codigoPermanenciaActual <> dbo.ufn_clasificar_permanencia(porcentajeActual, codigoEstadoMatricula)))
+        THROW 58196, 'TEST FAILED: W3I codigoPermanenciaActual de las revisiones del decano no coincide con ufn_clasificar_permanencia.', 1;
     DELETE FROM #c1ld;
     INSERT INTO #c1ld EXEC dbo.usp_consultar_revisiones_cancelacion_decano_paginado @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 50,
         @soloPendientes = 1, @codigoEstado = NULL, @idPrograma = NULL;

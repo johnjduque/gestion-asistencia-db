@@ -12,6 +12,8 @@ GO
 -- Cumplimiento (HU138) = sesiones vencidas con registro / sesiones vencidas. Censo (HU135/HU136): con matricula o grupo activo
 -- en el periodo y registrados (usuario activo; docentes = titulares de al menos un grupo de la institucion, sin depender del periodo).
 -- Lo que no puede calcularse es NULL; nunca un valor por defecto.
+-- CIERRE-W3I: columnas nuevas AL FINAL: facultadesActivas, totalDecanos y decanosActivos (decanos de las facultades de la institucion; un decano sin
+-- facultad no tiene institucion resoluble y no se cuenta, igual que el directorio de estudiantes).
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_kpis_institucion]
 (
@@ -44,6 +46,10 @@ BEGIN
         INNER JOIN dbo.uv_programa p ON p.id = gp.idPrograma
         INNER JOIN dbo.uv_docente_identidad di ON di.id = g.idDocente
         WHERE p.idInstitucion = @idInstitucion AND di.estaActivoUsuario = 1);
+
+    DECLARE @totalDecanos INT = (SELECT COUNT(DISTINCT d.id) FROM dbo.uv_decano d WHERE d.idInstitucion = @idInstitucion);
+    DECLARE @facultadesActivas INT = (SELECT COUNT(*) FROM dbo.uv_facultad f WHERE f.idInstitucion = @idInstitucion AND f.estaActivaFacultad = 1);
+    DECLARE @decanosActivos INT = (SELECT COUNT(DISTINCT d.id) FROM dbo.uv_decano d WHERE d.idInstitucion = @idInstitucion AND d.estaActivoDecano = 1);
 
     DECLARE @total INT = 0, @regulares INT = 0, @riesgo INT = 0, @perdida INT = 0;
     DECLARE @sesiones INT = 0, @faltas INT = 0;
@@ -119,7 +125,10 @@ BEGIN
         umbralPerdida = TRY_CAST(NULLIF(TRIM(dbo.ufn_obtener_parametro('ASISTENCIA', 'UMBRAL_ALERTA_PERDIDA')), '') AS DECIMAL(5,2)),
         tomasDictadas = @tomasDictadas,
         horasDictadas = @horasDictadas,
-        horasFalta = @horasFalta
+        horasFalta = @horasFalta,
+        totalDecanos = @totalDecanos,
+        decanosActivos = @decanosActivos,
+        facultadesActivas = @facultadesActivas
     FROM dbo.uv_institucion i
     LEFT JOIN dbo.uv_periodo_academico pa ON pa.id = @idPeriodo
     WHERE i.id = @idInstitucion;
