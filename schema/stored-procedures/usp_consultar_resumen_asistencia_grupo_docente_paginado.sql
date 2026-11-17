@@ -15,6 +15,8 @@ GO
 -- el cliente no calcula porcentajes).
 -- C.1: al final, la marca de inasistencia de la matricula (uv_marca_inasistencia_estudiante_grupo): alertas vigentes, estado de la
 -- revision de cancelacion y las decisiones que el docente puede tomar (accionesPermitidasRevision; vacio si la matricula no esta activa).
+-- CIERRE-W3M: @busqueda opcional AL FINAL (el resultset NO cambia): subcadena del nombre o del documento (CHARINDEX, como el padron);
+-- NULL o vacio = sin filtro. totalRegistros cuenta con el filtro y el ambito se valida antes de leer filas.
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_resumen_asistencia_grupo_docente_paginado]
 (
@@ -22,7 +24,8 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_resumen_asistencia_grupo_docente_
     @idCorrelacion     UNIQUEIDENTIFIER,
     @idGrupo           UNIQUEIDENTIFIER,
     @numeroPagina      INT = 1,
-    @tamanoPagina      INT = 50
+    @tamanoPagina      INT = 50,
+    @busqueda          NVARCHAR(100) = NULL
 )
 AS
 BEGIN
@@ -30,53 +33,19 @@ BEGIN
     SET XACT_ABORT ON;
 
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @idUsuarioDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idGrupoDefecto       UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idGrupo, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @tamanoMaximo         INT = dbo.ufn_obtener_parametro_int(NULL, 'PAGINACION', 'TAMANO_MAXIMO');
     DECLARE @codigoInscrita       NVARCHAR(10) = CAST(dbo.ufn_obtener_parametro('MATRICULA', 'ESTADO_INSCRITA') AS NVARCHAR(10));
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado BIT = 1;
     DECLARE @offset INT;
-    DECLARE @p1 NVARCHAR(500), @p2 NVARCHAR(500);
+    DECLARE @busquedaFiltro NVARCHAR(100) = NULLIF(TRIM(@busqueda), '');
 
-    EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
-        @idCorrelacion = @idCorrelacionDefecto,
-        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+    EXEC dbo.usp_validar_consulta_grupo_docente_titular_interno
+        @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacionDefecto, @idGrupo = @idGrupo,
+        @validarPaginacion = 1, @numeroPagina = @numeroPagina, @tamanoPagina = @tamanoPagina,
+        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
         @estadoResultado = @estadoResultado OUTPUT;
-    IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_002', @p_param1 = 'idUsuarioEjecutor',
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-    END
-    IF @estadoResultado = 1
-        EXEC dbo.usp_validar_permiso_rbac_usuario_interno
-            @idUsuario = @idUsuarioDefecto, @codigoPerfilRequerido = 'DOCENTE', @idCorrelacion = @idCorrelacionDefecto,
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-            @estadoResultado = @estadoResultado OUTPUT;
-    IF @estadoResultado = 1
-       AND (@numeroPagina IS NULL OR @numeroPagina < 1 OR @tamanoPagina IS NULL OR @tamanoPagina < 1
-            OR @tamanoMaximo IS NULL OR @tamanoPagina > @tamanoMaximo)
-    BEGIN
-        SELECT @p1 = CONVERT(NVARCHAR(20), @numeroPagina), @p2 = CONVERT(NVARCHAR(20), @tamanoPagina);
-        EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'PAG_001', @p_param1 = @p1, @p_param2 = @p2,
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @estadoResultado = 0;
-    END
-    IF @estadoResultado = 1
-        EXEC dbo.usp_validar_grupo_exista_por_id_interno
-            @idGrupo = @idGrupoDefecto, @idCorrelacion = @idCorrelacionDefecto,
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-            @estadoResultado = @estadoResultado OUTPUT;
-    IF @estadoResultado = 1
-        EXEC dbo.usp_validar_titularidad_jerarquica_interno
-            @idUsuario = @idUsuarioDefecto, @idEntidadPadre = @idGrupoDefecto, @tipoEntidadPadre = 'GRUPO',
-            @idCorrelacion = @idCorrelacionDefecto,
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-            @estadoResultado = @estadoResultado OUTPUT;
     IF @estadoResultado = 0
         THROW 51000, @mensajeTecnicoResultado, 1;
 
@@ -123,6 +92,7 @@ BEGIN
         accionesPermitidasRevision     = CASE WHEN m.idRevisionCancelacion IS NOT NULL AND r.codigoEstadoEstudiante = @codigoInscrita THEN ISNULL(acc.acciones, N'') ELSE N'' END
     FROM dbo.uv_resumen_asistencia_estudiante_grupo r
     INNER JOIN dbo.uv_estudiante_grupo eg ON eg.id = r.idEstudianteGrupo
+    INNER JOIN dbo.uv_estudiante_identidad ei ON ei.id = r.idEstudiante
     LEFT JOIN dbo.uv_marca_inasistencia_estudiante_grupo m ON m.idEstudianteGrupo = r.idEstudianteGrupo
     OUTER APPLY (
         SELECT acciones = STRING_AGG(t.codigoDecision, N',') WITHIN GROUP (ORDER BY t.codigoDecision ASC)
@@ -131,6 +101,9 @@ BEGIN
         WHERE t.esDecisionResolutor = 0
     ) acc
     WHERE r.idGrupo = @idGrupoDefecto
+      AND (@busquedaFiltro IS NULL
+           OR CHARINDEX(@busquedaFiltro, ei.nombreCompleto) > 0
+           OR CHARINDEX(@busquedaFiltro, CONVERT(NVARCHAR(20), ei.numeroIdentificacion)) > 0)
     ORDER BY eg.nombreCompletoEstudiante ASC, r.idEstudiante ASC
     OFFSET @offset ROWS FETCH NEXT @tamanoPagina ROWS ONLY;
 END;

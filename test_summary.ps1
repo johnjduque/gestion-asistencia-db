@@ -1116,7 +1116,10 @@ $criticalIds = @(
     # CIERRE-W2B: sesiones del estudiante ordenadas y paginadas en la base y resumen de materias (test/test_w2b_estudiante_resumen.sql)
     'W2B_SES_01_ORDEN_CRONOLOGICO', 'W2B_SES_02_DESEMPATE_POR_ID', 'W2B_SES_03_PAGINAS', 'W2B_SES_04_FILTRO_GRUPO', 'W2B_SES_05_AISLAMIENTO',
     'W2B_RES_01_COHERENCIA_CON_LISTADO', 'W2B_RES_02_RIESGO_Y_HORAS_DE_FALTA', 'W2B_RES_03_UMBRAL_DEL_CATALOGO', 'W2B_RES_04_SOLO_MATRICULA_INSCRITA',
-    'W2B_RES_05_AISLAMIENTO', 'W2B_RES_06_PERMISO_RUNTIME', 'W2B_RES_06_RECHAZOS', 'W2B_TRANCOUNT_ZERO'
+    'W2B_RES_05_AISLAMIENTO', 'W2B_RES_06_PERMISO_RUNTIME', 'W2B_RES_06_RECHAZOS', 'W2B_TRANCOUNT_ZERO',
+    # CIERRE-W3M: matriz de asistencia del grupo y resumen de sesiones del docente (test/test_w3m_matriz_asistencia.sql)
+    'W3M_MAT_01_CELDAS', 'W3M_MAT_02_COMO_LA_VISTA', 'W3M_MAT_03_PAGINACION', 'W3M_MAT_04_BUSQUEDA', 'W3M_MAT_05_SIN_SESIONES', 'W3M_MAT_06_RESUMEN_BUSQ',
+    'W3M_SES_01_ESTADOS', 'W3M_SES_02_CONTEOS', 'W3M_SES_03_GRUPO', 'W3M_SES_04_SIN_SESIONES', 'W3M_AMB_01_RECHAZOS', 'W3M_TRANCOUNT_ZERO'
 )
 if ($Concurrencia) { $criticalIds += 'CULM001_B2_CON_01_5X40' }
 $sqlPasses = @([regex]::Matches($outputStr, '(?m)^TEST_PASS:([A-Z0-9_]+)\s*$') | ForEach-Object { $_.Groups[1].Value })
