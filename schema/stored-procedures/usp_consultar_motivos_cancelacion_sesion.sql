@@ -63,6 +63,6 @@ BEGIN
             nombre = m.nombre
     FROM dbo.uv_motivo_cancelacion_sesion m
     WHERE m.estaActivo = 1
-    ORDER BY m.orden, m.codigo;
+    ORDER BY m.orden ASC, m.codigo ASC;
 END;
 GO
