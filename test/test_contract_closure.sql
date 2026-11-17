@@ -221,7 +221,8 @@ DECLARE @badResultSets TABLE (
 --   usp_consultar_programas_creditos_facultad_paginado / usp_consultar_docentes_facultad_paginado /
 --   usp_buscar_asignaturas_paginado / usp_buscar_estudiantes_institucion_paginado /
 --   usp_consultar_historial_estudiante (HU112/HU128/HU143/HU157) / usp_consultar_coordinadores_facultad_paginado (CIERRE-W1B) /
---   usp_consultar_asignaturas_ambito_consolidado / usp_consultar_docentes_ambito_consolidado (CIERRE-W2A)
+--   usp_consultar_asignaturas_ambito_consolidado / usp_consultar_docentes_ambito_consolidado (CIERRE-W2A) /
+--   usp_consultar_resumen_materias_estudiante (CIERRE-W2B, una fila de indicadores del estudiante)
 --                                            READ_QUERY_RESULTSET: filas de datos del decano o del administrador; NON_GOLDEN_PATH_EXTENSION.
 --   usp_consultar_consolidado_asistencia_grupos_paginado / usp_consultar_auditoria_eventos_paginado /
 --   usp_consultar_componentes_formacion (HU061/HU172/HU147)
@@ -292,7 +293,7 @@ WHERE SCHEMA_NAME(sp.schema_id) = 'dbo'
   AND sp.name <> 'usp_consultar_sesiones_grupo_paginado'
   AND sp.name <> 'usp_consultar_asistencias_sesion_paginado'
   AND sp.name NOT IN ('usp_consultar_estudiantes_facultad_paginado', 'usp_consultar_estudiante_facultad_detalle', 'usp_consultar_estructura_facultad', 'usp_consultar_sesiones_facultad_paginado')
-  AND sp.name NOT IN ('usp_consultar_programas_creditos_facultad_paginado', 'usp_consultar_docentes_facultad_paginado', 'usp_buscar_asignaturas_paginado', 'usp_buscar_estudiantes_institucion_paginado', 'usp_consultar_historial_estudiante', 'usp_consultar_coordinadores_facultad_paginado', 'usp_consultar_asignaturas_ambito_consolidado', 'usp_consultar_docentes_ambito_consolidado')
+  AND sp.name NOT IN ('usp_consultar_programas_creditos_facultad_paginado', 'usp_consultar_docentes_facultad_paginado', 'usp_buscar_asignaturas_paginado', 'usp_buscar_estudiantes_institucion_paginado', 'usp_consultar_historial_estudiante', 'usp_consultar_coordinadores_facultad_paginado', 'usp_consultar_asignaturas_ambito_consolidado', 'usp_consultar_docentes_ambito_consolidado', 'usp_consultar_resumen_materias_estudiante')
   AND sp.name NOT IN ('usp_consultar_consolidado_asistencia_grupos_paginado', 'usp_consultar_auditoria_eventos_paginado', 'usp_consultar_componentes_formacion')
   AND sp.name NOT IN ('usp_consultar_directorio_estudiantes_paginado', 'usp_consultar_estudiantes_grupo_ambito_paginado', 'usp_consultar_asistencias_grupo_ambito_paginado', 'usp_consultar_materias_estudiante', 'usp_consultar_horario_estudiante', 'usp_buscar_estudiante_por_documento_grupo', 'usp_cambiar_estado_decano')
   -- CULM-001 B2NM (CONTRACT B2 fila 115): SP de consulta nuevos de la seccion 2.7.1 (resultset de datos, no el canonico de 4 columnas).
@@ -319,7 +320,7 @@ WHERE SCHEMA_NAME(sp.schema_id) = 'dbo'
   AND sp.name <> 'usp_consultar_sesiones_grupo_paginado'
   AND sp.name <> 'usp_consultar_asistencias_sesion_paginado'
   AND sp.name NOT IN ('usp_consultar_estudiantes_facultad_paginado', 'usp_consultar_estudiante_facultad_detalle', 'usp_consultar_estructura_facultad', 'usp_consultar_sesiones_facultad_paginado')
-  AND sp.name NOT IN ('usp_consultar_programas_creditos_facultad_paginado', 'usp_consultar_docentes_facultad_paginado', 'usp_buscar_asignaturas_paginado', 'usp_buscar_estudiantes_institucion_paginado', 'usp_consultar_historial_estudiante', 'usp_consultar_coordinadores_facultad_paginado', 'usp_consultar_asignaturas_ambito_consolidado', 'usp_consultar_docentes_ambito_consolidado')
+  AND sp.name NOT IN ('usp_consultar_programas_creditos_facultad_paginado', 'usp_consultar_docentes_facultad_paginado', 'usp_buscar_asignaturas_paginado', 'usp_buscar_estudiantes_institucion_paginado', 'usp_consultar_historial_estudiante', 'usp_consultar_coordinadores_facultad_paginado', 'usp_consultar_asignaturas_ambito_consolidado', 'usp_consultar_docentes_ambito_consolidado', 'usp_consultar_resumen_materias_estudiante')
   AND sp.name NOT IN ('usp_consultar_consolidado_asistencia_grupos_paginado', 'usp_consultar_auditoria_eventos_paginado', 'usp_consultar_componentes_formacion')
   AND sp.name NOT IN ('usp_consultar_directorio_estudiantes_paginado', 'usp_consultar_estudiantes_grupo_ambito_paginado', 'usp_consultar_asistencias_grupo_ambito_paginado', 'usp_consultar_materias_estudiante', 'usp_consultar_horario_estudiante', 'usp_buscar_estudiante_por_documento_grupo', 'usp_cambiar_estado_decano')
   -- CULM-001 B2NM (CONTRACT B2 fila 115): SP de consulta nuevos de la seccion 2.7.1 (resultset de datos, no el canonico de 4 columnas).
@@ -352,7 +353,7 @@ WHERE SCHEMA_NAME(sp.schema_id) = 'dbo'
   AND sp.name <> 'usp_consultar_sesiones_grupo_paginado'
   AND sp.name <> 'usp_consultar_asistencias_sesion_paginado'
   AND sp.name NOT IN ('usp_consultar_estudiantes_facultad_paginado', 'usp_consultar_estudiante_facultad_detalle', 'usp_consultar_estructura_facultad', 'usp_consultar_sesiones_facultad_paginado')
-  AND sp.name NOT IN ('usp_consultar_programas_creditos_facultad_paginado', 'usp_consultar_docentes_facultad_paginado', 'usp_buscar_asignaturas_paginado', 'usp_buscar_estudiantes_institucion_paginado', 'usp_consultar_historial_estudiante', 'usp_consultar_coordinadores_facultad_paginado', 'usp_consultar_asignaturas_ambito_consolidado', 'usp_consultar_docentes_ambito_consolidado')
+  AND sp.name NOT IN ('usp_consultar_programas_creditos_facultad_paginado', 'usp_consultar_docentes_facultad_paginado', 'usp_buscar_asignaturas_paginado', 'usp_buscar_estudiantes_institucion_paginado', 'usp_consultar_historial_estudiante', 'usp_consultar_coordinadores_facultad_paginado', 'usp_consultar_asignaturas_ambito_consolidado', 'usp_consultar_docentes_ambito_consolidado', 'usp_consultar_resumen_materias_estudiante')
   AND sp.name NOT IN ('usp_consultar_consolidado_asistencia_grupos_paginado', 'usp_consultar_auditoria_eventos_paginado', 'usp_consultar_componentes_formacion')
   AND sp.name NOT IN ('usp_consultar_directorio_estudiantes_paginado', 'usp_consultar_estudiantes_grupo_ambito_paginado', 'usp_consultar_asistencias_grupo_ambito_paginado', 'usp_consultar_materias_estudiante', 'usp_consultar_horario_estudiante', 'usp_buscar_estudiante_por_documento_grupo', 'usp_cambiar_estado_decano')
   -- CULM-001 B2NM (CONTRACT B2 fila 115): SP de consulta nuevos de la seccion 2.7.1 (resultset de datos, no el canonico de 4 columnas).

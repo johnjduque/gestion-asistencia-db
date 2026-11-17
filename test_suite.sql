@@ -190,6 +190,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_w1b_directorios.sql
 -- CIERRE-W2A (listados del coordinador en la base): filtro por caracter, opciones del consolidado con ambito y estado del periodo
 :r /tmp/test/test_w2a_coordinador_listados.sql
+-- CIERRE-W2B (sesiones y resumen del estudiante en la base): orden cronologico determinista, filtro por grupo, resumen coherente con el listado
+:r /tmp/test/test_w2b_estudiante_resumen.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN

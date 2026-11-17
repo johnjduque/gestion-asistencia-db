@@ -1112,7 +1112,11 @@ $criticalIds = @(
     # CIERRE-W2A: filtro por caracter, opciones del consolidado con ambito y estado del periodo (test/test_w2a_coordinador_listados.sql)
     'W2A_ASI_01_FILTRO_CARACTER', 'W2A_ASI_02_TOTAL_POR_CARACTER', 'W2A_ASI_03_VACIO_E_INEXISTENTE', 'W2A_ASI_04_AISLAMIENTO', 'W2A_ASI_05_PROGRAMA_AJENO',
     'W2A_OPC_01_AMBITO_COORDINADOR', 'W2A_OPC_02_AISLAMIENTO', 'W2A_OPC_03_PERIODO', 'W2A_OPC_04_DECANO_Y_ADMINISTRADOR',
-    'W2A_OPC_05_RECHAZOS', 'W2A_PER_01_ESTADO', 'W2A_PER_02_SIEMPRE_CON_ESTADO', 'W2A_TRANCOUNT_ZERO'
+    'W2A_OPC_05_RECHAZOS', 'W2A_PER_01_ESTADO', 'W2A_PER_02_SIEMPRE_CON_ESTADO', 'W2A_TRANCOUNT_ZERO',
+    # CIERRE-W2B: sesiones del estudiante ordenadas y paginadas en la base y resumen de materias (test/test_w2b_estudiante_resumen.sql)
+    'W2B_SES_01_ORDEN_CRONOLOGICO', 'W2B_SES_02_DESEMPATE_POR_ID', 'W2B_SES_03_PAGINAS', 'W2B_SES_04_FILTRO_GRUPO', 'W2B_SES_05_AISLAMIENTO',
+    'W2B_RES_01_COHERENCIA_CON_LISTADO', 'W2B_RES_02_RIESGO_Y_HORAS_DE_FALTA', 'W2B_RES_03_UMBRAL_DEL_CATALOGO', 'W2B_RES_04_SOLO_MATRICULA_INSCRITA',
+    'W2B_RES_05_AISLAMIENTO', 'W2B_RES_06_PERMISO_RUNTIME', 'W2B_RES_06_RECHAZOS', 'W2B_TRANCOUNT_ZERO'
 )
 if ($Concurrencia) { $criticalIds += 'CULM001_B2_CON_01_5X40' }
 $sqlPasses = @([regex]::Matches($outputStr, '(?m)^TEST_PASS:([A-Z0-9_]+)\s*$') | ForEach-Object { $_.Groups[1].Value })
