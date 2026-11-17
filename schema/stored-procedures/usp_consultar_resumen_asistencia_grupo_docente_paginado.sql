@@ -15,6 +15,8 @@ GO
 -- el cliente no calcula porcentajes).
 -- C.1: al final, la marca de inasistencia de la matricula (uv_marca_inasistencia_estudiante_grupo): alertas vigentes, estado de la
 -- revision de cancelacion y las decisiones que el docente puede tomar (accionesPermitidasRevision; vacio si la matricula no esta activa).
+-- CIERRE-W3M: @busqueda opcional AL FINAL (el resultset NO cambia): subcadena del nombre o del documento (CHARINDEX, como el padron);
+-- NULL o vacio = sin filtro. totalRegistros cuenta con el filtro y el ambito se valida antes de leer filas.
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_resumen_asistencia_grupo_docente_paginado]
 (
@@ -22,7 +24,8 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_resumen_asistencia_grupo_docente_
     @idCorrelacion     UNIQUEIDENTIFIER,
     @idGrupo           UNIQUEIDENTIFIER,
     @numeroPagina      INT = 1,
-    @tamanoPagina      INT = 50
+    @tamanoPagina      INT = 50,
+    @busqueda          NVARCHAR(100) = NULL
 )
 AS
 BEGIN
@@ -38,6 +41,7 @@ BEGIN
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado BIT = 1;
     DECLARE @offset INT;
+    DECLARE @busquedaFiltro NVARCHAR(100) = NULLIF(TRIM(@busqueda), '');
     DECLARE @p1 NVARCHAR(500), @p2 NVARCHAR(500);
 
     EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
@@ -123,6 +127,7 @@ BEGIN
         accionesPermitidasRevision     = CASE WHEN m.idRevisionCancelacion IS NOT NULL AND r.codigoEstadoEstudiante = @codigoInscrita THEN ISNULL(acc.acciones, N'') ELSE N'' END
     FROM dbo.uv_resumen_asistencia_estudiante_grupo r
     INNER JOIN dbo.uv_estudiante_grupo eg ON eg.id = r.idEstudianteGrupo
+    INNER JOIN dbo.uv_estudiante_identidad ei ON ei.id = r.idEstudiante
     LEFT JOIN dbo.uv_marca_inasistencia_estudiante_grupo m ON m.idEstudianteGrupo = r.idEstudianteGrupo
     OUTER APPLY (
         SELECT acciones = STRING_AGG(t.codigoDecision, N',') WITHIN GROUP (ORDER BY t.codigoDecision ASC)
@@ -131,6 +136,9 @@ BEGIN
         WHERE t.esDecisionResolutor = 0
     ) acc
     WHERE r.idGrupo = @idGrupoDefecto
+      AND (@busquedaFiltro IS NULL
+           OR CHARINDEX(@busquedaFiltro, ei.nombreCompleto) > 0
+           OR CHARINDEX(@busquedaFiltro, CONVERT(NVARCHAR(20), ei.numeroIdentificacion)) > 0)
     ORDER BY eg.nombreCompletoEstudiante ASC, r.idEstudiante ASC
     OFFSET @offset ROWS FETCH NEXT @tamanoPagina ROWS ONLY;
 END;

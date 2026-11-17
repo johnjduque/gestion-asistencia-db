@@ -266,7 +266,8 @@ DECLARE @b2Faltantes NVARCHAR(MAX) = (
                  (N'usp_abrir_qr_toma'), (N'usp_rotar_token_asistencia_toma'), (N'usp_rotar_token_asistencia_automatico'),
                  (N'usp_consultar_tomas_qr_por_rotar'), (N'usp_cerrar_qr_toma'), (N'usp_registrar_asistencia_por_token'),
                  (N'usp_consultar_tomas_sesion'), (N'usp_consultar_faltantes_toma_paginado'), (N'usp_consultar_asistencias_toma_paginado'),
-                 (N'usp_consultar_resumen_asistencia_grupo_docente_paginado'), (N'usp_consultar_resumen_asistencia_estudiante')) o(nombre)
+                 (N'usp_consultar_resumen_asistencia_grupo_docente_paginado'), (N'usp_consultar_resumen_asistencia_estudiante'),
+                 (N'usp_consultar_matriz_asistencia_grupo_docente_paginado'), (N'usp_consultar_resumen_sesiones_grupo_docente')) o(nombre)
     WHERE NOT EXISTS (
         SELECT 1 FROM sys.database_permissions dp
         WHERE dp.major_id = OBJECT_ID(N'dbo.' + o.nombre) AND dp.permission_name = N'EXECUTE' AND dp.state IN ('G', 'W')
