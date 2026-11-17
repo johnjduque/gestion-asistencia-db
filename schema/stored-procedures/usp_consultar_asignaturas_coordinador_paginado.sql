@@ -7,6 +7,7 @@ GO
 
 -- =============================================================================
 -- CULM-001 B2NM (DEC-019): asignaturas de los programas del coordinador (reemplaza AsignaturaJpaRepository.HQL_POR_PROGRAMA).
+-- CIERRE-W2A (punto 2): @codigoCaracter opcional (codigo del catalogo CaracterAsignaturaPlan, p. ej. OBL/OPT) filtra en la base.
 -- 1 fila por (asignatura, plan de sus programas). @idPrograma ajeno -> COO_003 (403); sin @idPrograma incluye todos sus programas (S4).
 -- =============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_asignaturas_coordinador_paginado]
@@ -17,7 +18,8 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_asignaturas_coordinador_paginado]
     @tamanoPagina      INT,
     @idPrograma        UNIQUEIDENTIFIER = NULL,
     @busqueda          NVARCHAR(100) = NULL,
-    @estaActiva        BIT = NULL
+    @estaActiva        BIT = NULL,
+    @codigoCaracter    NVARCHAR(50) = NULL
 )
 AS
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
@@ -83,6 +85,7 @@ BEGIN
     WHERE v.estaActivoVinculo = 1
       AND v.idPrograma IN (SELECT cp.idPrograma FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutor) cp WHERE @idPrograma IS NULL OR cp.idPrograma = @idPrograma)
       AND (@estaActiva IS NULL OR v.estaActivaAsignatura = @estaActiva)
+      AND (NULLIF(TRIM(@codigoCaracter), N'') IS NULL OR v.codigoCaracter = TRIM(@codigoCaracter))
       AND (@patron IS NULL OR UPPER(v.nombreAsignatura) LIKE @patron ESCAPE N'\' OR UPPER(v.codigoAsignatura) LIKE @patron ESCAPE N'\')
     ORDER BY v.nombrePrograma ASC, v.numeroSemestre ASC, v.nombreAsignatura ASC, v.idAsignatura ASC, v.idPlanEstudio ASC
     OFFSET @offset ROWS FETCH NEXT @tamano ROWS ONLY;
