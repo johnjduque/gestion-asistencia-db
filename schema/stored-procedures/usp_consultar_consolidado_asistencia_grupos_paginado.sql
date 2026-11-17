@@ -127,7 +127,9 @@ BEGIN
             totalRegistros          = COUNT(*) OVER(),
             horasDictadas           = CAST(ISNULL(c.horasDictadas, 0) AS DECIMAL(12,2)),
             porcentajeExcusa        = CAST(q.excusaFinal AS DECIMAL(5,2)),
-            porcentajeSinRegistro   = CAST(q.sinRegistro AS DECIMAL(5,2))
+            porcentajeSinRegistro   = CAST(q.sinRegistro AS DECIMAL(5,2)),
+            -- CIERRE-W3I: clasificacion del grupo (REGULAR/RIESGO/PERDIDA) con la unica regla de permanencia y los umbrales del catalogo
+            codigoPermanencia       = dbo.ufn_clasificar_permanencia(CAST(q.inasistenciaFinal AS DECIMAL(5,2)), NULL)
         FROM @grupos g
         LEFT JOIN consolidado c ON c.idGrupo = g.id AND c.idPrograma = g.idPrograma
         -- D = horasDictadas x activos; p* = porcentajes redondeados; exceso = lo que la suma de los tres supera 100 (R-1)

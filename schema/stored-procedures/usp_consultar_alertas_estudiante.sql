@@ -84,7 +84,9 @@ BEGIN
         fechaLecturaUtc = a.fechaLecturaUtc, estaLeida = a.estaLeida,
         porcentajeActual = r.porcentajeInasistencia,
         umbralPerdidaActual = r.umbralPerdida,
-        totalRegistros = COUNT(1) OVER()
+        totalRegistros = COUNT(1) OVER(),
+        -- CIERRE-W3I: nivel de permanencia vigente (REGULAR/RIESGO/PERDIDA) con la unica regla y los umbrales del catalogo
+        codigoPermanenciaActual = r.codigoPermanencia
     FROM dbo.uv_alerta_inasistencia a
     LEFT JOIN dbo.uv_resumen_asistencia_estudiante_grupo r ON r.idEstudianteGrupo = a.idEstudianteGrupo
     WHERE a.idUsuarioEstudiante = @idUsuarioDefecto
