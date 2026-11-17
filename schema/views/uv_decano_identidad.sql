@@ -16,7 +16,10 @@ SELECT		d.id,
 			u.primerNombre,
 			u.segundoNombre,
 			u.primerApellido,
-			u.segundoApellido
+			u.segundoApellido,
+			-- Correo y tipo de documento (codigo corto: CC, TI...), al final para no mover las columnas previas
+			u.correo,
+			u.TipoIdentificacion
 
 FROM		Decano d
 INNER JOIN	uv_usuario u 
