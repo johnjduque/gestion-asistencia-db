@@ -99,7 +99,9 @@ BEGIN
         umbralPerdida = rs.umbralPerdida,
         esResolutorActual = CAST(res.esResolutor AS BIT),
         accionesPermitidas = CASE WHEN res.esResolutor = 1 AND rv.codigoEstadoMatricula = @codigoInscrita THEN ISNULL(acc.acciones, N'') ELSE N'' END,
-        totalRegistros = COUNT(1) OVER()
+        totalRegistros = COUNT(1) OVER(),
+        -- CIERRE-W3I: nivel de permanencia vigente (REGULAR/RIESGO/PERDIDA) con la unica regla y los umbrales del catalogo
+        codigoPermanenciaActual = rs.codigoPermanencia
     FROM dbo.uv_revision_cancelacion rv
     CROSS APPLY (
         SELECT TOP 1 idPrograma = p.id, p.nombre

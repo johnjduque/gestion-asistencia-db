@@ -458,6 +458,8 @@
 | `GET /api/v1/docente/grupos/{grupoId}/matriz-asistencia` (`pagina`, `tamano`, `busqueda`) | `usp_consultar_matriz_asistencia_grupo_docente_paginado` | CIERRE-W3M |
 | `GET /api/v1/docente/grupos/{grupoId}/resumen-sesiones` | `usp_consultar_resumen_sesiones_grupo_docente` | CIERRE-W3M |
 | `GET /api/v1/docente/grupos/{grupoId}/resumen-asistencia` (`busqueda`, ademas de `pagina`, `tamano`) | `usp_consultar_resumen_asistencia_grupo_docente_paginado` (`@busqueda`) | CIERRE-W3M |
+| `GET /api/v1/docente/resumen-grupos` | `usp_consultar_resumen_grupos_docente` | CIERRE-W3I |
+| `GET /api/v1/{coordinador,decano,admin}/indicadores` (campos nuevos) | `usp_consultar_kpis_coordinador` / `_decano` / `_institucion` | CIERRE-W3I |
 | `uv_decano`, `uv_decano_identidad` | Listar decanos institucionales | `GET /api/v1/admin/decanos` | `ADMINISTRADOR` |
 | `uv_facultad` | Listar facultades | `GET /api/v1/admin/facultades`, `GET /api/v1/decano/facultad` | `ADMINISTRADOR`, `DECANO` |
 | `uv_programa` | Listar programas | `GET /api/v1/decano/facultad` *(programas de la facultad)* | `DECANO`, `COORDINADOR` |

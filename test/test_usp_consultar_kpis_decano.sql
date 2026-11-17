@@ -182,7 +182,7 @@ BEGIN TRY
         sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2), porcentajeAsistencia DECIMAL(5,2),
         gruposActivos INT, cupoTotal INT, matriculadosActivos INT, tasaAforo DECIMAL(7,2), umbralAdvertencia DECIMAL(5,2), umbralPerdida DECIMAL(5,2),
         -- CULM-001 B.2 (CONTRACT §2.9, NB-2): columnas nuevas al final del resultset (forma del contrato, sin cambio de asercion).
-        tomasDictadas INT, horasDictadas DECIMAL(12,6), horasFalta DECIMAL(12,6));
+        tomasDictadas INT, horasDictadas DECIMAL(12,6), horasFalta DECIMAL(12,6), totalCoordinadores INT, totalDocentes INT);
     -- T-DB-06: cifras exactas de F (periodo por defecto)
     INSERT INTO #k EXEC dbo.usp_consultar_kpis_decano @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @idPeriodoAcademico = NULL;
     IF NOT ((SELECT COUNT(*) FROM #k) = 1) THROW 53401, 'TEST FAILED: se esperaba exactamente 1 fila', 1;

@@ -8,6 +8,9 @@ GO
 -- ============================================================================
 -- usp_consultar_kpis_coordinador (HU065, HU070). READ_QUERY_RESULTSET (1 fila). Solo lectura: sin XACT_ABORT.
 -- Ambito: el programa que coordina el ejecutor. Todas las cifras salen de las vistas de resumen (ver CONTRACT §1).
+-- CIERRE-W3I: columnas nuevas AL FINAL para que el tablero no cuente en el cliente: totalDocentes (vinculos activos del programa,
+-- sin repetir al docente), gruposActivos / cupoTotal / matriculadosActivos / tasaAforo (grupos habilitados del programa en el periodo
+-- resuelto) y estudiantesRegistrados (padron del programa: estudiantes con EstudiantePrograma, sin filtrar por matricula).
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_kpis_coordinador]
 (
@@ -28,6 +31,9 @@ BEGIN
 
     DECLARE @total INT = 0, @regulares INT = 0, @riesgo INT = 0, @perdida INT = 0;
     DECLARE @programadas INT = 0, @vencidas INT = 0, @ejecutadas INT = 0, @sinRegistro INT = 0, @sinProcedencia INT = 0;
+    DECLARE @grupos INT = 0, @cupo INT = 0, @matriculados INT = 0;
+    DECLARE @docentes INT = (SELECT COUNT(DISTINCT dp.idDocente) FROM dbo.uv_docente_programa dp WHERE dp.idPrograma = @idPrograma AND dp.estaActivoDocentePrograma = 1);
+    DECLARE @estudiantesRegistrados INT = (SELECT COUNT(DISTINCT ep.idEstudiante) FROM dbo.uv_estudiante_programa ep WHERE ep.idPrograma = @idPrograma);
 
     -- PASO 3: Calcular los indicadores del periodo
     IF @idPeriodo IS NOT NULL
@@ -51,6 +57,13 @@ BEGIN
                 @sinProcedencia = ISNULL(SUM(IIF(c.procedenciaIndeterminada = 1, 1, 0)), 0)
         FROM    dbo.uv_cumplimiento_sesion_grupo c
         WHERE   EXISTS (SELECT 1 FROM dbo.uv_grupo_programa gp WHERE gp.idGrupo = c.idGrupo AND gp.idPrograma = @idPrograma) AND c.idPeriodoAcademico = @idPeriodo;
+
+        SELECT  @grupos = COUNT(*),
+                @cupo = ISNULL(SUM(g.capacidadMaximaPermitida), 0),
+                @matriculados = ISNULL(SUM(g.estudiantesActivos), 0)
+        FROM    dbo.uv_grupo g
+        WHERE   EXISTS (SELECT 1 FROM dbo.uv_grupo_programa gp WHERE gp.idGrupo = g.id AND gp.idPrograma = @idPrograma)
+                AND g.idPeriodoAcademico = @idPeriodo AND g.grupoEstaHablitado = 1;
     END
 
     -- PASO 4: Consulta y retorno de resultados
@@ -72,7 +85,13 @@ BEGIN
         porcentajeCumplimiento = CAST(IIF(@vencidas = 0, NULL, 100.0 * @ejecutadas / @vencidas) AS DECIMAL(5,2)),
         porcentajeProgresoCalendario = CAST(IIF(@programadas = 0, NULL, 100.0 * @vencidas / @programadas) AS DECIMAL(5,2)),
         umbralAdvertencia = TRY_CAST(NULLIF(TRIM(dbo.ufn_obtener_parametro('ASISTENCIA', 'UMBRAL_ALERTA_ADVERTENCIA')), '') AS DECIMAL(5,2)),
-        umbralPerdida = TRY_CAST(NULLIF(TRIM(dbo.ufn_obtener_parametro('ASISTENCIA', 'UMBRAL_ALERTA_PERDIDA')), '') AS DECIMAL(5,2))
+        umbralPerdida = TRY_CAST(NULLIF(TRIM(dbo.ufn_obtener_parametro('ASISTENCIA', 'UMBRAL_ALERTA_PERDIDA')), '') AS DECIMAL(5,2)),
+        totalDocentes = @docentes,
+        gruposActivos = @grupos,
+        cupoTotal = @cupo,
+        matriculadosActivos = @matriculados,
+        tasaAforo = CAST(IIF(@cupo = 0, NULL, 100.0 * @matriculados / @cupo) AS DECIMAL(7,2)),
+        estudiantesRegistrados = @estudiantesRegistrados
     FROM dbo.uv_programa p
     LEFT JOIN dbo.uv_periodo_academico pa ON pa.id = @idPeriodo
     WHERE p.id = @idPrograma;
