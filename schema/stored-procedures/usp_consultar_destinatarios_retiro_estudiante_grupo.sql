@@ -92,6 +92,6 @@ BEGIN
         nombreAsignatura = dst.nombreAsignatura
     FROM destinatarios dst
     INNER JOIN dbo.Usuario u ON u.id = dst.idUsuario
-    ORDER BY dst.orden;
+    ORDER BY dst.orden ASC;
 END;
 GO

@@ -249,7 +249,7 @@ BEGIN
         LEFT JOIN contexto c ON 1 = 1
         WHERE e.id = @idEstudiante
           AND e.id IN (SELECT amb.idEstudiante FROM ambito amb)
-        ORDER BY c.nombreInstitucion, c.nombreFacultad, c.nombrePrograma, c.nombreAsignatura, c.nombreGrupo, c.idGrupo;
+        ORDER BY c.nombreInstitucion ASC, c.nombreFacultad ASC, c.nombrePrograma ASC, c.nombreAsignatura ASC, c.nombreGrupo ASC, c.idGrupo ASC;
     END
 END;
 GO
