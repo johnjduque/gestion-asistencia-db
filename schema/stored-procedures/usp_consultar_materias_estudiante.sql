@@ -52,20 +52,18 @@ BEGIN
         THROW 51000, @mensajeTecnicoResultado, 1;
     END
 
-    -- PASO 3: materias con matricula inscrita del estudiante del ejecutor
+    -- PASO 3: materias con matricula inscrita del estudiante del ejecutor (CIERRE-W2B: la lee de uv_materia_estudiante, la misma
+    -- fuente de usp_consultar_resumen_materias_estudiante)
     SELECT DISTINCT
-        idAsignatura     = a.id,
-        nombreAsignatura = a.nombre,
-        idGrupo          = g.id,
-        nombreGrupo      = g.nombre,
+        idAsignatura     = m.idAsignatura,
+        nombreAsignatura = m.nombreAsignatura,
+        idGrupo          = m.idGrupo,
+        nombreGrupo      = m.nombreGrupo,
         -- CULM-001 D.9-a (F-EST-006): creditos de la asignatura (quinta columna).
-        creditos         = a.credito
-    FROM dbo.Estudiante e
-    INNER JOIN dbo.uv_estudiante_grupo eg ON eg.idEstudiante = e.id
-    INNER JOIN dbo.uv_grupo g ON g.id = eg.idGrupo
-    INNER JOIN dbo.uv_asignatura a ON a.id = g.idAsignatura
-    WHERE e.usuario = @idUsuarioEjecutor
-      AND eg.codigoEstadoEstudiante = @codigoInscrita
-    ORDER BY a.nombre ASC, g.nombre ASC;
+        creditos         = m.creditos
+    FROM dbo.uv_materia_estudiante m
+    WHERE m.idUsuario = @idUsuarioEjecutor
+      AND m.codigoEstadoEstudiante = @codigoInscrita
+    ORDER BY m.nombreAsignatura ASC, m.nombreGrupo ASC;
 END;
 GO

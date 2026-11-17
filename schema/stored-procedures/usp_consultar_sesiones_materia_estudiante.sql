@@ -14,8 +14,11 @@ GO
 -- (los grupos I, CI, CVP y F no devuelven filas: cambio intencional de DEC-022 §3; una materia ajena devuelve 0 filas).
 -- Columnas: id, nombre, numero, codigo, numeroSemana, idGrupo, codigoGrupo, nombreGrupo, fechaHoraInicio, fechaHoraFin
 -- (las de la consulta que sustituye), fechaLimiteJustificacionUtc, plazoJustificacionVigente y totalRegistros
--- (COUNT(1) OVER()). Orden numero, fechaHoraInicio. Paginacion: @numeroPagina >= 1 y @tamanoPagina entre 1 y
--- PAGINACION/TAMANO_MAXIMO. Solo lectura.
+-- (COUNT(1) OVER()). Paginacion: @numeroPagina >= 1 y @tamanoPagina entre 1 y PAGINACION/TAMANO_MAXIMO. Solo lectura.
+-- CIERRE-W2B: orden determinista y cronologico: fechaHoraInicio ASC, numero ASC, id ASC (el mismo criterio que antes aplicaba la
+-- pantalla en el cliente, con el identificador como desempate estable: dos paginas nunca repiten ni saltan filas). Parametro
+-- opcional @idGrupo (NULL = todos los grupos de la asignatura en los que el estudiante esta inscrito): un grupo en el que el
+-- ejecutor no esta inscrito devuelve 0 filas, igual que una materia ajena.
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_sesiones_materia_estudiante]
 (
@@ -23,7 +26,8 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_sesiones_materia_estudiante]
     @idCorrelacion     UNIQUEIDENTIFIER,
     @idMateria         UNIQUEIDENTIFIER,
     @numeroPagina      INT = 1,
-    @tamanoPagina      INT = 100
+    @tamanoPagina      INT = 100,
+    @idGrupo           UNIQUEIDENTIFIER = NULL
 )
 AS
 BEGIN
@@ -96,7 +100,8 @@ BEGIN
     WHERE e.usuario = @idUsuarioDefecto
       AND r.idAsignatura = @idMateria
       AND r.codigoEstadoEstudiante = @codigoInscrita
-    ORDER BY r.numero ASC, r.fechaHoraInicio ASC, r.idSesion ASC
+      AND (@idGrupo IS NULL OR r.idGrupo = @idGrupo)
+    ORDER BY r.fechaHoraInicio ASC, r.numero ASC, r.idSesion ASC
     OFFSET @offset ROWS FETCH NEXT @tamanoPagina ROWS ONLY;
 END;
 GO
