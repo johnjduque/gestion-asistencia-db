@@ -18,6 +18,9 @@ GO
 --   revisionesPendientes. Devuelve SIEMPRE una sola fila (tupla canonica), tambien con INSERT ... EXEC.
 -- FIX-CIERRE-001: el periodo se resuelve solo por @codigoPeriodo (nombre o codigo). Sin codigo -> GEN_002; codigo que no existe -> PER_001;
 -- en ambos casos no se cierra nada (antes se cerraba el periodo mas reciente).
+-- FIX-CIERRE-002: solo se cierra un periodo que ya termino (uv_periodo_academico.estado = CERRADO: fecha local institucional
+-- estrictamente posterior a fechaFin; el dia de fechaFin aun cuenta como vigente). Un periodo vigente o en planeacion responde PER_007 con su
+-- fecha de fin, antes de abrir la transaccion y sin cerrar ni auditar nada. El cierre sigue siendo manual (administrador).
 -- Bloqueos (orden de §2.0): RevisionCancelacion -> EstudianteGrupo (UPDLOCK, HOLDLOCK) -> lectura de uv_resumen_* sin pistas ->
 -- Grupo. Transaccion propia o savepoint si hay una externa.
 -- ============================================================================
@@ -35,6 +38,9 @@ AS
     DECLARE @idActorDefecto           NVARCHAR(100)    = TRIM(@idActor);
 
     DECLARE @idPeriodoTarget               UNIQUEIDENTIFIER;
+    DECLARE @estadoPeriodo                 VARCHAR(20);
+    DECLARE @estadoPeriodoTerminado        VARCHAR(20) = 'CERRADO'; -- mismo valor que calcula uv_periodo_academico para un periodo ya terminado
+    DECLARE @fechaFinPeriodo               DATE;
     DECLARE @idEstadoActivo                UNIQUEIDENTIFIER;
     DECLARE @idEstadoFinalizado            UNIQUEIDENTIFIER;
     DECLARE @idEstadoCanceladoInasistencia UNIQUEIDENTIFIER;
@@ -116,7 +122,7 @@ BEGIN
             END
             ELSE
             BEGIN
-                SELECT TOP 1 @idPeriodoTarget = id
+                SELECT TOP 1 @idPeriodoTarget = id, @estadoPeriodo = estado, @fechaFinPeriodo = fechaFin
                 FROM [dbo].[uv_periodo_academico]
                 WHERE nombre = @codigoPeriodoDefecto
                    OR CAST(codigo AS NVARCHAR(50)) = @codigoPeriodoDefecto
@@ -130,6 +136,19 @@ BEGIN
                         @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
                     SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Periodo indicado: ', @codigoPeriodoDefecto, ' Correlacion: ', @idCorrelacionDefecto);
+                    SET @estadoResultado = 0;
+                END
+                ELSE IF @estadoPeriodo IS NULL OR @estadoPeriodo <> @estadoPeriodoTerminado
+                BEGIN
+                    -- FIX-CIERRE-002: el periodo aun no termino (vigente o en planeacion): no se cierra ni se audita nada
+                    SELECT @p1 = CONVERT(NVARCHAR(10), @fechaFinPeriodo, 103);
+                    EXEC dbo.usp_obtener_mensaje_catalogo
+                        @p_codigo = 'PER_007',
+                        @p_param1 = @p1,
+                        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                    SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Periodo: ', CONVERT(NVARCHAR(50), @idPeriodoTarget), ' Correlacion: ', @idCorrelacionDefecto);
                     SET @estadoResultado = 0;
                 END
             END
