@@ -497,3 +497,12 @@ Contrato: `AsistenciasUCO-Infra/docs/contracts/ADDENDUM_ATA_ASISTENCIA_TOMAS_AVI
 | `dbo.usp_registrar_aviso_falta_sesion(@idSesion, @totalEstudiantesAvisados, @idCorrelacion)` | Comando de sistema NUEVO con la tupla canónica: marca la sesión en `AvisoFaltaSesion`; idempotente (si ya existe, éxito sin escritura) | rol runtime (job) | `GEN_002`, `SES_001` |
 | `dbo.AvisoFaltaSesion` | Tabla NUEVA: `sesion` (PK, FK a `Sesion`), `fechaAvisoUtc`, `totalEstudiantesAvisados`, `idCorrelacion` | solo por SP | n/a |
 
+
+## Addendum ATA D10 — faltas por reclamar del estudiante (2026-11-18)
+
+Contrato: `AsistenciasUCO-Infra/docs/contracts/ADDENDUM_ATA_ASISTENCIA_TOMAS_AVISOS.md` (sección J.1). Migración `54_ata_faltas_reclamables_estudiante_up|down.sql`.
+
+| Objeto | Qué entrega o cambia | Ámbito | Códigos |
+|---|---|---|---|
+| `dbo.uv_falta_reclamable_estudiante` | Vista NUEVA: una fila por (matrícula `MATRICULA/ESTADO_INSCRITA`, toma reclamable `esReclamable = 1` de `uv_asistencia_toma_estudiante`) de sesiones con fila en `AvisoFaltaSesion`. Columnas: `idUsuarioEstudiante`, `idEstudianteGrupo`, `idGrupo`, `nombreGrupo`, `idAsignatura`, `nombreAsignatura`, `idSesion`, `numeroSesion`, `fechaHoraInicioUtc`, `fechaHoraFinUtc`, `idToma`, `numeroToma`, `fechaPuntoControlUtc`, `fechaLimiteReclamoUtc` | solo lectura (sin GRANT directo) | n/a |
+| `dbo.usp_consultar_faltas_reclamables_estudiante(@idUsuarioEjecutor, @idCorrelacion, @numeroPagina = 1, @tamanoPagina = 20)` | READ_QUERY_RESULTSET NUEVO paginado (THROW 51000). Solo filas del propio estudiante; columnas de la vista sin `idUsuarioEstudiante` más `totalRegistros`. Orden `fechaHoraFinUtc DESC, numeroToma ASC` | perfil ESTUDIANTE | `GEN_002`, `SEC_001`, `PAG_001` |

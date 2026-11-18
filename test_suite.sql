@@ -208,6 +208,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_ata_p1_aviso_falta.sql
 -- ATA D6/D7 (migracion 52): solicitudes de sesion del docente y calendario de sesiones con fechas
 :r /tmp/test/test_ata_p2_solicitudes_calendario.sql
+-- ATA D10 (migracion 54): faltas por reclamar del estudiante (vista y SP de consulta paginada)
+:r /tmp/test/test_ata_d10_faltas_reclamables.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN

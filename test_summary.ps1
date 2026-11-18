@@ -1155,7 +1155,11 @@ $criticalIds = @(
     'ATA_P1_MIG_UP_DOWN_UP',
     # ATA D6/D7: solicitudes de sesion del docente y calendario (test/test_ata_p2_solicitudes_calendario.sql)
     'ATA_P2_00_OBJETOS_Y_PERMISOS', 'ATA_P2_01_DOCENTE_VE_SUS_PENDIENTES', 'ATA_P2_02_TODAS_FILTRO_Y_PAGINACION', 'ATA_P2_03_AISLAMIENTO_Y_RBAC',
-    'ATA_P2_04_CALENDARIO_DOCENTE', 'ATA_P2_05_CALENDARIO_ESTUDIANTE', 'ATA_P2_06_RANGO_Y_RBAC', 'ATA_P2_TRANCOUNT_ZERO'
+    'ATA_P2_04_CALENDARIO_DOCENTE', 'ATA_P2_05_CALENDARIO_ESTUDIANTE', 'ATA_P2_06_RANGO_Y_RBAC', 'ATA_P2_TRANCOUNT_ZERO',
+    # ATA D10: faltas por reclamar del estudiante (test/test_ata_d10_faltas_reclamables.sql)
+    'ATA_D10_00_OBJETOS_Y_PERMISOS', 'ATA_D10_01_ANTES_DEL_AVISO', 'ATA_D10_02_TOMAS_EN_FALTA', 'ATA_D10_03_RECLAMO', 'ATA_D10_04_PLAZO_VENCIDO',
+    'ATA_D10_05_MARCA_CORREGIDA', 'ATA_D10_06_MATRICULA_CANCELADA', 'ATA_D10_07_AISLAMIENTO', 'ATA_D10_08_PAGINACION', 'ATA_D10_09_RBAC_Y_VALIDACIONES',
+    'ATA_D10_TRANCOUNT_ZERO'
 )
 if ($Concurrencia) { $criticalIds += 'CULM001_B2_CON_01_5X40' }
 $sqlPasses = @([regex]::Matches($outputStr, '(?m)^TEST_PASS:([A-Z0-9_]+)\s*$') | ForEach-Object { $_.Groups[1].Value })

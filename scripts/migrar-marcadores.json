@@ -397,6 +397,10 @@
     ],
     "53_ata_nueva_toma_cierra_anterior": [
       { "objeto": "dbo.usp_internal_cerrar_toma" }
+    ],
+    "54_ata_faltas_reclamables_estudiante": [
+      { "objeto": "dbo.uv_falta_reclamable_estudiante" },
+      { "objeto": "dbo.usp_consultar_faltas_reclamables_estudiante" }
     ]
   }
 }
