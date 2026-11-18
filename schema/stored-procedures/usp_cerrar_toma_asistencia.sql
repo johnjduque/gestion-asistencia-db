@@ -17,6 +17,8 @@ GO
 -- matriculas activas sin detalle en la toma (usp_internal_marcar_ausentes_toma); vencida la ventana se cierra sin marcar.
 -- totalFaltantes = filas de uv_faltantes_toma despues del cierre. Bloqueos: Sesion -> TomaAsistencia -> TokenAsistenciaToma.
 -- Exito TOM_009.
+-- VAL-pendientes-john PRU-15: una toma de una sesion de un periodo cerrado por el cierre masivo no se cierra a mano (PER_008, despues
+-- de la titularidad); las tomas que queden abiertas las cierra usp_cerrar_tomas_vencidas, que no aplica esta regla.
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_cerrar_toma_asistencia]
 (
@@ -94,6 +96,13 @@ BEGIN
             EXEC dbo.usp_validar_titularidad_jerarquica_interno
                 @idUsuario = @idUsuarioEjecutorDefecto, @idEntidadPadre = @idSesion, @tipoEntidadPadre = 'SESION',
                 @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+
+        -- VAL-pendientes-john PRU-15: la toma de una sesion de un periodo cerrado por el cierre masivo no cambia (PER_008)
+        IF @estadoResultado = 1
+            EXEC dbo.usp_validar_periodo_abierto_sesion_interno
+                @idSesion = @idSesion, @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
 

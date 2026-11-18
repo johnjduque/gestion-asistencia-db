@@ -80,6 +80,9 @@ BEGIN TRY
                   AND EXISTS (SELECT 1 FROM dbo.AuditoriaEvento WHERE correlationId = @corr AND action = N'CIERRE_MASIVO_PERIODO' AND resourceId = CONVERT(NVARCHAR(50), @idPeriodoQa))
                   AND (SELECT COUNT(*) FROM dbo.EstudianteGrupo WHERE estado = @idEstadoActivo) = @act, 1, 0);
     IF @ok <> 1 THROW 54914, 'TEST FAILED FIX001_CIE_03: el cierre por nombre debe cerrar solo el periodo indicado y auditarlo.', 1;
+    -- VAL-pendientes-john PRU-15: el primer cierre marco el periodo como cerrado y un segundo cierre responderia PER_009; se reabre
+    -- (solo el fixture) para probar tambien la resolucion por codigo numerico.
+    UPDATE dbo.PeriodoAcademico SET fechaCierreUtc = NULL WHERE id = @idPeriodoQa;
     SET @corr = NEWID();
     DELETE FROM #fix1c;
     INSERT #fix1c EXEC dbo.usp_ejecutar_cierre_masivo_periodo @codigoPeriodo = N'991999', @idActor = N'QA_FIX001', @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdmin;

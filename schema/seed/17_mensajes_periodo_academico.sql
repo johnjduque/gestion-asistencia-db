@@ -5,7 +5,7 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
--- HU096/HU097/HU098 y FIX-CIERRE-002 (PER_007): mensajes de catalogo de la gestion de periodos academicos (usuario).
+-- HU096/HU097/HU098, FIX-CIERRE-002 (PER_007) y VAL-pendientes-john PRU-15 (PER_008, PER_009): mensajes de catalogo de la gestion de periodos academicos (usuario).
 MERGE INTO [dbo].[CatalogoMensajeUsuario] AS Target
 USING (VALUES
     ('PER_001', 'BUSINESS_ERROR', 'MEDIO', N'El período académico indicado no existe.'),
@@ -14,7 +14,9 @@ USING (VALUES
     ('PER_004', 'BUSINESS_ERROR', 'MEDIO', N'El período académico tiene grupos o sesiones asociados y no se puede eliminar.'),
     ('PER_005', 'BUSINESS_ERROR', 'MEDIO', N'No tiene una institución activa asignada como administrador para gestionar períodos académicos.'),
     ('PER_006', 'SUCCESS', 'BAJO', N'Período académico eliminado exitosamente.'),
-    ('PER_007', 'BUSINESS_ERROR', 'MEDIO', N'El período académico aún no ha finalizado; el cierre masivo solo puede ejecutarse después de su fecha de fin ({}).')
+    ('PER_007', 'BUSINESS_ERROR', 'MEDIO', N'El período académico aún no ha finalizado; el cierre masivo solo puede ejecutarse después de su fecha de fin ({}).'),
+    ('PER_008', 'BUSINESS_ERROR', 'MEDIO', N'El período académico {} ya fue cerrado; no se pueden registrar ni modificar tomas, asistencias ni reclamos de sus sesiones.'),
+    ('PER_009', 'BUSINESS_ERROR', 'MEDIO', N'El período académico ya fue cerrado el {}; el cierre masivo no se puede repetir.')
 ) AS Source (codigo, tipoMensaje, severidad, contenido)
 ON (Target.codigo = Source.codigo)
 WHEN MATCHED THEN
@@ -33,7 +35,9 @@ USING (VALUES
     ('PER_004', 'BUSINESS_ERROR', 'MEDIO', N'Regla: existe dbo.Grupo que referencia el periodo a eliminar.'),
     ('PER_005', 'BUSINESS_ERROR', 'MEDIO', N'Ambito: el ejecutor no tiene dbo.Administrador en una institucion activa.'),
     ('PER_006', 'SUCCESS', 'BAJO', N'Eliminacion: dbo.PeriodoAcademico eliminado.'),
-    ('PER_007', 'BUSINESS_ERROR', 'MEDIO', N'Regla: uv_periodo_academico.estado del periodo no es CERRADO (fecha local institucional <= fechaFin {}); usp_ejecutar_cierre_masivo_periodo no cierra ni audita nada.')
+    ('PER_007', 'BUSINESS_ERROR', 'MEDIO', N'Regla: uv_periodo_academico.estado del periodo no es CERRADO (fecha local institucional <= fechaFin {}); usp_ejecutar_cierre_masivo_periodo no cierra ni audita nada.'),
+    ('PER_008', 'BUSINESS_ERROR', 'MEDIO', N'Regla: PeriodoAcademico.fechaCierreUtc no es nula (periodo {} cerrado el {} UTC); no se registran ni modifican tomas, lotes ni reclamos de sus sesiones.'),
+    ('PER_009', 'BUSINESS_ERROR', 'MEDIO', N'Regla: PeriodoAcademico.fechaCierreUtc ya registrada (cierre del {}, fecha local institucional); usp_ejecutar_cierre_masivo_periodo no repite el cierre ni audita nada.')
 ) AS Source (codigo, tipoMensaje, severidad, contenido)
 ON (Target.codigo = Source.codigo)
 WHEN MATCHED THEN

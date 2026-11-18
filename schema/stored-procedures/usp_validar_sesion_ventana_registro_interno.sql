@@ -29,6 +29,8 @@ GO
 --   asi que no hay conversion de bloqueo. Por defecto 0: todos los demas llamadores conservan el bloqueo exclusivo.
 -- CULM-001 / DEC-065 (2): PASO 2.6, una sesion con solicitud en espera (EstadoSolicitudSesion.esFinal = 0) se rechaza con SES_023;
 --   abrir toma/QR y registrar asistencia pasan todos por este validador.
+-- VAL-pendientes-john PRU-15: PASO 2.7, una sesion de un periodo cerrado por el cierre masivo (PeriodoAcademico.fechaCierreUtc) se
+--   rechaza con PER_008 (usp_validar_periodo_abierto_sesion_interno).
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_sesion_ventana_registro_interno]
 (
     @idSesion                UNIQUEIDENTIFIER,
@@ -137,6 +139,16 @@ BEGIN
             SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
             SET @estadoResultado = 0;
         END
+
+        -- PASO 2.7 (VAL-pendientes-john PRU-15): sesion de un periodo CERRADO por el cierre masivo => PER_008 (antes de la ventana,
+        --           para que el motivo sea el periodo y no la hora). Cubre abrir toma o QR, lotes por toma y por sesion y registro por token.
+        IF @estadoResultado = 1
+            EXEC dbo.usp_validar_periodo_abierto_sesion_interno
+                @idSesion = @idSesionDefecto,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
 
         -- PASO 3: Procedencia temporal confirmada (NULL o desconocida = INDETERMINADA)
         IF @estadoResultado = 1

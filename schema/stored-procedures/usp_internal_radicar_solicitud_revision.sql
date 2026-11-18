@@ -18,6 +18,7 @@ GO
 --      devuelve la solicitud y el total originales sin escribir)
 --   -> PC (reclamo por toma, solo con @idToma; v2 y v3 no lo informan): toma de la sesion (TOM_001), SJC del estudiante en
 --      esa toma con cabecera y detalle bloqueados (REV_026) y sin otra solicitud no retirada de la toma (REV_027)
+--   -> periodo abierto (VAL-pendientes-john PRU-15: PER_008 si el cierre masivo ya cerro el periodo de la sesion)
 --   -> plazo de excusas (usp_internal_validar_plazo_justificacion, D.1: REV_020 / REV_025; por sesion, igual para sus tomas)
 --   -> categoria por codigo o por nombre (REV_021)
 --   -> JSON valido (arreglo de GUID) y GUID distintos (GEN_002 / REV_024)
@@ -298,6 +299,16 @@ BEGIN
             IF @estadoResultado = 0
                 SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
         END
+
+        -- PASO 10c (VAL-pendientes-john PRU-15): un periodo cerrado por el cierre masivo no admite reclamos nuevos (PER_008, antes
+        -- del plazo). Como el plazo, no aplica a la reejecucion idempotente de una radicacion ya exitosa.
+        IF @estadoResultado = 1 AND @esReintento = 0
+            EXEC dbo.usp_validar_periodo_abierto_sesion_interno
+                @idSesion = @idSesionDefecto,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
 
         -- PASO 11: Plazo de excusas (D.1). Solo cuando NO es la reejecucion idempotente de una radicacion ya exitosa.
         IF @estadoResultado = 1 AND @esReintento = 0
