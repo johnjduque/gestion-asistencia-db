@@ -394,6 +394,9 @@
       { "objeto": "dbo.usp_consultar_sesiones_calendario_docente" },
       { "objeto": "dbo.uv_sesion_calendario" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'CAL_001'" }
+    ],
+    "53_ata_nueva_toma_cierra_anterior": [
+      { "objeto": "dbo.usp_internal_cerrar_toma" }
     ]
   }
 }
