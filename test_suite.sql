@@ -206,6 +206,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_ata_p1_tomas_denominador.sql
 -- ATA P1-C (aviso de falta por sesion): sesiones pendientes, faltas por toma, marca idempotente, parametros y plantilla
 :r /tmp/test/test_ata_p1_aviso_falta.sql
+-- ATA D6/D7 (migracion 52): solicitudes de sesion del docente y calendario de sesiones con fechas
+:r /tmp/test/test_ata_p2_solicitudes_calendario.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN

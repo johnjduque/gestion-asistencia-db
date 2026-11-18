@@ -1150,7 +1150,10 @@ $criticalIds = @(
     'ATA_P1_C00_OBJETOS', 'ATA_P1_C01_SESIONES_PENDIENTES', 'ATA_P1_C02_FALTAS_POR_TOMA', 'ATA_P1_C03_REGISTRAR_IDEMPOTENTE', 'ATA_P1_C04_SESION_INEXISTENTE',
     'ATA_P1_C05_HABILITADO_FALSE', 'ATA_P1_C06_ATRASO_MAXIMO', 'ATA_P1_C_TRANCOUNT_ZERO',
     # ATA P1: migraciones 50 y 51 (test/test_ata_p1_migraciones.ps1)
-    'ATA_P1_MIG_UP_DOWN_UP'
+    'ATA_P1_MIG_UP_DOWN_UP',
+    # ATA D6/D7: solicitudes de sesion del docente y calendario (test/test_ata_p2_solicitudes_calendario.sql)
+    'ATA_P2_00_OBJETOS_Y_PERMISOS', 'ATA_P2_01_DOCENTE_VE_SUS_PENDIENTES', 'ATA_P2_02_TODAS_FILTRO_Y_PAGINACION', 'ATA_P2_03_AISLAMIENTO_Y_RBAC',
+    'ATA_P2_04_CALENDARIO_DOCENTE', 'ATA_P2_05_CALENDARIO_ESTUDIANTE', 'ATA_P2_06_RANGO_Y_RBAC', 'ATA_P2_TRANCOUNT_ZERO'
 )
 if ($Concurrencia) { $criticalIds += 'CULM001_B2_CON_01_5X40' }
 $sqlPasses = @([regex]::Matches($outputStr, '(?m)^TEST_PASS:([A-Z0-9_]+)\s*$') | ForEach-Object { $_.Groups[1].Value })

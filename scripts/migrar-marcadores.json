@@ -387,6 +387,13 @@
       { "objeto": "dbo.usp_registrar_aviso_falta_sesion" },
       { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'AVISO_FALTA_SESION' AND clave = 'LOTE'" },
       { "tabla": "dbo.PlantillaNotificacion", "donde": "tipo = 'FALTA_ASISTENCIA_SESION_ESTUDIANTE'" }
+    ],
+    "52_ata_solicitudes_docente_calendario": [
+      { "objeto": "dbo.usp_consultar_solicitudes_sesion_docente_paginado" },
+      { "objeto": "dbo.usp_consultar_sesiones_calendario_estudiante" },
+      { "objeto": "dbo.usp_consultar_sesiones_calendario_docente" },
+      { "objeto": "dbo.uv_sesion_calendario" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'CAL_001'" }
     ]
   }
 }
