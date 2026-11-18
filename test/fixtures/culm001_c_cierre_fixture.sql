@@ -26,7 +26,7 @@ INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerA
 VALUES (@uDocC, @tipoCCc, 1960000000 + ABS(CHECKSUM(NEWID()) % 9999999), N'CULMC', N'', N'DocCierre', N'', CONCAT(N'culmc.cierre.', CONVERT(NVARCHAR(12), ABS(CHECKSUM(NEWID()))), N'@fixture.invalid'), 1, 1, N'FIXTURE_DISABLED_ACCOUNT');
 INSERT INTO dbo.Docente (id, usuario) VALUES (@docC, @uDocC);
 INSERT INTO dbo.PeriodoAcademico (id, institucion, nombre, codigo, fechaInicio, fechaFin, anio)
-VALUES (@period, @institution, N'Periodo QA Cierre C', @periodCode, DATEADD(DAY, -90, CAST(SYSUTCDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE CAST(dbo.ufn_obtener_parametro('TIEMPO', 'ZONA_HORARIA_SQLSERVER') AS NVARCHAR(100)) AS DATE)), DATEADD(DAY, -1, CAST(SYSUTCDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE CAST(dbo.ufn_obtener_parametro('TIEMPO', 'ZONA_HORARIA_SQLSERVER') AS NVARCHAR(100)) AS DATE)), YEAR(GETDATE()));
+VALUES (@period, @institution, N'Periodo QA Cierre C', @periodCode, DATEADD(DAY, -90, CAST(GETDATE() AS DATE)), DATEADD(DAY, -2, CAST(GETDATE() AS DATE)), YEAR(GETDATE()));
 INSERT INTO dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron, cantidadEstudiantesCancelaronVoluntadPropia,
     cantidadEstudiantesCancelaronAutomaticamente, docente)
 VALUES (@grupoC, @asigC, @period, 300000 + ABS(CHECKSUM(NEWID()) % 100000), N'Grupo QA Cierre C', 30, 0, 0, 0, @docC);

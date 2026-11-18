@@ -16,6 +16,8 @@ GO
 --     REV_007. Pasa al estado con el codigo de RECLAMO/ESTADO_RETIRADO (X "retirada", A2-C4). Exito REV_008.
 --   * El soporte (ArchivoSoporte) se conserva (almacenamiento WORM y auditoria). Sin notificacion.
 -- SET XACT_ABORT ON; transaccion propia o savepoint; un rechazo de negocio no escribe ni hace ROLLBACK.
+-- VAL-pendientes-john PRU-15: un reclamo pendiente de una sesion de un periodo cerrado por el cierre masivo ya no se retira (PER_008,
+-- despues de la propiedad y del estado, sin escrituras).
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_retirar_solicitud_revision_asistencia]
 (
@@ -30,6 +32,7 @@ AS
     DECLARE @idEstadoRetirado     UNIQUEIDENTIFIER;
     DECLARE @idSolicitudBloqueada UNIQUEIDENTIFIER;
     DECLARE @codigoEstadoActual   NVARCHAR(10);
+    DECLARE @idSesionSolicitud    UNIQUEIDENTIFIER;
 
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -103,7 +106,7 @@ BEGIN
                 SET @savepointCreado = 1;
             END
 
-            SELECT @idSolicitudBloqueada = r.id, @codigoEstadoActual = est.codigo
+            SELECT @idSolicitudBloqueada = r.id, @codigoEstadoActual = est.codigo, @idSesionSolicitud = a.sesion
             FROM dbo.SolicitudRevisionAsistencia r WITH (UPDLOCK, HOLDLOCK)
             INNER JOIN dbo.Estado est ON est.id = r.estado
             INNER JOIN dbo.Asistencia a ON a.id = r.asistencia
@@ -117,6 +120,15 @@ BEGIN
             ELSE IF @codigoEstadoActual <> @codigoPendiente
                 SET @codigoRechazo = 'REV_007';
             ELSE
+                -- VAL-pendientes-john PRU-15: periodo cerrado por el cierre masivo => PER_008 (sin escrituras)
+                EXEC dbo.usp_validar_periodo_abierto_sesion_interno
+                    @idSesion = @idSesionSolicitud,
+                    @idCorrelacion = @idCorrelacionDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                    @estadoResultado = @estadoResultado OUTPUT;
+
+            IF @idSolicitudBloqueada IS NOT NULL AND @codigoRechazo IS NULL AND @estadoResultado = 1
             BEGIN
                 UPDATE dbo.SolicitudRevisionAsistencia
                 SET estado = @idEstadoRetirado

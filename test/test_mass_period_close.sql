@@ -35,7 +35,7 @@ BEGIN TRANSACTION;
 BEGIN TRY
     INSERT dbo.PeriodoAcademico (id, institucion, nombre, codigo, fechaInicio, fechaFin, anio)
     VALUES (@period, @institution, N'Periodo QA Cierre', @periodCode,
-        DATEADD(DAY, -20, CAST(SYSUTCDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE CAST(dbo.ufn_obtener_parametro('TIEMPO', 'ZONA_HORARIA_SQLSERVER') AS NVARCHAR(100)) AS DATE)), DATEADD(DAY, -1, CAST(SYSUTCDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE CAST(dbo.ufn_obtener_parametro('TIEMPO', 'ZONA_HORARIA_SQLSERVER') AS NVARCHAR(100)) AS DATE)), YEAR(GETDATE()));
+        DATEADD(DAY, -20, CAST(GETDATE() AS DATE)), DATEADD(DAY, -2, CAST(GETDATE() AS DATE)), YEAR(GETDATE()));
     INSERT dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes,
         cantidadEstudiantesFinalizaron, cantidadEstudiantesCancelaronVoluntadPropia,
         cantidadEstudiantesCancelaronAutomaticamente, docente)
@@ -45,7 +45,7 @@ BEGIN TRY
     VALUES (@enrollment, @active, @studentAbsent, @group),
         (NEWID(), @active, @studentPresent, @group);
 
-    DECLARE @firstDay DATE = DATEADD(DAY, -10, CAST(SYSUTCDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE CAST(dbo.ufn_obtener_parametro('TIEMPO', 'ZONA_HORARIA_SQLSERVER') AS NVARCHAR(100)) AS DATE));
+    DECLARE @firstDay DATE = DATEADD(DAY, -10, CAST(GETDATE() AS DATE));
     DECLARE @sessions TABLE (seq INT PRIMARY KEY, sessionId UNIQUEIDENTIFIER, attendanceId UNIQUEIDENTIFIER);
     INSERT INTO @sessions VALUES
         (1, NEWID(), NEWID()), (2, NEWID(), NEWID()), (3, NEWID(), NEWID());
@@ -57,8 +57,6 @@ BEGIN TRY
     FROM @sessions;
     INSERT dbo.Asistencia (id, estudianteGrupo, sesion)
     SELECT attendanceId, @enrollment, sessionId FROM @sessions;
-    -- Las fechas del periodo usan la fecha local institucional (la misma de uv_periodo_academico.estado), no la del servidor (UTC):
-    -- entre las 19:00 y las 24:00 de Bogota el periodo 'terminado ayer' segun UTC aun no esta CERRADO y el cierre respondia PER_007.
     -- CULM-001 B.2 ([SUPUESTO-B-20]): la columna obligatoria DetalleAsistencia.toma exige la toma 1 de la sesion (helper culm001_b2_toma_fixture.sql).
     DECLARE @culmb2Sesiones NVARCHAR(MAX) = (SELECT idSesion = sessionId FROM @sessions FOR JSON PATH);
     EXEC #culm001_b2_crear_tomas @sesionesJSON = @culmb2Sesiones;
@@ -164,12 +162,12 @@ IF @institution IS NULL OR @assignment IS NULL OR @teacher IS NULL OR @adminUser
 BEGIN TRANSACTION;
 BEGIN TRY
     INSERT dbo.PeriodoAcademico (id, institucion, nombre, codigo, fechaInicio, fechaFin, anio)
-    VALUES (@period, @institution, N'Periodo QA Cierre C', @periodCode, DATEADD(DAY, -20, CAST(SYSUTCDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE CAST(dbo.ufn_obtener_parametro('TIEMPO', 'ZONA_HORARIA_SQLSERVER') AS NVARCHAR(100)) AS DATE)), DATEADD(DAY, -1, CAST(SYSUTCDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE CAST(dbo.ufn_obtener_parametro('TIEMPO', 'ZONA_HORARIA_SQLSERVER') AS NVARCHAR(100)) AS DATE)), YEAR(GETDATE()));
+    VALUES (@period, @institution, N'Periodo QA Cierre C', @periodCode, DATEADD(DAY, -20, CAST(GETDATE() AS DATE)), DATEADD(DAY, -2, CAST(GETDATE() AS DATE)), YEAR(GETDATE()));
     INSERT dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron,
         cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)
     VALUES (@group, @assignment, @period, 300000 + ABS(CHECKSUM(NEWID()) % 100000), N'Grupo QA Masivo C', 30, 0, 0, 0, @teacher);
     INSERT dbo.EstudianteGrupo (id, estado, estudiante, grupo) VALUES (@egTres, @active, @stTresSesiones, @group), (@egUna, @active, @stUnaSesion, @group);
-    DECLARE @firstDay DATE = DATEADD(DAY, -10, CAST(SYSUTCDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE CAST(dbo.ufn_obtener_parametro('TIEMPO', 'ZONA_HORARIA_SQLSERVER') AS NVARCHAR(100)) AS DATE));
+    DECLARE @firstDay DATE = DATEADD(DAY, -10, CAST(GETDATE() AS DATE));
     DECLARE @s TABLE (seq INT PRIMARY KEY, id UNIQUEIDENTIFIER);
     INSERT INTO @s VALUES (1, NEWID()), (2, NEWID()), (3, NEWID());
     INSERT dbo.Sesion (id, nombre, numero, codigo, numeroSemana, grupo, fechaHoraInicio, fechaHoraFin, procedenciaTemporal)

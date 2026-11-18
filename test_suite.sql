@@ -188,6 +188,10 @@ PRINT '======================================================================';
 :r /tmp/test/test_fix_cierre_001_decano.sql
 -- FIX-CIERRE-002 (cierre masivo solo de un periodo terminado): vigente, planeacion y dia de fechaFin rechazados con PER_007; terminado cierra
 :r /tmp/test/test_fix_cierre_002_periodo_no_terminado.sql
+-- VAL-pendientes-john PRU-13 (borde exacto del plazo de reclamo): ultimo minuto valido contra primer minuto vencido, en hora local y con N parametrizado
+:r /tmp/test/test_val_pru13_borde_plazo_reclamo.sql
+-- VAL-pendientes-john PRU-15 (periodo cerrado): tomas, lotes y reclamos de un periodo cerrado => PER_008; doble cierre => PER_009
+:r /tmp/test/test_val_pru15_periodo_cerrado.sql
 -- CIERRE-W1B (directorios de personas con ambito y paginacion): RBAC por perfil exacto, coordinadores paginados del decano y nombres separados
 :r /tmp/test/test_w1b_directorios.sql
 -- CIERRE-W2A (listados del coordinador en la base): filtro por caracter, opciones del consolidado con ambito y estado del periodo
