@@ -115,6 +115,8 @@ BEGIN TRY
 
     -- C-DB-44: umbral de perdida invalido
     UPDATE dbo.EstudianteGrupo SET estado = @estAct WHERE grupo = @grupoC;
+    -- VAL-pendientes-john PRU-15: el cierre de C-DB-43 marco el periodo como cerrado; se reabre junto con las matriculas (solo el fixture).
+    UPDATE dbo.PeriodoAcademico SET fechaCierreUtc = NULL WHERE id = @period;
     UPDATE dbo.CatalogoParametro SET valor = N'x' WHERE grupo = 'ASISTENCIA' AND clave = 'UMBRAL_ALERTA_PERDIDA';
     DELETE FROM #c1c;
     INSERT INTO #c1c EXEC dbo.usp_ejecutar_cierre_masivo_periodo @codigoPeriodo = @periodCodeText, @idActor = N'QA_LOCAL_C', @idCorrelacion = @corr, @idUsuarioEjecutor = @adminUser;

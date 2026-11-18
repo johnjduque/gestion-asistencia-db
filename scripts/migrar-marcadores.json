@@ -371,6 +371,11 @@
     ],
     "48_fix_cierre_periodo_no_terminado": [
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'PER_007'" }
+    ],
+    "49_val_periodo_cerrado": [
+      { "columna": "dbo.PeriodoAcademico.fechaCierreUtc" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'PER_008'" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'PER_009'" }
     ]
   }
 }

@@ -109,6 +109,15 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
+        -- PASO 4.4 (VAL-pendientes-john PRU-15): periodo cerrado por el cierre masivo => PER_008; antes del plazo y de toda escritura.
+        IF @estadoResultado = 1
+            EXEC dbo.usp_validar_periodo_abierto_sesion_interno
+                @idSesion = @idSesionDefecto,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+
         -- PASO 4.5 (CULM-001 D.1, HU026B): plazo de excusas (REV_020 vencido, REV_025 sin parametros); antes de toda escritura.
         IF @estadoResultado = 1
         BEGIN

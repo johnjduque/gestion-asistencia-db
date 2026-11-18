@@ -28,6 +28,8 @@ GO
 --   * La aprobacion guarda razonCausaResolucion. Reintento con la misma accion y el mismo resultado => exito sin escrituras;
 --     resultado distinto sobre una solicitud ya aprobada (sin resultado guardado cuenta como EX) => REV_002.
 --   * La auditoria agrega idToma y resultadoAprobacion.
+-- VAL-pendientes-john PRU-15: un reclamo pendiente de una sesion de un periodo cerrado por el cierre masivo ya no se resuelve
+--   (PER_008, despues de la titularidad y sin escrituras); el reintento de una decision ya aplicada sigue siendo idempotente.
 CREATE OR ALTER PROCEDURE [dbo].[usp_resolver_solicitud_revision_asistencia]
 (
     @idSolicitud        UNIQUEIDENTIFIER,
@@ -65,6 +67,7 @@ AS
     DECLARE @codigoResultado       NVARCHAR(5);
     DECLARE @codigoResultadoPrevio NVARCHAR(5);
     DECLARE @idTomaSolicitud       UNIQUEIDENTIFIER;
+    DECLARE @idSesionSolicitud     UNIQUEIDENTIFIER;
     DECLARE @idRazonResultado      UNIQUEIDENTIFIER;
 
     -- Variables locales de respuesta
@@ -166,6 +169,7 @@ BEGIN
                 @idAsistencia = sra.asistencia,
                 @codigoEstadoActual = e.codigo,
                 @idTomaSolicitud = sra.toma,
+                @idSesionSolicitud = s.id,
                 @codigoResultadoPrevio = rcr.codigo
             FROM dbo.SolicitudRevisionAsistencia sra WITH (UPDLOCK, HOLDLOCK)
             INNER JOIN dbo.Estado e ON e.id = sra.estado
@@ -211,6 +215,15 @@ BEGIN
                 SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
                 SET @estadoResultado = 0;
             END
+
+            -- 2.2c (VAL-pendientes-john PRU-15): un reclamo pendiente de un periodo cerrado por el cierre masivo no cambia (PER_008)
+            IF @estadoResultado = 1 AND @codigoEstadoActual = 'P'
+                EXEC dbo.usp_validar_periodo_abierto_sesion_interno
+                    @idSesion = @idSesionSolicitud,
+                    @idCorrelacion = @idCorrelacionDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                    @estadoResultado = @estadoResultado OUTPUT;
 
             IF @estadoResultado = 1
             BEGIN

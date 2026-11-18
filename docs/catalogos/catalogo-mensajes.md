@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **486**.
+Total de códigos: **489**.
 
 ## ACC
 
@@ -179,8 +179,8 @@ Total de códigos: **486**.
 |---|---|---|---|---|---|
 | `ERR_ACCION_REVISION_INVALIDA` | VALIDATION_ERROR | BAJO | La acción sobre el reclamo debe ser APROBADA o RECHAZADA. | Backend (VALIDATION_ERROR, AsistenciaErrorCode): La accion sobre el reclamo debe ser APROBADA o RECHAZADA. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_ACCION_REVISION_REQUERIDA` | VALIDATION_ERROR | BAJO | La acción sobre la solicitud es obligatoria. | Backend (VALIDATION_ERROR, AsistenciaErrorCode): La accion sobre la solicitud es obligatoria. | `63_val_mensajes_err_pendientes.sql` |
+| `ERR_ALMACENAMIENTO_NO_DISPONIBLE` | TECHNICAL_ERROR | ALTO | El almacenamiento de soportes no está disponible en este momento. Intente de nuevo en unos minutos. | Backend (SERVICE_UNAVAILABLE, ArchivoErrorCode): MinIO no respondio o el circuit breaker fileStorage esta abierto al subir o descargar un soporte; 503 sin registrar metadata (REA-02). | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_ANTIVIRUS_NO_DISPONIBLE` | TECHNICAL_ERROR | ALTO | El antivirus no está disponible; el archivo no se guardó. Intente de nuevo en unos minutos. | Backend (SERVICE_UNAVAILABLE, ArchivoErrorCode): ClamAV no respondio (caido, timeout, respuesta fuera del protocolo o circuit breaker malwareScan abierto); subida rechazada fail-closed con 503, sin almacenar bytes ni metadata. | `63_val_mensajes_err_pendientes.sql` |
-| `ERR_ALMACENAMIENTO_NO_DISPONIBLE` | TECHNICAL_ERROR | ALTO | El almacenamiento de soportes no está disponible en este momento. Intente de nuevo en unos minutos. | Backend (SERVICE_UNAVAILABLE, ArchivoErrorCode): MinIO no respondio o el circuit breaker fileStorage esta abierto al subir o descargar un soporte; 503 sin registrar metadata (REA-02). | `63_val_mensajes_err_pendientes.sql` (migración 47) |
 | `ERR_APROBACION_PRESENTE_SIN_TOMA` | BUSINESS_ERROR | MEDIO | La aprobación como presente solo aplica a reclamos de una toma. | Backend (CONFLICT, AsistenciaErrorCode): La aprobacion como presente solo aplica a reclamos de una toma. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_ASISTENCIA_REQUERIDA` | VALIDATION_ERROR | BAJO | La asistencia es obligatoria. | Backend (VALIDATION_ERROR, AsistenciaErrorCode): La asistencia es obligatoria. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_BUSQUEDA_CANDIDATOS_CORTA` | VALIDATION_ERROR | BAJO | La búsqueda de candidatos requiere al menos 3 caracteres. | Backend (VALIDATION_ERROR, DocenteErrorCode): La busqueda de candidatos requiere al menos 3 caracteres. | `63_val_mensajes_err_pendientes.sql` |
@@ -453,6 +453,8 @@ Total de códigos: **486**.
 | `PER_005` | BUSINESS_ERROR | MEDIO | No tiene una institución activa asignada como administrador para gestionar períodos académicos. | Ambito: el ejecutor no tiene dbo.Administrador en una institucion activa. | `17_mensajes_periodo_academico.sql` |
 | `PER_006` | SUCCESS | BAJO | Período académico eliminado exitosamente. | Eliminacion: dbo.PeriodoAcademico eliminado. | `17_mensajes_periodo_academico.sql` |
 | `PER_007` | BUSINESS_ERROR | MEDIO | El período académico aún no ha finalizado; el cierre masivo solo puede ejecutarse después de su fecha de fin ({}). | Regla: uv_periodo_academico.estado del periodo no es CERRADO (fecha local institucional <= fechaFin {}); usp_ejecutar_cierre_masivo_periodo no cierra ni audita nada. | `17_mensajes_periodo_academico.sql` |
+| `PER_008` | BUSINESS_ERROR | MEDIO | El período académico {} ya fue cerrado; no se pueden registrar ni modificar tomas, asistencias ni reclamos de sus sesiones. | Regla: PeriodoAcademico.fechaCierreUtc no es nula (periodo {} cerrado el {} UTC); no se registran ni modifican tomas, lotes ni reclamos de sus sesiones. | `17_mensajes_periodo_academico.sql` |
+| `PER_009` | BUSINESS_ERROR | MEDIO | El período académico ya fue cerrado el {}; el cierre masivo no se puede repetir. | Regla: PeriodoAcademico.fechaCierreUtc ya registrada (cierre del {}, fecha local institucional); usp_ejecutar_cierre_masivo_periodo no repite el cierre ni audita nada. | `17_mensajes_periodo_academico.sql` |
 
 ## PLA
 

@@ -21,6 +21,11 @@ GO
 -- FIX-CIERRE-002: solo se cierra un periodo que ya termino (uv_periodo_academico.estado = CERRADO: fecha local institucional
 -- estrictamente posterior a fechaFin; el dia de fechaFin aun cuenta como vigente). Un periodo vigente o en planeacion responde PER_007 con su
 -- fecha de fin, antes de abrir la transaccion y sin cerrar ni auditar nada. El cierre sigue siendo manual (administrador).
+-- VAL-pendientes-john PRU-15 (decision del responsable 2026-11-18): un cierre exitoso marca PeriodoAcademico.fechaCierreUtc (periodo
+-- CERRADO: sus sesiones ya no admiten tomas, lotes ni reclamos, PER_008). Un segundo cierre del mismo periodo ya no es idempotente:
+-- responde PER_009 con la fecha local del primer cierre, sin escribir ni auditar. Se comprueba dentro de la transaccion,
+-- con la fila de PeriodoAcademico bloqueada (UPDLOCK, HOLDLOCK, primer bloqueo), para que dos cierres concurrentes no cierren dos
+-- veces. Un cierre bloqueado por RCN_012 no marca el periodo.
 -- Bloqueos (orden de §2.0): RevisionCancelacion -> EstudianteGrupo (UPDLOCK, HOLDLOCK) -> lectura de uv_resumen_* sin pistas ->
 -- Grupo. Transaccion propia o savepoint si hay una externa.
 -- ============================================================================
@@ -41,6 +46,9 @@ AS
     DECLARE @estadoPeriodo                 VARCHAR(20);
     DECLARE @estadoPeriodoTerminado        VARCHAR(20) = 'CERRADO'; -- mismo valor que calcula uv_periodo_academico para un periodo ya terminado
     DECLARE @fechaFinPeriodo               DATE;
+    DECLARE @fechaCierrePeriodoUtc         DATETIME2(7);
+    DECLARE @zonaHorariaParametro          NVARCHAR(128)    = CAST(dbo.ufn_obtener_parametro_texto(NULL, 'TIEMPO', 'ZONA_HORARIA_SQLSERVER') AS NVARCHAR(128));
+    DECLARE @zonaHoraria                   NVARCHAR(128)    = IIF(@zonaHorariaParametro IS NULL OR @zonaHorariaParametro = N'', N'SA Pacific Standard Time', @zonaHorariaParametro);
     DECLARE @idEstadoActivo                UNIQUEIDENTIFIER;
     DECLARE @idEstadoFinalizado            UNIQUEIDENTIFIER;
     DECLARE @idEstadoCanceladoInasistencia UNIQUEIDENTIFIER;
@@ -178,6 +186,12 @@ BEGIN
                 SET @savepointCreado = 1;
             END
 
+            -- (0) PRU-15: la fila del periodo es el primer bloqueo; un periodo ya cerrado (otro cierre lo cerro antes o en paralelo)
+            --     responde PER_009 sin escribir.
+            SELECT @fechaCierrePeriodoUtc = pa.fechaCierreUtc
+            FROM dbo.PeriodoAcademico pa WITH (UPDLOCK, HOLDLOCK)
+            WHERE pa.id = @idPeriodoTarget;
+
             -- (1) RevisionCancelacion y (2) EstudianteGrupo del periodo, en el orden de bloqueos de §2.0 (N-4)
             SELECT @revisionesPendientes = COUNT(1)
             FROM dbo.RevisionCancelacion r WITH (UPDLOCK, HOLDLOCK)
@@ -199,7 +213,22 @@ BEGIN
                   AND rs.porcentajeInasistencia >= @umbralPerdida
                   AND NOT EXISTS (SELECT 1 FROM dbo.RevisionCancelacion r WHERE r.estudianteGrupo = rs.idEstudianteGrupo);
 
-            IF @motorActivo = 1 AND (@revisionesPendientes + @perdidasSinRevision) > 0
+            IF @fechaCierrePeriodoUtc IS NOT NULL
+            BEGIN
+                SET @bloqueado = 1;
+                SET @p1 = CONVERT(NVARCHAR(10), CAST((@fechaCierrePeriodoUtc AT TIME ZONE 'UTC') AT TIME ZONE @zonaHoraria AS DATE), 103);
+                EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'PER_009', @p_param1 = @p1,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Periodo: ', CONVERT(NVARCHAR(50), @idPeriodoTarget), ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+                -- Sin escrituras: se libera con COMMIT (mismo motivo que RCN_012, C-DB-47).
+                IF @transaccionPropia = 1
+                BEGIN
+                    IF XACT_STATE() = 1 COMMIT TRANSACTION;
+                    SET @transaccionPropia = 0;
+                END
+            END
+            ELSE IF @motorActivo = 1 AND (@revisionesPendientes + @perdidasSinRevision) > 0
             BEGIN
                 SET @bloqueado = 1;
                 SELECT @p1 = CONVERT(NVARCHAR(20), @revisionesPendientes + @perdidasSinRevision);
@@ -246,6 +275,9 @@ BEGIN
                 SELECT @totalCancelados = COUNT(1)
                 FROM dbo.EstudianteGrupo eg INNER JOIN dbo.Grupo g ON g.id = eg.grupo
                 WHERE g.periodoAcademico = @idPeriodoTarget AND eg.estado = @idEstadoCanceladoInasistencia;
+
+                -- (4b) PRU-15: el periodo queda CERRADO (rechaza tomas, lotes y reclamos de sus sesiones y un segundo cierre)
+                UPDATE dbo.PeriodoAcademico SET fechaCierreUtc = SYSUTCDATETIME() WHERE id = @idPeriodoTarget;
 
                 -- (5) Auditoría de evento
                 INSERT INTO dbo.AuditoriaEvento (

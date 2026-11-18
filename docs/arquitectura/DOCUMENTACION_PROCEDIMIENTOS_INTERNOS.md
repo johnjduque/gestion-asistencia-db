@@ -447,3 +447,13 @@ Todos los procedimientos listados en esta documentación han sido compilados y p
 
 ### `dbo.usp_validar_coordinador_sesion_interno` (consumidor nuevo)
 - Desde la migración 34 también lo usa `usp_cancelar_sesion_coordinador`, que antes repetía sus cuatro pasos (correlación y ejecutor, RBAC `COORDINADOR`, sesión existente y ámbito del coordinador sobre el grupo).
+
+## Addendum VAL-pendientes-john PRU-15 (2026-11-18): regla de periodo cerrado
+
+### `dbo.usp_validar_periodo_abierto_sesion_interno`
+- **Propósito**: Un período queda CERRADO cuando `usp_ejecutar_cierre_masivo_periodo` lo cierra con éxito (`PeriodoAcademico.fechaCierreUtc` no nula, migración 49). Este núcleo rechaza con `PER_008` (nombre del período) cualquier toma, lote o reclamo de una sesión de un período cerrado. Que el período haya terminado por fecha (`uv_periodo_academico.estado = CERRADO`) no lo cierra.
+- **Parámetros de Entrada**: `@idSesion UNIQUEIDENTIFIER`, `@idCorrelacion UNIQUEIDENTIFIER`. **Salida**: triplete estándar; en éxito no toca los mensajes ni `@estadoResultado`.
+- **Códigos de Catálogo Consumidos**: `PER_008`.
+- **Consumidores**: `usp_validar_sesion_ventana_registro_interno` (PASO 2.7: abrir toma o QR, lotes por toma y por sesión, registro por token), `usp_cerrar_toma_asistencia`, `usp_internal_radicar_solicitud_revision` (v2, v3 y v4), `usp_radicar_solicitud_revision_asistencia` (v1), `usp_resolver_solicitud_revision_asistencia` (solo reclamos pendientes) y `usp_retirar_solicitud_revision_asistencia`. No lo usa `usp_cerrar_tomas_vencidas` (el job sigue cerrando tomas abiertas).
+- **Permisos**: sin `EXECUTE` para `rol_asistencias_runtime`. Sin escrituras ni transacciones.
+- **Work item**: `docs/work-items/VAL-pendientes-john/PLAN.md`.
