@@ -89,7 +89,9 @@ BEGIN
             primerNombre          = u.primerNombre,
             segundoNombre         = u.segundoNombre,
             primerApellido        = u.primerApellido,
-            segundoApellido       = u.segundoApellido
+            segundoApellido       = u.segundoApellido,
+            -- Tipo de documento (codigo corto: CC, TI...), al final para no mover las columnas previas
+            tipoIdentificacion    = u.TipoIdentificacion
         FROM candidatos c
         LEFT JOIN dbo.uv_usuario u ON u.id = c.idUsuario
         WHERE
