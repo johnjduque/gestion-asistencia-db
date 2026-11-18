@@ -1131,7 +1131,10 @@ $criticalIds = @(
     'W3M_SES_01_ESTADOS', 'W3M_SES_02_CONTEOS', 'W3M_SES_03_GRUPO', 'W3M_SES_04_SIN_SESIONES', 'W3M_AMB_01_RECHAZOS', 'W3M_TRANCOUNT_ZERO',
     # CIERRE-W3I: indicadores de los tableros por rol, aforo y nivel de permanencia (test/test_w3i_indicadores.sql)
     'W3I_COO_01_TOTALES', 'W3I_COO_02_SIN_PERIODO', 'W3I_COO_03_AISLAMIENTO', 'W3I_DEC_01_TOTALES', 'W3I_DEC_02_AISLAMIENTO', 'W3I_ADM_01_TOTALES',
-    'W3I_DOC_01_RESUMEN', 'W3I_DOC_02_AMBITO', 'W3I_PER_01_CONSOLIDADO', 'W3I_DIF_01_PERDIDA', 'W3I_TRANCOUNT_ZERO'
+    'W3I_DOC_01_RESUMEN', 'W3I_DOC_02_AMBITO', 'W3I_PER_01_CONSOLIDADO', 'W3I_DIF_01_PERDIDA', 'W3I_TRANCOUNT_ZERO',
+    # ATA D6/D7: solicitudes de sesion del docente y calendario (test/test_ata_p2_solicitudes_calendario.sql)
+    'ATA_P2_00_OBJETOS_Y_PERMISOS', 'ATA_P2_01_DOCENTE_VE_SUS_PENDIENTES', 'ATA_P2_02_TODAS_FILTRO_Y_PAGINACION', 'ATA_P2_03_AISLAMIENTO_Y_RBAC',
+    'ATA_P2_04_CALENDARIO_DOCENTE', 'ATA_P2_05_CALENDARIO_ESTUDIANTE', 'ATA_P2_06_RANGO_Y_RBAC', 'ATA_P2_TRANCOUNT_ZERO'
 )
 if ($Concurrencia) { $criticalIds += 'CULM001_B2_CON_01_5X40' }
 $sqlPasses = @([regex]::Matches($outputStr, '(?m)^TEST_PASS:([A-Z0-9_]+)\s*$') | ForEach-Object { $_.Groups[1].Value })

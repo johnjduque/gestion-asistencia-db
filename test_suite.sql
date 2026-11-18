@@ -202,6 +202,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_w3m_matriz_asistencia.sql
 -- CIERRE-W3I (indicadores en la base): totales de los tableros por rol, aforo, resumen de grupos del docente y nivel de permanencia del consolidado
 :r /tmp/test/test_w3i_indicadores.sql
+-- ATA D6/D7 (migracion 52): solicitudes de sesion del docente y calendario de sesiones con fechas
+:r /tmp/test/test_ata_p2_solicitudes_calendario.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN

@@ -376,6 +376,13 @@
       { "columna": "dbo.PeriodoAcademico.fechaCierreUtc" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'PER_008'" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'PER_009'" }
+    ],
+    "52_ata_solicitudes_docente_calendario": [
+      { "objeto": "dbo.usp_consultar_solicitudes_sesion_docente_paginado" },
+      { "objeto": "dbo.usp_consultar_sesiones_calendario_estudiante" },
+      { "objeto": "dbo.usp_consultar_sesiones_calendario_docente" },
+      { "objeto": "dbo.uv_sesion_calendario" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'CAL_001'" }
     ]
   }
 }
