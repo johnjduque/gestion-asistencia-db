@@ -187,9 +187,9 @@ BEGIN TRY
         THROW 53502, 'TEST FAILED: T-FIC-01 la cabecera no coincide con Usuario/Programa', 1;
     PRINT 'TEST_PASS:HU069_FICHA_CABECERA';
 
-    -- T-FIC-02: resumen por asignatura (E1 solo en G1; E5 en G1 y G2)
+    -- T-FIC-02: resumen por asignatura (E1 solo en G1; E5 en G1 y G2). ATA D2: el % se mide contra las horas del periodo (G1 = 12 sesiones de 2 h = 24 h).
     INSERT INTO #rs EXEC dbo.usp_consultar_resumen_asistencia_estudiante_programa @idUsuarioEjecutor = @uC1, @idCorrelacion = @c, @idEstudiante = @idE1;
-    IF NOT ((SELECT COUNT(*) FROM #rs) = 1 AND EXISTS (SELECT 1 FROM #rs WHERE idGrupo = @g1 AND sesionesEjecutadas = 6 AND asistencias = 4 AND faltasSinJustaCausa = 2 AND excusas = 0 AND porcentajeInasistencia = 33.33 AND codigoPermanencia = N'PERDIDA' AND codigoEstadoEstudiante = N'A'))
+    IF NOT ((SELECT COUNT(*) FROM #rs) = 1 AND EXISTS (SELECT 1 FROM #rs WHERE idGrupo = @g1 AND sesionesEjecutadas = 6 AND asistencias = 4 AND faltasSinJustaCausa = 2 AND excusas = 0 AND porcentajeInasistencia = 16.67 AND codigoPermanencia = N'RIESGO' AND codigoEstadoEstudiante = N'A'))
         THROW 53503, 'TEST FAILED: T-FIC-02 resumen de E1', 1;
     TRUNCATE TABLE #rs;
     INSERT INTO #rs EXEC dbo.usp_consultar_resumen_asistencia_estudiante_programa @idUsuarioEjecutor = @uC1, @idCorrelacion = @c, @idEstudiante = @idE5;

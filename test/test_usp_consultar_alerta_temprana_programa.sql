@@ -176,13 +176,14 @@ BEGIN TRY
     DECLARE @err NVARCHAR(4000);
     SET @c = NEWID();
 
-    -- T-ALT-01: una fila por persona, orden por % descendente: E5 66.67, E1 33.33, E2 16.67, E3 0, E4 0
+    -- T-ALT-01: una fila por persona, orden por % descendente: E5 66.67, E1 16.67, E2 8.33, E3 0, E4 0.
+    -- ATA D2 (ADDENDUM_ATA_ASISTENCIA_TOMAS_AVISOS B): el % se mide contra las horas del periodo (G1 = 24 h; G2 = 6 h), no solo las dictadas.
     INSERT INTO #a EXEC dbo.usp_consultar_alerta_temprana_programa @idUsuarioEjecutor = @uC1, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 50, @semaforo = NULL, @filtroTexto = NULL;
     IF NOT ((SELECT COUNT(*) FROM #a) = 5 AND EXISTS (SELECT 1 FROM #a WHERE totalRegistros = 5))
         THROW 53301, 'TEST FAILED: T-ALT-01 deben ser 5 personas (E6 con matricula CI no cuenta)', 1;
     IF NOT ((SELECT TOP 1 idEstudiante FROM #a ORDER BY porcentajeInasistencia DESC, nombreCompleto ASC) = @idE5)
         THROW 53302, 'TEST FAILED: T-ALT-01 el primero debe ser E5', 1;
-    IF NOT (EXISTS (SELECT 1 FROM #a WHERE idEstudiante = @idE5 AND porcentajeInasistencia = 66.67 AND totalMatriculasActivas = 2 AND codigoPermanencia = N'PERDIDA' AND semaforo = N'ROJO' AND faltasSinJustaCausa = 2) AND EXISTS (SELECT 1 FROM #a WHERE idEstudiante = @idE1 AND porcentajeInasistencia = 33.33 AND semaforo = N'ROJO') AND EXISTS (SELECT 1 FROM #a WHERE idEstudiante = @idE2 AND porcentajeInasistencia = 16.67 AND semaforo = N'AMBAR') AND EXISTS (SELECT 1 FROM #a WHERE idEstudiante = @idE3 AND porcentajeInasistencia = 0 AND semaforo = N'VERDE') AND EXISTS (SELECT 1 FROM #a WHERE idEstudiante = @idE4 AND porcentajeInasistencia = 0 AND semaforo = N'VERDE'))
+    IF NOT (EXISTS (SELECT 1 FROM #a WHERE idEstudiante = @idE5 AND porcentajeInasistencia = 66.67 AND totalMatriculasActivas = 2 AND codigoPermanencia = N'PERDIDA' AND semaforo = N'ROJO' AND faltasSinJustaCausa = 2) AND EXISTS (SELECT 1 FROM #a WHERE idEstudiante = @idE1 AND porcentajeInasistencia = 16.67 AND semaforo = N'AMBAR') AND EXISTS (SELECT 1 FROM #a WHERE idEstudiante = @idE2 AND porcentajeInasistencia = 8.33 AND semaforo = N'VERDE') AND EXISTS (SELECT 1 FROM #a WHERE idEstudiante = @idE3 AND porcentajeInasistencia = 0 AND semaforo = N'VERDE') AND EXISTS (SELECT 1 FROM #a WHERE idEstudiante = @idE4 AND porcentajeInasistencia = 0 AND semaforo = N'VERDE'))
         THROW 53303, 'TEST FAILED: T-ALT-01 cifras y semaforo por persona', 1;
     IF EXISTS (SELECT 1 FROM #a WHERE idEstudiante = @idE7) THROW 53304, 'TEST FAILED T-SEC-01: aparecio un estudiante de otro programa.', 1;
     TRUNCATE TABLE #a;
@@ -190,16 +191,16 @@ BEGIN TRY
 
     -- T-ALT-02: filtro semaforico
     INSERT INTO #a EXEC dbo.usp_consultar_alerta_temprana_programa @idUsuarioEjecutor = @uC1, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 50, @semaforo = N'ROJO', @filtroTexto = NULL;
-    IF NOT ((SELECT COUNT(*) FROM #a) = 2 AND NOT EXISTS (SELECT 1 FROM #a WHERE semaforo <> N'ROJO'))
-        THROW 53305, 'TEST FAILED: T-ALT-02 ROJO = E5 y E1', 1;
+    IF NOT ((SELECT COUNT(*) FROM #a) = 1 AND EXISTS (SELECT 1 FROM #a WHERE idEstudiante = @idE5 AND semaforo = N'ROJO'))
+        THROW 53305, 'TEST FAILED: T-ALT-02 ROJO = E5', 1;
     TRUNCATE TABLE #a;
     INSERT INTO #a EXEC dbo.usp_consultar_alerta_temprana_programa @idUsuarioEjecutor = @uC1, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 50, @semaforo = N'AMBAR', @filtroTexto = NULL;
-    IF NOT ((SELECT COUNT(*) FROM #a) = 1 AND EXISTS (SELECT 1 FROM #a WHERE idEstudiante = @idE2))
-        THROW 53306, 'TEST FAILED: T-ALT-02 AMBAR = E2', 1;
+    IF NOT ((SELECT COUNT(*) FROM #a) = 1 AND EXISTS (SELECT 1 FROM #a WHERE idEstudiante = @idE1))
+        THROW 53306, 'TEST FAILED: T-ALT-02 AMBAR = E1', 1;
     TRUNCATE TABLE #a;
     INSERT INTO #a EXEC dbo.usp_consultar_alerta_temprana_programa @idUsuarioEjecutor = @uC1, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 50, @semaforo = N'VERDE', @filtroTexto = NULL;
-    IF NOT ((SELECT COUNT(*) FROM #a) = 2)
-        THROW 53307, 'TEST FAILED: T-ALT-02 VERDE = E3 y E4', 1;
+    IF NOT ((SELECT COUNT(*) FROM #a) = 3 AND EXISTS (SELECT 1 FROM #a WHERE idEstudiante = @idE2))
+        THROW 53307, 'TEST FAILED: T-ALT-02 VERDE = E2, E3 y E4', 1;
     TRUNCATE TABLE #a;
     INSERT INTO #a EXEC dbo.usp_consultar_alerta_temprana_programa @idUsuarioEjecutor = @uC1, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 50, @semaforo = N'ROJO', @filtroTexto = N'NombreI';
     IF NOT ((SELECT COUNT(*) FROM #a) = 1 AND EXISTS (SELECT 1 FROM #a WHERE idEstudiante = @idE5))

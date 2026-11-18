@@ -376,6 +376,17 @@
       { "columna": "dbo.PeriodoAcademico.fechaCierreUtc" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'PER_008'" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'PER_009'" }
+    ],
+    "50_ata_edicion_tomas_denominador": [
+      { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'ASISTENCIA' AND clave = 'MARGEN_RETARDO_MINUTOS' AND valorDefecto = '0'" }
+    ],
+    "51_ata_aviso_falta_sesion": [
+      { "tabla": "dbo.AvisoFaltaSesion" },
+      { "objeto": "dbo.usp_consultar_sesiones_pendientes_aviso_falta" },
+      { "objeto": "dbo.usp_consultar_faltas_sesion_aviso" },
+      { "objeto": "dbo.usp_registrar_aviso_falta_sesion" },
+      { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'AVISO_FALTA_SESION' AND clave = 'LOTE'" },
+      { "tabla": "dbo.PlantillaNotificacion", "donde": "tipo = 'FALTA_ASISTENCIA_SESION_ESTUDIANTE'" }
     ]
   }
 }

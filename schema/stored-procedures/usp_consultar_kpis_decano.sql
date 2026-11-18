@@ -33,7 +33,7 @@ BEGIN
     DECLARE @programas INT = (SELECT COUNT(*) FROM dbo.uv_programa p WHERE p.idFacultad = @idFacultad);
     DECLARE @total INT = 0, @regulares INT = 0, @riesgo INT = 0, @perdida INT = 0;
     DECLARE @sesiones INT = 0, @faltas INT = 0;
-    DECLARE @tomasDictadas INT = 0, @horasDictadas DECIMAL(12,6) = 0, @horasFalta DECIMAL(12,6) = 0;
+    DECLARE @tomasDictadas INT = 0, @horasDictadas DECIMAL(12,6) = 0, @horasFalta DECIMAL(12,6) = 0, @horasPeriodo DECIMAL(12,6) = 0;
     DECLARE @grupos INT = 0, @cupo INT = 0, @matriculados INT = 0;
     DECLARE @coordinadores INT = (SELECT COUNT(DISTINCT c.id) FROM dbo.uv_coordinador c WHERE c.idFacultad = @idFacultad AND c.estaActivoCoordinador = 1);
     DECLARE @docentes INT = (SELECT COUNT(DISTINCT dp.idDocente) FROM dbo.uv_docente_programa dp WHERE dp.idFacultad = @idFacultad AND dp.estaActivoDocentePrograma = 1);
@@ -57,7 +57,8 @@ BEGIN
                 @faltas = ISNULL(SUM(r.faltasSinJustaCausa), 0),
                 @tomasDictadas = ISNULL(SUM(r.tomasDictadas), 0),
                 @horasDictadas = ISNULL(SUM(r.horasDictadas), 0),
-                @horasFalta = ISNULL(SUM(r.horasFalta), 0)
+                @horasFalta = ISNULL(SUM(r.horasFalta), 0),
+                @horasPeriodo = ISNULL(SUM(r.horasPeriodo), 0)
         FROM    dbo.uv_resumen_asistencia_estudiante_grupo r
         WHERE   EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo_programa egp INNER JOIN dbo.uv_programa p ON p.id = egp.idPrograma WHERE egp.id = r.idEstudianteGrupo AND p.idFacultad = @idFacultad) AND r.idPeriodoAcademico = @idPeriodo AND r.codigoEstadoEstudiante = N'A';
 
@@ -71,7 +72,8 @@ BEGIN
 
     -- CULM-001 B.2 (CONTRACT §2.9, DEC-012/DEC-024): ausentismo por horas = 100 * Sigma horasFalta / Sigma horasDictadas de las
     -- matriculas A (antes faltas / sesiones); con sesiones de igual duracion y una toma, identico.
-    DECLARE @ausentismo DECIMAL(5,2) = CAST(IIF(@horasDictadas = 0, NULL, 100.0 * @horasFalta / @horasDictadas) AS DECIMAL(5,2));
+    -- ATA D2: el denominador es Sigma horasPeriodo (horas de todas las sesiones del periodo, no solo las ya dictadas).
+    DECLARE @ausentismo DECIMAL(5,2) = CAST(IIF(@horasPeriodo = 0, NULL, 100.0 * @horasFalta / @horasPeriodo) AS DECIMAL(5,2));
 
     -- PASO 4: Consulta y retorno de resultados
     SELECT

@@ -176,12 +176,13 @@ BEGIN TRY
     DECLARE @err NVARCHAR(4000);
     SET @c = NEWID();
 
-    -- T-KPI-01/03/06: cifras exactas del programa P1 (periodo vigente por defecto)
+    -- T-KPI-01/03/06: cifras exactas del programa P1 (periodo vigente por defecto). ATA D2 (ADDENDUM_ATA_ASISTENCIA_TOMAS_AVISOS B): la perdida se mide contra las
+    -- horas del periodo (G1 = 12 sesiones de 2 h = 24 h): E1 4/24 = 16.67 % (RIESGO), E2 2/24 = 8.33 % (REGULAR), E5 mantiene 4/6 = 66.67 % en G2 (PERDIDA).
     INSERT INTO #k EXEC dbo.usp_consultar_kpis_coordinador @idUsuarioEjecutor = @uC1, @idCorrelacion = @c, @idPeriodoAcademico = NULL;
     IF NOT ((SELECT COUNT(*) FROM #k) = 1)
         THROW 53201, 'TEST FAILED: se esperaba exactamente 1 fila', 1;
-    IF NOT (EXISTS (SELECT 1 FROM #k WHERE idPrograma = @p1 AND idPeriodoAcademico = @per AND totalEstudiantes = 5 AND estudiantesRegulares = 2 AND estudiantesRiesgo = 1 AND estudiantesPerdida = 2 AND tasaPermanencia = 60.00))
-        THROW 53202, 'TEST FAILED: T-KPI-01/02 conteos de permanencia distintos de los calculados a mano (5 / 2 / 1 / 2 / 60.00)', 1;
+    IF NOT (EXISTS (SELECT 1 FROM #k WHERE idPrograma = @p1 AND idPeriodoAcademico = @per AND totalEstudiantes = 5 AND estudiantesRegulares = 3 AND estudiantesRiesgo = 1 AND estudiantesPerdida = 1 AND tasaPermanencia = 80.00))
+        THROW 53202, 'TEST FAILED: T-KPI-01/02 conteos de permanencia distintos de los calculados a mano (5 / 3 / 1 / 1 / 80.00)', 1;
     IF NOT (EXISTS (SELECT 1 FROM #k WHERE sesionesProgramadas = 15 AND sesionesVencidas = 10 AND sesionesEjecutadas = 9 AND sesionesVencidasSinRegistro = 1 AND sesionesSinProcedenciaTemporal = 1 AND porcentajeCumplimiento = 90.00 AND porcentajeProgresoCalendario = 66.67))
         THROW 53203, 'TEST FAILED: T-KPI-03 cumplimiento distinto del calculado a mano (15 / 10 / 9 / 1 / 1 / 90.00 / 66.67)', 1;
     IF NOT (EXISTS (SELECT 1 FROM #k WHERE umbralAdvertencia = 15 AND umbralPerdida = 20))

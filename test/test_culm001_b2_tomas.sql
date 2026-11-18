@@ -148,6 +148,8 @@ DECLARE @corr UNIQUEIDENTIFIER, @json NVARCHAR(MAX), @t1 UNIQUEIDENTIFIER, @t2 U
 
 BEGIN TRANSACTION;
 BEGIN TRY
+    -- ATA D4: el margen sembrado es 0 (la ventana cierra al fin de la sesion); esta prueba ejercita la ventana con margen 30 min fijado dentro de la transaccion revertida.
+    UPDATE dbo.CatalogoParametro SET valor = N'30' WHERE grupo = 'ASISTENCIA' AND clave = 'MARGEN_RETARDO_MINUTOS';
     -- Fixture: docente titular d1, otro docente d2; estudiantes e1..e4 activos, e5 CI, e6 I; periodo vigente; grupo g
     DECLARE @uD1 UNIQUEIDENTIFIER = NEWID(), @uD2 UNIQUEIDENTIFIER = NEWID(), @d1 UNIQUEIDENTIFIER = NEWID(), @d2 UNIQUEIDENTIFIER = NEWID();
     DECLARE @tag NVARCHAR(12) = LEFT(REPLACE(CONVERT(NVARCHAR(36), NEWID()), N'-', N''), 12);
@@ -233,17 +235,20 @@ BEGIN TRY
     TRUNCATE TABLE #b2tR;
     PRINT 'TEST_PASS:CULM001_B2_TOM_02_LOTE_REPETIDO';
 
-    -- Toma unica sobre una sesion ya vencida: el porcentaje por horas coincide con la formula anterior (sesiones de 2 h)
+    -- Toma unica sobre una sesion ya vencida: la inasistencia por sesiones (trazabilidad) sigue en 100.00. ATA D2 (ADDENDUM_ATA_ASISTENCIA_TOMAS_AVISOS B): el porcentaje
+    -- principal se mide contra las horas de TODAS las sesiones no canceladas del grupo (@hpG), no solo las dictadas.
     UPDATE dbo.Sesion SET fechaHoraInicio = DATEADD(DAY, -1, fechaHoraInicio), fechaHoraFin = DATEADD(DAY, -1, fechaHoraFin), procedenciaTemporal = N'UTC_V2'
     WHERE id = @sLote;
+    DECLARE @hpG DECIMAL(12,6) = (SELECT SUM(dbo.ufn_horas_sesion(s2.fechaHoraInicio, s2.fechaHoraFin)) FROM dbo.Sesion s2
+                                  WHERE s2.grupo = @g AND NOT EXISTS (SELECT 1 FROM dbo.SesionCancelacion sc WHERE sc.sesion = s2.id));
     IF NOT EXISTS (SELECT 1 FROM dbo.uv_resumen_asistencia_estudiante_grupo r WHERE r.idGrupo = @g AND r.idEstudiante = @e1
                    AND r.sesionesEjecutadas = 1 AND r.tomasDictadas = 1 AND r.horasDictadas = 2.000000 AND r.faltasSinJustaCausa = 1 AND r.horasFalta = 2.000000
-                   AND r.porcentajeInasistencia = 100.00 AND r.porcentajeInasistenciaSesiones = 100.00)
+                   AND r.horasPeriodo = @hpG AND r.porcentajeInasistencia = dbo.ufn_calcular_porcentaje_inasistencia_horas(2.000000, @hpG) AND r.porcentajeInasistenciaSesiones = 100.00)
        OR NOT EXISTS (SELECT 1 FROM dbo.uv_resumen_asistencia_estudiante_grupo r WHERE r.idGrupo = @g AND r.idEstudiante = @e2
-                   AND r.porcentajeInasistencia = r.porcentajeInasistenciaSesiones AND r.porcentajeInasistencia = 100.00)
+                   AND r.horasPeriodo = @hpG AND r.porcentajeInasistencia = dbo.ufn_calcular_porcentaje_inasistencia_horas(2.000000, @hpG) AND r.porcentajeInasistenciaSesiones = 100.00)
        OR NOT EXISTS (SELECT 1 FROM dbo.uv_resumen_asistencia_estudiante_grupo r WHERE r.idGrupo = @g AND r.idEstudiante = @e3
                    AND r.porcentajeInasistencia = 0.00 AND r.porcentajeInasistenciaSesiones = 0.00 AND r.horasSinRegistro = 2.000000 AND r.porcentajeSinRegistroHoras = 100.00)
-        THROW 57224, 'TEST FAILED CULM001_B2_TOM_01: con una toma por sesion de igual duracion porcentajeInasistencia debe ser igual a porcentajeInasistenciaSesiones.', 1;
+        THROW 57224, 'TEST FAILED CULM001_B2_TOM_01: con una toma unica en una sesion de 2 h el porcentajeInasistencia debe medirse sobre las horas del periodo y porcentajeInasistenciaSesiones seguir en 100.00.', 1;
     PRINT 'TEST_PASS:CULM001_B2_TOM_01_TOMA_UNICA_COMPORTAMIENTO_ACTUAL';
 
     -- --------------------------------------------------------------------------------------------------------

@@ -81,6 +81,8 @@ DECLARE @p4 NCHAR(6) = CAST(@pinBase + 4 AS NCHAR(6)), @p5 NCHAR(6) = CAST(@pinB
 
 BEGIN TRANSACTION;
 BEGIN TRY
+    -- ATA D4: el margen sembrado es 0 (la ventana cierra al fin de la sesion); esta prueba ejercita la ventana con margen 30 min fijado dentro de la transaccion revertida.
+    UPDATE dbo.CatalogoParametro SET valor = N'30' WHERE grupo = 'ASISTENCIA' AND clave = 'MARGEN_RETARDO_MINUTOS';
     DECLARE @uD1 UNIQUEIDENTIFIER = NEWID(), @uD2 UNIQUEIDENTIFIER = NEWID(), @d1 UNIQUEIDENTIFIER = NEWID(), @d2 UNIQUEIDENTIFIER = NEWID();
     DECLARE @tag NVARCHAR(12) = LEFT(REPLACE(CONVERT(NVARCHAR(36), NEWID()), N'-', N''), 12);
     CREATE TABLE #b2qE (n INT, idUsuario UNIQUEIDENTIFIER, idEstudiante UNIQUEIDENTIFIER, idEG UNIQUEIDENTIFIER);

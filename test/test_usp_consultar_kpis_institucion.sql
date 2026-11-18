@@ -204,10 +204,10 @@ BEGIN TRY
     IF NOT ((SELECT COUNT(*) FROM #k) = 1) THROW 54301, 'TEST FAILED: se esperaba exactamente 1 fila', 1;
     IF NOT EXISTS (SELECT 1 FROM #k WHERE idInstitucion = @i1 AND idPeriodoAcademico = @per AND totalFacultades = 3 AND totalProgramas = 4)
         THROW 54302, 'TEST FAILED: T-DB-05 institucion/periodo/facultades/programas (I1 / periodo vigente / 3 facultades / 4 programas)', 1;
-    IF NOT EXISTS (SELECT 1 FROM #k WHERE totalEstudiantes = 6 AND estudiantesRegulares = 2 AND estudiantesRiesgo = 1 AND estudiantesPerdida = 3 AND tasaRetencion = 50.00)
-        THROW 54303, 'TEST FAILED: T-DB-05 conteos distintos de los calculados a mano (6 / 2 / 1 / 3 / 50.00)', 1;
-    IF NOT EXISTS (SELECT 1 FROM #k WHERE sesionesEjecutadas = 35 AND faltasSinJustaCausa = 6 AND porcentajeAusentismo = 17.14 AND porcentajeAsistencia = 82.86)
-        THROW 54304, 'TEST FAILED: T-DB-05 ausentismo ponderado distinto del calculado a mano (35 / 6 / 17.14 / 82.86)', 1;
+    IF NOT EXISTS (SELECT 1 FROM #k WHERE totalEstudiantes = 6 AND estudiantesRegulares = 3 AND estudiantesRiesgo = 1 AND estudiantesPerdida = 2 AND tasaRetencion = 66.67)
+        THROW 54303, 'TEST FAILED: T-DB-05 conteos distintos de los calculados a mano (6 / 3 / 1 / 2 / 66.67)', 1;
+    IF NOT EXISTS (SELECT 1 FROM #k WHERE sesionesEjecutadas = 35 AND faltasSinJustaCausa = 6 AND porcentajeAusentismo = 9.23 AND porcentajeAsistencia = 90.77)
+        THROW 54304, 'TEST FAILED: T-DB-05 ausentismo ponderado distinto del calculado a mano (35 / 6 / 9.23 / 90.77)', 1;
     IF NOT EXISTS (SELECT 1 FROM #k WHERE sesionesVencidas = 12 AND sesionesConRegistro = 11 AND porcentajeCumplimiento = 91.67)
         THROW 54305, 'TEST FAILED: T-DB-05 cumplimiento distinto del calculado a mano (12 / 11 / 91.67)', 1;
     IF NOT EXISTS (SELECT 1 FROM #k WHERE estudiantesConMatriculaActiva = 6 AND estudiantesRegistrados = 7 AND docentesConGrupoActivo = 1 AND docentesRegistrados = 2 AND umbralAdvertencia = 15 AND umbralPerdida = 20)

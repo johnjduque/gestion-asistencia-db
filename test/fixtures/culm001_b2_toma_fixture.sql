@@ -13,7 +13,7 @@ GO
 --                                                         esImplicita = 1, docente del grupo, apertura = inicio, cierre = fin.
 --   #culm001_b2_crear_tomas @sesionesJSON              -> lo mismo para un conjunto [{"idSesion":"uuid"}, ...].
 --   #culm001_b2_limpiar_sesiones @sesionesJSON         -> borra, en este orden, DetalleAsistencia -> TokenAsistenciaToma ->
---                                                         TomaAsistencia -> SesionCancelacion -> SesionSolicitud (DEC-065) -> Asistencia de esas sesiones
+--                                                         TomaAsistencia -> SesionCancelacion -> SesionSolicitud (DEC-065) -> AvisoFaltaSesion (ATA D1) -> Asistencia de esas sesiones
 --                                                         (las filas que dependan de Asistencia las borra antes el llamador);
 --                                                         el DELETE de dbo.Sesion lo hace el llamador.
 -- Las pruebas que se ejecutan fuera de test_suite.sql (fixtures maint_003g y dev_pagination) llevan el mismo orden de
@@ -86,6 +86,7 @@ BEGIN
     DELETE FROM dbo.TomaAsistencia WHERE sesion IN (SELECT id FROM @s);
     DELETE FROM dbo.SesionCancelacion WHERE sesion IN (SELECT id FROM @s);
     DELETE FROM dbo.SesionSolicitud WHERE sesion IN (SELECT id FROM @s);   -- DEC-065 (2): usp_crear_sesion deja una solicitud PENDIENTE por sesion
+    DELETE FROM dbo.AvisoFaltaSesion WHERE sesion IN (SELECT id FROM @s);  -- ATA D1: marca de aviso de falta por sesion
     DELETE a FROM dbo.Asistencia a
     WHERE a.sesion IN (SELECT id FROM @s)
       AND NOT EXISTS (SELECT 1 FROM dbo.SolicitudRevisionAsistencia sra WHERE sra.asistencia = a.id);

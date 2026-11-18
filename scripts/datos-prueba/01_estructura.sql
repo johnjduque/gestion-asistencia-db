@@ -23,6 +23,7 @@ DELETE t FROM dbo.TokenAsistenciaToma t JOIN dbo.TomaAsistencia ta ON ta.id = t.
 DELETE ta FROM dbo.TomaAsistencia ta JOIN dbo.Sesion s ON s.id = ta.sesion WHERE s.grupo = @gArq;
 DELETE sc FROM dbo.SesionCancelacion sc JOIN dbo.Sesion s ON s.id = sc.sesion WHERE s.grupo = @gArq;
 DELETE ss FROM dbo.SesionSolicitud ss JOIN dbo.Sesion s ON s.id = ss.sesion WHERE s.grupo = @gArq;
+DELETE af FROM dbo.AvisoFaltaSesion af JOIN dbo.Sesion s ON s.id = af.sesion WHERE s.grupo = @gArq;
 DELETE FROM dbo.Sesion WHERE grupo = @gArq;
 DELETE FROM dbo.Horario WHERE grupo = @gArq;
 DELETE FROM dbo.EstudianteGrupo WHERE grupo = @gArq;

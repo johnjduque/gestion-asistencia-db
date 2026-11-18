@@ -83,7 +83,7 @@ BEGIN TRY
         (@s4, N'QA W2B 4', @n1 + 3, LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8), 1, @g1, DATEADD(DAY, 3, @base), DATEADD(HOUR, 1, DATEADD(DAY, 3, @base)), N'UTC_V2'),
         (@s5, N'QA W2B 5', @n1 + 4, LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8), 1, @g1, DATEADD(DAY, 2, @base), DATEADD(HOUR, 1, DATEADD(DAY, 2, @base)), N'UTC_V2'),
         (@s6, N'QA W2B 6', @n1 + 5, LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8), 1, @g1, DATEADD(DAY, 6, @base), DATEADD(HOUR, 1, DATEADD(DAY, 6, @base)), N'UTC_V2'),
-        (@sFalta, N'QA W2B falta', @n1 + 6, LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8), 1, @g1, DATEADD(DAY, 7, @base), DATEADD(HOUR, 1, DATEADD(DAY, 7, @base)), N'UTC_V2');
+        (@sFalta, N'QA W2B falta', @n1 + 6, LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8), 1, @g1, DATEADD(DAY, 7, @base), DATEADD(HOUR, 2, DATEADD(DAY, 7, @base)), N'UTC_V2');   -- ATA D2: de 2 h (el periodo del grupo suma 8 h) para que la falta cruce el umbral de perdida sobre las horas del periodo
     -- Sesiones del grupo 2: s7 repite numero e inicio de s3 (desempata el identificador); s8 inicia antes que s2
     INSERT dbo.Sesion (id, nombre, numero, codigo, numeroSemana, grupo, fechaHoraInicio, fechaHoraFin, procedenciaTemporal) VALUES
         (@s7, N'QA W2B 7', @n1 + 2, LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8), 1, @g2, DATEADD(DAY, 3, @base), DATEADD(HOUR, 1, DATEADD(DAY, 3, @base)), N'UTC_V2'),
@@ -91,7 +91,7 @@ BEGIN TRY
     SELECT @esperadoG1 = COUNT(*) FROM dbo.Sesion WHERE grupo = @g1;
     SELECT @esperadoG2 = COUNT(*) FROM dbo.Sesion WHERE grupo = @g2;
 
-    -- Una falta sin justa causa de A en la sesion @sFalta (1 h): el grupo 1 queda con 100 % de inasistencia y el grupo 2 sin registro
+    -- Una falta sin justa causa de A en la sesion @sFalta (2 h; ATA D2: sobre las 8 h del periodo del grupo 1 son 25 %, perdida) y el grupo 2 sin registro
     INSERT INTO dbo.TomaAsistencia (id, sesion, numero, modo, estado, esImplicita, docenteApertura, fechaAperturaUtc, fechaCierreUtc, idCorrelacionApertura)
     SELECT NEWID(), s.id, 1, (SELECT TOP 1 m.id FROM dbo.ModoTomaAsistencia m WHERE m.usaCodigoQr = 0),
            (SELECT TOP 1 e.id FROM dbo.EstadoTomaAsistencia e WHERE e.estaAbierta = 0), 0, @docG1,
@@ -230,9 +230,9 @@ BEGIN TRY
     WHERE m.idUsuario = @uA AND m.codigoEstadoEstudiante = @inscrita;
     SET @ok = IIF((SELECT materiasEnRiesgo FROM #w2b_r) = 1
                   AND (SELECT materiasEnRiesgo FROM #w2b_r) = (SELECT COUNT(*) FROM #w2b_rv WHERE codigoPermanencia IN (N'RIESGO', N'PERDIDA'))
-                  AND (SELECT totalHorasFalta FROM #w2b_r) = 1.00
+                  AND (SELECT totalHorasFalta FROM #w2b_r) = 2.00
                   AND (SELECT totalHorasFalta FROM #w2b_r) = (SELECT SUM(ROUND(horasFalta, 2)) FROM #w2b_rv)
-                  AND EXISTS (SELECT 1 FROM #w2b_rv WHERE codigoPermanencia = N'PERDIDA' AND horasFalta = 1.0)
+                  AND EXISTS (SELECT 1 FROM #w2b_rv WHERE codigoPermanencia = N'PERDIDA' AND horasFalta = 2.0)
                   AND EXISTS (SELECT 1 FROM #w2b_rv WHERE codigoPermanencia = N'REGULAR' AND horasFalta = 0), 1, 0);
     EXEC #w2b_expect 'RES_02_RIESGO_Y_HORAS_DE_FALTA', @ok;
     PRINT 'TEST_PASS:W2B_RES_02_RIESGO_Y_HORAS_DE_FALTA';
@@ -256,7 +256,7 @@ BEGIN TRY
     DELETE FROM #w2b_r;
     SET @corr = NEWID();
     INSERT INTO #w2b_r EXEC dbo.usp_consultar_resumen_materias_estudiante @idUsuarioEjecutor = @uA, @idCorrelacion = @corr;
-    SET @ok = IIF((SELECT materiasEnRiesgo FROM #w2b_r) IS NULL AND (SELECT totalMaterias FROM #w2b_r) = 2 AND (SELECT totalHorasFalta FROM #w2b_r) = 1.00, 1, 0);
+    SET @ok = IIF((SELECT materiasEnRiesgo FROM #w2b_r) IS NULL AND (SELECT totalMaterias FROM #w2b_r) = 2 AND (SELECT totalHorasFalta FROM #w2b_r) = 2.00, 1, 0);
     EXEC #w2b_expect 'RES_03_SIN_UMBRAL_ES_SIN_DATO', @ok;
     UPDATE dbo.CatalogoParametro SET valor = N'15', estaActivo = 1 WHERE grupo = 'ASISTENCIA' AND clave = 'UMBRAL_ALERTA_ADVERTENCIA';
     UPDATE dbo.CatalogoParametro SET valor = N'20', estaActivo = 1 WHERE grupo = 'ASISTENCIA' AND clave = 'UMBRAL_ALERTA_PERDIDA';
