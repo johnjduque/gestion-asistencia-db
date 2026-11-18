@@ -25,7 +25,6 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_crear_facultad]
     @nombreFacultad          NVARCHAR(150)    = NULL
 )
 AS
-    -- 1. Declaración e inicialización estricta en cabecera (AS ... BEGIN)
     -- Prohibido ISNULL / COALESCE según estándar canónico de procedimientos externos
     DECLARE @idCorrelacionDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idUsuarioEjecutorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');

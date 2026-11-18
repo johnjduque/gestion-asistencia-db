@@ -103,7 +103,7 @@ function Invoke-ResultParserSelfTests {
         if ($parsed.Success -ne $case.Expected) {
             throw "Result parser self-test $($case.Name) failed: $($parsed.Failure)"
         }
-        Write-Host "TEST_PARSER_PASS:$($case.Name)"
+        Write-Output "TEST_PARSER_PASS:$($case.Name)"
     }
 }
 
