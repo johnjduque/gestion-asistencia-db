@@ -166,7 +166,7 @@ IF @institution IS NULL OR @assignment IS NULL OR @teacher IS NULL OR @adminUser
 
 INSERT dbo.PeriodoAcademico (id, institucion, nombre, codigo, fechaInicio, fechaFin, anio)
 VALUES (@period, @institution, N'Periodo QA REC3', @periodCode,
-        DATEADD(DAY, -20, CAST(GETDATE() AS DATE)), DATEADD(DAY, -1, CAST(GETDATE() AS DATE)), YEAR(GETDATE()));
+        DATEADD(DAY, -20, CAST(GETDATE() AS DATE)), DATEADD(DAY, -2, CAST(GETDATE() AS DATE)), YEAR(GETDATE()));
 INSERT dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron,
     cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)
 VALUES (@group, @assignment, @period, 400000 + ABS(CHECKSUM(NEWID()) % 100000), N'Grupo QA REC3', 30, 0, 0, 0, @teacher);
