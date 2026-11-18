@@ -1149,6 +1149,8 @@ $criticalIds = @(
     # ATA P1-C: aviso de falta por sesion (test/test_ata_p1_aviso_falta.sql)
     'ATA_P1_C00_OBJETOS', 'ATA_P1_C01_SESIONES_PENDIENTES', 'ATA_P1_C02_FALTAS_POR_TOMA', 'ATA_P1_C03_REGISTRAR_IDEMPOTENTE', 'ATA_P1_C04_SESION_INEXISTENTE',
     'ATA_P1_C05_HABILITADO_FALSE', 'ATA_P1_C06_ATRASO_MAXIMO', 'ATA_P1_C_TRANCOUNT_ZERO',
+    # ATA D9: nueva toma cierra la anterior (test/test_ata_p1_tomas_denominador.sql)
+    'ATA_D9_01_NUEVA_TOMA_CIERRA_ANTERIOR', 'ATA_D9_02_MAXIMO_TOM_004_NO_CIERRA', 'ATA_D9_03_SIN_ABIERTA_COLUMNAS_NULL', 'ATA_D9_04_CIERRE_MANUAL_SIN_CAMBIOS',
     # ATA P1: migraciones 50 y 51 (test/test_ata_p1_migraciones.ps1)
     'ATA_P1_MIG_UP_DOWN_UP',
     # ATA D6/D7: solicitudes de sesion del docente y calendario (test/test_ata_p2_solicitudes_calendario.sql)

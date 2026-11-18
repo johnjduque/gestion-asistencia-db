@@ -123,7 +123,8 @@ BEGIN TRY
     DECLARE @tA UNIQUEIDENTIFIER, @tB UNIQUEIDENTIFIER, @tC UNIQUEIDENTIFIER, @tM UNIQUEIDENTIFIER, @tCerrada UNIQUEIDENTIFIER = NEWID(), @tPast UNIQUEIDENTIFIER = NEWID();
     CREATE TABLE #b2qA (idCorrelacion UNIQUEIDENTIFIER NULL, mu NVARCHAR(4000) NULL, mt NVARCHAR(4000) NULL, estado BIT NOT NULL,
         idToma UNIQUEIDENTIFIER NULL, numero SMALLINT NULL, codigoModo NVARCHAR(20) NULL, usaCodigoQr BIT NULL, fechaAperturaUtc DATETIME2(0) NULL,
-        ventanaCierreUtc DATETIME2(0) NULL, totalTomasSesion INT NULL, horasToma DECIMAL(12,6) NULL);
+        ventanaCierreUtc DATETIME2(0) NULL, totalTomasSesion INT NULL, horasToma DECIMAL(12,6) NULL,
+    idTomaCerradaAnterior UNIQUEIDENTIFIER NULL, numeroTomaCerradaAnterior SMALLINT NULL, totalAusentesMarcadosAnterior INT NULL);
     SET @corr = NEWID();
     -- en sC: una toma QR cerrada (numero 1) y luego una MANUAL abierta (numero 2)
     INSERT INTO dbo.TomaAsistencia (id, sesion, numero, modo, estado, esImplicita, docenteApertura, fechaAperturaUtc, fechaCierreUtc, idCorrelacionApertura)

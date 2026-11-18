@@ -18,6 +18,10 @@ SET XACT_ABORT OFF;
 --   ATA_P1_B03_SOLICITUD_NO_APROBADA       solicitudes pendientes y rechazadas no suman; la aprobada si.
 --   ATA_P1_B04_ALERTAS_SOBRE_VISTA         usp_evaluar_alertas_inasistencia_grupo usa el % de la vista (10 % no crea alerta).
 --   ATA_P1_B05_PROGRAMA_GRUPO_HORAS        uv_resumen_asistencia_estudiante_programa_grupo propaga horasPeriodo.
+--   ATA_D9_01_NUEVA_TOMA_CIERRA_ANTERIOR  abrir con una toma abierta la cierra (SJC a los sin marca) y abre la siguiente (numero + 1) con las columnas *Anterior pobladas.
+--   ATA_D9_02_MAXIMO_TOM_004_NO_CIERRA     con el maximo de tomas y una abierta responde TOM_004 y la abierta sigue abierta.
+--   ATA_D9_03_SIN_ABIERTA_COLUMNAS_NULL    sin toma abierta las columnas *Anterior son NULL (tambien en un rechazo).
+--   ATA_D9_04_CIERRE_MANUAL_SIN_CAMBIOS    usp_cerrar_toma_asistencia: NULL marca SJC, 0 no marca y cerrar de nuevo es idempotente (TOM_011).
 --   ATA_P1_TRANCOUNT_ZERO
 -- Todo dentro de una transaccion revertida. Requiere el helper test/fixtures/culm001_b2_toma_fixture.sql (test_suite.sql).
 PRINT 'TEST START: test_ata_p1_tomas_denominador';
@@ -50,7 +54,8 @@ IF @tipoCC IS NULL OR @idAsig IS NULL OR @idInstitucion IS NULL OR @estadoA IS N
 
 CREATE TABLE #ataA (idCorrelacion UNIQUEIDENTIFIER NULL, mu NVARCHAR(4000) NULL, mt NVARCHAR(4000) NULL, estado BIT NOT NULL,
     idToma UNIQUEIDENTIFIER NULL, numero SMALLINT NULL, codigoModo NVARCHAR(20) NULL, usaCodigoQr BIT NULL, fechaAperturaUtc DATETIME2(0) NULL,
-    ventanaCierreUtc DATETIME2(0) NULL, totalTomasSesion INT NULL, horasToma DECIMAL(12,6) NULL);
+    ventanaCierreUtc DATETIME2(0) NULL, totalTomasSesion INT NULL, horasToma DECIMAL(12,6) NULL,
+    idTomaCerradaAnterior UNIQUEIDENTIFIER NULL, numeroTomaCerradaAnterior SMALLINT NULL, totalAusentesMarcadosAnterior INT NULL);
 CREATE TABLE #ataC (idCorrelacion UNIQUEIDENTIFIER NULL, mu NVARCHAR(4000) NULL, mt NVARCHAR(4000) NULL, estado BIT NOT NULL,
     idToma UNIQUEIDENTIFIER NULL, idSesion UNIQUEIDENTIFIER NULL, idGrupo UNIQUEIDENTIFIER NULL, fechaCierreUtc DATETIME2(0) NULL,
     totalAusentesMarcados INT NULL, totalFaltantes INT NULL, yaEstabaCerrada BIT NULL);
@@ -235,6 +240,80 @@ BEGIN TRY
                   WHERE p.horasPeriodo <> r.horasPeriodo OR p.porcentajeInasistencia <> r.porcentajeInasistencia)
         THROW 59054, 'TEST FAILED ATA_P1_B05_PROGRAMA_GRUPO_HORAS: la vista por programa debe exponer horasPeriodo con el mismo valor que la vista base.', 1;
     PRINT 'TEST_PASS:ATA_P1_B05_PROGRAMA_GRUPO_HORAS';
+
+    -- --------------------------------------------------------------------------------------------------------
+    -- D9-03/D9-01: abrir con una toma abierta la cierra en la misma transaccion (SJC a los sin marca) y abre la siguiente
+    -- --------------------------------------------------------------------------------------------------------
+    DECLARE @sD9 UNIQUEIDENTIFIER = NEWID(), @d9a UNIQUEIDENTIFIER, @d9b UNIQUEIDENTIFIER;
+    INSERT dbo.Sesion (id, nombre, numero, codigo, numeroSemana, grupo, fechaHoraInicio, fechaHoraFin, procedenciaTemporal)
+    VALUES (@sD9, N'ATA D9', 4, CONCAT(N'AT4-', @tag), 1, @g, DATEADD(MINUTE, -30, SYSUTCDATETIME()), DATEADD(MINUTE, 90, SYSUTCDATETIME()), N'UTC_V2');
+    SET @corr = NEWID();
+    INSERT INTO #ataA EXEC dbo.usp_abrir_toma_asistencia @idSesion = @sD9, @codigoModo = N'MANUAL', @idCorrelacion = @corr, @idUsuarioEjecutor = @uD;
+    SET @d9a = (SELECT idToma FROM #ataA WHERE estado = 1 AND numero = 1);
+    IF @d9a IS NULL OR EXISTS (SELECT 1 FROM #ataA WHERE idTomaCerradaAnterior IS NOT NULL OR numeroTomaCerradaAnterior IS NOT NULL OR totalAusentesMarcadosAnterior IS NOT NULL)
+        THROW 59200, 'TEST FAILED ATA_D9_03_SIN_ABIERTA_COLUMNAS_NULL: la primera toma se abre y las columnas *Anterior son NULL.', 1;
+    TRUNCATE TABLE #ataA;
+    PRINT 'TEST_PASS:ATA_D9_03_SIN_ABIERTA_COLUMNAS_NULL';
+    SET @json = CONCAT(N'[{"idEstudiante":"', @e1, N'","estado":"AN"}]');
+    INSERT INTO #ataL EXEC dbo.usp_registrar_asistencias_toma @idToma = @d9a, @asistenciaJSON = @json, @idCorrelacion = @corr, @idUsuarioEjecutor = @uD;
+    TRUNCATE TABLE #ataL;
+    INSERT INTO #ataA EXEC dbo.usp_abrir_toma_asistencia @idSesion = @sD9, @codigoModo = N'MANUAL', @idCorrelacion = @corr, @idUsuarioEjecutor = @uD;
+    SET @d9b = (SELECT idToma FROM #ataA WHERE estado = 1);
+    IF @d9b IS NULL OR @d9b = @d9a
+       OR NOT EXISTS (SELECT 1 FROM #ataA WHERE estado = 1 AND numero = 2 AND totalTomasSesion = 2 AND codigoModo = N'MANUAL' AND (mt IS NULL OR mt NOT LIKE N'DBCODE=TOM[_]003|%')
+                        AND idTomaCerradaAnterior = @d9a AND numeroTomaCerradaAnterior = 1 AND totalAusentesMarcadosAnterior = 2)
+       OR NOT EXISTS (SELECT 1 FROM dbo.TomaAsistencia WHERE id = @d9a AND fechaCierreUtc IS NOT NULL AND totalAusentesMarcados = 2 AND idCorrelacionCierre = @corr
+                        AND estado = @estCerrada)
+       OR NOT EXISTS (SELECT 1 FROM dbo.TomaAsistencia WHERE id = @d9b AND fechaCierreUtc IS NULL AND numero = 2 AND estado = @estAbierta)
+       OR (SELECT COUNT(*) FROM dbo.DetalleAsistencia da INNER JOIN dbo.RazonCausa rc ON rc.id = da.razonCausa WHERE da.toma = @d9a AND rc.codigo = N'SJC') <> 2
+       OR (SELECT COUNT(*) FROM dbo.TomaAsistencia WHERE sesion = @sD9 AND fechaCierreUtc IS NULL) <> 1
+        THROW 59201, 'TEST FAILED ATA_D9_01_NUEVA_TOMA_CIERRA_ANTERIOR: abrir con una toma abierta debe cerrarla (SJC a e2 y e3), abrir la 2 y poblar idTomaCerradaAnterior, numeroTomaCerradaAnterior y totalAusentesMarcadosAnterior.', 1;
+    TRUNCATE TABLE #ataA;
+    PRINT 'TEST_PASS:ATA_D9_01_NUEVA_TOMA_CIERRA_ANTERIOR';
+
+    -- --------------------------------------------------------------------------------------------------------
+    -- D9-02: con el maximo de tomas y una abierta => TOM_004 y la abierta sigue abierta (no se cierra nada)
+    -- --------------------------------------------------------------------------------------------------------
+    DECLARE @sMax UNIQUEIDENTIFIER = NEWID(), @maxTomas INT = dbo.ufn_obtener_parametro_int(NULL, 'TOMA_ASISTENCIA', 'MAXIMO_TOMAS_POR_SESION'), @d9max UNIQUEIDENTIFIER = NEWID();
+    INSERT dbo.Sesion (id, nombre, numero, codigo, numeroSemana, grupo, fechaHoraInicio, fechaHoraFin, procedenciaTemporal)
+    VALUES (@sMax, N'ATA D9 maximo', 5, CONCAT(N'AT5-', @tag), 1, @g, DATEADD(MINUTE, -30, SYSUTCDATETIME()), DATEADD(MINUTE, 90, SYSUTCDATETIME()), N'UTC_V2');
+    INSERT INTO dbo.TomaAsistencia (id, sesion, numero, modo, estado, esImplicita, docenteApertura, fechaAperturaUtc, fechaCierreUtc, idCorrelacionApertura)
+    SELECT IIF(n.n = @maxTomas, @d9max, NEWID()), @sMax, n.n, @modoManual, IIF(n.n = @maxTomas, @estAbierta, @estCerrada), 0, @d,
+           DATEADD(SECOND, n.n - 100, CAST(SYSUTCDATETIME() AS DATETIME2(0))), IIF(n.n = @maxTomas, NULL, DATEADD(SECOND, n.n - 99, CAST(SYSUTCDATETIME() AS DATETIME2(0)))), NEWID()
+    FROM (SELECT TOP (@maxTomas) CAST(ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS SMALLINT) AS n FROM sys.all_objects) n;
+    SET @corr = NEWID();
+    INSERT INTO #ataA EXEC dbo.usp_abrir_toma_asistencia @idSesion = @sMax, @codigoModo = N'MANUAL', @idCorrelacion = @corr, @idUsuarioEjecutor = @uD;
+    IF NOT EXISTS (SELECT 1 FROM #ataA WHERE estado = 0 AND idToma IS NULL AND idTomaCerradaAnterior IS NULL AND numeroTomaCerradaAnterior IS NULL
+                     AND totalAusentesMarcadosAnterior IS NULL AND mt LIKE N'DBCODE=TOM[_]004|%')
+       OR NOT EXISTS (SELECT 1 FROM dbo.TomaAsistencia WHERE id = @d9max AND fechaCierreUtc IS NULL AND estado = @estAbierta AND totalAusentesMarcados = 0 AND idCorrelacionCierre IS NULL)
+       OR (SELECT COUNT(*) FROM dbo.TomaAsistencia WHERE sesion = @sMax) <> @maxTomas
+        THROW 59210, 'TEST FAILED ATA_D9_02_MAXIMO_TOM_004_NO_CIERRA: con el maximo de tomas y una abierta debe responder TOM_004 sin cerrar la abierta ni insertar.', 1;
+    TRUNCATE TABLE #ataA;
+    PRINT 'TEST_PASS:ATA_D9_02_MAXIMO_TOM_004_NO_CIERRA';
+
+    -- --------------------------------------------------------------------------------------------------------
+    -- D9-04: el cierre manual no cambia: NULL marca SJC (modo MANUAL), 0 no marca, y cerrar una cerrada es idempotente (TOM_011)
+    -- --------------------------------------------------------------------------------------------------------
+    DECLARE @d9c UNIQUEIDENTIFIER;
+    SET @corr = NEWID();
+    INSERT INTO #ataC EXEC dbo.usp_cerrar_toma_asistencia @idToma = @d9b, @marcarAusentes = NULL, @idCorrelacion = @corr, @idUsuarioEjecutor = @uD;
+    IF NOT EXISTS (SELECT 1 FROM #ataC WHERE estado = 1 AND idToma = @d9b AND totalAusentesMarcados = 3 AND totalFaltantes = 3 AND yaEstabaCerrada = 0 AND mt LIKE N'DBCODE=TOM[_]009|%')
+       OR NOT EXISTS (SELECT 1 FROM dbo.TomaAsistencia WHERE id = @d9b AND fechaCierreUtc IS NOT NULL AND totalAusentesMarcados = 3 AND idCorrelacionCierre = @corr)
+        THROW 59220, 'TEST FAILED ATA_D9_04_CIERRE_MANUAL_SIN_CAMBIOS: el cierre manual con NULL debe marcar SJC a los 3 matriculados sin detalle en la toma 2.', 1;
+    TRUNCATE TABLE #ataC;
+    INSERT INTO #ataC EXEC dbo.usp_cerrar_toma_asistencia @idToma = @d9b, @marcarAusentes = NULL, @idCorrelacion = @corr, @idUsuarioEjecutor = @uD;
+    IF NOT EXISTS (SELECT 1 FROM #ataC WHERE estado = 1 AND yaEstabaCerrada = 1 AND mt LIKE N'DBCODE=TOM[_]011|%')
+        THROW 59221, 'TEST FAILED ATA_D9_04_CIERRE_MANUAL_SIN_CAMBIOS: cerrar una toma ya cerrada responde TOM_011 sin escribir.', 1;
+    TRUNCATE TABLE #ataC;
+    INSERT INTO #ataA EXEC dbo.usp_abrir_toma_asistencia @idSesion = @sD9, @codigoModo = N'MANUAL', @idCorrelacion = @corr, @idUsuarioEjecutor = @uD;
+    SET @d9c = (SELECT idToma FROM #ataA WHERE estado = 1);
+    TRUNCATE TABLE #ataA;
+    INSERT INTO #ataC EXEC dbo.usp_cerrar_toma_asistencia @idToma = @d9c, @marcarAusentes = 0, @idCorrelacion = @corr, @idUsuarioEjecutor = @uD;
+    IF NOT EXISTS (SELECT 1 FROM #ataC WHERE estado = 1 AND idToma = @d9c AND totalAusentesMarcados = 0 AND yaEstabaCerrada = 0)
+       OR EXISTS (SELECT 1 FROM dbo.DetalleAsistencia WHERE toma = @d9c)
+        THROW 59222, 'TEST FAILED ATA_D9_04_CIERRE_MANUAL_SIN_CAMBIOS: con @marcarAusentes = 0 no se marca a nadie.', 1;
+    TRUNCATE TABLE #ataC;
+    PRINT 'TEST_PASS:ATA_D9_04_CIERRE_MANUAL_SIN_CAMBIOS';
 
     ROLLBACK TRANSACTION;
 END TRY

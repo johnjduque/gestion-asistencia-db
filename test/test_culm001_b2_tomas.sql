@@ -120,7 +120,8 @@ IF @tipoCC IS NULL OR @idAsig IS NULL OR @idInstitucion IS NULL OR @estadoA IS N
 
 CREATE TABLE #b2tA (idCorrelacion UNIQUEIDENTIFIER NULL, mu NVARCHAR(4000) NULL, mt NVARCHAR(4000) NULL, estado BIT NOT NULL,
     idToma UNIQUEIDENTIFIER NULL, numero SMALLINT NULL, codigoModo NVARCHAR(20) NULL, usaCodigoQr BIT NULL, fechaAperturaUtc DATETIME2(0) NULL,
-    ventanaCierreUtc DATETIME2(0) NULL, totalTomasSesion INT NULL, horasToma DECIMAL(12,6) NULL);
+    ventanaCierreUtc DATETIME2(0) NULL, totalTomasSesion INT NULL, horasToma DECIMAL(12,6) NULL,
+    idTomaCerradaAnterior UNIQUEIDENTIFIER NULL, numeroTomaCerradaAnterior SMALLINT NULL, totalAusentesMarcadosAnterior INT NULL);
 CREATE TABLE #b2tC (idCorrelacion UNIQUEIDENTIFIER NULL, mu NVARCHAR(4000) NULL, mt NVARCHAR(4000) NULL, estado BIT NOT NULL,
     idToma UNIQUEIDENTIFIER NULL, idSesion UNIQUEIDENTIFIER NULL, idGrupo UNIQUEIDENTIFIER NULL, fechaCierreUtc DATETIME2(0) NULL,
     totalAusentesMarcados INT NULL, totalFaltantes INT NULL, yaEstabaCerrada BIT NULL);
@@ -304,12 +305,24 @@ BEGIN TRY
     PRINT 'TEST_PASS:CULM001_B2_TOM_03_ABRIR_EN_VENTANA';
 
     -- --------------------------------------------------------------------------------------------------------
-    -- B2-TOM-04: otra abierta TOM_003 / quinta toma TOM_004 / modo FOO TOM_002 / no titular SEC_002 / estudiante SEC_001
+    -- B2-TOM-04: otra abierta (ATA D9: cierra la anterior y abre la siguiente; TOM_003 ya no se emite) / toma 21 TOM_004 / modo FOO TOM_002 / no titular SEC_002 / estudiante SEC_001
     -- --------------------------------------------------------------------------------------------------------
+    -- ATA D9: con una toma abierta, abrir otra la cierra y abre la siguiente (sesion propia: las demas pruebas conservan @sNow con la toma 2 abierta)
+    DECLARE @sNow5 UNIQUEIDENTIFIER = NEWID(), @t5a UNIQUEIDENTIFIER;
+    INSERT dbo.Sesion (id, nombre, numero, codigo, numeroSemana, grupo, fechaHoraInicio, fechaHoraFin, procedenciaTemporal)
+    VALUES (@sNow5, N'CULMB2 en curso5', 10, N'CB2T10', 1, @g, DATEADD(MINUTE, -30, SYSUTCDATETIME()), DATEADD(MINUTE, 90, SYSUTCDATETIME()), N'UTC_V2');
     SET @corr = NEWID();
-    INSERT INTO #b2tA EXEC dbo.usp_abrir_toma_asistencia @idSesion = @sNow, @codigoModo = N'MANUAL', @idCorrelacion = @corr, @idUsuarioEjecutor = @uD1;
-    IF NOT EXISTS (SELECT 1 FROM #b2tA WHERE estado = 0 AND mt LIKE N'DBCODE=TOM[_]003|%') OR (SELECT COUNT(*) FROM dbo.TomaAsistencia WHERE sesion = @sNow) <> 2
-        THROW 57240, 'TEST FAILED CULM001_B2_TOM_04: con una toma abierta abrir otra debe responder TOM_003.', 1;
+    INSERT INTO #b2tA EXEC dbo.usp_abrir_toma_asistencia @idSesion = @sNow5, @codigoModo = N'MANUAL', @idCorrelacion = @corr, @idUsuarioEjecutor = @uD1;
+    SET @t5a = (SELECT idToma FROM #b2tA WHERE estado = 1);
+    TRUNCATE TABLE #b2tA;
+    INSERT INTO #b2tA EXEC dbo.usp_abrir_toma_asistencia @idSesion = @sNow5, @codigoModo = N'MANUAL', @idCorrelacion = @corr, @idUsuarioEjecutor = @uD1;
+    IF @t5a IS NULL
+       OR NOT EXISTS (SELECT 1 FROM #b2tA WHERE estado = 1 AND numero = 2 AND totalTomasSesion = 2 AND idTomaCerradaAnterior = @t5a AND numeroTomaCerradaAnterior = 1)
+       OR EXISTS (SELECT 1 FROM #b2tA WHERE mt LIKE N'DBCODE=TOM[_]003|%')
+       OR (SELECT COUNT(*) FROM dbo.TomaAsistencia WHERE sesion = @sNow5) <> 2
+       OR (SELECT COUNT(*) FROM dbo.TomaAsistencia WHERE sesion = @sNow5 AND fechaCierreUtc IS NULL) <> 1
+       OR NOT EXISTS (SELECT 1 FROM dbo.TomaAsistencia WHERE id = @t5a AND fechaCierreUtc IS NOT NULL)
+        THROW 57240, 'TEST FAILED CULM001_B2_TOM_04: con una toma abierta abrir otra la cierra y abre la siguiente (ATA D9; ya no responde TOM_003).', 1;
     TRUNCATE TABLE #b2tA;
     -- PC (puntos de control): el tope pasa de 4 a 20; se abren 20 tomas y la 21 responde TOM_004
     SET @n = 1;
