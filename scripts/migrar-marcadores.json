@@ -427,8 +427,6 @@
     ],
     "59_ses_gen_01_calendario_semestre": [
       { "columna": "dbo.Asignatura.horasSemanales" },
-      { "objeto": "dbo.uv_periodo_academico_cierre" },
-      { "objeto": "dbo.usp_previsualizar_horario_grupo" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ASI_013'" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ASI_014'" }
     ]

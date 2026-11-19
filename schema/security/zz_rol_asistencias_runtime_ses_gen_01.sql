@@ -7,6 +7,7 @@ GO
 
 -- SES-GEN-01: permiso de minimo privilegio del SP publico de solo lectura que previsualiza el horario propuesto de un grupo.
 -- Script aditivo e idempotente (no modifica rol_asistencias_runtime.sql). El SP no escribe: solo calcula y devuelve un conjunto de filas.
+-- El prefijo zz_ hace que deploy_schema.ps1 ejecute esta revocacion despues del grant generico, que ordena los scripts por nombre.
 IF DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime') IS NULL
     CREATE ROLE [rol_asistencias_runtime] AUTHORIZATION [dbo];
 GO

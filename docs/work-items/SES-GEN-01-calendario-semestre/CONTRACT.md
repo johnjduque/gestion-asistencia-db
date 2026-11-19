@@ -45,7 +45,7 @@ Esta decisión contractual incorpora una capacidad de negocio post-freeze. No mo
 
 ## Permisos
 
-- `rol_asistencias_runtime` recibe solo `EXECUTE` en `usp_previsualizar_horario_grupo` mediante `rol_asistencias_runtime_ses_gen_01.sql`.
+- `rol_asistencias_runtime` recibe solo `EXECUTE` en `usp_previsualizar_horario_grupo` mediante `zz_rol_asistencias_runtime_ses_gen_01.sql`, aplicado despues del grant generico sobre vistas.
 - No se conceden permisos sobre tablas base ni `SELECT` sobre `uv_periodo_academico_cierre`.
 
 ## Pruebas contractuales
