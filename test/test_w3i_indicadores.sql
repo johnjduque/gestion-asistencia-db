@@ -31,7 +31,6 @@ DECLARE @tipoCC UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.TipoIdentificacion 
 DECLARE @estA UNIQUEIDENTIFIER = (SELECT id FROM dbo.EstadoEstudianteGrupo WHERE codigo = N'A');
 DECLARE @modoManual UNIQUEIDENTIFIER = (SELECT id FROM dbo.ModoTomaAsistencia WHERE usaCodigoQr = 0);
 DECLARE @estCerrada UNIQUEIDENTIFIER = (SELECT id FROM dbo.EstadoTomaAsistencia WHERE estaAbierta = 0);
-DECLARE @tvCat UNIQUEIDENTIFIER = (SELECT id FROM dbo.TipoVinculacion WHERE codigo = 'CAT');
 DECLARE @progA UNIQUEIDENTIFIER = 'B2C3D4E5-0000-0000-0000-000000000001';
 DECLARE @asigSeed UNIQUEIDENTIFIER = 'E2F3A4B5-0000-0000-0000-000000000001';
 DECLARE @fac UNIQUEIDENTIFIER = (SELECT facultad FROM dbo.Programa WHERE id = @progA);
@@ -43,7 +42,7 @@ DECLARE @uAdm UNIQUEIDENTIFIER = (SELECT TOP 1 usuario FROM dbo.Administrador WH
 DECLARE @tipoProg UNIQUEIDENTIFIER = (SELECT tipoDePrograma FROM dbo.Programa WHERE id = @progA);
 DECLARE @zona SYSNAME = dbo.ufn_obtener_parametro('TIEMPO', 'ZONA_HORARIA_SQLSERVER');
 DECLARE @hoy DATE = CAST(SYSUTCDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE @zona AS DATE);
-IF @tipoCC IS NULL OR @estA IS NULL OR @modoManual IS NULL OR @estCerrada IS NULL OR @tvCat IS NULL OR @uCA IS NULL OR @uDec IS NULL OR @uAdm IS NULL
+IF @tipoCC IS NULL OR @estA IS NULL OR @modoManual IS NULL OR @estCerrada IS NULL OR @uCA IS NULL OR @uDec IS NULL OR @uAdm IS NULL
     THROW 59400, 'TEST FAILED W3I: faltan fixtures del seed (tipo CC, estado A, toma manual cerrada, vinculacion CAT, coordinador, decano y administrador).', 1;
 
 CREATE TABLE #w3iKc (idPrograma UNIQUEIDENTIFIER, nombrePrograma NVARCHAR(50), idPeriodoAcademico UNIQUEIDENTIFIER, nombrePeriodoAcademico NVARCHAR(50),
@@ -114,12 +113,12 @@ BEGIN TRY
         (@progB, @fac, @tipoProg, N'W3I Programa B', @coordA, 1);
 
     -- Plantilla del programa A: dA y dB activos (dB tambien en el programa B de la misma facultad), dC inactivo y 120 mas (> 100)
-    INSERT INTO dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc)
-    SELECT NEWID(), p.id, @progA, @tvCat, IIF(p.k = N'dC', 0, 1), SYSUTCDATETIME() FROM #w3iP p WHERE p.k IN (N'dA', N'dB', N'dC');
-    INSERT INTO dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc)
-    SELECT NEWID(), p.id, @progB, @tvCat, 1, SYSUTCDATETIME() FROM #w3iP p WHERE p.k = N'dB';
-    INSERT INTO dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc)
-    SELECT NEWID(), p.id, @p2, @tvCat, 1, SYSUTCDATETIME() FROM #w3iP p WHERE p.k = N'dZ';
+    INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
+    SELECT NEWID(), p.id, @progA, IIF(p.k = N'dC', 0, 1), SYSUTCDATETIME() FROM #w3iP p WHERE p.k IN (N'dA', N'dB', N'dC');
+    INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
+    SELECT NEWID(), p.id, @progB, 1, SYSUTCDATETIME() FROM #w3iP p WHERE p.k = N'dB';
+    INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
+    SELECT NEWID(), p.id, @p2, 1, SYSUTCDATETIME() FROM #w3iP p WHERE p.k = N'dZ';
     CREATE TABLE #w3iBulk (n INT PRIMARY KEY, idUsuario UNIQUEIDENTIFIER, id UNIQUEIDENTIFIER);
     INSERT INTO #w3iBulk (n, idUsuario, id)
     SELECT TOP (120) ROW_NUMBER() OVER (ORDER BY (SELECT NULL)), NEWID(), NEWID() FROM sys.all_objects a CROSS JOIN (SELECT TOP 2 1 x FROM sys.all_objects) b;
@@ -127,8 +126,8 @@ BEGIN TRY
     SELECT b.idUsuario, @tipoCC, @doc + 1000 + b.n, CONCAT(N'W3iBulk', b.n), N'Ind', N'Doc', N'W3i', CONCAT(N'w3i.bulk', b.n, N'.', @tag, N'@test.local'), 1, 1, N'HashBackend_W3I'
     FROM #w3iBulk b;
     INSERT INTO dbo.Docente (id, usuario) SELECT id, idUsuario FROM #w3iBulk;
-    INSERT INTO dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc)
-    SELECT NEWID(), b.id, @progA, @tvCat, 1, SYSUTCDATETIME() FROM #w3iBulk b;
+    INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
+    SELECT NEWID(), b.id, @progA, 1, SYSUTCDATETIME() FROM #w3iBulk b;
 
     -- Padron: s1, s2 y s3 en el programa A; sZ en el programa P2
     INSERT INTO dbo.EstudiantePrograma (id, estudiante, programa)

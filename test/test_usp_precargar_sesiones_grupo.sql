@@ -30,9 +30,8 @@ INNER JOIN dbo.uv_coordinador_identidad ci ON ci.id = pr.idCoordinador
 WHERE pr.estaActivoPrograma = 1 AND ci.estaActivoUsuario = 1 AND ci.estaActivoRolCoordinador = 1 AND a.estaActivaAsignatura = 1
 ORDER BY a.id;
 DECLARE @idPeriodoBase UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_periodo_academico WHERE idInstitucion = @idInstitucion ORDER BY anio DESC);
-DECLARE @tvCat UNIQUEIDENTIFIER = (SELECT id FROM dbo.uv_tipo_vinculacion WHERE codigo = 'CAT');
 IF @tipoCC IS NULL OR @idAsig IS NULL OR @uCoord IS NULL OR @idInstitucion IS NULL OR @idFacultad IS NULL OR @idTipoPrograma IS NULL
-   OR @idPeriodoBase IS NULL OR @tvCat IS NULL OR @zonaHorariaSqlServer IS NULL
+   OR @idPeriodoBase IS NULL OR @zonaHorariaSqlServer IS NULL
     THROW 53400, 'TEST FAILED: faltan fixtures del seed (asignatura, coordinador, periodo o vinculacion).', 1;
 
 BEGIN TRANSACTION;
@@ -52,8 +51,8 @@ BEGIN TRY
     INSERT INTO dbo.Coordinador (id, usuario) VALUES (@cOtro, @uCoordOtro);
     INSERT INTO dbo.Programa (id, facultad, tipoDePrograma, nombre, coordinador, estado)
     VALUES (@pOtro, @idFacultad, @idTipoPrograma, CONCAT(N'Programa QA ', LEFT(CONVERT(NVARCHAR(36), @pOtro), 10)), @cOtro, 1);
-    INSERT INTO dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc)
-    VALUES (NEWID(), @d1, @idProg, @tvCat, 1, SYSUTCDATETIME()), (NEWID(), @d2, @idProg, @tvCat, 1, SYSUTCDATETIME());
+    INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
+    VALUES (NEWID(), @d1, @idProg, 1, SYSUTCDATETIME()), (NEWID(), @d2, @idProg, 1, SYSUTCDATETIME());
 
     -- Periodos deterministas de 4, 8, 12, 16 y 18 semanas. El vencido termina ayer en hora civil institucional.
     DECLARE @idFuturo UNIQUEIDENTIFIER = NEWID(), @idPasado UNIQUEIDENTIFIER = NEWID();

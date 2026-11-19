@@ -12,7 +12,7 @@ GO
 -- Perfil del USUARIO EJECUTOR (solo el propio; no recibe otro id): datos personales de dbo.Usuario y una fila por
 -- cada vinculo institucional:
 --   ESTUDIANTE     -> programa (EstudiantePrograma; detalle = facultad)
---   DOCENTE        -> programa (DocentePrograma; detalle = tipo de vinculacion; activo = estado del vinculo)
+--   DOCENTE        -> programa (DocentePrograma; detalle = facultad; activo = estado del vinculo)
 --   COORDINADOR    -> programa que coordina (Programa.coordinador; detalle = facultad)
 --   DECANO         -> facultad (Facultad.decano; detalle = institucion)
 --   ADMINISTRADOR  -> institucion (Administrador.institucion)
@@ -69,11 +69,12 @@ BEGIN
         INNER JOIN dbo.Facultad f ON f.id = p.facultad
         WHERE e.usuario = @idUsuarioDefecto
         UNION ALL
-        SELECT 'DOCENTE', 2, p.id, p.nombre, tv.nombre, dp.estado
+        -- MEJORAS-SERGIO-2026-11-18 (migracion 50): el detalle del vinculo docente es la facultad del programa (antes, el tipo de vinculacion)
+        SELECT 'DOCENTE', 2, p.id, p.nombre, f.nombre, dp.estado
         FROM dbo.Docente d
         INNER JOIN dbo.DocentePrograma dp ON dp.docente = d.id
         INNER JOIN dbo.Programa p ON p.id = dp.programa
-        INNER JOIN dbo.TipoVinculacion tv ON tv.id = dp.tipoVinculacion
+        INNER JOIN dbo.Facultad f ON f.id = p.facultad
         WHERE d.usuario = @idUsuarioDefecto
         UNION ALL
         SELECT 'COORDINADOR', 3, p.id, p.nombre, f.nombre, p.estado

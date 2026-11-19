@@ -7,6 +7,7 @@ GO
 
 -- HU062/HU089: una fila por vinculo (docente, programa). No depende de los grupos (un docente recien
 -- vinculado aparece con totalGruposPrograma = 0). uv_docente y uv_auth_docente no cambian.
+-- MEJORAS-SERGIO-2026-11-18 (migracion 50): sin columnas de tipo de vinculacion.
 CREATE OR ALTER VIEW [dbo].[uv_docente_programa]
 AS
 SELECT		idDocentePrograma = dp.id,
@@ -29,10 +30,6 @@ SELECT		idDocentePrograma = dp.id,
 			pr.nombreFacultad,
 			pr.idInstitucion,
 
-			idTipoVinculacion = tv.id,
-			codigoTipoVinculacion = tv.codigo,
-			nombreTipoVinculacion = tv.nombre,
-
 			dp.fechaVinculacionUtc,
 			estaActivoVinculacion = dp.estado,
 			estaActivoUsuario = u.estaActivoUsuario,
@@ -50,6 +47,4 @@ INNER JOIN	uv_usuario u
 ON			di.idUsuario = u.id
 INNER JOIN	uv_programa pr
 ON			dp.programa = pr.id
-INNER JOIN	uv_tipo_vinculacion tv
-ON			dp.tipoVinculacion = tv.id
 GO

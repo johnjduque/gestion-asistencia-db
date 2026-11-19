@@ -47,16 +47,11 @@ BEGIN TRY
            (@p2, @idFacultad, @idTipoProg, N'Programa QA P2', @cC2, 1),
            (@p3, @fac2,       @idTipoProg, N'Programa QA P3', @cC3, 1);
 
-    DECLARE @tvCat UNIQUEIDENTIFIER = (SELECT id FROM dbo.TipoVinculacion WHERE codigo = 'CAT');
-    DECLARE @tvPla UNIQUEIDENTIFIER = (SELECT id FROM dbo.TipoVinculacion WHERE codigo = 'PLA');
-    IF @tvCat IS NULL OR @tvPla IS NULL THROW 52001, 'TEST FAILED: catalogo TipoVinculacion (CAT/PLA) no existe.', 1;
-    DECLARE @tvInactivo UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.TipoVinculacion (id, codigo, nombre, estado) VALUES (@tvInactivo, N'ZZZ', N'Inactivo QA', 0);
 
     -- D1 ya vinculado a P2 (otro programa, misma institucion); D3 vinculado a P3 (otra institucion).
-    INSERT INTO dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc)
-    VALUES (NEWID(), @dD1, @p2, @tvCat, 1, SYSUTCDATETIME()),
-           (NEWID(), @dD3, @p3, @tvCat, 1, SYSUTCDATETIME());
+    INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
+    VALUES (NEWID(), @dD1, @p2, 1, SYSUTCDATETIME()),
+           (NEWID(), @dD3, @p3, 1, SYSUTCDATETIME());
 
     CREATE TABLE #r (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT);
     DECLARE @msg NVARCHAR(4000);
@@ -69,7 +64,7 @@ BEGIN TRY
         @idTipoIdentificacion = @tipoCC, @numeroIdentificacion = 920000101,
         @primerNombre = N'Nora', @segundoNombre = N'Qa', @primerApellido = N'Nueva', @segundoApellido = N'Docente',
         @correo = @correoNuevo, @password = N'HashBackend_NuevoDocente01',
-        @idTipoVinculacion = @tvCat, @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
+        @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 1)
         THROW 52010, 'T-091-01 FAILED: alta nueva no retorno exito.', 1;
     IF NOT EXISTS (SELECT 1 FROM dbo.Usuario WHERE correo = @correoNuevo AND estado = 1 AND password = N'HashBackend_NuevoDocente01')
@@ -77,7 +72,7 @@ BEGIN TRY
     DECLARE @uNuevo UNIQUEIDENTIFIER = (SELECT id FROM dbo.Usuario WHERE correo = @correoNuevo);
     DECLARE @dNuevo UNIQUEIDENTIFIER = (SELECT id FROM dbo.Docente WHERE usuario = @uNuevo);
     IF @dNuevo IS NULL THROW 52012, 'T-091-01 FAILED: no se creo el rol Docente.', 1;
-    IF NOT EXISTS (SELECT 1 FROM dbo.DocentePrograma WHERE docente = @dNuevo AND programa = @p1 AND tipoVinculacion = @tvCat AND estado = 1)
+    IF NOT EXISTS (SELECT 1 FROM dbo.DocentePrograma WHERE docente = @dNuevo AND programa = @p1 AND estado = 1)
         THROW 52013, 'T-091-01 FAILED: no se creo la vinculacion activa.', 1;
     PRINT 'TEST_PASS:T-091-01';
 
@@ -85,10 +80,10 @@ BEGIN TRY
     DECLARE @usuariosAntes INT = (SELECT COUNT(*) FROM dbo.Usuario);
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_vincular_docente_programa
-        @idDocente = @dD1, @idTipoVinculacion = @tvPla, @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
+        @idDocente = @dD1, @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 1) THROW 52020, 'T-091-02 FAILED: vinculo de docente existente no retorno exito.', 1;
     IF (SELECT COUNT(*) FROM dbo.DocentePrograma WHERE docente = @dD1) <> 2 THROW 52021, 'T-091-02 FAILED: debio quedar exactamente un vinculo nuevo.', 1;
-    IF NOT EXISTS (SELECT 1 FROM dbo.DocentePrograma WHERE docente = @dD1 AND programa = @p1 AND tipoVinculacion = @tvPla AND estado = 1)
+    IF NOT EXISTS (SELECT 1 FROM dbo.DocentePrograma WHERE docente = @dD1 AND programa = @p1 AND estado = 1)
         THROW 52022, 'T-091-02 FAILED: vinculo con tipo PLA no encontrado.', 1;
     IF (SELECT COUNT(*) FROM dbo.Usuario) <> @usuariosAntes THROW 52023, 'T-091-02 FAILED: no debio crear usuarios.', 1;
     PRINT 'TEST_PASS:T-091-02';
@@ -96,7 +91,7 @@ BEGIN TRY
     -- ================= T-091-03: usuario existente que aun no es docente =================
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_vincular_docente_programa
-        @idUsuario = @uSinRol, @idTipoVinculacion = @tvCat, @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
+        @idUsuario = @uSinRol, @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 1) THROW 52030, 'T-091-03 FAILED: modo @idUsuario no retorno exito.', 1;
     IF NOT EXISTS (SELECT 1 FROM dbo.Docente d INNER JOIN dbo.DocentePrograma dp ON dp.docente = d.id WHERE d.usuario = @uSinRol AND dp.programa = @p1)
         THROW 52031, 'T-091-03 FAILED: no se creo Docente + vinculo.', 1;
@@ -106,7 +101,7 @@ BEGIN TRY
     DECLARE @dpAntes INT = (SELECT COUNT(*) FROM dbo.DocentePrograma);
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_vincular_docente_programa
-        @idDocente = @dD1, @idTipoVinculacion = @tvCat, @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
+        @idDocente = @dD1, @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
     SELECT @msg = contenido FROM dbo.uv_mensaje_usuario WHERE codigo = 'DOC_006';
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msg) THROW 52040, 'T-091-04 FAILED: duplicado no retorno DOC_006.', 1;
     IF (SELECT COUNT(*) FROM dbo.DocentePrograma) <> @dpAntes THROW 52041, 'T-091-04 FAILED: duplicado modifico datos.', 1;
@@ -120,14 +115,14 @@ BEGIN TRY
         @idTipoIdentificacion = @tipoCC, @numeroIdentificacion = 920000019,
         @primerNombre = N'Otra', @segundoNombre = N'Qa', @primerApellido = N'Persona', @segundoApellido = N'Qa',
         @correo = N'qa.otro.correo.hu091@uco.edu.co', @password = N'HashBackend_Otro01',
-        @idTipoVinculacion = @tvCat, @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
+        @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msg) THROW 52050, 'T-091-05 FAILED: documento existente no retorno DOC_003.', 1;
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_vincular_docente_programa   -- correo repetido
         @idTipoIdentificacion = @tipoCC, @numeroIdentificacion = 920000102,
         @primerNombre = N'Otra', @segundoNombre = N'Qa', @primerApellido = N'Persona', @segundoApellido = N'Qa',
         @correo = N'qa.sinrol.hu091@uco.edu.co', @password = N'HashBackend_Otro02',
-        @idTipoVinculacion = @tvCat, @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
+        @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msg) THROW 52051, 'T-091-05 FAILED: correo existente no retorno DOC_003.', 1;
     IF (SELECT COUNT(*) FROM dbo.Usuario) <> @usuariosAntes THROW 52052, 'T-091-05 FAILED: creo usuarios parciales.', 1;
     PRINT 'TEST_PASS:T-091-05';
@@ -136,29 +131,18 @@ BEGIN TRY
     SELECT @msg = contenido FROM dbo.uv_mensaje_usuario WHERE codigo = 'DOC_005';
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_vincular_docente_programa    -- ningun modo
-        @idTipoVinculacion = @tvCat, @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
+        @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msg) THROW 52060, 'T-091-06 FAILED: sin modo no retorno DOC_005.', 1;
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_vincular_docente_programa    -- ambos modos
-        @idDocente = @dD3, @idUsuario = @uSinRol, @idTipoVinculacion = @tvCat, @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
+        @idDocente = @dD3, @idUsuario = @uSinRol, @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msg) THROW 52061, 'T-091-06 FAILED: dos modos no retorno DOC_005.', 1;
     PRINT 'TEST_PASS:T-091-06';
 
-    -- ================= T-091-07: tipo de vinculacion invalido -> DOC_004 =================
-    SELECT @msg = contenido FROM dbo.uv_mensaje_usuario WHERE codigo = 'DOC_004';
-    SET @usuariosAntes = (SELECT COUNT(*) FROM dbo.Usuario);
-    TRUNCATE TABLE #r;
-    INSERT INTO #r EXEC dbo.usp_vincular_docente_programa    -- inexistente
-        @idTipoIdentificacion = @tipoCC, @numeroIdentificacion = 920000103,
-        @primerNombre = N'Ines', @segundoNombre = N'Qa', @primerApellido = N'Tipo', @segundoApellido = N'Malo',
-        @correo = N'qa.tipo.inexistente.hu091@uco.edu.co', @password = N'HashBackend_Tipo01',
-        @idTipoVinculacion = '15151515-1515-1515-1515-151515151515', @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
-    IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msg) THROW 52070, 'T-091-07 FAILED: tipo inexistente no retorno DOC_004.', 1;
-    TRUNCATE TABLE #r;
-    INSERT INTO #r EXEC dbo.usp_vincular_docente_programa    -- inactivo
-        @idDocente = @dD3, @idTipoVinculacion = @tvInactivo, @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
-    IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msg) THROW 52071, 'T-091-07 FAILED: tipo inactivo no retorno DOC_004.', 1;
-    IF (SELECT COUNT(*) FROM dbo.Usuario) <> @usuariosAntes THROW 52072, 'T-091-07 FAILED: creo usuario parcial.', 1;
+    -- ================= T-091-07 (MEJORAS-SERGIO-2026-11-18, migracion 50): sin tipo de vinculacion =================
+    IF EXISTS (SELECT 1 FROM sys.parameters WHERE object_id IN (OBJECT_ID('dbo.usp_vincular_docente_programa'), OBJECT_ID('dbo.usp_vincular_docente_programa_interno'))
+                                            AND name = '@idTipoVinculacion')
+        THROW 52070, 'T-091-07 FAILED: el vinculo docente-programa ya no recibe tipo de vinculacion.', 1;
     PRINT 'TEST_PASS:T-091-07';
 
     -- ================= T-091-08: programa ajeno -> SEC_002 =================
@@ -166,7 +150,7 @@ BEGIN TRY
     SET @dpAntes = (SELECT COUNT(*) FROM dbo.DocentePrograma);
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_vincular_docente_programa    -- C1 intenta vincular en P2 (de C2)
-        @idDocente = @dD3, @idTipoVinculacion = @tvCat, @idPrograma = @p2, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
+        @idDocente = @dD3, @idPrograma = @p2, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msg) THROW 52080, 'T-091-08 FAILED: programa ajeno no retorno SEC_002.', 1;
     IF (SELECT COUNT(*) FROM dbo.DocentePrograma) <> @dpAntes THROW 52081, 'T-091-08 FAILED: programa ajeno modifico datos.', 1;
     PRINT 'TEST_PASS:T-091-08';
@@ -175,11 +159,11 @@ BEGIN TRY
     SELECT @msg = contenido FROM dbo.uv_mensaje_usuario WHERE codigo = 'SEC_001';
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_vincular_docente_programa    -- ejecutor DOCENTE
-        @idDocente = @dD3, @idTipoVinculacion = @tvCat, @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uD1;
+        @idDocente = @dD3, @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uD1;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msg) THROW 52090, 'T-091-09 FAILED: ejecutor DOCENTE no retorno SEC_001.', 1;
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_vincular_docente_programa    -- ejecutor NULL
-        @idDocente = @dD3, @idTipoVinculacion = @tvCat, @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = NULL;
+        @idDocente = @dD3, @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = NULL;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0) THROW 52091, 'T-091-09 FAILED: ejecutor NULL debio fallar.', 1;
     PRINT 'TEST_PASS:T-091-09';
 
@@ -187,7 +171,7 @@ BEGIN TRY
     SET @dpAntes = (SELECT COUNT(*) FROM dbo.DocentePrograma);
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_vincular_docente_programa
-        @idDocente = @dD3, @idTipoVinculacion = @tvCat, @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
+        @idDocente = @dD3, @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0) THROW 52100, 'T-091-10 FAILED: docente de otra institucion debio rechazarse.', 1;
     IF (SELECT COUNT(*) FROM dbo.DocentePrograma) <> @dpAntes THROW 52101, 'T-091-10 FAILED: vinculo de otra institucion se creo.', 1;
     PRINT 'TEST_PASS:T-091-10';
@@ -216,13 +200,12 @@ GO
 -- Patron de ownership (docs/arquitectura/transaccion-procedimiento.md): si la transaccion externa queda doomed
 -- (XACT_STATE() = -1) el SP no es propietario, no la toca y PROPAGA el error. El llamador hace el rollback total.
 DECLARE @corrE UNIQUEIDENTIFIER = NEWID();
-DECLARE @uCoordE UNIQUEIDENTIFIER, @pCoordE UNIQUEIDENTIFIER, @tipoCCE UNIQUEIDENTIFIER, @tvE UNIQUEIDENTIFIER;
+DECLARE @uCoordE UNIQUEIDENTIFIER, @pCoordE UNIQUEIDENTIFIER, @tipoCCE UNIQUEIDENTIFIER;
 SELECT TOP 1 @uCoordE = ci.idUsuario, @pCoordE = p.id
 FROM dbo.uv_programa p INNER JOIN dbo.uv_coordinador_identidad ci ON ci.id = p.idCoordinador
 WHERE p.estaActivoPrograma = 1;
 SET @tipoCCE = (SELECT TOP 1 id FROM dbo.uv_tipo_identificacion WHERE tipoIdentificacion = 'CC');
-SET @tvE = (SELECT TOP 1 id FROM dbo.TipoVinculacion WHERE estado = 1);
-IF @uCoordE IS NULL OR @tvE IS NULL THROW 52140, 'TEST FAILED: faltan fixtures del seed (coordinador con programa / tipo de vinculacion).', 1;
+IF @uCoordE IS NULL THROW 52140, 'TEST FAILED: faltan fixtures del seed (coordinador con programa).', 1;
 IF @@TRANCOUNT <> 0 THROW 52141, 'TEST FAILED: precondicion @@TRANCOUNT = 0.', 1;
 
 EXEC (N'CREATE TRIGGER dbo.trg_qa_hu091_falla3 ON dbo.DocentePrograma AFTER INSERT AS THROW 52997, ''QA fallo forzado'', 1;');
@@ -233,7 +216,7 @@ BEGIN TRY
         @idTipoIdentificacion = @tipoCCE, @numeroIdentificacion = 920000106,
         @primerNombre = N'Externa', @segundoNombre = N'Qa', @primerApellido = N'Transaccion', @segundoApellido = N'Qa',
         @correo = N'qa.externa.hu091@uco.edu.co', @password = N'HashBackend_Externa01',
-        @idTipoVinculacion = @tvE, @idPrograma = @pCoordE, @idCorrelacion = @corrE, @idUsuarioEjecutor = @uCoordE;
+        @idPrograma = @pCoordE, @idCorrelacion = @corrE, @idUsuarioEjecutor = @uCoordE;
 END TRY
 BEGIN CATCH
     SET @propagado = 1;
@@ -249,13 +232,12 @@ GO
 
 -- ================= T-091-11 (transaccion propia): sin transaccion externa @@TRANCOUNT=0 tras el fallo =================
 DECLARE @corr UNIQUEIDENTIFIER = NEWID();
-DECLARE @uCoord UNIQUEIDENTIFIER, @pCoord UNIQUEIDENTIFIER, @tipoCC2 UNIQUEIDENTIFIER, @tv UNIQUEIDENTIFIER;
+DECLARE @uCoord UNIQUEIDENTIFIER, @pCoord UNIQUEIDENTIFIER, @tipoCC2 UNIQUEIDENTIFIER;
 SELECT TOP 1 @uCoord = ci.idUsuario, @pCoord = p.id
 FROM dbo.uv_programa p INNER JOIN dbo.uv_coordinador_identidad ci ON ci.id = p.idCoordinador
 WHERE p.estaActivoPrograma = 1;
 SET @tipoCC2 = (SELECT TOP 1 id FROM dbo.uv_tipo_identificacion WHERE tipoIdentificacion = 'CC');
-SET @tv = (SELECT TOP 1 id FROM dbo.TipoVinculacion WHERE estado = 1);
-IF @uCoord IS NULL OR @tv IS NULL THROW 52130, 'TEST FAILED: faltan fixtures del seed (coordinador con programa / tipo de vinculacion).', 1;
+IF @uCoord IS NULL THROW 52130, 'TEST FAILED: faltan fixtures del seed (coordinador con programa).', 1;
 IF @@TRANCOUNT <> 0 THROW 52131, 'TEST FAILED: precondicion @@TRANCOUNT = 0.', 1;
 
 EXEC (N'CREATE TRIGGER dbo.trg_qa_hu091_falla2 ON dbo.DocentePrograma AFTER INSERT AS THROW 52998, ''QA fallo forzado'', 1;');
@@ -264,7 +246,7 @@ BEGIN TRY
         @idTipoIdentificacion = @tipoCC2, @numeroIdentificacion = 920000105,
         @primerNombre = N'Propia', @segundoNombre = N'Qa', @primerApellido = N'Transaccion', @segundoApellido = N'Qa',
         @correo = N'qa.propia.hu091@uco.edu.co', @password = N'HashBackend_Propia01',
-        @idTipoVinculacion = @tv, @idPrograma = @pCoord, @idCorrelacion = @corr, @idUsuarioEjecutor = @uCoord;
+        @idPrograma = @pCoord, @idCorrelacion = @corr, @idUsuarioEjecutor = @uCoord;
 END TRY
 BEGIN CATCH
     PRINT 'INFO: fallo forzado propagado.';

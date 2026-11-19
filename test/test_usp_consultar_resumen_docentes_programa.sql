@@ -11,11 +11,7 @@ PRINT '==================================================';
 DECLARE @idInstitucion UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_institucion WHERE estaActivaInstitucion = 1);
 DECLARE @tipoId        UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.TipoIdentificacion);
 DECLARE @tipoProg      UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.TipoPrograma ORDER BY nombre);
-DECLARE @tvCat UNIQUEIDENTIFIER = (SELECT id FROM dbo.TipoVinculacion WHERE codigo = 'CAT');
-DECLARE @tvPla UNIQUEIDENTIFIER = (SELECT id FROM dbo.TipoVinculacion WHERE codigo = 'PLA');
-DECLARE @tvMti UNIQUEIDENTIFIER = (SELECT id FROM dbo.TipoVinculacion WHERE codigo = 'MTI');
-DECLARE @tvOca UNIQUEIDENTIFIER = (SELECT id FROM dbo.TipoVinculacion WHERE codigo = 'OCA');
-IF @idInstitucion IS NULL OR @tipoId IS NULL OR @tipoProg IS NULL OR @tvCat IS NULL OR @tvPla IS NULL OR @tvMti IS NULL OR @tvOca IS NULL
+IF @idInstitucion IS NULL OR @tipoId IS NULL OR @tipoProg IS NULL
     THROW 53800, 'TEST FAILED: fixtures base no disponibles.', 1;
 
 BEGIN TRANSACTION;
@@ -47,36 +43,30 @@ BEGIN TRY
     CREATE TABLE #d (k NVARCHAR(2), id UNIQUEIDENTIFIER, n INT);
     INSERT INTO #d VALUES (N'D1', NEWID(), 4), (N'D2', NEWID(), 5), (N'D3', NEWID(), 6), (N'D4', NEWID(), 7), (N'D5', NEWID(), 8);
     INSERT INTO dbo.Docente (id, usuario) SELECT d.id, u.id FROM #d d INNER JOIN #u u ON u.n = d.n;
-    -- P1: D1 CAT activo, D2 CAT vinculo inactivo, D3 PLA activo, D5 MTI con usuario inactivo (cuenta inactiva => inactivo).
-    -- P2: D4 PLA activo (no debe contar en P1).
-    INSERT INTO dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc)
-    SELECT NEWID(), d.id, v.programa, v.tipo, v.estado, SYSUTCDATETIME()
-    FROM (VALUES (N'D1', @p1, @tvCat, 1), (N'D2', @p1, @tvCat, 0), (N'D3', @p1, @tvPla, 1), (N'D5', @p1, @tvMti, 1), (N'D4', @p2, @tvPla, 1))
-         AS v (k, programa, tipo, estado)
+    -- P1: D1 activo, D2 vinculo inactivo, D3 activo, D5 con usuario inactivo (cuenta inactiva => inactivo).
+    -- P2: D4 activo (no debe contar en P1). MEJORAS-SERGIO-2026-11-18: el resumen ya no se agrupa por tipo de vinculacion.
+    INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
+    SELECT NEWID(), d.id, v.programa, v.estado, SYSUTCDATETIME()
+    FROM (VALUES (N'D1', @p1, 1), (N'D2', @p1, 0), (N'D3', @p1, 1), (N'D5', @p1, 1), (N'D4', @p2, 1))
+         AS v (k, programa, estado)
     INNER JOIN #d d ON d.k = v.k;
 
     DECLARE @c UNIQUEIDENTIFIER = NEWID(), @err NVARCHAR(4000);
-    CREATE TABLE #r (idTipoVinculacion UNIQUEIDENTIFIER, codigoTipoVinculacion NVARCHAR(3), nombreTipoVinculacion NVARCHAR(50), totalActivos INT, totalInactivos INT);
+    CREATE TABLE #r (totalActivos INT, totalInactivos INT);
 
-    -- R-01: conteo por tipo de vinculacion del programa del coordinador (incluye tipos activos sin docentes en cero).
+    -- R-01: una sola fila con los activos e inactivos del programa del coordinador.
     INSERT INTO #r EXEC dbo.usp_consultar_resumen_docentes_programa @idUsuarioEjecutor = @uC1, @idCorrelacion = @c;
-    IF NOT EXISTS (SELECT 1 FROM #r WHERE codigoTipoVinculacion = N'CAT' AND totalActivos = 1 AND totalInactivos = 1)
-        THROW 53801, 'TEST FAILED: R-01 CAT esperaba 1 activo y 1 inactivo.', 1;
-    IF NOT EXISTS (SELECT 1 FROM #r WHERE codigoTipoVinculacion = N'PLA' AND totalActivos = 1 AND totalInactivos = 0)
-        THROW 53802, 'TEST FAILED: R-01 PLA esperaba 1 activo (el de P2 no cuenta).', 1;
-    IF NOT EXISTS (SELECT 1 FROM #r WHERE codigoTipoVinculacion = N'MTI' AND totalActivos = 0 AND totalInactivos = 1)
-        THROW 53803, 'TEST FAILED: R-01 MTI con usuario inactivo cuenta como inactivo.', 1;
-    IF NOT EXISTS (SELECT 1 FROM #r WHERE codigoTipoVinculacion = N'OCA' AND totalActivos = 0 AND totalInactivos = 0)
-        THROW 53804, 'TEST FAILED: R-01 OCA (sin docentes) debe aparecer en cero.', 1;
-    IF (SELECT SUM(totalActivos + totalInactivos) FROM #r) <> 4
-        THROW 53805, 'TEST FAILED: R-01 el total del programa debe ser 4 vinculos.', 1;
-    PRINT 'TEST_PASS:HU095_RESUMEN_POR_TIPO';
+    IF (SELECT COUNT(*) FROM #r) <> 1
+        THROW 53801, 'TEST FAILED: R-01 el resumen debe ser una sola fila.', 1;
+    IF NOT EXISTS (SELECT 1 FROM #r WHERE totalActivos = 2 AND totalInactivos = 2)
+        THROW 53802, 'TEST FAILED: R-01 esperaba 2 activos y 2 inactivos (vinculo inactivo y cuenta inactiva; P2 no cuenta).', 1;
+    PRINT 'TEST_PASS:HU095_RESUMEN_PROGRAMA';
 
     -- R-02: el coordinador de P2 solo ve su programa.
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_consultar_resumen_docentes_programa @idUsuarioEjecutor = @uC2, @idCorrelacion = @c;
     IF (SELECT SUM(totalActivos + totalInactivos) FROM #r) <> 1
-       OR NOT EXISTS (SELECT 1 FROM #r WHERE codigoTipoVinculacion = N'PLA' AND totalActivos = 1)
+       OR NOT EXISTS (SELECT 1 FROM #r WHERE totalActivos = 1)
         THROW 53806, 'TEST FAILED: R-02 el coordinador de P2 solo ve el vinculo de P2.', 1;
     PRINT 'TEST_PASS:HU095_RESUMEN_AMBITO';
 

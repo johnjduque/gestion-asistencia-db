@@ -26,11 +26,7 @@ BEGIN TRY
     INSERT INTO dbo.Programa (id, facultad, tipoDePrograma, nombre, coordinador, estado)
     VALUES (@p1, @idFacultad, @idTipoProg, N'Programa QA 062-1', @cC1, 1), (@p2, @idFacultad, @idTipoProg, N'Programa QA 062-2', @cC2, 1);
 
-    DECLARE @tvCat UNIQUEIDENTIFIER = (SELECT id FROM dbo.TipoVinculacion WHERE codigo = 'CAT');
-    DECLARE @tvPla UNIQUEIDENTIFIER = (SELECT id FROM dbo.TipoVinculacion WHERE codigo = 'PLA');
-    IF @tvCat IS NULL OR @tvPla IS NULL THROW 52201, 'TEST FAILED: catalogo TipoVinculacion no existe.', 1;
-
-    -- 12 docentes vinculados a P1 (documentos 930001001..012); el 7 con vinculo inactivo; del 1 al 4 son PLA.
+    -- 12 docentes vinculados a P1 (documentos 930001001..012); el 7 con vinculo inactivo.
     DECLARE @i INT = 1, @u UNIQUEIDENTIFIER, @d UNIQUEIDENTIFIER;
     WHILE @i <= 12
     BEGIN
@@ -38,8 +34,8 @@ BEGIN TRY
         INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
         VALUES (@u, @tipoCC, 930001000 + @i, N'Rostagno', CONCAT(N'N', RIGHT(CONCAT('0', @i), 2)), N'Maria', N'Qa', CONCAT(N'qa.doc', @i, N'.hu062@test.local'), 1, 1, N'HashBackend_F3');
         INSERT INTO dbo.Docente (id, usuario) VALUES (@d, @u);
-        INSERT INTO dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc)
-        VALUES (NEWID(), @d, @p1, IIF(@i <= 4, @tvPla, @tvCat), IIF(@i = 7, 0, 1), SYSUTCDATETIME());
+        INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
+        VALUES (NEWID(), @d, @p1, IIF(@i = 7, 0, 1), SYSUTCDATETIME());
         SET @i += 1;
     END
     -- Un docente solo de P2 (C1 no debe verlo).
@@ -47,7 +43,7 @@ BEGIN TRY
     INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
     VALUES (@uP2, @tipoCC, 930002001, N'Zuluaga', N'Qa', N'Pedro', N'Qa', N'qa.p2.hu062@test.local', 1, 1, N'HashBackend_F4');
     INSERT INTO dbo.Docente (id, usuario) VALUES (@dP2, @uP2);
-    INSERT INTO dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc) VALUES (NEWID(), @dP2, @p2, @tvCat, 1, SYSUTCDATETIME());
+    INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc) VALUES (NEWID(), @dP2, @p2, 1, SYSUTCDATETIME());
 
     CREATE TABLE #q (
         idDocentePrograma UNIQUEIDENTIFIER, idDocente UNIQUEIDENTIFIER, idUsuario UNIQUEIDENTIFIER,
@@ -55,7 +51,6 @@ BEGIN TRY
         primerNombre NVARCHAR(50), segundoNombre NVARCHAR(50), primerApellido NVARCHAR(50), segundoApellido NVARCHAR(50),
         nombreCompleto NVARCHAR(250), correo NVARCHAR(100),
         idPrograma UNIQUEIDENTIFIER, nombrePrograma NVARCHAR(50), idFacultad UNIQUEIDENTIFIER, nombreFacultad NVARCHAR(50), idInstitucion UNIQUEIDENTIFIER,
-        idTipoVinculacion UNIQUEIDENTIFIER, codigoTipoVinculacion NVARCHAR(3), nombreTipoVinculacion NVARCHAR(50),
         fechaVinculacionUtc DATETIME2(0), estaActivoVinculacion BIT, estaActivoUsuario BIT, estaActivoDocentePrograma BIT,
         totalGruposPrograma INT, totalRegistros INT);
 
@@ -98,9 +93,9 @@ BEGIN TRY
     IF (SELECT COUNT(*) FROM #q) <> 1 THROW 52240, 'T-089-01 FAILED: estaActivo=0 debio traer solo el vinculo inactivo.', 1;
     TRUNCATE TABLE #q;
     INSERT INTO #q EXEC dbo.usp_consultar_docentes_programa
-        @idUsuarioEjecutor = @uC1, @idCorrelacion = @corr, @idPrograma = @p1, @numeroPagina = 1, @tamanoPagina = 50, @estaActivo = 1, @idTipoVinculacion = @tvPla;
-    IF (SELECT COUNT(*) FROM #q) <> 4 OR EXISTS (SELECT 1 FROM #q WHERE codigoTipoVinculacion <> 'PLA')
-        THROW 52241, 'T-089-01 FAILED: filtro activo+PLA debio traer 4.', 1;
+        @idUsuarioEjecutor = @uC1, @idCorrelacion = @corr, @idPrograma = @p1, @numeroPagina = 1, @tamanoPagina = 50, @estaActivo = 1;
+    IF (SELECT COUNT(*) FROM #q) <> 11
+        THROW 52241, 'T-089-01 FAILED: estaActivo=1 debio traer los 11 vinculos activos.', 1;
     PRINT 'TEST_PASS:T-089-01';
 
     -- Filtros por docente / usuario (relectura del vinculo recien creado por el backend)

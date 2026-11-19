@@ -10,7 +10,6 @@ MERGE INTO [dbo].[CatalogoMensajeUsuario] AS Target
 USING (VALUES
     ('DOC_002', 'BUSINESS_ERROR', 'MEDIO', N'El usuario ya se encuentra registrado como docente.'),
     ('DOC_003', 'BUSINESS_ERROR', 'ALTO', N'Ya existe una persona registrada con ese documento o correo. Use la opción "Vincular docente existente".'),
-    ('DOC_004', 'BUSINESS_ERROR', 'MEDIO', N'El tipo de vinculación indicado no existe o está inactivo.'),
     ('DOC_005', 'BUSINESS_ERROR', 'MEDIO', N'Debe indicar un docente existente o los datos de un docente nuevo, pero no ambos.'),
     ('DOC_006', 'BUSINESS_ERROR', 'MEDIO', N'El docente ya está vinculado a este programa.'),
     ('DOC_007', 'BUSINESS_ERROR', 'BAJO', N'La búsqueda de candidatos requiere al menos 3 caracteres.'),
@@ -31,7 +30,6 @@ MERGE INTO [dbo].[CatalogoMensajeTecnico] AS Target
 USING (VALUES
     ('DOC_002', 'BUSINESS_ERROR', 'MEDIO', N'Unicidad: el usuario ya tiene un registro en dbo.Docente.'),
     ('DOC_003', 'BUSINESS_ERROR', 'ALTO', N'Conflicto de identidad: documento o correo ya existen en dbo.Usuario; el modo nuevo no hace find-or-create.'),
-    ('DOC_004', 'BUSINESS_ERROR', 'MEDIO', N'Validación: TipoVinculacion inexistente o con estado = 0.'),
     ('DOC_005', 'BUSINESS_ERROR', 'MEDIO', N'Validación de modo: exactamente uno entre @idDocente, @idUsuario o el bloque de datos de persona nueva.'),
     ('DOC_006', 'BUSINESS_ERROR', 'MEDIO', N'Unicidad: ya existe dbo.DocentePrograma para el par (docente, programa).'),
     ('DOC_007', 'BUSINESS_ERROR', 'BAJO', N'Validación: @busqueda de candidatos con menos caracteres que DOCENTE/BUSQUEDA_MIN_CARACTERES.'),

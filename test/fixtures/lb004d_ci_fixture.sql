@@ -126,10 +126,8 @@ HAVING MIN(pe.programa) IS NOT NULL
    AND NOT EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep WHERE ep.estudiante = @fixtureStudent AND ep.programa = MIN(pe.programa));
 
 -- HU091 R2: el docente del fixture tiene grupo, por lo tanto debe tener su vinculo docente-programa.
-INSERT dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc)
-SELECT NEWID(), par.idDocente, par.idPrograma,
-       (SELECT TOP 1 tv.id FROM dbo.TipoVinculacion tv WHERE tv.codigo = 'PLA' AND tv.estado = 1),
-       1, SYSUTCDATETIME()
+INSERT dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
+SELECT NEWID(), par.idDocente, par.idPrograma, 1, SYSUTCDATETIME()
 FROM (SELECT DISTINCT id AS idDocente, idPrograma FROM dbo.uv_docente WHERE id = @fixtureTeacher) par
 WHERE NOT EXISTS (SELECT 1 FROM dbo.DocentePrograma dp WHERE dp.docente = par.idDocente AND dp.programa = par.idPrograma);
 SELECT CONCAT(

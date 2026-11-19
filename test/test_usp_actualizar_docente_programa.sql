@@ -4,8 +4,8 @@ GO
 SET NOCOUNT ON;
 SET XACT_ABORT OFF;
 
--- HU092 (T-092-01..05): usp_actualizar_docente_programa. Edita el tipo de vinculacion (solo del vinculo) y los
--- nombres/apellidos de la persona. Correo y documento no se editan.
+-- HU092 (T-092-01..05): usp_actualizar_docente_programa. Edita los nombres/apellidos de la persona. Correo y documento no
+-- se editan. MEJORAS-SERGIO-2026-11-18 (migracion 50): el tipo de vinculacion se retiro (T-092-01 y T-092-05 lo comprueban).
 PRINT 'TEST START: test_usp_actualizar_docente_programa';
 
 DECLARE @tipoCC UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_tipo_identificacion WHERE tipoIdentificacion = 'CC');
@@ -27,25 +27,16 @@ BEGIN TRY
     INSERT INTO dbo.Docente (id, usuario) VALUES (@dD, @uD);
     INSERT INTO dbo.Programa (id, facultad, tipoDePrograma, nombre, coordinador, estado)
     VALUES (@p1, @idFacultad, @idTipoProg, N'Programa QA 092-1', @cC1, 1), (@p2, @idFacultad, @idTipoProg, N'Programa QA 092-2', @cC2, 1);
-    DECLARE @tvCat UNIQUEIDENTIFIER = (SELECT id FROM dbo.TipoVinculacion WHERE codigo = 'CAT');
-    DECLARE @tvPla UNIQUEIDENTIFIER = (SELECT id FROM dbo.TipoVinculacion WHERE codigo = 'PLA');
-    DECLARE @tvInactivo UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.TipoVinculacion (id, codigo, nombre, estado) VALUES (@tvInactivo, N'ZZY', N'Inactivo QA', 0);
     -- Vinculado a P1 y a P2, ambos CAT.
-    INSERT INTO dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc)
-    VALUES (NEWID(), @dD, @p1, @tvCat, 1, SYSUTCDATETIME()), (NEWID(), @dD, @p2, @tvCat, 1, SYSUTCDATETIME());
+    INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
+    VALUES (NEWID(), @dD, @p1, 1, SYSUTCDATETIME()), (NEWID(), @dD, @p2, 1, SYSUTCDATETIME());
 
     CREATE TABLE #r (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT);
     DECLARE @msg NVARCHAR(4000);
 
-    -- T-092-01: editar tipo de vinculacion solo cambia ESE vinculo
-    INSERT INTO #r EXEC dbo.usp_actualizar_docente_programa
-        @idDocente = @dD, @idPrograma = @p1, @idTipoVinculacion = @tvPla, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
-    IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 1) THROW 52510, 'T-092-01 FAILED: edicion de tipo no retorno exito.', 1;
-    IF NOT EXISTS (SELECT 1 FROM dbo.DocentePrograma WHERE docente = @dD AND programa = @p1 AND tipoVinculacion = @tvPla)
-        THROW 52511, 'T-092-01 FAILED: el vinculo de P1 no cambio a PLA.', 1;
-    IF NOT EXISTS (SELECT 1 FROM dbo.DocentePrograma WHERE docente = @dD AND programa = @p2 AND tipoVinculacion = @tvCat)
-        THROW 52512, 'T-092-01 FAILED: el vinculo de P2 no debio cambiar.', 1;
+    -- T-092-01: el SP ya no recibe tipo de vinculacion (retirado en la migracion 50)
+    IF EXISTS (SELECT 1 FROM sys.parameters WHERE object_id = OBJECT_ID('dbo.usp_actualizar_docente_programa') AND name = '@idTipoVinculacion')
+        THROW 52510, 'T-092-01 FAILED: usp_actualizar_docente_programa no debe recibir @idTipoVinculacion.', 1;
     PRINT 'TEST_PASS:T-092-01';
 
     -- T-092-02: editar nombres actualiza la persona; correo y documento intactos; los no enviados no cambian
@@ -88,28 +79,21 @@ BEGIN TRY
     SELECT @msg = contenido FROM dbo.uv_mensaje_usuario WHERE codigo = 'SEC_002';
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_actualizar_docente_programa    -- C1 intenta editar en P2
-        @idDocente = @dD, @idPrograma = @p2, @idTipoVinculacion = @tvPla, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
+        @idDocente = @dD, @idPrograma = @p2, @segundoApellido = N'Ajeno', @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msg) THROW 52542, 'T-092-04 FAILED: programa ajeno debio retornar SEC_002.', 1;
-    IF NOT EXISTS (SELECT 1 FROM dbo.DocentePrograma WHERE docente = @dD AND programa = @p2 AND tipoVinculacion = @tvCat)
-        THROW 52543, 'T-092-04 FAILED: el vinculo de P2 cambio.', 1;
+    IF EXISTS (SELECT 1 FROM dbo.Usuario WHERE id = @uD AND segundoApellido = N'Ajeno')
+        THROW 52543, 'T-092-04 FAILED: el coordinador ajeno modifico al docente.', 1;
     SELECT @msg = contenido FROM dbo.uv_mensaje_usuario WHERE codigo = 'SEC_001';
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_actualizar_docente_programa    -- ejecutor docente
-        @idDocente = @dD, @idPrograma = @p1, @idTipoVinculacion = @tvPla, @idCorrelacion = @corr, @idUsuarioEjecutor = @uD;
+        @idDocente = @dD, @idPrograma = @p1, @segundoApellido = N'Propio', @idCorrelacion = @corr, @idUsuarioEjecutor = @uD;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msg) THROW 52544, 'T-092-04 FAILED: ejecutor docente debio retornar SEC_001.', 1;
     PRINT 'TEST_PASS:T-092-04';
 
-    -- T-092-05: tipo de vinculacion invalido -> DOC_004 y sin cambios (ni siquiera los nombres enviados)
-    SELECT @msg = contenido FROM dbo.uv_mensaje_usuario WHERE codigo = 'DOC_004';
-    TRUNCATE TABLE #r;
-    INSERT INTO #r EXEC dbo.usp_actualizar_docente_programa
-        @idDocente = @dD, @idPrograma = @p1, @idTipoVinculacion = @tvInactivo, @primerNombre = N'NoDebe', @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
-    IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msg) THROW 52550, 'T-092-05 FAILED: tipo inactivo debio retornar DOC_004.', 1;
-    IF EXISTS (SELECT 1 FROM dbo.Usuario WHERE id = @uD AND primerNombre = N'NoDebe') THROW 52551, 'T-092-05 FAILED: aplico nombres pese al tipo invalido.', 1;
-    TRUNCATE TABLE #r;
-    INSERT INTO #r EXEC dbo.usp_actualizar_docente_programa
-        @idDocente = @dD, @idPrograma = @p1, @idTipoVinculacion = '15151515-1515-1515-1515-151515151515', @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
-    IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msg) THROW 52552, 'T-092-05 FAILED: tipo inexistente debio retornar DOC_004.', 1;
+    -- T-092-05: el vinculo ya no guarda tipo de vinculacion y DOC_004 se retiro del catalogo
+    IF COL_LENGTH('dbo.DocentePrograma', 'tipoVinculacion') IS NOT NULL
+       OR EXISTS (SELECT 1 FROM dbo.uv_mensaje_usuario WHERE codigo = 'DOC_004')
+        THROW 52550, 'T-092-05 FAILED: el tipo de vinculacion debio retirarse (columna y DOC_004).', 1;
     PRINT 'TEST_PASS:T-092-05';
 
     DROP TABLE #r;

@@ -64,8 +64,8 @@ BEGIN TRY
     INSERT INTO dbo.Estudiante (id, usuario) VALUES (@e1, @uE1), (@e2, @uE2);
     INSERT INTO dbo.EstudiantePrograma (id, estudiante, programa) VALUES (NEWID(), @e1, @idPrograma);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d1, @uD1);
-    INSERT INTO dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc)
-    VALUES (NEWID(), @d1, @idPrograma, (SELECT id FROM dbo.TipoVinculacion WHERE codigo = 'CAT'), 1, SYSUTCDATETIME());
+    INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
+    VALUES (NEWID(), @d1, @idPrograma, 1, SYSUTCDATETIME());
 
     DECLARE @msgExito NVARCHAR(4000) = (SELECT contenido FROM dbo.uv_mensaje_usuario WHERE codigo = 'IDE_002');
     DECLARE @msgMotivo NVARCHAR(4000) = (SELECT contenido FROM dbo.uv_mensaje_usuario WHERE codigo = 'IDE_001');

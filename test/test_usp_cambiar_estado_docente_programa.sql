@@ -28,9 +28,8 @@ BEGIN TRY
     INSERT INTO dbo.Docente (id, usuario) VALUES (@dD, @uD), (@dD2, @uD2);
     INSERT INTO dbo.Programa (id, facultad, tipoDePrograma, nombre, coordinador, estado)
     VALUES (@p1, @idFacultad, @idTipoProg, N'Programa QA 093-1', @cC1, 1), (@p2, @idFacultad, @idTipoProg, N'Programa QA 093-2', @cC2, 1);
-    DECLARE @tvCat UNIQUEIDENTIFIER = (SELECT id FROM dbo.TipoVinculacion WHERE codigo = 'CAT');
-    INSERT INTO dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc)
-    VALUES (NEWID(), @dD, @p1, @tvCat, 1, SYSUTCDATETIME()), (NEWID(), @dD, @p2, @tvCat, 1, SYSUTCDATETIME());
+    INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
+    VALUES (NEWID(), @dD, @p1, 1, SYSUTCDATETIME()), (NEWID(), @dD, @p2, 1, SYSUTCDATETIME());
 
     CREATE TABLE #r (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT);
     DECLARE @msg NVARCHAR(4000);
@@ -94,7 +93,7 @@ BEGIN TRY
     DECLARE @idPeriodo UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_periodo_academico ORDER BY anio DESC);
     IF @idAsig IS NULL OR @uCoordAsig IS NULL OR @idPeriodo IS NULL THROW 52630, 'TEST FAILED: faltan fixtures del seed (asignatura/coordinador/periodo).', 1;
 
-    INSERT INTO dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc) VALUES (NEWID(), @dD2, @idProgAsig, @tvCat, 1, SYSUTCDATETIME());
+    INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc) VALUES (NEWID(), @dD2, @idProgAsig, 1, SYSUTCDATETIME());
     DECLARE @g1 UNIQUEIDENTIFIER = NEWID(), @g2 UNIQUEIDENTIFIER = NEWID();
     DECLARE @cod1 INT = 80000 + ABS(CHECKSUM(NEWID()) % 9000), @cod2 INT = 89000 + ABS(CHECKSUM(NEWID()) % 900);
 

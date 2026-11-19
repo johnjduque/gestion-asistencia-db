@@ -203,7 +203,7 @@ DECLARE @badResultSets TABLE (
 --   usp_consultar_perfil_usuario (HU006)
 --                                            READ_QUERY_RESULTSET: perfil propio con una fila por vinculo; NON_GOLDEN_PATH_EXTENSION.
 --   usp_consultar_historial_grupos_docente_programa (HU094) / usp_consultar_resumen_docentes_programa (HU095)
---                                            READ_QUERY_RESULTSET: historial del docente + resumen / consolidado por tipo de vinculacion; NON_GOLDEN_PATH_EXTENSION.
+--                                            READ_QUERY_RESULTSET: historial del docente + resumen (activos e inactivos del programa); NON_GOLDEN_PATH_EXTENSION.
 --   usp_consultar_oferta_grupos_estudiante (HU008)
 --                                            READ_QUERY_RESULTSET: oferta de grupos del estudiante + totalRegistros; NON_GOLDEN_PATH_EXTENSION.
 --   usp_consultar_destinatarios_retiro_estudiante_grupo (HU051)

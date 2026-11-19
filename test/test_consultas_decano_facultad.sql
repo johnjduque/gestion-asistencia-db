@@ -24,7 +24,8 @@ IF @idEstudiante IS NULL OR @idInstitucion IS NULL OR @tipoId IS NULL OR @fechaS
 
 CREATE TABLE #estudiantes (
     idEstudiante UNIQUEIDENTIFIER, idUsuario UNIQUEIDENTIFIER, numeroIdentificacion INT, nombreCompleto NVARCHAR(250),
-    correo NVARCHAR(255), estaActivoUsuario BIT, programas NVARCHAR(MAX), totalGrupos INT, totalRegistros INT);
+    correo NVARCHAR(255), estaActivoUsuario BIT, programas NVARCHAR(MAX), totalGrupos INT, totalRegistros INT,
+    codigoTipoIdentificacion NVARCHAR(5));
 CREATE TABLE #detalle (
     idEstudiante UNIQUEIDENTIFIER, numeroIdentificacion INT, nombreCompleto NVARCHAR(250), idPrograma UNIQUEIDENTIFIER,
     nombrePrograma NVARCHAR(100), inpPlanEstudio INT, idAsignatura UNIQUEIDENTIFIER, nombreAsignatura NVARCHAR(100),
@@ -79,6 +80,13 @@ BEGIN TRY
     IF EXISTS (SELECT 1 FROM #estudiantes es WHERE NOT EXISTS (
             SELECT 1 FROM dbo.uv_estudiante e WHERE e.id = es.idEstudiante AND e.idFacultad = @idFacultad))
         THROW 52953, 'TEST FAILED T-104-01: aparecieron estudiantes de otra facultad.', 1;
+    -- MEJORAS-SERGIO-2026-11-18: el directorio trae la sigla del tipo de documento de cada estudiante (la del usuario).
+    IF EXISTS (SELECT 1 FROM #estudiantes es INNER JOIN dbo.uv_estudiante_identidad ei ON ei.id = es.idEstudiante
+               INNER JOIN dbo.uv_usuario u ON u.id = ei.idUsuario
+               WHERE ISNULL(es.codigoTipoIdentificacion, N'') <> ISNULL(u.TipoIdentificacion, N''))
+        THROW 52969, 'TEST FAILED T-104-01: codigoTipoIdentificacion no coincide con el tipo de documento del usuario.', 1;
+    IF NOT EXISTS (SELECT 1 FROM #estudiantes WHERE codigoTipoIdentificacion IS NOT NULL)
+        THROW 52970, 'TEST FAILED T-104-01: el directorio no trajo el tipo de documento.', 1;
     TRUNCATE TABLE #estudiantes;
     INSERT INTO #estudiantes EXEC dbo.usp_consultar_estudiantes_facultad_paginado
         @idUsuarioEjecutor = @uDecAjeno, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 100;

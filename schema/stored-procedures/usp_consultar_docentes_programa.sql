@@ -15,6 +15,7 @@ GO
 -- Paginacion normalizada (pagina >= 1, tamano 1..100) igual que usp_consultar_grupos_paginado.
 -- Busqueda: solo digitos => prefijo de numeroIdentificacion; en otro caso => contiene en nombreCompleto.
 -- SESSION_CONTEXT se aplica solo durante la consulta y SIEMPRE se restaura.
+-- MEJORAS-SERGIO-2026-11-18 (migracion 50): sin filtro ni columnas de tipo de vinculacion.
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_docentes_programa]
 (
@@ -25,7 +26,6 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_docentes_programa]
     @tamanoPagina       INT              = 10,
     @busqueda           NVARCHAR(50)     = NULL,
     @estaActivo         BIT              = NULL,
-    @idTipoVinculacion  UNIQUEIDENTIFIER = NULL,
     @idDocente          UNIQUEIDENTIFIER = NULL,
     @idUsuario          UNIQUEIDENTIFIER = NULL
 )
@@ -100,14 +100,12 @@ BEGIN
             d.primerNombre, d.segundoNombre, d.primerApellido, d.segundoApellido,
             d.nombreCompleto, d.correo,
             d.idPrograma, d.nombrePrograma, d.idFacultad, d.nombreFacultad, d.idInstitucion,
-            d.idTipoVinculacion, d.codigoTipoVinculacion, d.nombreTipoVinculacion,
             d.fechaVinculacionUtc, d.estaActivoVinculacion, d.estaActivoUsuario, d.estaActivoDocentePrograma,
             d.totalGruposPrograma,
             COUNT(*) OVER() AS totalRegistros
         FROM dbo.uv_auth_docente_programa d
         WHERE d.idPrograma = @idProgramaDefecto
           AND (@estaActivo IS NULL OR d.estaActivoDocentePrograma = @estaActivo)
-          AND (@idTipoVinculacion IS NULL OR d.idTipoVinculacion = @idTipoVinculacion)
           AND (@idDocente IS NULL OR d.idDocente = @idDocente)
           AND (@idUsuario IS NULL OR d.idUsuario = @idUsuario)
           AND (

@@ -5,7 +5,8 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
--- HU092: edita (a) el tipo de vinculacion del vinculo docente-programa y (b) los nombres/apellidos de la persona.
+-- HU092: edita los nombres/apellidos de la persona vinculada al programa. MEJORAS-SERGIO-2026-11-18 (migracion 50): se retiro
+-- el tipo de vinculacion (el sistema ya no lo administra).
 -- Solo se actualizan los parametros no nulos (''/vacio en un segundo nombre o apellido lo limpia). El correo NO se
 -- edita aqui (exige sincronizar Keycloak: IAM-001). HU159 (decision de John 2026-11-05): (c) el tipo y el numero de
 -- documento, opcionales, con usp_corregir_documento_usuario_interno; si cambia, el motivo es obligatorio y se audita
@@ -16,7 +17,6 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_actualizar_docente_programa]
 (
     @idDocente          UNIQUEIDENTIFIER,
     @idPrograma         UNIQUEIDENTIFIER,
-    @idTipoVinculacion  UNIQUEIDENTIFIER = NULL,
     @primerNombre       NVARCHAR(50)     = NULL,
     @segundoNombre      NVARCHAR(50)     = NULL,
     @primerApellido     NVARCHAR(50)     = NULL,
@@ -90,7 +90,7 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
 
         -- PASO 5: Al menos un campo a actualizar
-        IF @estadoResultado = 1 AND @idTipoVinculacion IS NULL AND @pn IS NULL AND @sn IS NULL AND @pa IS NULL AND @sa IS NULL
+        IF @estadoResultado = 1 AND @pn IS NULL AND @sn IS NULL AND @pa IS NULL AND @sa IS NULL
            AND @idTipoIdIdentificacion IS NULL AND @numeroIdentificacion IS NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -114,18 +114,6 @@ BEGIN
                 SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
                 SET @estadoResultado = 0;
             END
-        END
-
-        -- PASO 7: Tipo de vinculacion (cuando viene)
-        IF @estadoResultado = 1 AND @idTipoVinculacion IS NOT NULL
-           AND NOT EXISTS (SELECT 1 FROM dbo.uv_tipo_vinculacion WHERE id = @idTipoVinculacion AND estaActivoTipoVinculacion = 1)
-        BEGIN
-            EXEC dbo.usp_obtener_mensaje_catalogo
-                @p_codigo = 'DOC_004',
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-            SET @estadoResultado = 0;
         END
 
         -- PASO 8: Nombres: obligatorios no vacios si vienen; opcionales pueden limpiarse con ''
@@ -182,10 +170,6 @@ BEGIN
                 SAVE TRANSACTION usp_actualizar_docente_programa;
                 SET @savepointCreado = 1;
             END
-
-            IF @idTipoVinculacion IS NOT NULL
-                UPDATE dbo.DocentePrograma SET tipoVinculacion = @idTipoVinculacion
-                WHERE docente = @idDocenteDefecto AND programa = @idProgramaDefecto;
 
             IF @pn IS NOT NULL OR @sn IS NOT NULL OR @pa IS NOT NULL OR @sa IS NOT NULL
                 EXEC dbo.usp_actualizar_nombres_usuario_interno

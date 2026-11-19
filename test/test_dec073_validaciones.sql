@@ -22,9 +22,8 @@ INNER JOIN dbo.uv_plan_estudio pe ON spe.idPlanEstudio = pe.id
 INNER JOIN dbo.uv_programa pr ON pe.idPrograma = pr.id AND pr.idCoordinador IS NOT NULL;
 SELECT @uCoord = ci.idUsuario FROM dbo.uv_programa pr INNER JOIN dbo.uv_coordinador_identidad ci ON ci.id = pr.idCoordinador WHERE pr.id = @idProg;
 DECLARE @idPeriodo UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_periodo_academico ORDER BY anio DESC);
-DECLARE @tvCat UNIQUEIDENTIFIER = (SELECT id FROM dbo.TipoVinculacion WHERE codigo = 'CAT');
 DECLARE @uDocente UNIQUEIDENTIFIER = (SELECT TOP 1 u.id FROM dbo.Docente d INNER JOIN dbo.Usuario u ON u.id = d.usuario WHERE u.estado = 1 ORDER BY u.correo);
-IF @tipoCC IS NULL OR @idAsig IS NULL OR @idPlan IS NULL OR @uCoord IS NULL OR @idPeriodo IS NULL OR @tvCat IS NULL OR @uDocente IS NULL
+IF @tipoCC IS NULL OR @idAsig IS NULL OR @idPlan IS NULL OR @uCoord IS NULL OR @idPeriodo IS NULL OR @uDocente IS NULL
     THROW 53730, 'TEST FAILED: faltan fixtures del seed (asignatura con plan y coordinador, periodo, vinculacion o docente).', 1;
 
 BEGIN TRANSACTION;
@@ -106,8 +105,8 @@ BEGIN TRY
     INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
     VALUES (@uD, @tipoCC, 973000001, N'Dec', N'Setenta', N'Docente', N'Qa', N'qa.dec073.d1@test.local', 1, 1, N'HashBackend_D73');
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d, @uD);
-    INSERT INTO dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc)
-    VALUES (NEWID(), @d, @idProg, @tvCat, 1, SYSUTCDATETIME());
+    INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
+    VALUES (NEWID(), @d, @idProg, 1, SYSUTCDATETIME());
     DECLARE @g UNIQUEIDENTIFIER = NEWID();
     TRUNCATE TABLE #r_dec073;
     INSERT INTO #r_dec073 EXEC dbo.usp_crear_grupo @idGrupo = @g, @idAsignatura = @idAsig, @idPeriodoAcademico = @idPeriodo, @codigo = 0,
