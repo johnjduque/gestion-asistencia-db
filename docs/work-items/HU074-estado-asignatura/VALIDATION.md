@@ -74,6 +74,14 @@ la fila `57_hu074_estado_asignatura_reglas` de `dbo.MigracionAplicada` y `script
 | `test/test_contract_closure.sql`, `test/test_culm001_d3_parametros.sql` | 19/19 y 20/20 PASAN |
 | `freeze-manifest -Mode Verify`, `lb004d-manifest -Mode Verify`, `generar-catalogo-mensajes -Check` | OK (`culm001_d=81`, hash de `scripts/migrar-marcadores.json` actualizado), OK, OK (492 códigos) |
 
+## Corrección VAL_MDET_06 / VAL_MDET_07 (2026-11-19, PR #154)
+
+- **Falla en el CI:** VAL_MDET_06_APLICAR_EN_ORDEN y VAL_MDET_07_TRAS_APLICAR_TODAS daban «Invalid column name 'estado'» al aplicar las migraciones en orden sobre una base temporal.
+- **Causa:** la regla `ASI_009` de la 58 usa `uv_periodo_academico.estado`, pero esa columna (CIERRE-W2A) llegó al esquema sin migración propia.
+- **Corrección:** la up de la 58 recompila `uv_periodo_academico` (texto de `schema/views/uv_periodo_academico.sql`) antes del interno y de los SP. Ahora el encabezado tiene el punto 5.
+- **BD local:** se reaplicó la 58 (down, borrar la fila de `MigracionAplicada` y `migrar.ps1 -Modo Aplicar`). Resultado: total=58, registradas=58, pendientes=0, deriva=0.
+- **Verificación:** VAL_MDET_* en el CI del PR #154.
+
 ## Pendiente
 
 - Compuerta completa verde (ver arriba) y `VAL_MDET_*` en el CI.

@@ -9,6 +9,7 @@
 --      @estaActivaDeseada BIT = NULL (NULL alterna; 1/0 fija el estado y es idempotente).
 --   4. Concurrencia: el toggle (regla de grupos + UPDATE) y usp_crear_grupo (ASI_010 + INSERT) leen la fila de dbo.Asignatura con
 --      UPDLOCK, HOLDLOCK dentro de una transaccion (SET XACT_ABORT ON): inactivar y crear grupo a la vez se serializan.
+--   5. Recompila uv_periodo_academico con la columna estado (CIERRE-W2A la agrego al esquema sin migracion; ASI_009 la usa).
 -- Sin cambios de tablas. Los grupos existentes no cambian. Idempotente. Down: 58_hu074_estado_asignatura_reglas_down.sql.
 -- ============================================================================
 :on error exit
@@ -55,6 +56,41 @@ WHEN MATCHED THEN
 WHEN NOT MATCHED THEN
     INSERT (codigo, tipoMensaje, severidad, contenido, estaActivo, fechaCreacion, fechaModificacion)
     VALUES (Source.codigo, Source.tipoMensaje, Source.severidad, Source.contenido, 1, SYSUTCDATETIME(), SYSUTCDATETIME());
+GO
+-- ---- schema/views/uv_periodo_academico.sql
+-- HU074: la columna `estado` de uv_periodo_academico (CIERRE-W2A) se agrego al esquema sin migracion y la regla ASI_009 la usa
+-- (periodo vigente o futuro = estado <> 'CERRADO'). Se recompila aqui para que la cadena de migraciones aplicada en orden la tenga.
+-- CIERRE-W2A (punto 4): `estado` resuelto en la base con la fecha local institucional (TIEMPO/ZONA_HORARIA_SQLSERVER), igual que
+-- uv_grupo: PLANEACION (aun no inicia), ACTIVO (vigente hoy) o CERRADO (ya termino). El cliente no deduce el estado con su reloj.
+CREATE OR ALTER  VIEW [dbo].[uv_periodo_academico]
+AS
+SELECT		id = pa.id,
+			idInstitucion = i.id,
+			nombreInstitucion = i.nombre,
+			nombre = pa.nombre,
+			codigo = pa.codigo,
+			fechaInicio = pa.fechaInicio,
+			fechaFin = pa.fechaFin,
+			anio = pa.anio,
+			estado = CASE WHEN t.fechaLocalInstitucional < pa.fechaInicio THEN 'PLANEACION'
+			              WHEN t.fechaLocalInstitucional > pa.fechaFin THEN 'CERRADO'
+			              ELSE 'ACTIVO' END
+
+FROM		PeriodoAcademico pa
+INNER JOIN	uv_institucion i
+ON			pa.institucion = i.id
+CROSS APPLY (
+    SELECT fechaLocalInstitucional = CAST(
+        SYSUTCDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE COALESCE(
+            (SELECT TOP 1 valor
+             FROM dbo.CatalogoParametro
+             WHERE grupo = 'TIEMPO'
+               AND clave = 'ZONA_HORARIA_SQLSERVER'
+               AND estaActivo = 1),
+            'SA Pacific Standard Time'
+        ) AS DATE
+    )
+) t
 GO
 -- ---- schema/stored-procedures/usp_validar_asignatura_activa_interno.sql
 -- =============================================================================

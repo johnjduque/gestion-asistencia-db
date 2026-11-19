@@ -27,13 +27,14 @@ last-reviewed: 2026-11-19
 | `usp_toggle_estado_asignatura` | `ASI_009` al inactivar con grupos vigentes o futuros; `ASI_011` / `ASI_012` en el éxito; parámetro aditivo `@estaActivaDeseada BIT = NULL` (idempotente); transacción con la fila bloqueada. Resultset sin cambio |
 | `usp_crear_grupo` | PASO 2B: `ASI_010` con una asignatura inactiva; del PASO 2B al `INSERT` en una transacción con la fila de la asignatura bloqueada. Firma y resultset sin cambio |
 | `usp_asociar_asignatura_plan` | `ASI_010` con una asignatura inactiva (antes caía en `GEN_001`). Firma y resultset sin cambio |
-| `migrations/58_hu074_estado_asignatura_reglas_up.sql` y `_down.sql` | Up: mensajes, interno y los tres SP. Down: textos de develop de los tres SP, retira el interno y los mensajes |
+| `migrations/58_hu074_estado_asignatura_reglas_up.sql` y `_down.sql` | Up: mensajes, recompila `uv_periodo_academico` con la columna `estado`, interno y los tres SP. Down: textos de develop de los tres SP, retira el interno y los mensajes (la vista se deja: su columna `estado` pertenece al esquema de CIERRE-W2A) |
+| `uv_periodo_academico` | Sin cambio en `schema/`; la up de la 58 la recompila porque la columna `estado` (CIERRE-W2A) se agregó al esquema sin migración y `ASI_009` la usa |
 | `scripts/migrar-marcadores.json` | Marcadores de la 58 (y su hash en `DB_CULM001_D_POST_FREEZE_MANIFEST.sha256`) |
 | `test/test_hu074_estado_asignatura.sql`, `test/test_hu074_migracion.sql`, `test/test_hu074_migracion.ps1` | Nuevos (19 casos + up/down/up) |
 | `test/test_subject_catalog.sql` | `SUBJECT_TOGGLE` espera `ASI_012` / `ASI_011` en lugar de `GEN_004` |
 | `test_suite.sql`, `test_summary.ps1` | Registro de las pruebas nuevas |
 
-Sin cambios de tablas, vistas ni permisos.
+Sin cambios de tablas ni permisos; la única vista que toca la migración es `uv_periodo_academico`, recompilada tal como está en `schema/`.
 
 ## Decisiones
 
