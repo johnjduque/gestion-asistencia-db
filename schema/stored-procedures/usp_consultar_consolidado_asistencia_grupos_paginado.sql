@@ -15,6 +15,8 @@ GO
 -- programa en el grupo: asistencia, inasistencia y excusa = ROUND(100 x horas / D, 2); sinRegistro = MAX(0, 100 - las tres). Si la suma de los
 -- tres redondeos supera 100, el exceso se resta del mayor (en empate: asistencia, inasistencia, excusa); asi los cuatro suman 100.00 y ninguno
 -- es negativo. Con D = 0 los cuatro son 0. Columnas nuevas AL FINAL (tras totalRegistros): horasDictadas, porcentajeExcusa, porcentajeSinRegistro.
+-- ATA D2 (ADDENDUM_ATA_ASISTENCIA_TOMAS_AVISOS B): D pasa a horasPeriodo x activos (horas de todas las sesiones del periodo); horasDictadas se sigue
+-- mostrando como lo dictado hasta hoy.
 -- Metricas: estudiantes activos (A), sesiones ejecutadas (vencidas con registro de asistencia), asistencias, faltas sin
 -- justa causa y excusas de los estudiantes activos; % de asistencia y de inasistencia sobre (sesiones x activos);
 -- estudiantes activos en RIESGO y estudiantes en PERDIDA (incluye cancelados por inasistencia).
@@ -93,6 +95,7 @@ BEGIN
                     faltas = SUM(IIF(r.codigoEstadoEstudiante = @codigoInscrita, r.sesionesConFaltaSinJustaCausa, 0)),
                     excusas = SUM(IIF(r.codigoEstadoEstudiante = @codigoInscrita, r.sesionesConExcusa, 0)),
                     horasDictadas = CAST(MAX(r.horasDictadas) AS DECIMAL(19,6)),
+                    horasPeriodo = CAST(MAX(r.horasPeriodo) AS DECIMAL(19,6)),
                     horasAsistidas = CAST(SUM(IIF(r.codigoEstadoEstudiante = @codigoInscrita, r.horasAsistidas, 0)) AS DECIMAL(19,6)),
                     horasFalta = CAST(SUM(IIF(r.codigoEstadoEstudiante = @codigoInscrita, r.horasFalta, 0)) AS DECIMAL(19,6)),
                     horasExcusa = CAST(SUM(IIF(r.codigoEstadoEstudiante = @codigoInscrita, r.horasExcusa, 0)) AS DECIMAL(19,6)),
@@ -132,8 +135,8 @@ BEGIN
             codigoPermanencia       = dbo.ufn_clasificar_permanencia(CAST(q.inasistenciaFinal AS DECIMAL(5,2)), NULL)
         FROM @grupos g
         LEFT JOIN consolidado c ON c.idGrupo = g.id AND c.idPrograma = g.idPrograma
-        -- D = horasDictadas x activos; p* = porcentajes redondeados; exceso = lo que la suma de los tres supera 100 (R-1)
-        CROSS APPLY (SELECT denominador = ISNULL(c.horasDictadas, 0) * ISNULL(c.activos, 0)) den
+        -- D = horasPeriodo x activos (ATA D2: horas de todas las sesiones del periodo); p* = porcentajes redondeados; exceso = lo que la suma de los tres supera 100 (R-1)
+        CROSS APPLY (SELECT denominador = ISNULL(c.horasPeriodo, 0) * ISNULL(c.activos, 0)) den
         CROSS APPLY (SELECT pAsistencia = CAST(IIF(den.denominador = 0, 0, ROUND(100.0 * c.horasAsistidas / den.denominador, 2)) AS DECIMAL(9,2)),
                             pInasistencia = CAST(IIF(den.denominador = 0, 0, ROUND(100.0 * c.horasFalta / den.denominador, 2)) AS DECIMAL(9,2)),
                             pExcusa = CAST(IIF(den.denominador = 0, 0, ROUND(100.0 * c.horasExcusa / den.denominador, 2)) AS DECIMAL(9,2))) pr

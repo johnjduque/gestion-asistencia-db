@@ -33,9 +33,10 @@ WHERE eg.codigoEstadoEstudiante = 'A' AND g.grupoEstaHablitado = 1 AND di.estaAc
 ORDER BY eg.id;
 DECLARE @tipoDocente UNIQUEIDENTIFIER = (SELECT id FROM dbo.TipoCancelacionSesion WHERE esAutomatica = 0);
 DECLARE @tol INT = dbo.ufn_obtener_parametro_int(NULL, 'ASISTENCIA', 'TOLERANCIA_MINUTOS');
-DECLARE @margen INT = dbo.ufn_obtener_parametro_int(NULL, 'ASISTENCIA', 'MARGEN_RETARDO_MINUTOS');
-IF @group IS NULL OR @student IS NULL OR @owner IS NULL OR @tipoDocente IS NULL OR @tol <> 15 OR @margen <> 30
-    THROW 57010, 'TEST FAILED CULM001_B1_VEN: fixture faltante (grupo con docente y estudiante activos, TipoCancelacionSesion DOCENTE, TOLERANCIA=15, MARGEN=30).', 1;
+-- ATA D4: el margen sembrado es 0; esta prueba ejercita la ventana con un margen de 30 min que se pasa como parametro (@margenMinutos) al validador.
+DECLARE @margen INT = 30;
+IF @group IS NULL OR @student IS NULL OR @owner IS NULL OR @tipoDocente IS NULL OR @tol <> 15
+    THROW 57010, 'TEST FAILED CULM001_B1_VEN: fixture faltante (grupo con docente y estudiante activos, TipoCancelacionSesion DOCENTE, TOLERANCIA=15).', 1;
 
 DECLARE @n INT = 1 + (SELECT ISNULL(MAX(numero), 0) FROM dbo.Sesion WHERE grupo = @group);
 DECLARE @s UNIQUEIDENTIFIER, @corr UNIQUEIDENTIFIER;

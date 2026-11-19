@@ -120,7 +120,8 @@ IF @tipoCC IS NULL OR @idAsig IS NULL OR @idInstitucion IS NULL OR @estadoA IS N
 
 CREATE TABLE #b2tA (idCorrelacion UNIQUEIDENTIFIER NULL, mu NVARCHAR(4000) NULL, mt NVARCHAR(4000) NULL, estado BIT NOT NULL,
     idToma UNIQUEIDENTIFIER NULL, numero SMALLINT NULL, codigoModo NVARCHAR(20) NULL, usaCodigoQr BIT NULL, fechaAperturaUtc DATETIME2(0) NULL,
-    ventanaCierreUtc DATETIME2(0) NULL, totalTomasSesion INT NULL, horasToma DECIMAL(12,6) NULL);
+    ventanaCierreUtc DATETIME2(0) NULL, totalTomasSesion INT NULL, horasToma DECIMAL(12,6) NULL,
+    idTomaCerradaAnterior UNIQUEIDENTIFIER NULL, numeroTomaCerradaAnterior SMALLINT NULL, totalAusentesMarcadosAnterior INT NULL);
 CREATE TABLE #b2tC (idCorrelacion UNIQUEIDENTIFIER NULL, mu NVARCHAR(4000) NULL, mt NVARCHAR(4000) NULL, estado BIT NOT NULL,
     idToma UNIQUEIDENTIFIER NULL, idSesion UNIQUEIDENTIFIER NULL, idGrupo UNIQUEIDENTIFIER NULL, fechaCierreUtc DATETIME2(0) NULL,
     totalAusentesMarcados INT NULL, totalFaltantes INT NULL, yaEstabaCerrada BIT NULL);
@@ -148,6 +149,8 @@ DECLARE @corr UNIQUEIDENTIFIER, @json NVARCHAR(MAX), @t1 UNIQUEIDENTIFIER, @t2 U
 
 BEGIN TRANSACTION;
 BEGIN TRY
+    -- ATA D4: el margen sembrado es 0 (la ventana cierra al fin de la sesion); esta prueba ejercita la ventana con margen 30 min fijado dentro de la transaccion revertida.
+    UPDATE dbo.CatalogoParametro SET valor = N'30' WHERE grupo = 'ASISTENCIA' AND clave = 'MARGEN_RETARDO_MINUTOS';
     -- Fixture: docente titular d1, otro docente d2; estudiantes e1..e4 activos, e5 CI, e6 I; periodo vigente; grupo g
     DECLARE @uD1 UNIQUEIDENTIFIER = NEWID(), @uD2 UNIQUEIDENTIFIER = NEWID(), @d1 UNIQUEIDENTIFIER = NEWID(), @d2 UNIQUEIDENTIFIER = NEWID();
     DECLARE @tag NVARCHAR(12) = LEFT(REPLACE(CONVERT(NVARCHAR(36), NEWID()), N'-', N''), 12);
@@ -233,17 +236,20 @@ BEGIN TRY
     TRUNCATE TABLE #b2tR;
     PRINT 'TEST_PASS:CULM001_B2_TOM_02_LOTE_REPETIDO';
 
-    -- Toma unica sobre una sesion ya vencida: el porcentaje por horas coincide con la formula anterior (sesiones de 2 h)
+    -- Toma unica sobre una sesion ya vencida: la inasistencia por sesiones (trazabilidad) sigue en 100.00. ATA D2 (ADDENDUM_ATA_ASISTENCIA_TOMAS_AVISOS B): el porcentaje
+    -- principal se mide contra las horas de TODAS las sesiones no canceladas del grupo (@hpG), no solo las dictadas.
     UPDATE dbo.Sesion SET fechaHoraInicio = DATEADD(DAY, -1, fechaHoraInicio), fechaHoraFin = DATEADD(DAY, -1, fechaHoraFin), procedenciaTemporal = N'UTC_V2'
     WHERE id = @sLote;
+    DECLARE @hpG DECIMAL(12,6) = (SELECT SUM(dbo.ufn_horas_sesion(s2.fechaHoraInicio, s2.fechaHoraFin)) FROM dbo.Sesion s2
+                                  WHERE s2.grupo = @g AND NOT EXISTS (SELECT 1 FROM dbo.SesionCancelacion sc WHERE sc.sesion = s2.id));
     IF NOT EXISTS (SELECT 1 FROM dbo.uv_resumen_asistencia_estudiante_grupo r WHERE r.idGrupo = @g AND r.idEstudiante = @e1
                    AND r.sesionesEjecutadas = 1 AND r.tomasDictadas = 1 AND r.horasDictadas = 2.000000 AND r.faltasSinJustaCausa = 1 AND r.horasFalta = 2.000000
-                   AND r.porcentajeInasistencia = 100.00 AND r.porcentajeInasistenciaSesiones = 100.00)
+                   AND r.horasPeriodo = @hpG AND r.porcentajeInasistencia = dbo.ufn_calcular_porcentaje_inasistencia_horas(2.000000, @hpG) AND r.porcentajeInasistenciaSesiones = 100.00)
        OR NOT EXISTS (SELECT 1 FROM dbo.uv_resumen_asistencia_estudiante_grupo r WHERE r.idGrupo = @g AND r.idEstudiante = @e2
-                   AND r.porcentajeInasistencia = r.porcentajeInasistenciaSesiones AND r.porcentajeInasistencia = 100.00)
+                   AND r.horasPeriodo = @hpG AND r.porcentajeInasistencia = dbo.ufn_calcular_porcentaje_inasistencia_horas(2.000000, @hpG) AND r.porcentajeInasistenciaSesiones = 100.00)
        OR NOT EXISTS (SELECT 1 FROM dbo.uv_resumen_asistencia_estudiante_grupo r WHERE r.idGrupo = @g AND r.idEstudiante = @e3
                    AND r.porcentajeInasistencia = 0.00 AND r.porcentajeInasistenciaSesiones = 0.00 AND r.horasSinRegistro = 2.000000 AND r.porcentajeSinRegistroHoras = 100.00)
-        THROW 57224, 'TEST FAILED CULM001_B2_TOM_01: con una toma por sesion de igual duracion porcentajeInasistencia debe ser igual a porcentajeInasistenciaSesiones.', 1;
+        THROW 57224, 'TEST FAILED CULM001_B2_TOM_01: con una toma unica en una sesion de 2 h el porcentajeInasistencia debe medirse sobre las horas del periodo y porcentajeInasistenciaSesiones seguir en 100.00.', 1;
     PRINT 'TEST_PASS:CULM001_B2_TOM_01_TOMA_UNICA_COMPORTAMIENTO_ACTUAL';
 
     -- --------------------------------------------------------------------------------------------------------
@@ -299,12 +305,24 @@ BEGIN TRY
     PRINT 'TEST_PASS:CULM001_B2_TOM_03_ABRIR_EN_VENTANA';
 
     -- --------------------------------------------------------------------------------------------------------
-    -- B2-TOM-04: otra abierta TOM_003 / quinta toma TOM_004 / modo FOO TOM_002 / no titular SEC_002 / estudiante SEC_001
+    -- B2-TOM-04: otra abierta (ATA D9: cierra la anterior y abre la siguiente; TOM_003 ya no se emite) / toma 21 TOM_004 / modo FOO TOM_002 / no titular SEC_002 / estudiante SEC_001
     -- --------------------------------------------------------------------------------------------------------
+    -- ATA D9: con una toma abierta, abrir otra la cierra y abre la siguiente (sesion propia: las demas pruebas conservan @sNow con la toma 2 abierta)
+    DECLARE @sNow5 UNIQUEIDENTIFIER = NEWID(), @t5a UNIQUEIDENTIFIER;
+    INSERT dbo.Sesion (id, nombre, numero, codigo, numeroSemana, grupo, fechaHoraInicio, fechaHoraFin, procedenciaTemporal)
+    VALUES (@sNow5, N'CULMB2 en curso5', 10, N'CB2T10', 1, @g, DATEADD(MINUTE, -30, SYSUTCDATETIME()), DATEADD(MINUTE, 90, SYSUTCDATETIME()), N'UTC_V2');
     SET @corr = NEWID();
-    INSERT INTO #b2tA EXEC dbo.usp_abrir_toma_asistencia @idSesion = @sNow, @codigoModo = N'MANUAL', @idCorrelacion = @corr, @idUsuarioEjecutor = @uD1;
-    IF NOT EXISTS (SELECT 1 FROM #b2tA WHERE estado = 0 AND mt LIKE N'DBCODE=TOM[_]003|%') OR (SELECT COUNT(*) FROM dbo.TomaAsistencia WHERE sesion = @sNow) <> 2
-        THROW 57240, 'TEST FAILED CULM001_B2_TOM_04: con una toma abierta abrir otra debe responder TOM_003.', 1;
+    INSERT INTO #b2tA EXEC dbo.usp_abrir_toma_asistencia @idSesion = @sNow5, @codigoModo = N'MANUAL', @idCorrelacion = @corr, @idUsuarioEjecutor = @uD1;
+    SET @t5a = (SELECT idToma FROM #b2tA WHERE estado = 1);
+    TRUNCATE TABLE #b2tA;
+    INSERT INTO #b2tA EXEC dbo.usp_abrir_toma_asistencia @idSesion = @sNow5, @codigoModo = N'MANUAL', @idCorrelacion = @corr, @idUsuarioEjecutor = @uD1;
+    IF @t5a IS NULL
+       OR NOT EXISTS (SELECT 1 FROM #b2tA WHERE estado = 1 AND numero = 2 AND totalTomasSesion = 2 AND idTomaCerradaAnterior = @t5a AND numeroTomaCerradaAnterior = 1)
+       OR EXISTS (SELECT 1 FROM #b2tA WHERE mt LIKE N'DBCODE=TOM[_]003|%')
+       OR (SELECT COUNT(*) FROM dbo.TomaAsistencia WHERE sesion = @sNow5) <> 2
+       OR (SELECT COUNT(*) FROM dbo.TomaAsistencia WHERE sesion = @sNow5 AND fechaCierreUtc IS NULL) <> 1
+       OR NOT EXISTS (SELECT 1 FROM dbo.TomaAsistencia WHERE id = @t5a AND fechaCierreUtc IS NOT NULL)
+        THROW 57240, 'TEST FAILED CULM001_B2_TOM_04: con una toma abierta abrir otra la cierra y abre la siguiente (ATA D9; ya no responde TOM_003).', 1;
     TRUNCATE TABLE #b2tA;
     -- PC (puntos de control): el tope pasa de 4 a 20; se abren 20 tomas y la 21 responde TOM_004
     SET @n = 1;

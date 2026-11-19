@@ -8,7 +8,7 @@ SET NOCOUNT ON;
 SET XACT_ABORT OFF;
 
 -- PC BD-2 / BD-3 (docs/work-items/PC-puntos-control-tomas/CONTRACT.md §B, TEST_PLAN.md): ciclo de vida de la toma y reclamo por toma.
---   PC_TOM_01..05  edicion hasta la siguiente toma (TOM_012), ultima hasta fin + margen (SES_008), cierre MANUAL marca SJC (SP y job),
+--   PC_TOM_01..05  edicion de cualquier toma dentro de la ventana (ATA D4: sin TOM_012), fin + margen (SES_008), cierre MANUAL marca SJC (SP y job),
 --                  tope de 20 tomas (TOM_004), columnas nuevas de usp_consultar_tomas_sesion y usp_consultar_resumen_tomas_sesion.
 --   PC_REC_01..10  radicacion v4 (toma obligatoria, TOM_001, REV_026, REV_027), resolucion con resultado PRESENTE (AN) o JUSTIFICADA
 --                  (EX) solo en la toma, legado (REV_029 y SES-04), idempotencia (REV_002) y REV_028, retiro y nueva radicacion,
@@ -46,7 +46,8 @@ IF @tipoCC IS NULL OR @idAsig IS NULL OR @idInstitucion IS NULL OR @estadoA IS N
 
 CREATE TABLE #ptcA (idCorrelacion UNIQUEIDENTIFIER NULL, mu NVARCHAR(4000) NULL, mt NVARCHAR(4000) NULL, estado BIT NOT NULL,
     idToma UNIQUEIDENTIFIER NULL, numero SMALLINT NULL, codigoModo NVARCHAR(20) NULL, usaCodigoQr BIT NULL, fechaAperturaUtc DATETIME2(0) NULL,
-    ventanaCierreUtc DATETIME2(0) NULL, totalTomasSesion INT NULL, horasToma DECIMAL(12,6) NULL);
+    ventanaCierreUtc DATETIME2(0) NULL, totalTomasSesion INT NULL, horasToma DECIMAL(12,6) NULL,
+    idTomaCerradaAnterior UNIQUEIDENTIFIER NULL, numeroTomaCerradaAnterior SMALLINT NULL, totalAusentesMarcadosAnterior INT NULL);
 CREATE TABLE #ptcC (idCorrelacion UNIQUEIDENTIFIER NULL, mu NVARCHAR(4000) NULL, mt NVARCHAR(4000) NULL, estado BIT NOT NULL,
     idToma UNIQUEIDENTIFIER NULL, idSesion UNIQUEIDENTIFIER NULL, idGrupo UNIQUEIDENTIFIER NULL, fechaCierreUtc DATETIME2(0) NULL,
     totalAusentesMarcados INT NULL, totalFaltantes INT NULL, yaEstabaCerrada BIT NULL);
@@ -151,7 +152,7 @@ BEGIN TRY
     INNER JOIN dbo.RazonCausa rc ON rc.codigo = m.codigo;
 
     -- --------------------------------------------------------------------------------------------------------
-    -- PC_TOM_01: la toma 1 cerrada se corrige mientras no se abra la 2; al abrir la 2, corregir la 1 da TOM_012 sin escribir.
+    -- PC_TOM_01 (ATA D4, ADDENDUM_ATA_ASISTENCIA_TOMAS_AVISOS A): la toma 1 cerrada se corrige tambien despues de abrir la 2 (ya no hay TOM_012).
     -- PC_TOM_03 (parte 1): cerrar una toma MANUAL con @marcarAusentes NULL marca SJC a los activos sin registro.
     -- --------------------------------------------------------------------------------------------------------
     SET @corr = NEWID();
@@ -167,13 +168,13 @@ BEGIN TRY
            WHERE da.toma = @t1 AND rc.codigo = N'SJC' AND da.asistio = 0) <> 4
         THROW 58110, 'TEST FAILED PC_TOM_03_CIERRE_MANUAL_MARCA: cerrar una toma MANUAL con @marcarAusentes NULL debe marcar SJC a los 4 activos sin registro.', 1;
     TRUNCATE TABLE #ptcL; TRUNCATE TABLE #ptcC;
-    -- correccion de la toma 1 cerrada (es la ultima): permitida
+    -- correccion de la toma 1 cerrada (sin toma posterior): permitida
     SET @json = CONCAT(N'[{"idEstudiante":"', @e2, N'","estado":"AN"}]');
     INSERT INTO #ptcL EXEC dbo.usp_registrar_asistencias_toma @idToma = @t1, @asistenciaJSON = @json, @idCorrelacion = @corr, @idUsuarioEjecutor = @uD;
     IF NOT EXISTS (SELECT 1 FROM #ptcL WHERE estado = 1 AND mt LIKE N'DBCODE=TOM[_]010|%')
        OR NOT EXISTS (SELECT 1 FROM dbo.uv_detalle_asistencia_v2 v INNER JOIN dbo.EstudianteGrupo eg ON eg.id = v.idEstudianteGrupo
                       WHERE v.idToma = @t1 AND eg.estudiante = @e2 AND v.codigoRazonCausa = N'AN')
-        THROW 58111, 'TEST FAILED PC_TOM_01_EDICION_HASTA_SIGUIENTE: la toma cerrada sin toma posterior debe poder corregirse.', 1;
+        THROW 58111, 'TEST FAILED PC_TOM_01_EDICION_EN_VENTANA: la toma cerrada sin toma posterior debe poder corregirse.', 1;
     TRUNCATE TABLE #ptcL;
     INSERT INTO #ptcA EXEC dbo.usp_abrir_toma_asistencia @idSesion = @sNow, @codigoModo = N'MANUAL', @idCorrelacion = @corr, @idUsuarioEjecutor = @uD;
     SET @t2 = (SELECT idToma FROM #ptcA WHERE estado = 1 AND numero = 2);
@@ -181,17 +182,16 @@ BEGIN TRY
     SET @json = CONCAT(N'[{"idEstudiante":"', @e3, N'","estado":"AN"}]');
     INSERT INTO #ptcL EXEC dbo.usp_registrar_asistencias_toma @idToma = @t1, @asistenciaJSON = @json, @idCorrelacion = @corr, @idUsuarioEjecutor = @uD;
     IF @t2 IS NULL
-       OR NOT EXISTS (SELECT 1 FROM #ptcL WHERE estado = 0 AND mt LIKE N'DBCODE=TOM[_]012|%' AND mu LIKE N'%toma 1 %toma 2%'
-                      AND idToma IS NULL AND totalRegistros IS NULL)
+       OR NOT EXISTS (SELECT 1 FROM #ptcL WHERE estado = 1 AND (mt IS NULL OR mt NOT LIKE N'DBCODE=TOM[_]012|%') AND idToma = @t1 AND totalRegistros = 1)
        OR NOT EXISTS (SELECT 1 FROM dbo.uv_detalle_asistencia_v2 v INNER JOIN dbo.EstudianteGrupo eg ON eg.id = v.idEstudianteGrupo
-                      WHERE v.idToma = @t1 AND eg.estudiante = @e3 AND v.codigoRazonCausa = N'SJC')
-        THROW 58112, 'TEST FAILED PC_TOM_01_EDICION_HASTA_SIGUIENTE: con la toma 2 abierta, corregir la toma 1 debe responder TOM_012 sin escribir.', 1;
+                      WHERE v.idToma = @t1 AND eg.estudiante = @e3 AND v.codigoRazonCausa = N'AN')
+        THROW 58112, 'TEST FAILED PC_TOM_01_EDICION_EN_VENTANA: con la toma 2 abierta, corregir la toma 1 cerrada dentro de la ventana debe escribir (ya no hay TOM_012).', 1;
     TRUNCATE TABLE #ptcL;
     INSERT INTO #ptcL EXEC dbo.usp_registrar_asistencias_toma @idToma = @t2, @asistenciaJSON = @json, @idCorrelacion = @corr, @idUsuarioEjecutor = @uD;
     IF NOT EXISTS (SELECT 1 FROM #ptcL WHERE estado = 1)
-        THROW 58113, 'TEST FAILED PC_TOM_01_EDICION_HASTA_SIGUIENTE: la toma abierta (la 2) debe admitir registros.', 1;
+        THROW 58113, 'TEST FAILED PC_TOM_01_EDICION_EN_VENTANA: la toma abierta (la 2) debe admitir registros.', 1;
     TRUNCATE TABLE #ptcL;
-    PRINT 'TEST_PASS:PC_TOM_01_EDICION_HASTA_SIGUIENTE';
+    PRINT 'TEST_PASS:PC_TOM_01_EDICION_EN_VENTANA';
 
     -- --------------------------------------------------------------------------------------------------------
     -- PC_TOM_05: usp_consultar_tomas_sesion (columnas nuevas) y usp_consultar_resumen_tomas_sesion (minutos, RBAC, titularidad)
@@ -199,7 +199,7 @@ BEGIN TRY
     INSERT INTO #ptcS EXEC dbo.usp_consultar_tomas_sesion @idUsuarioEjecutor = @uD, @idCorrelacion = @corr, @idSesion = @sNow;
     IF (SELECT COUNT(*) FROM #ptcS) <> 2
        OR NOT EXISTS (SELECT 1 FROM #ptcS s INNER JOIN dbo.TomaAsistencia t2 ON t2.id = @t2
-                      WHERE s.idToma = @t1 AND s.ordenPuntoControl = 1 AND s.esEditable = 0 AND s.editableHastaUtc = t2.fechaAperturaUtc
+                      WHERE s.idToma = @t1 AND s.ordenPuntoControl = 1 AND s.esEditable = 1 AND s.editableHastaUtc = s.ventanaCierreUtc
                         AND s.fechaPuntoControlUtc IS NOT NULL AND s.maximoTomas = 20)
        OR NOT EXISTS (SELECT 1 FROM #ptcS WHERE idToma = @t2 AND ordenPuntoControl = 2 AND esEditable = 1 AND editableHastaUtc = ventanaCierreUtc
                         AND minutosTramoSiguiente >= 0)
@@ -247,8 +247,10 @@ BEGIN TRY
     PRINT 'TEST_PASS:PC_TOM_05_CONSULTAS';
 
     -- --------------------------------------------------------------------------------------------------------
-    -- PC_TOM_02: la ultima toma se corrige hasta fin + margen; despues, SES_008
+    -- PC_TOM_02: la toma se corrige hasta fin + margen; despues, SES_008. Desde ATA D4 el margen sembrado es 0: la prueba fija 30 min
+    -- (dentro de la transaccion revertida) para conservar la cobertura del parametro; la sesion @sMargen termino hace 10 min.
     -- --------------------------------------------------------------------------------------------------------
+    UPDATE dbo.CatalogoParametro SET valor = N'30' WHERE grupo = 'ASISTENCIA' AND clave = 'MARGEN_RETARDO_MINUTOS';
     SET @corr = NEWID();
     INSERT INTO #ptcA EXEC dbo.usp_abrir_toma_asistencia @idSesion = @sMargen, @codigoModo = N'MANUAL', @idCorrelacion = @corr, @idUsuarioEjecutor = @uD;
     SET @t1 = (SELECT idToma FROM #ptcA WHERE estado = 1);
@@ -257,7 +259,7 @@ BEGIN TRY
     SET @json = CONCAT(N'[{"idEstudiante":"', @e1, N'","estado":"AN"}]');
     INSERT INTO #ptcL EXEC dbo.usp_registrar_asistencias_toma @idToma = @t1, @asistenciaJSON = @json, @idCorrelacion = @corr, @idUsuarioEjecutor = @uD;
     IF @t1 IS NULL OR NOT EXISTS (SELECT 1 FROM #ptcL WHERE estado = 1)
-        THROW 58120, 'TEST FAILED PC_TOM_02_ULTIMA_HASTA_MARGEN: la ultima toma cerrada debe corregirse dentro del margen posterior al fin.', 1;
+        THROW 58120, 'TEST FAILED PC_TOM_02_ULTIMA_HASTA_MARGEN: la toma cerrada debe corregirse dentro del margen posterior al fin.', 1;
     TRUNCATE TABLE #ptcL; TRUNCATE TABLE #ptcC;
     DECLARE @tPast UNIQUEIDENTIFIER;
     EXEC #culm001_b2_crear_toma @idSesion = @sPast, @idToma = @tPast OUTPUT;
@@ -265,6 +267,7 @@ BEGIN TRY
     IF NOT EXISTS (SELECT 1 FROM #ptcL WHERE estado = 0 AND mt LIKE N'DBCODE=SES[_]008|%') OR EXISTS (SELECT 1 FROM dbo.DetalleAsistencia WHERE toma = @tPast)
         THROW 58121, 'TEST FAILED PC_TOM_02_ULTIMA_HASTA_MARGEN: despues de fin + margen la ultima toma responde SES_008 sin escribir.', 1;
     TRUNCATE TABLE #ptcL;
+    UPDATE dbo.CatalogoParametro SET valor = N'0' WHERE grupo = 'ASISTENCIA' AND clave = 'MARGEN_RETARDO_MINUTOS';
     PRINT 'TEST_PASS:PC_TOM_02_ULTIMA_HASTA_MARGEN';
 
     -- --------------------------------------------------------------------------------------------------------

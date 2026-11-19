@@ -13,6 +13,9 @@ GO
 -- CULM-001 B.2 (CONTRACT §2.6, [SUPUESTO-B-06]): tieneRegistroAsistencia = existe Asistencia O existe TomaAsistencia (una toma
 -- QR abierta y cerrada sin lecturas cuenta como sesion ejecutada); columnas nuevas totalTomas y horasSesion.
 -- CULM-001 B2NM: sin idPrograma (1 fila por sesion); el programa se resuelve con EXISTS uv_grupo_programa.
+-- ATA D2 (ADDENDUM_ATA_ASISTENCIA_TOMAS_AVISOS B): columna nueva AL FINAL cuentaParaPeriodo = 1 si la sesion no es una solicitud de sesion
+-- extraordinaria pendiente ni rechazada (EstadoSolicitudSesion.esAprobada = 0: sin literales de catalogo). Sin solicitud (generadas y
+-- manuales anteriores a DEC-065) o aprobada cuenta. Las canceladas ya salen de la vista. Es el denominador de la pérdida (horas del periodo).
 CREATE OR ALTER VIEW [dbo].[uv_cumplimiento_sesion_grupo]
 AS
 SELECT  idSesion = s.id,
@@ -25,9 +28,14 @@ SELECT  idSesion = s.id,
         tieneRegistroAsistencia = CAST(IIF(EXISTS (SELECT 1 FROM dbo.uv_asistencia a WHERE a.idSesion = s.id)
                                            OR EXISTS (SELECT 1 FROM dbo.TomaAsistencia t WHERE t.sesion = s.id), 1, 0) AS BIT),
         totalTomas = (SELECT COUNT(1) FROM dbo.TomaAsistencia t WHERE t.sesion = s.id),
-        horasSesion = dbo.ufn_horas_sesion(s.fechaHoraInicio, s.fechaHoraFin)
+        horasSesion = dbo.ufn_horas_sesion(s.fechaHoraInicio, s.fechaHoraFin),
+        cuentaParaPeriodo = CAST(IIF(esol.id IS NULL OR esol.esAprobada = 1, 1, 0) AS BIT)
 FROM    dbo.uv_sesion_v2 s
 INNER JOIN dbo.uv_grupo g
 ON      g.id = s.idGrupo
+LEFT JOIN dbo.SesionSolicitud ssol
+ON      ssol.sesion = s.id
+LEFT JOIN dbo.EstadoSolicitudSesion esol
+ON      esol.id = ssol.idEstado
 WHERE   NOT EXISTS (SELECT 1 FROM dbo.SesionCancelacion sc WHERE sc.sesion = s.id)
 GO

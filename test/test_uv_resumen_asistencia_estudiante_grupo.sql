@@ -169,10 +169,11 @@ BEGIN TRY
     DECLARE @g1 UNIQUEIDENTIFIER = (SELECT id FROM #g WHERE k = N'G1'), @g2 UNIQUEIDENTIFIER = (SELECT id FROM #g WHERE k = N'G2');
     DECLARE @c UNIQUEIDENTIFIER, @inexistente UNIQUEIDENTIFIER = NEWID();
 
-    -- T-DB-01/02/04: cifras exactas por matricula (denominador = sesiones vencidas con registro del grupo)
-    IF NOT EXISTS (SELECT 1 FROM dbo.uv_resumen_asistencia_estudiante_grupo v INNER JOIN #eg x ON x.id = v.idEstudianteGrupo WHERE x.k = N'E1' AND x.g = N'G1' AND v.sesionesEjecutadas = 6 AND v.asistencias = 4 AND v.faltasSinJustaCausa = 2 AND v.excusas = 0 AND v.porcentajeInasistencia = 33.33 AND v.codigoPermanencia = N'PERDIDA')
+    -- T-DB-01/02/04: cifras exactas por matricula. ATA D2 (ADDENDUM_ATA_ASISTENCIA_TOMAS_AVISOS B): el denominador del porcentaje pasa a las horas del
+    -- periodo (G1: 12 sesiones de 2 h = 24 h, vencidas o no); las cifras en sesiones (sesionesEjecutadas, asistencias, faltas) conservan su significado.
+    IF NOT EXISTS (SELECT 1 FROM dbo.uv_resumen_asistencia_estudiante_grupo v INNER JOIN #eg x ON x.id = v.idEstudianteGrupo WHERE x.k = N'E1' AND x.g = N'G1' AND v.sesionesEjecutadas = 6 AND v.asistencias = 4 AND v.faltasSinJustaCausa = 2 AND v.excusas = 0 AND v.porcentajeInasistencia = 16.67 AND v.codigoPermanencia = N'RIESGO' AND v.horasPeriodo = 24 AND v.sesionesPeriodo = 12)
         THROW 53200, 'TEST FAILED T-DB-01/04: resumen de E1 en G1 distinto del calculado a mano.', 1;
-    IF NOT EXISTS (SELECT 1 FROM dbo.uv_resumen_asistencia_estudiante_grupo v INNER JOIN #eg x ON x.id = v.idEstudianteGrupo WHERE x.k = N'E2' AND x.g = N'G1' AND v.sesionesEjecutadas = 6 AND v.asistencias = 5 AND v.faltasSinJustaCausa = 1 AND v.excusas = 0 AND v.porcentajeInasistencia = 16.67 AND v.codigoPermanencia = N'RIESGO')
+    IF NOT EXISTS (SELECT 1 FROM dbo.uv_resumen_asistencia_estudiante_grupo v INNER JOIN #eg x ON x.id = v.idEstudianteGrupo WHERE x.k = N'E2' AND x.g = N'G1' AND v.sesionesEjecutadas = 6 AND v.asistencias = 5 AND v.faltasSinJustaCausa = 1 AND v.excusas = 0 AND v.porcentajeInasistencia = 8.33 AND v.codigoPermanencia = N'REGULAR')
         THROW 53201, 'TEST FAILED T-DB-01/04: resumen de E2 en G1 distinto del calculado a mano.', 1;
     IF NOT EXISTS (SELECT 1 FROM dbo.uv_resumen_asistencia_estudiante_grupo v INNER JOIN #eg x ON x.id = v.idEstudianteGrupo WHERE x.k = N'E3' AND x.g = N'G1' AND v.sesionesEjecutadas = 6 AND v.asistencias = 4 AND v.faltasSinJustaCausa = 0 AND v.excusas = 2 AND v.porcentajeInasistencia = 0.00 AND v.codigoPermanencia = N'REGULAR')
         THROW 53202, 'TEST FAILED T-DB-01/04: resumen de E3 en G1 distinto del calculado a mano.', 1;

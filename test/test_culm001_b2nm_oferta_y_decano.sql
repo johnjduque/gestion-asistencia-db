@@ -1,6 +1,6 @@
 USE [gestionasistenciadb];
 GO
--- CULM-001 B2NM (B2NM-04 parcial, 13, 14, 17): oferta del estudiante (G una vez por programa del estudiante, con caracter), oferta docente
+-- CULM-001 B2NM (B2NM-04 parcial, 13, 14, 17): oferta docente (ATA D11 retiro la oferta del estudiante),
 -- (1 fila por asignatura), S2 (catalogo de una asignatura compartida), desvincular/reasociar y consultas del decano. Transaccion revertida.
 -- Los rechazos por THROW (PLA_002) van al final: con XACT_ABORT ON invalidan la transaccion compartida.
 SET NOCOUNT ON;
@@ -11,31 +11,6 @@ BEGIN TRY
 :r /tmp/test/fixtures/culm001_b2nm_asignatura_compartida.sql
     DECLARE @c UNIQUEIDENTIFIER = NEWID();
     DECLARE @nombreProgB NVARCHAR(100) = N'B2NM-Programa B';
-
-    -- B2NM-13: HU008, G aparece una vez en las propias de EA (carácter OPT) y de EB; E0 sin vinculo no la ve como propia
-    DECLARE @o TABLE (n INT IDENTITY(1,1), idGrupo UNIQUEIDENTIFIER, codigoGrupo INT, nombreGrupo NVARCHAR(50), idAsignatura UNIQUEIDENTIFIER,
-        codigoAsignatura NVARCHAR(20), nombreAsignatura NVARCHAR(100), nombreDocente NVARCHAR(400), idPeriodoAcademico UNIQUEIDENTIFIER,
-        nombrePeriodoAcademico NVARCHAR(50), fechaInicioPeriodo DATE, fechaFinPeriodo DATE, estadoPeriodo NVARCHAR(10), horario NVARCHAR(400),
-        capacidadMaxima INT, estudiantesActivos INT, cuposDisponibles INT, matriculado BIT, codigoComponente NVARCHAR(3),
-        codigoCaracter NVARCHAR(3), nombreCaracter NVARCHAR(50), totalRegistros INT);
-    INSERT INTO @o (idGrupo, codigoGrupo, nombreGrupo, idAsignatura, codigoAsignatura, nombreAsignatura, nombreDocente, idPeriodoAcademico,
-        nombrePeriodoAcademico, fechaInicioPeriodo, fechaFinPeriodo, estadoPeriodo, horario, capacidadMaxima, estudiantesActivos, cuposDisponibles,
-        matriculado, codigoComponente, codigoCaracter, nombreCaracter, totalRegistros)
-    EXEC dbo.usp_consultar_oferta_grupos_estudiante @busqueda = N'B2NM', @idCorrelacion = @c, @idUsuarioEjecutor = @uEA;
-    IF (SELECT COUNT(*) FROM @o WHERE idGrupo = @grupoG) <> 1 OR NOT EXISTS (SELECT 1 FROM @o WHERE idGrupo = @grupoG AND codigoCaracter = N'OPT')
-        THROW 53881, 'TEST FAILED: B2NM-13 G debe aparecer una vez en las propias de EA con caracter OPT.', 1;
-    DELETE FROM @o;
-    INSERT INTO @o (idGrupo, codigoGrupo, nombreGrupo, idAsignatura, codigoAsignatura, nombreAsignatura, nombreDocente, idPeriodoAcademico,
-        nombrePeriodoAcademico, fechaInicioPeriodo, fechaFinPeriodo, estadoPeriodo, horario, capacidadMaxima, estudiantesActivos, cuposDisponibles,
-        matriculado, codigoComponente, codigoCaracter, nombreCaracter, totalRegistros)
-    EXEC dbo.usp_consultar_oferta_grupos_estudiante @busqueda = N'B2NM', @idCorrelacion = @c, @idUsuarioEjecutor = @uEB;
-    IF (SELECT COUNT(*) FROM @o WHERE idGrupo = @grupoG) <> 1 THROW 53882, 'TEST FAILED: B2NM-13 G debe aparecer una vez en las propias de EB.', 1;
-    DELETE FROM @o;
-    INSERT INTO @o (idGrupo, codigoGrupo, nombreGrupo, idAsignatura, codigoAsignatura, nombreAsignatura, nombreDocente, idPeriodoAcademico,
-        nombrePeriodoAcademico, fechaInicioPeriodo, fechaFinPeriodo, estadoPeriodo, horario, capacidadMaxima, estudiantesActivos, cuposDisponibles,
-        matriculado, codigoComponente, codigoCaracter, nombreCaracter, totalRegistros)
-    EXEC dbo.usp_consultar_oferta_grupos_estudiante @busqueda = N'B2NM', @idCorrelacion = @c, @idUsuarioEjecutor = @uE0;
-    IF EXISTS (SELECT 1 FROM @o WHERE idGrupo = @grupoG) THROW 53883, 'TEST FAILED: B2NM-13 E0 sin vinculo no debe ver G como propia.', 1;
 
     -- B2NM-13: oferta docente, 1 fila por asignatura con los programas del docente
     DECLARE @od TABLE (idDocente UNIQUEIDENTIFIER, idAsignatura UNIQUEIDENTIFIER, codigoAsignatura NVARCHAR(50), nombreAsignatura NVARCHAR(200), programas NVARCHAR(1000));

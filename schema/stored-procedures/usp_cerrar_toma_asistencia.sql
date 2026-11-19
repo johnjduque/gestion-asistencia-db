@@ -12,8 +12,9 @@ GO
 -- totalAusentesMarcados, totalFaltantes, yaEstabaCerrada (NULL si estadoResultado = 0).
 --
 -- El docente titular cierra una toma (no exige ventana para cerrar). Ya cerrada: exito idempotente TOM_011
--- (yaEstabaCerrada = 1, sin escrituras). Si no: cierra el token QR activo de la toma; con @marcarAusentes = 1 (NULL =>
--- ModoTomaAsistencia.marcaAusentesAlCerrar: MANUAL 0, QR 1) y la ventana con margen todavia abierta, inserta SJC a las
+-- (yaEstabaCerrada = 1, sin escrituras). Si no: el cierre lo hace usp_internal_cerrar_toma (ATA D9, compartido con
+-- usp_abrir_toma_asistencia): cierra el token QR activo de la toma; con @marcarAusentes = 1 (NULL =>
+-- ModoTomaAsistencia.marcaAusentesAlCerrar: 1 en MANUAL y en QR segun el seed 35) y la ventana con margen todavia abierta, inserta SJC a las
 -- matriculas activas sin detalle en la toma (usp_internal_marcar_ausentes_toma); vencida la ventana se cierra sin marcar.
 -- totalFaltantes = filas de uv_faltantes_toma despues del cierre. Bloqueos: Sesion -> TomaAsistencia -> TokenAsistenciaToma.
 -- Exito TOM_009.
@@ -44,10 +45,6 @@ AS
     DECLARE @idSesion          UNIQUEIDENTIFIER;
     DECLARE @idGrupo           UNIQUEIDENTIFIER;
     DECLARE @fechaCierrePrevia DATETIME2(0);
-    DECLARE @marcaPorModo      BIT;
-    DECLARE @marcar            BIT;
-    DECLARE @ventanaAbierta    BIT;
-    DECLARE @idEstadoCerrada   UNIQUEIDENTIFIER;
     DECLARE @fechaCierre       DATETIME2(0);
     DECLARE @totalMarcados     INT = 0;
     DECLARE @totalFaltantes    INT;
@@ -108,10 +105,6 @@ BEGIN
 
         IF @estadoResultado = 1
         BEGIN
-            SELECT @idEstadoCerrada = e.id FROM dbo.EstadoTomaAsistencia e WHERE e.estaAbierta = 0;
-            IF @idEstadoCerrada IS NULL
-                THROW 52511, 'CULM001_B2_CATALOGO_INCONSISTENTE: falta EstadoTomaAsistencia(estaAbierta = 0).', 1;
-
             IF @@TRANCOUNT = 0
             BEGIN
                 BEGIN TRANSACTION;
@@ -125,9 +118,8 @@ BEGIN
 
             -- Bloqueo de la sesion (sin exigir ventana para cerrar) y luego de la toma
             SELECT @idGrupo = s.grupo FROM dbo.Sesion s WITH (UPDLOCK, HOLDLOCK) WHERE s.id = @idSesion;
-            SELECT @fechaCierrePrevia = t.fechaCierreUtc, @marcaPorModo = m.marcaAusentesAlCerrar, @totalMarcados = t.totalAusentesMarcados
+            SELECT @fechaCierrePrevia = t.fechaCierreUtc, @totalMarcados = t.totalAusentesMarcados
             FROM dbo.TomaAsistencia t WITH (UPDLOCK, HOLDLOCK)
-            INNER JOIN dbo.ModoTomaAsistencia m ON m.id = t.modo
             WHERE t.id = @idTomaDefecto;
 
             IF @fechaCierrePrevia IS NOT NULL
@@ -140,25 +132,9 @@ BEGIN
             END
             ELSE
             BEGIN
-                SET @fechaCierre = SYSUTCDATETIME();
-                SET @marcar = IIF(@marcarAusentes IS NULL, @marcaPorModo, @marcarAusentes);
-                SELECT @ventanaAbierta = v.ventanaAbierta FROM dbo.uv_sesion_estado v WHERE v.idSesion = @idSesion;
-                SET @totalMarcados = 0;
-
-                UPDATE dbo.TokenAsistenciaToma SET fechaCierreUtc = @fechaCierre
-                WHERE toma = @idTomaDefecto AND fechaCierreUtc IS NULL;
-
-                IF @marcar = 1 AND @ventanaAbierta = 1
-                    EXEC dbo.usp_internal_marcar_ausentes_toma
-                        @idToma = @idTomaDefecto, @idSesion = @idSesion, @idGrupo = @idGrupo,
-                        @fechaRegistroUtc = @fechaCierre, @totalMarcados = @totalMarcados OUTPUT;
-
-                UPDATE dbo.TomaAsistencia
-                SET estado = @idEstadoCerrada,
-                    fechaCierreUtc = IIF(@fechaCierre < fechaAperturaUtc, fechaAperturaUtc, @fechaCierre),
-                    totalAusentesMarcados = @totalMarcados,
-                    idCorrelacionCierre = @idCorrelacionDefecto
-                WHERE id = @idTomaDefecto;
+                EXEC dbo.usp_internal_cerrar_toma
+                    @idToma = @idTomaDefecto, @idSesion = @idSesion, @idGrupo = @idGrupo, @marcarAusentes = @marcarAusentes,
+                    @idCorrelacion = @idCorrelacionDefecto, @totalAusentesMarcados = @totalMarcados OUTPUT, @fechaCierreUtc = @fechaCierre OUTPUT;
 
                 SET @p1 = CONVERT(NVARCHAR(20), @totalMarcados);
                 SET @p2 = CONVERT(NVARCHAR(36), @idTomaDefecto);
@@ -170,7 +146,6 @@ BEGIN
             END
 
             SELECT @totalFaltantes = COUNT(1) FROM dbo.uv_faltantes_toma f WHERE f.idToma = @idTomaDefecto;
-            SELECT @fechaCierre = t.fechaCierreUtc FROM dbo.TomaAsistencia t WHERE t.id = @idTomaDefecto;
 
             IF @transaccionPropia = 1
             BEGIN

@@ -376,6 +376,35 @@
       { "columna": "dbo.PeriodoAcademico.fechaCierreUtc" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'PER_008'" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'PER_009'" }
+    ],
+    "50_ata_edicion_tomas_denominador": [
+      { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'ASISTENCIA' AND clave = 'MARGEN_RETARDO_MINUTOS' AND valorDefecto = '0'" }
+    ],
+    "51_ata_aviso_falta_sesion": [
+      { "tabla": "dbo.AvisoFaltaSesion" },
+      { "objeto": "dbo.usp_consultar_sesiones_pendientes_aviso_falta" },
+      { "objeto": "dbo.usp_consultar_faltas_sesion_aviso" },
+      { "objeto": "dbo.usp_registrar_aviso_falta_sesion" },
+      { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'AVISO_FALTA_SESION' AND clave = 'LOTE'" },
+      { "tabla": "dbo.PlantillaNotificacion", "donde": "tipo = 'FALTA_ASISTENCIA_SESION_ESTUDIANTE'" }
+    ],
+    "52_ata_solicitudes_docente_calendario": [
+      { "objeto": "dbo.usp_consultar_solicitudes_sesion_docente_paginado" },
+      { "objeto": "dbo.usp_consultar_sesiones_calendario_estudiante" },
+      { "objeto": "dbo.usp_consultar_sesiones_calendario_docente" },
+      { "objeto": "dbo.uv_sesion_calendario" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'CAL_001'" }
+    ],
+    "53_ata_nueva_toma_cierra_anterior": [
+      { "objeto": "dbo.usp_internal_cerrar_toma" }
+    ],
+    "54_ata_faltas_reclamables_estudiante": [
+      { "objeto": "dbo.uv_falta_reclamable_estudiante" },
+      { "objeto": "dbo.usp_consultar_faltas_reclamables_estudiante" }
+    ],
+    "55_ata_retiro_oferta_grupos_estudiante": [
+      { "objeto": "dbo.usp_consultar_oferta_grupos_estudiante", "existe": false },
+      { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'OFERTA' AND clave = 'INCLUIR_TRANSVERSALES'", "existe": false }
     ]
   }
 }

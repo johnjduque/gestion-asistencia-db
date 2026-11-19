@@ -9,12 +9,15 @@ GO
 -- usp_abrir_toma_asistencia (CULM-001 B.2, HU175; CONTRACT §2.8.2, DEC-013, DEC-014, [SUPUESTO-B-07])
 --
 -- Clasificacion: NON_GOLDEN_PATH_EXTENSION, comando con tupla canonica + idToma, numero, codigoModo, usaCodigoQr,
--- fechaAperturaUtc, ventanaCierreUtc, totalTomasSesion, horasToma (NULL si estadoResultado = 0).
+-- fechaAperturaUtc, ventanaCierreUtc, totalTomasSesion, horasToma, idTomaCerradaAnterior, numeroTomaCerradaAnterior,
+-- totalAusentesMarcadosAnterior (NULL si estadoResultado = 0; las tres ultimas tambien NULL si no habia toma abierta).
 --
 -- El docente titular abre una toma MANUAL o QR en una sesion dentro de la ventana [inicio - ASISTENCIA/TOLERANCIA_MINUTOS,
--- fin + ASISTENCIA/MARGEN_RETARDO_MINUTOS). Una sola toma abierta por sesion (TOM_003) y como maximo
--- TOMA_ASISTENCIA/MAXIMO_TOMAS_POR_SESION (TOM_004). El modo se resuelve contra ModoTomaAsistencia.codigo (TOM_002); el estado
--- ABIERTA por la bandera estaAbierta = 1. Bloqueos: Sesion (ventana) -> TomaAsistencia. Las ramas de rechazo no escriben y
+-- fin + ASISTENCIA/MARGEN_RETARDO_MINUTOS). Como maximo TOMA_ASISTENCIA/MAXIMO_TOMAS_POR_SESION (TOM_004, sin cerrar nada). ATA D9: si la
+-- sesion tiene una toma abierta, esta se cierra con usp_internal_cerrar_toma (@marcarAusentes NULL => segun el modo) en la misma
+-- transaccion y se abre la siguiente (TOM_003 ya no se emite; se conserva en el catalogo). Orden: titularidad, modo, ventana, TOM_004,
+-- cierre de la anterior, insercion. El modo se resuelve contra ModoTomaAsistencia.codigo (TOM_002); el estado ABIERTA por la bandera
+-- estaAbierta = 1. Bloqueos: Sesion (ventana) -> TomaAsistencia -> TokenAsistenciaToma. Las ramas de rechazo no escriben y
 -- solo confirman la transaccion propia (compatible con INSERT ... EXEC). Exito TOM_008.
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_abrir_toma_asistencia]
@@ -48,6 +51,10 @@ AS
     DECLARE @idEstadoAbierta   UNIQUEIDENTIFIER;
     DECLARE @idDocente         UNIQUEIDENTIFIER;
     DECLARE @idTomaAbierta     UNIQUEIDENTIFIER;
+    DECLARE @idGrupo           UNIQUEIDENTIFIER;
+    DECLARE @numeroAnterior    SMALLINT;
+    DECLARE @marcadosAnterior  INT;
+    DECLARE @fechaCierreAnterior DATETIME2(0);
     DECLARE @totalTomas        INT;
     DECLARE @numero            SMALLINT;
     DECLARE @idToma            UNIQUEIDENTIFIER;
@@ -141,14 +148,7 @@ BEGIN
                 FROM dbo.TomaAsistencia t WITH (UPDLOCK, HOLDLOCK)
                 WHERE t.sesion = @idSesionDefecto;
 
-                IF @idTomaAbierta IS NOT NULL
-                BEGIN
-                    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'TOM_003', @p_param1 = @idSesionDefecto, @p_param2 = @idTomaAbierta,
-                        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-                    SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-                    SET @estadoResultado = 0;
-                END
-                ELSE IF @totalTomas >= @maximoTomas
+                IF @totalTomas >= @maximoTomas
                 BEGIN
                     SET @p1 = CONVERT(NVARCHAR(20), @maximoTomas);
                     SET @p2 = CONVERT(NVARCHAR(36), @idSesionDefecto);
@@ -161,6 +161,17 @@ BEGIN
                 END
                 ELSE
                 BEGIN
+                    IF @idTomaAbierta IS NOT NULL
+                    BEGIN
+                        SELECT @numeroAnterior = t.numero, @idGrupo = s.grupo
+                        FROM dbo.TomaAsistencia t INNER JOIN dbo.Sesion s ON s.id = t.sesion
+                        WHERE t.id = @idTomaAbierta;
+                        EXEC dbo.usp_internal_cerrar_toma
+                            @idToma = @idTomaAbierta, @idSesion = @idSesionDefecto, @idGrupo = @idGrupo, @marcarAusentes = NULL,
+                            @idCorrelacion = @idCorrelacionDefecto, @totalAusentesMarcados = @marcadosAnterior OUTPUT,
+                            @fechaCierreUtc = @fechaCierreAnterior OUTPUT;
+                    END
+
                     SET @idToma = NEWID();
                     SET @fechaApertura = SYSUTCDATETIME();
                     INSERT INTO dbo.TomaAsistencia (id, sesion, numero, modo, estado, esImplicita, docenteApertura, fechaAperturaUtc,
@@ -225,6 +236,9 @@ BEGIN
         fechaAperturaUtc        = IIF(@estadoResultado = 1, @fechaApertura, NULL),
         ventanaCierreUtc        = IIF(@estadoResultado = 1, @ventanaCierre, NULL),
         totalTomasSesion        = IIF(@estadoResultado = 1, @totalTomas, NULL),
-        horasToma               = IIF(@estadoResultado = 1, @horasToma, NULL);
+        horasToma               = IIF(@estadoResultado = 1, @horasToma, NULL),
+        idTomaCerradaAnterior       = IIF(@estadoResultado = 1, @idTomaAbierta, NULL),
+        numeroTomaCerradaAnterior   = IIF(@estadoResultado = 1, @numeroAnterior, NULL),
+        totalAusentesMarcadosAnterior = IIF(@estadoResultado = 1, @marcadosAnterior, NULL);
 END;
 GO

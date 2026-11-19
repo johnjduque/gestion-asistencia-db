@@ -29,7 +29,11 @@ INSERT INTO @requeridos (nombre) VALUES
  -- CULM-001 A.2: SP publicos nuevos que invoca el backend
  (N'usp_consultar_directorio_estudiantes_paginado'), (N'usp_consultar_estudiantes_grupo_ambito_paginado'),
  (N'usp_consultar_asistencias_grupo_ambito_paginado'), (N'usp_consultar_materias_estudiante'), (N'usp_consultar_horario_estudiante'),
- (N'usp_retirar_solicitud_revision_asistencia'), (N'usp_cambiar_estado_decano'), (N'usp_buscar_estudiante_por_documento_grupo');
+ (N'usp_retirar_solicitud_revision_asistencia'), (N'usp_cambiar_estado_decano'), (N'usp_buscar_estudiante_por_documento_grupo'),
+ -- ATA D1: aviso de falta por sesion (job del backend)
+ (N'usp_consultar_sesiones_pendientes_aviso_falta'), (N'usp_consultar_faltas_sesion_aviso'), (N'usp_registrar_aviso_falta_sesion'),
+ -- ATA D10: faltas por reclamar del estudiante
+ (N'usp_consultar_faltas_reclamables_estudiante');
 
 DECLARE @sinConcesion NVARCHAR(MAX) = (
     SELECT STRING_AGG(r.nombre, ', ')

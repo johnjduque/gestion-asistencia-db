@@ -18,6 +18,13 @@ GO
 --   (sesionesConFaltaSinJustaCausa / sesionesEjecutadas), solo trazabilidad. umbralAdvertencia / umbralPerdida: parametros.
 --   sesionesAsistidas / sesionesConFaltaSinJustaCausa / sesionesConExcusa: sesiones por estado consolidado (consumidores
 --   diferidos a D).
+-- ATA D2 (ADDENDUM_ATA_ASISTENCIA_TOMAS_AVISOS B): la perdida se mide contra el PERIODO. Columnas nuevas AL FINAL: sesionesPeriodo y
+--   horasPeriodo (suma de horasSesion de las sesiones con cuentaParaPeriodo = 1 de cualquier fecha: programadas, vencidas o futuras,
+--   extraordinarias aprobadas incluidas; canceladas y solicitudes pendientes o rechazadas excluidas). porcentajeInasistencia =
+--   ufn_calcular_porcentaje_inasistencia_horas(horasFalta, horasPeriodo) y codigoPermanencia se clasifica sobre ese valor.
+--   horasDictadas, sesionesEjecutadas, horasAsistidas / horasFalta / horasExcusa / horasSinRegistro y porcentajeInasistenciaSesiones
+--   conservan su significado (lo dictado hasta hoy; trazabilidad). Las columnas porcentajeAsistenciaHoras, porcentajeExcusaHoras y
+--   porcentajeSinRegistroHoras siguen sobre horasDictadas.
 -- CULM-001 B2NM: sin idPrograma (1 fila por matricula); el resumen por programa es uv_resumen_asistencia_estudiante_programa_grupo.
 -- PC BD-4 (rendimiento, sin cambio de resultado): las horas se agrupan tambien por idGrupo (grupo de la sesion = grupo de la
 -- matricula) y se unen por (idEstudianteGrupo, idGrupo); asi un filtro por grupo llega a uv_asistencia_sesion_horas antes de
@@ -51,7 +58,9 @@ SELECT  idEstudianteGrupo = eg.id,
         umbralPerdida = u.umbralPerdida,
         sesionesAsistidas = ISNULL(hs.sesionesAsistidas, 0),
         sesionesConFaltaSinJustaCausa = ISNULL(hs.sesionesConFalta, 0),
-        sesionesConExcusa = ISNULL(hs.sesionesConExcusa, 0)
+        sesionesConExcusa = ISNULL(hs.sesionesConExcusa, 0),
+        sesionesPeriodo = ISNULL(pe.sesionesPeriodo, 0),
+        horasPeriodo = hd.horasPeriodo
 FROM    dbo.uv_estudiante_grupo eg
 INNER JOIN dbo.uv_grupo g
 ON      g.id = eg.idGrupo
@@ -65,6 +74,15 @@ LEFT JOIN (
             GROUP BY c.idGrupo
           ) se
 ON      se.idGrupo = eg.idGrupo
+LEFT JOIN (
+            SELECT  c.idGrupo,
+                    sesionesPeriodo = COUNT(*),
+                    horasPeriodo = SUM(c.horasSesion)
+            FROM    dbo.uv_cumplimiento_sesion_grupo c
+            WHERE   c.cuentaParaPeriodo = 1
+            GROUP BY c.idGrupo
+          ) pe
+ON      pe.idGrupo = eg.idGrupo
 LEFT JOIN (
             SELECT  v.idEstudianteGrupo,
                     asistencias = SUM(IIF(v.asistio = 1, 1, 0)),
@@ -90,13 +108,14 @@ LEFT JOIN (
 ON      hs.idEstudianteGrupo = eg.id AND hs.idGrupo = eg.idGrupo
 CROSS APPLY (
             SELECT  horasDictadas = CAST(ISNULL(se.horasDictadas, 0) AS DECIMAL(12,6)),
+                    horasPeriodo = CAST(ISNULL(pe.horasPeriodo, 0) AS DECIMAL(12,6)),
                     horasAsistidas = CAST(ISNULL(hs.horasAsistidas, 0) AS DECIMAL(12,6)),
                     horasFalta = CAST(ISNULL(hs.horasFalta, 0) AS DECIMAL(12,6)),
                     horasExcusa = CAST(ISNULL(hs.horasExcusa, 0) AS DECIMAL(12,6)),
                     horasSinRegistro = CAST(IIF(ISNULL(se.horasDictadas, 0) - ISNULL(hs.horasAsistidas, 0) - ISNULL(hs.horasFalta, 0) - ISNULL(hs.horasExcusa, 0) < 0, 0,
                                                 ISNULL(se.horasDictadas, 0) - ISNULL(hs.horasAsistidas, 0) - ISNULL(hs.horasFalta, 0) - ISNULL(hs.horasExcusa, 0)) AS DECIMAL(12,6))
           ) hd
-CROSS APPLY (SELECT porcentaje = dbo.ufn_calcular_porcentaje_inasistencia_horas(hd.horasFalta, hd.horasDictadas)) p
+CROSS APPLY (SELECT porcentaje = dbo.ufn_calcular_porcentaje_inasistencia_horas(hd.horasFalta, hd.horasPeriodo)) p
 CROSS APPLY (
             SELECT  umbralAdvertencia = TRY_CAST(NULLIF(TRIM(CAST(dbo.ufn_obtener_parametro('ASISTENCIA', 'UMBRAL_ALERTA_ADVERTENCIA') AS NVARCHAR(20))), '') AS DECIMAL(5,2)),
                     umbralPerdida = TRY_CAST(NULLIF(TRIM(CAST(dbo.ufn_obtener_parametro('ASISTENCIA', 'UMBRAL_ALERTA_PERDIDA') AS NVARCHAR(20))), '') AS DECIMAL(5,2))

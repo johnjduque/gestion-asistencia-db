@@ -197,14 +197,14 @@ BEGIN TRY
     INSERT INTO #r2 (idFacultad, nombreFacultad, estaActivaFacultad, totalProgramas, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta) EXEC dbo.usp_consultar_comparativa_facultades @idUsuarioEjecutor = @uA1, @idCorrelacion = @c, @idPeriodoAcademico = NULL;
     IF (SELECT COUNT(*) FROM #r2) <> 3 THROW 54401, 'TEST FAILED: T-DB-11 se esperaban 3 facultades (F, F2, F3) y ninguna de I2', 1;
     IF EXISTS (SELECT 1 FROM #r2 WHERE idFacultad = @f4) THROW 54402, 'TEST FAILED: T-DB-11 F4 es de otra institucion', 1;
-    IF NOT EXISTS (SELECT 1 FROM #r2 WHERE idFacultad = @f AND estaActivaFacultad = 1 AND totalProgramas = 3 AND totalEstudiantes = 6 AND estudiantesRiesgo = 1 AND estudiantesPerdida = 3 AND tasaRetencion = 50.00 AND sesionesEjecutadas = 35 AND faltasSinJustaCausa = 6 AND porcentajeAusentismo = 17.14)
-        THROW 54403, 'TEST FAILED: T-DB-11 fila F distinta de la calculada a mano (3 / 6 / 1 / 3 / 50.00 / 35 / 6 / 17.14)', 1;
+    IF NOT EXISTS (SELECT 1 FROM #r2 WHERE idFacultad = @f AND estaActivaFacultad = 1 AND totalProgramas = 3 AND totalEstudiantes = 6 AND estudiantesRiesgo = 1 AND estudiantesPerdida = 2 AND tasaRetencion = 66.67 AND sesionesEjecutadas = 35 AND faltasSinJustaCausa = 6 AND porcentajeAusentismo = 9.23)
+        THROW 54403, 'TEST FAILED: T-DB-11 fila F distinta de la calculada a mano (3 / 6 / 1 / 2 / 66.67 / 35 / 6 / 9.23; ATA D2: denominador = horas del periodo, 12 h / 130 h)', 1;
     IF NOT EXISTS (SELECT 1 FROM #r2 WHERE idFacultad = @f2 AND estaActivaFacultad = 1 AND totalProgramas = 1 AND totalEstudiantes = 0 AND estudiantesRiesgo = 0 AND estudiantesPerdida = 0 AND tasaRetencion IS NULL AND sesionesEjecutadas = 0 AND faltasSinJustaCausa = 0 AND porcentajeAusentismo IS NULL)
         THROW 54404, 'TEST FAILED: T-DB-11 F2 sin datos: ceros en conteos y NULL en porcentajes', 1;
     IF NOT EXISTS (SELECT 1 FROM #r2 WHERE idFacultad = @f3 AND estaActivaFacultad = 0 AND totalProgramas = 0 AND totalEstudiantes = 0 AND tasaRetencion IS NULL AND porcentajeAusentismo IS NULL)
         THROW 54405, 'TEST FAILED: T-DB-11 F3 inactiva sin programas', 1;
     IF NOT ((SELECT idFacultad FROM #r2 WHERE n = 1) = @f AND (SELECT idFacultad FROM #r2 WHERE n = 2) = @f2 AND (SELECT idFacultad FROM #r2 WHERE n = 3) = @f3)
-        THROW 54406, 'TEST FAILED: T-DB-11 orden esperado F (17.14), luego F2 y F3 (NULL al final, por nombre)', 1;
+        THROW 54406, 'TEST FAILED: T-DB-11 orden esperado F (9.23), luego F2 y F3 (NULL al final, por nombre)', 1;
     -- T-DB-12: la suma por facultad coincide con el total de la institucion cuando no hay personas repetidas entre facultades
     IF (SELECT SUM(totalEstudiantes) FROM #r2) < 6 THROW 54407, 'TEST FAILED: T-DB-12 la suma por facultad debe ser >= al total de la institucion (6)', 1;
     PRINT 'TEST_PASS:HU139_COMPARATIVA_EXACTA';

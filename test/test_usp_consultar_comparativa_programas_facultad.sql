@@ -186,12 +186,12 @@ BEGIN TRY
     IF EXISTS (SELECT 1 FROM #r2 WHERE idPrograma = @px) THROW 53502, 'TEST FAILED: T-DB-11 PX es de otra facultad', 1;
     IF NOT EXISTS (SELECT 1 FROM #r2 WHERE idPrograma = @p2 AND estaActivoPrograma = 1 AND totalEstudiantes = 1 AND estudiantesRiesgo = 0 AND estudiantesPerdida = 1 AND tasaRetencion = 0.00 AND sesionesEjecutadas = 2 AND faltasSinJustaCausa = 1 AND porcentajeAusentismo = 50.00)
         THROW 53503, 'TEST FAILED: T-DB-11 fila P2 distinta de la calculada a mano (1 / 0 / 1 / 0.00 / 2 / 1 / 50.00)', 1;
-    IF NOT EXISTS (SELECT 1 FROM #r2 WHERE idPrograma = @p1 AND estaActivoPrograma = 1 AND totalEstudiantes = 5 AND estudiantesRiesgo = 1 AND estudiantesPerdida = 2 AND tasaRetencion = 60.00 AND sesionesEjecutadas = 33 AND faltasSinJustaCausa = 5 AND porcentajeAusentismo = 15.15)
-        THROW 53504, 'TEST FAILED: T-DB-11 fila P1 distinta de la calculada a mano (5 / 1 / 2 / 60.00 / 33 / 5 / 15.15)', 1;
+    IF NOT EXISTS (SELECT 1 FROM #r2 WHERE idPrograma = @p1 AND estaActivoPrograma = 1 AND totalEstudiantes = 5 AND estudiantesRiesgo = 1 AND estudiantesPerdida = 1 AND tasaRetencion = 80.00 AND sesionesEjecutadas = 33 AND faltasSinJustaCausa = 5 AND porcentajeAusentismo = 7.94)
+        THROW 53504, 'TEST FAILED: T-DB-11 fila P1 distinta de la calculada a mano (5 / 1 / 1 / 80.00 / 33 / 5 / 7.94; ATA D2: denominador = horas del periodo, 10 h / 126 h)', 1;
     IF NOT EXISTS (SELECT 1 FROM #r2 WHERE idPrograma = @p4 AND estaActivoPrograma = 0 AND totalEstudiantes = 0 AND estudiantesRiesgo = 0 AND estudiantesPerdida = 0 AND tasaRetencion IS NULL AND sesionesEjecutadas = 0 AND faltasSinJustaCausa = 0 AND porcentajeAusentismo IS NULL)
         THROW 53505, 'TEST FAILED: T-DB-12 P4 inactivo sin datos: ceros en conteos y NULL en porcentajes', 1;
     IF NOT ((SELECT idPrograma FROM #r2 WHERE n = 1) = @p2 AND (SELECT idPrograma FROM #r2 WHERE n = 2) = @p1 AND (SELECT idPrograma FROM #r2 WHERE n = 3) = @p4)
-        THROW 53506, 'TEST FAILED: T-DB-11 orden esperado P2 (50.00), P1 (15.15), P4 (NULL al final)', 1;
+        THROW 53506, 'TEST FAILED: T-DB-11 orden esperado P2 (50.00), P1 (7.94), P4 (NULL al final)', 1;
     PRINT 'TEST_PASS:HU103_COMPARATIVA_EXACTA';
     TRUNCATE TABLE #r2;
 
