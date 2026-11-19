@@ -18,6 +18,10 @@ Esta decisión contractual incorpora una capacidad de negocio post-freeze. No mo
 - `dbo.uv_periodo_academico_cierre` es una proyección interna mínima de `id` y `fechaCierreUtc`; no recibe permiso `SELECT` para `rol_asistencias_runtime`.
 - Ningún nombre o tipo de columna preexistente cambia. La migración explícita es `59_ses_gen_01_calendario_semestre_up|down.sql`; el número 57 pertenece a NOTOMA-001 y el 58 a HU074.
 
+## Manifiesto de integridad
+
+`schema/seed/62_val_mensajes_aplicacion.sql` y `scripts/migrar-marcadores.json` ya están registrados como `WORK_ITEM` en `DB_CULM001_D_POST_FREEZE_MANIFEST.sha256`; sus hashes se actualizan con SES-GEN-01. `DB_BASELINE_CONTRACT.md`, `DB_BASELINE_CONTRACT.sha256` y `DB_DEVELOP_FREEZE_MANIFEST.sha256` permanecen intactos.
+
 ## Semestre
 
 - Un período nuevo o editado en fechas dura exactamente 16 semanas corridas (112 días, extremos incluidos); un cambio solo de nombre no altera ni revalida las fechas históricas.
