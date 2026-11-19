@@ -162,8 +162,8 @@ BEGIN
                 OR (@nombreDefecto IS NOT NULL AND @nombreDefecto <> '' AND a.nombre <> @nombreDefecto)
                 OR (@creditos IS NOT NULL AND a.credito <> @creditos)
                 OR (@horasSemanales IS NOT NULL AND (a.horasSemanales IS NULL OR a.horasSemanales <> @horasSemanales))
-                OR (@idAreaResolved IS NOT NULL AND a.area <> @idAreaResolved)
-                OR (@idComponenteResolved IS NOT NULL AND a.componente <> @idComponenteResolved), 1, 0)
+                OR (@idAreaResolved IS NOT NULL AND a.idArea <> @idAreaResolved)
+                OR (@idComponenteResolved IS NOT NULL AND a.idComponente <> @idComponenteResolved), 1, 0)
             FROM dbo.uv_asignatura a WHERE a.id = @idAsignaturaDefecto;
 
             IF @cambiaCatalogo = 1
