@@ -411,6 +411,7 @@ def main():
     w("DELETE sc FROM dbo.SesionCancelacion sc JOIN dbo.Sesion s ON s.id = sc.sesion WHERE s.grupo = @gArq;\n")
     w("DELETE ss FROM dbo.SesionSolicitud ss JOIN dbo.Sesion s ON s.id = ss.sesion WHERE s.grupo = @gArq;\n")
     w("DELETE af FROM dbo.AvisoFaltaSesion af JOIN dbo.Sesion s ON s.id = af.sesion WHERE s.grupo = @gArq;\n")
+    w("DELETE ast FROM dbo.AvisoSesionSinToma ast JOIN dbo.Sesion s ON s.id = ast.sesion WHERE s.grupo = @gArq;\n")
     w("DELETE FROM dbo.Sesion WHERE grupo = @gArq;\nDELETE FROM dbo.Horario WHERE grupo = @gArq;\n")
     w("DELETE FROM dbo.EstudianteGrupo WHERE grupo = @gArq;\n")
     w("DELETE FROM dbo.Administrador WHERE id = 'F1A2B3C4-0000-0000-0000-000000000006';\n")

@@ -552,3 +552,9 @@ BEGIN
     ALTER TABLE [dbo].[AvisoFaltaSesion] ADD CONSTRAINT [FK_AvisoFaltaSesion_Sesion] FOREIGN KEY ([sesion]) REFERENCES [dbo].[Sesion] ([id]);
 END
 GO
+-- NOTOMA-001: marca de aviso de sesion sin toma al coordinador
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_AvisoSesionSinToma_Sesion')
+BEGIN
+    ALTER TABLE [dbo].[AvisoSesionSinToma] ADD CONSTRAINT [FK_AvisoSesionSinToma_Sesion] FOREIGN KEY ([sesion]) REFERENCES [dbo].[Sesion] ([id]);
+END
+GO
