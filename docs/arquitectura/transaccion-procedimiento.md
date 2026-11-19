@@ -512,9 +512,10 @@ Contiene la documentación oficial de:
 - **Flujo Paso a Paso (Paso Reactivo Atómico):**
   1. Validar `@idCorrelacion` y `@idUsuarioEjecutor` (obligatorio, GEN_002).
   2. Validar perfil `COORDINADOR` (SEC_001) y que el ejecutor coordine el programa de la asignatura (SEC_002).
-  3. Cambiar la bandera de estado de la asignatura.
+  3. Cambiar la bandera de estado de la asignatura. HU074 (migración 58): en una transacción (`SET XACT_ABORT ON`; la propia o la del llamador) lee la fila de `Asignatura` con `UPDLOCK, HOLDLOCK`; con `@estaActivaDeseada` (opcional, `NULL` alterna) igual al estado actual responde éxito sin cambios; al inactivar con grupos en un período vigente o futuro, `ASI_009`.
 - **Reglas de Negocio y Validaciones Específicas:**
   * Solo el coordinador titular del programa (REC2, auditoría BD 2026-10-28). El administrador no participa (modelo jerárquico RBAC).
+  * `usp_crear_grupo` toma el mismo bloqueo antes de validar `ASI_010` e insertar: inactivar y crear grupo a la vez se serializan.
 - **Estado Resultante en la BD:** Estado de la asignatura actualizado.
 
 ---

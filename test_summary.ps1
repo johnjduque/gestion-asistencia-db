@@ -746,6 +746,16 @@ try {
 catch {
     $resultFailures += "ATA_K_MIG_RUNNER $($_.Exception.Message)"
 }
+# HU074: migracion 58 (up/down/up) en test/test_hu074_migracion.ps1.
+try {
+    $hu074MigOutput = @(& (Join-Path $PSScriptRoot 'test/test_hu074_migracion.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $hu074MigOutput) { Write-Host $line }
+    if ($hu074MigOutput -contains 'TEST_PASS:HU074_MIG_UP_DOWN_UP') { $clientPassed += 'HU074_MIG_UP_DOWN_UP' }
+    else { $resultFailures += 'HU074_MIG_UP_DOWN_UP not reported by test_hu074_migracion.ps1' }
+}
+catch {
+    $resultFailures += "HU074_MIG_RUNNER $($_.Exception.Message)"
+}
 # CULM-001 D.9-a: migracion 28 (up/down/up, D-RB-03) en test/test_culm001_d9.ps1.
 try {
     $culm001D9Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d9.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
@@ -1186,7 +1196,14 @@ $criticalIds = @(
     'ATA_D10_05_MARCA_CORREGIDA', 'ATA_D10_06_MATRICULA_CANCELADA', 'ATA_D10_07_AISLAMIENTO', 'ATA_D10_08_PAGINACION', 'ATA_D10_09_RBAC_Y_VALIDACIONES',
     'ATA_D10_TRANCOUNT_ZERO',
     # ATA D11: retiro de la oferta de grupos del estudiante (test/test_ata_k_retiro_oferta_estudiante.sql) y migracion 55 (up/down/up)
-    'ATA_K_01_OFERTA_ESTUDIANTE_RETIRADA', 'ATA_K_02_OFERTA_DOCENTE_CONSERVADA', 'ATA_K_MIG_UP_DOWN_UP'
+    'ATA_K_01_OFERTA_ESTUDIANTE_RETIRADA', 'ATA_K_02_OFERTA_DOCENTE_CONSERVADA', 'ATA_K_MIG_UP_DOWN_UP',
+    # HU074: activar o inactivar asignaturas (test/test_hu074_estado_asignatura.sql) y migracion 58 (up/down/up, test/test_hu074_migracion.ps1)
+    'HU074_01_INACTIVAR_SIN_GRUPOS', 'HU074_02_REACTIVAR', 'HU074_03_GRUPO_PERIODO_VIGENTE', 'HU074_04_GRUPO_PERIODO_FUTURO',
+    'HU074_05_GRUPO_SOLO_PERIODO_PASADO', 'HU074_06_COMPARTIDA_PROGRAMA_AJENO', 'HU074_07_CREAR_GRUPO_INACTIVA', 'HU074_08_ASOCIAR_PLAN_INACTIVA',
+    'HU074_09_OFERTA_EXCLUYE_INACTIVA', 'HU074_10_ASOCIABLES_EXCLUYE_INACTIVA', 'HU074_11_MALLA_MUESTRA_INACTIVA',
+    'HU074_12_DESEADA_INACTIVA_YA_INACTIVA', 'HU074_13_DESEADA_ACTIVA_YA_ACTIVA', 'HU074_14_DESEADA_ACTIVA_DESDE_INACTIVA',
+    'HU074_15_COMPARTIDA_PROPIA_CON_GRUPO', 'HU074_16_BORDE_FIN_HOY', 'HU074_17_BORDE_INICIO_MANANA', 'HU074_18_CREAR_GRUPO_ACTIVA', 'HU074_TRANCOUNT_ZERO',
+    'HU074_MIG_UP_DOWN_UP'
 )
 if ($Concurrencia) { $criticalIds += 'CULM001_B2_CON_01_5X40' }
 $sqlPasses = @([regex]::Matches($outputStr, '(?m)^TEST_PASS:([A-Z0-9_]+)\s*$') | ForEach-Object { $_.Groups[1].Value })

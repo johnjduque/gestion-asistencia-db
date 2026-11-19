@@ -26,6 +26,9 @@ PRINT '======================================================================';
 :r /tmp/test/test_user_dean_close.sql
 :r /tmp/test/test_subject_catalog.sql
 :r /tmp/test/test_rec2_rbac_asignatura.sql
+-- HU074 (migracion 58): activar o inactivar asignaturas (ASI_009..ASI_012, @estaActivaDeseada idempotente, bordes de fecha) y efecto
+-- del estado en grupos, planes y ofertas
+:r /tmp/test/test_hu074_estado_asignatura.sql
 :r /tmp/test/test_reactive_academic.sql
 :r /tmp/test/test_mass_period_close.sql
 :r /tmp/test/test_usp_registrar_estudiante_en_grupo_usuario_no_existente.sql
