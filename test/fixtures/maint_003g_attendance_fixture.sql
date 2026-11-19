@@ -100,6 +100,8 @@ IF OBJECT_ID(N'dbo.SesionSolicitud', N'U') IS NOT NULL   -- DEC-065 (2): la soli
     DELETE FROM dbo.SesionSolicitud WHERE sesion = @session;
 IF OBJECT_ID(N'dbo.AvisoFaltaSesion', N'U') IS NOT NULL   -- ATA D1: marca de aviso de falta por sesion
     DELETE FROM dbo.AvisoFaltaSesion WHERE sesion = @session;
+IF OBJECT_ID(N'dbo.AvisoSesionSinToma', N'U') IS NOT NULL   -- NOTOMA-001: marca de aviso de sesion sin toma
+    DELETE FROM dbo.AvisoSesionSinToma WHERE sesion = @session;
 
 DELETE FROM dbo.Asistencia WHERE sesion = @session;
 

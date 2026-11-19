@@ -87,6 +87,7 @@ BEGIN
     DELETE FROM dbo.SesionCancelacion WHERE sesion IN (SELECT id FROM @s);
     DELETE FROM dbo.SesionSolicitud WHERE sesion IN (SELECT id FROM @s);   -- DEC-065 (2): usp_crear_sesion deja una solicitud PENDIENTE por sesion
     DELETE FROM dbo.AvisoFaltaSesion WHERE sesion IN (SELECT id FROM @s);  -- ATA D1: marca de aviso de falta por sesion
+    DELETE FROM dbo.AvisoSesionSinToma WHERE sesion IN (SELECT id FROM @s);  -- NOTOMA-001: marca de aviso de sesion sin toma
     DELETE a FROM dbo.Asistencia a
     WHERE a.sesion IN (SELECT id FROM @s)
       AND NOT EXISTS (SELECT 1 FROM dbo.SolicitudRevisionAsistencia sra WHERE sra.asistencia = a.id);
