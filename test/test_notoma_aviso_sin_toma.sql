@@ -16,6 +16,8 @@ SET XACT_ABORT OFF;
 --   NOTOMA_04_SESION_INEXISTENTE    registrar una sesion inexistente responde SES_001 y un total negativo GEN_002, sin escribir.
 --   NOTOMA_05_HABILITADO_FALSE      con HABILITADO = false no hay sesiones pendientes.
 --   NOTOMA_06_ATRASO_MAXIMO         HORAS_MAXIMAS_ATRASO acota: una sesion de hace 30 h solo entra al ampliar el parametro.
+--   NOTOMA_07_SIN_ESTUDIANTES       un grupo sin estudiantes activos (matricula activa y usuario activo) no se selecciona ni se marca; al llegar uno, se avisa.
+--   NOTOMA_08_DOCENTE_INACTIVO      la sesion de un docente con usuario inactivo no se selecciona ni se marca; al reactivarlo, se avisa.
 --   NOTOMA_TRANCOUNT_ZERO
 -- Todo dentro de una transaccion revertida.
 PRINT 'TEST START: test_notoma_aviso_sin_toma';
@@ -185,6 +187,69 @@ BEGIN TRY
         THROW 59541, 'TEST FAILED NOTOMA_04_SESION_INEXISTENTE: un total negativo responde GEN_002 sin escribir.', 1;
     TRUNCATE TABLE #ntR;
     PRINT 'TEST_PASS:NOTOMA_04_SESION_INEXISTENTE';
+
+    -- --------------------------------------------------------------------------------------------------------
+    -- 07: un grupo sin estudiantes activos no se avisa y NO se marca (si recibe estudiantes dentro del atraso, se avisa)
+    -- --------------------------------------------------------------------------------------------------------
+    DECLARE @gSinEst UNIQUEIDENTIFIER = NEWID(), @sSinEst UNIQUEIDENTIFIER = NEWID();
+    DECLARE @estNoA UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.EstadoEstudianteGrupo WHERE codigo <> N'A' ORDER BY codigo);
+    INSERT INTO dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron,
+        cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)
+    VALUES (@gSinEst, @asigOPT, @periodo, @codGrupo + 10, N'NOTOMA grupo sin estudiantes', 30, 0, 0, 0, @docT);
+    INSERT dbo.Sesion (id, nombre, numero, codigo, numeroSemana, grupo, fechaHoraInicio, fechaHoraFin, procedenciaTemporal)
+    VALUES (@sSinEst, N'NOTOMA S9', 709, N'NT9', 1, @gSinEst, DATEADD(MINUTE, -150, SYSUTCDATETIME()), DATEADD(MINUTE, -30, SYSUTCDATETIME()), N'UTC_V2');
+    INSERT INTO #ntP EXEC dbo.usp_consultar_sesiones_pendientes_aviso_sin_toma @idCorrelacion = @corr, @tamanoLote = 100000;
+    IF EXISTS (SELECT 1 FROM #ntP WHERE idSesion = @sSinEst) OR NOT EXISTS (SELECT 1 FROM #ntP WHERE idSesion = @s8)
+        THROW 59570, 'TEST FAILED NOTOMA_07_SIN_ESTUDIANTES: la sesion de un grupo sin ninguna matricula no es pendiente (S8 si).', 1;
+    TRUNCATE TABLE #ntP;
+    -- matricula no activa: sigue excluida
+    DECLARE @egSinEst UNIQUEIDENTIFIER = NEWID();
+    INSERT INTO dbo.EstudianteGrupo (id, estado, estudiante, grupo) VALUES (@egSinEst, @estNoA, @e0, @gSinEst);
+    INSERT INTO #ntP EXEC dbo.usp_consultar_sesiones_pendientes_aviso_sin_toma @idCorrelacion = @corr, @tamanoLote = 100000;
+    IF EXISTS (SELECT 1 FROM #ntP WHERE idSesion = @sSinEst)
+        THROW 59571, 'TEST FAILED NOTOMA_07_SIN_ESTUDIANTES: una matricula no activa no cuenta como estudiante activo.', 1;
+    TRUNCATE TABLE #ntP;
+    -- matricula activa pero usuario inactivo: sigue excluida
+    UPDATE dbo.EstudianteGrupo SET estado = @estA WHERE id = @egSinEst;
+    DECLARE @uE0Estado BIT = (SELECT estado FROM dbo.Usuario WHERE id = @uE0);
+    UPDATE dbo.Usuario SET estado = 0 WHERE id = @uE0;
+    INSERT INTO #ntP EXEC dbo.usp_consultar_sesiones_pendientes_aviso_sin_toma @idCorrelacion = @corr, @tamanoLote = 100000;
+    IF EXISTS (SELECT 1 FROM #ntP WHERE idSesion = @sSinEst)
+        THROW 59572, 'TEST FAILED NOTOMA_07_SIN_ESTUDIANTES: un estudiante con usuario inactivo no cuenta como estudiante activo.', 1;
+    TRUNCATE TABLE #ntP;
+    IF EXISTS (SELECT 1 FROM dbo.AvisoSesionSinToma WHERE sesion = @sSinEst)
+        THROW 59573, 'TEST FAILED NOTOMA_07_SIN_ESTUDIANTES: la exclusion no debe crear marca de aviso.', 1;
+    -- el estudiante activo llega dentro del atraso: la sesion se avisa
+    UPDATE dbo.Usuario SET estado = @uE0Estado WHERE id = @uE0;
+    INSERT INTO #ntP EXEC dbo.usp_consultar_sesiones_pendientes_aviso_sin_toma @idCorrelacion = @corr, @tamanoLote = 100000;
+    IF NOT EXISTS (SELECT 1 FROM #ntP WHERE idSesion = @sSinEst)
+        THROW 59574, 'TEST FAILED NOTOMA_07_SIN_ESTUDIANTES: con un estudiante activo (matricula activa y usuario activo) la sesion vuelve a ser pendiente.', 1;
+    TRUNCATE TABLE #ntP;
+    PRINT 'TEST_PASS:NOTOMA_07_SIN_ESTUDIANTES';
+
+    -- --------------------------------------------------------------------------------------------------------
+    -- 08: un docente inactivo no se avisa y NO se marca (si se reactiva dentro del atraso, se avisa)
+    -- --------------------------------------------------------------------------------------------------------
+    DECLARE @uDI UNIQUEIDENTIFIER = NEWID(), @docI UNIQUEIDENTIFIER = NEWID(), @gDocI UNIQUEIDENTIFIER = NEWID(), @sDocI UNIQUEIDENTIFIER = NEWID();
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
+    VALUES (@uDI, @tipoCC, 989000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Inactivo', N'Notoma', N'Doc', N'I', CONCAT(N'notoma.di.', LEFT(CONVERT(NVARCHAR(36), @uDI), 8), N'@test.local'), 1, 0, N'FIXTURE_DISABLED_ACCOUNT');
+    INSERT INTO dbo.Docente (id, usuario) VALUES (@docI, @uDI);
+    INSERT INTO dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron,
+        cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)
+    VALUES (@gDocI, @asigOPT, @periodo, @codGrupo + 11, N'NOTOMA grupo docente inactivo', 30, 0, 0, 0, @docI);
+    INSERT INTO dbo.EstudianteGrupo (id, estado, estudiante, grupo) VALUES (NEWID(), @estA, @e0, @gDocI);
+    INSERT dbo.Sesion (id, nombre, numero, codigo, numeroSemana, grupo, fechaHoraInicio, fechaHoraFin, procedenciaTemporal)
+    VALUES (@sDocI, N'NOTOMA S10', 710, N'NT10', 1, @gDocI, DATEADD(MINUTE, -150, SYSUTCDATETIME()), DATEADD(MINUTE, -30, SYSUTCDATETIME()), N'UTC_V2');
+    INSERT INTO #ntP EXEC dbo.usp_consultar_sesiones_pendientes_aviso_sin_toma @idCorrelacion = @corr, @tamanoLote = 100000;
+    IF EXISTS (SELECT 1 FROM #ntP WHERE idSesion = @sDocI) OR EXISTS (SELECT 1 FROM dbo.AvisoSesionSinToma WHERE sesion = @sDocI)
+        THROW 59580, 'TEST FAILED NOTOMA_08_DOCENTE_INACTIVO: la sesion de un docente inactivo no es pendiente y no se marca.', 1;
+    TRUNCATE TABLE #ntP;
+    UPDATE dbo.Usuario SET estado = 1 WHERE id = @uDI;
+    INSERT INTO #ntP EXEC dbo.usp_consultar_sesiones_pendientes_aviso_sin_toma @idCorrelacion = @corr, @tamanoLote = 100000;
+    IF NOT EXISTS (SELECT 1 FROM #ntP WHERE idSesion = @sDocI)
+        THROW 59581, 'TEST FAILED NOTOMA_08_DOCENTE_INACTIVO: al reactivar al docente la sesion vuelve a ser pendiente.', 1;
+    TRUNCATE TABLE #ntP;
+    PRINT 'TEST_PASS:NOTOMA_08_DOCENTE_INACTIVO';
 
     -- --------------------------------------------------------------------------------------------------------
     -- 06 (antes de 05 para no repetir el reinicio): HORAS_MAXIMAS_ATRASO acota la antiguedad
