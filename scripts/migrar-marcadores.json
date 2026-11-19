@@ -411,6 +411,14 @@
       { "restriccion": "FK_DocentePrograma_TipoVinculacion", "existe": false },
       { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'DOCENTE' AND clave = 'TIPO_VINCULACION_DEFECTO'", "existe": false },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'DOC_004'", "existe": false }
+    ],
+    "57_notoma_aviso_sesion_sin_toma": [
+      { "tabla": "dbo.AvisoSesionSinToma" },
+      { "objeto": "dbo.usp_consultar_sesiones_pendientes_aviso_sin_toma" },
+      { "objeto": "dbo.usp_consultar_destinatarios_aviso_sin_toma" },
+      { "objeto": "dbo.usp_registrar_aviso_sesion_sin_toma" },
+      { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'AVISO_SESION_SIN_TOMA' AND clave = 'LOTE'" },
+      { "tabla": "dbo.PlantillaNotificacion", "donde": "tipo = 'SESION_SIN_TOMA_COORDINADOR'" }
     ]
   }
 }

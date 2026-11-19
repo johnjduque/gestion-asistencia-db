@@ -510,3 +510,16 @@ Contrato: `AsistenciasUCO-Infra/docs/contracts/ADDENDUM_ATA_ASISTENCIA_TOMAS_AVI
 ## Addendum ATA D11 — retiro de la oferta de grupos del estudiante (HU008 descartada, 2026-11-18)
 
 Decisión del usuario: el sistema solo gestiona asistencia; la inscripción a grupos la gestiona otro sistema. Migración `55_ata_retiro_oferta_grupos_estudiante` (up/down). Se retiran `dbo.usp_consultar_oferta_grupos_estudiante` (y su EXECUTE, `rol_asistencias_runtime_hu008.sql`) y el parámetro `OFERTA.INCLUIR_TRANSVERSALES` (seed `24_parametro_oferta_grupos.sql`); las secciones "Addendum HU008" y la fila de `VAL_001` anteriores son históricas. Se conservan `usp_consultar_oferta_creacion_grupo_docente` y la regla de inscripción en el programa (`test/test_hu008_regla_inscripcion_programa.sql`). Prueba: `test/test_ata_k_retiro_oferta_estudiante.sql` y `test/test_ata_k_migracion.ps1`.
+
+## Addendum NOTOMA-001 — aviso a la coordinación cuando el docente no toma asistencia (2026-11-19)
+
+Work item: `AsistenciasUCO-Infra/docs/work-items/NOTOMA-001-aviso-coordinador-sesion-sin-toma/` (addendum propuesto, no congelado). Migración `57_notoma_aviso_sesion_sin_toma_up|down.sql`. Pruebas: `test/test_notoma_aviso_sin_toma.sql` y `test/test_notoma_migraciones.ps1`.
+
+| Objeto | Qué entrega o cambia | Ámbito | Códigos |
+|---|---|---|---|
+| `dbo.usp_consultar_sesiones_pendientes_aviso_sin_toma(@idCorrelacion, @tamanoLote)` | Comando de sistema NUEVO (sin usuario; lectura): `idSesion`, `idGrupo`, `fechaHoraFinUtc` de las sesiones terminadas SIN ninguna toma, no canceladas, sin solicitud pendiente, con la ventana de registro vencida, dentro de `AVISO_SESION_SIN_TOMA/HORAS_MAXIMAS_ATRASO` y sin aviso previo; lote = `@tamanoLote` o `AVISO_SESION_SIN_TOMA/LOTE`; `HABILITADO = false` da 0 filas | rol runtime (job) | sin cambio |
+| `dbo.usp_consultar_destinatarios_aviso_sin_toma(@idSesion, @idCorrelacion)` | Comando de sistema NUEVO (lectura): una fila por coordinador activo con correo de los programas vigentes del grupo (una persona sale una vez) con los datos de la sesión y del docente titular; 0 filas si la sesión no existe, está cancelada o tiene tomas | rol runtime (job) | sin cambio |
+| `dbo.usp_registrar_aviso_sesion_sin_toma(@idSesion, @totalCoordinadoresAvisados, @idCorrelacion)` | Comando de sistema NUEVO con la tupla canónica: marca la sesión en `AvisoSesionSinToma`; idempotente (si ya existe, éxito sin escritura) | rol runtime (job) | `GEN_002`, `SES_001` |
+| `dbo.AvisoSesionSinToma` | Tabla NUEVA: `sesion` (PK, FK a `Sesion`), `fechaAvisoUtc`, `totalCoordinadoresAvisados`, `idCorrelacion` | solo por SP | n/a |
+| Parámetros `AVISO_SESION_SIN_TOMA/HABILITADO`, `LOTE`, `HORAS_MAXIMAS_ATRASO` | `true`, 50 y 24; no editables por el administrador | n/a | n/a |
+| Plantilla `SESION_SIN_TOMA_COORDINADOR` (es, v1) | Texto del correo y 8 marcadores obligatorios (`coordinador`, `asignatura`, `grupo`, `fecha`, `horaInicio`, `horaFin`, `docente`, `enlaceSesiones`) | n/a | n/a |

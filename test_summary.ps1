@@ -726,6 +726,16 @@ try {
 catch {
     $resultFailures += "ATA_P1_MIG_RUNNER $($_.Exception.Message)"
 }
+# NOTOMA-001: migracion 57 (up/down/up) en test/test_notoma_migraciones.ps1.
+try {
+    $notomaMigOutput = @(& (Join-Path $PSScriptRoot 'test/test_notoma_migraciones.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $notomaMigOutput) { Write-Host $line }
+    if ($notomaMigOutput -contains 'TEST_PASS:NOTOMA_MIG_UP_DOWN_UP') { $clientPassed += 'NOTOMA_MIG_UP_DOWN_UP' }
+    else { $resultFailures += 'NOTOMA_MIG_UP_DOWN_UP not reported by test_notoma_migraciones.ps1' }
+}
+catch {
+    $resultFailures += "NOTOMA_MIG_RUNNER $($_.Exception.Message)"
+}
 # ATA D11: migracion 55 (up/down/up) en test/test_ata_k_migracion.ps1.
 try {
     $ataKMigOutput = @(& (Join-Path $PSScriptRoot 'test/test_ata_k_migracion.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
@@ -1159,10 +1169,15 @@ $criticalIds = @(
     # ATA P1-C: aviso de falta por sesion (test/test_ata_p1_aviso_falta.sql)
     'ATA_P1_C00_OBJETOS', 'ATA_P1_C01_SESIONES_PENDIENTES', 'ATA_P1_C02_FALTAS_POR_TOMA', 'ATA_P1_C03_REGISTRAR_IDEMPOTENTE', 'ATA_P1_C04_SESION_INEXISTENTE',
     'ATA_P1_C05_HABILITADO_FALSE', 'ATA_P1_C06_ATRASO_MAXIMO', 'ATA_P1_C_TRANCOUNT_ZERO',
+    # NOTOMA-001: aviso al coordinador de la sesion sin toma (test/test_notoma_aviso_sin_toma.sql)
+    'NOTOMA_00_OBJETOS', 'NOTOMA_01_PENDIENTES', 'NOTOMA_02_DESTINATARIOS', 'NOTOMA_03_REGISTRAR_IDEMPOTENTE', 'NOTOMA_04_SESION_INEXISTENTE',
+    'NOTOMA_05_HABILITADO_FALSE', 'NOTOMA_06_ATRASO_MAXIMO', 'NOTOMA_07_SIN_ESTUDIANTES', 'NOTOMA_08_DOCENTE_INACTIVO', 'NOTOMA_TRANCOUNT_ZERO',
     # ATA D9: nueva toma cierra la anterior (test/test_ata_p1_tomas_denominador.sql)
     'ATA_D9_01_NUEVA_TOMA_CIERRA_ANTERIOR', 'ATA_D9_02_MAXIMO_TOM_004_NO_CIERRA', 'ATA_D9_03_SIN_ABIERTA_COLUMNAS_NULL', 'ATA_D9_04_CIERRE_MANUAL_SIN_CAMBIOS',
     # ATA P1: migraciones 50 y 51 (test/test_ata_p1_migraciones.ps1)
     'ATA_P1_MIG_UP_DOWN_UP',
+    # NOTOMA-001: migracion 57 (test/test_notoma_migraciones.ps1)
+    'NOTOMA_MIG_UP_DOWN_UP',
     # ATA D6/D7: solicitudes de sesion del docente y calendario (test/test_ata_p2_solicitudes_calendario.sql)
     'ATA_P2_00_OBJETOS_Y_PERMISOS', 'ATA_P2_01_DOCENTE_VE_SUS_PENDIENTES', 'ATA_P2_02_TODAS_FILTRO_Y_PAGINACION', 'ATA_P2_03_AISLAMIENTO_Y_RBAC',
     'ATA_P2_04_CALENDARIO_DOCENTE', 'ATA_P2_05_CALENDARIO_ESTUDIANTE', 'ATA_P2_06_RANGO_Y_RBAC', 'ATA_P2_TRANCOUNT_ZERO',
