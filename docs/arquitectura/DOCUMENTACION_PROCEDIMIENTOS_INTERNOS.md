@@ -466,4 +466,4 @@ Todos los procedimientos listados en esta documentación han sido compilados y p
 - **Parámetros de Salida**: `@mensajeUsuarioResultado`, `@mensajeTecnicoResultado`, `@estadoResultado`.
 - **Invocado por**: `usp_crear_grupo` (PASO 2B, con `@bloquearFila = 1`, dentro de su transacción hasta el `INSERT`: se serializa con `usp_toggle_estado_asignatura`, que toma el mismo bloqueo) y `usp_asociar_asignatura_plan` (sin bloqueo). Sin `EXECUTE` para `rol_asistencias_runtime`.
 - **Códigos de Catálogo Consumidos**: `ASI_010`.
-- Work item: `docs/work-items/HU074-estado-asignatura/` (migración 57).
+- Work item: `docs/work-items/HU074-estado-asignatura/` (migración 58).

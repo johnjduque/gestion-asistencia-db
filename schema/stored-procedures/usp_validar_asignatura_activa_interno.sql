@@ -7,7 +7,7 @@ GO
 
 -- =============================================================================
 -- Procedimiento: [dbo].[usp_validar_asignatura_activa_interno]   (INTERNO: sin EXECUTE para el runtime)
--- HU074 (migracion 57): una asignatura inactiva (Asignatura.estado = 0) no se usa para crear grupos ni para asociarla a un
+-- HU074 (migracion 58): una asignatura inactiva (Asignatura.estado = 0) no se usa para crear grupos ni para asociarla a un
 -- plan: ASI_010. La existencia la valida el llamador (VAL_002 / GEN_001); una asignatura inexistente pasa esta validacion.
 -- Llamadores: usp_crear_grupo y usp_asociar_asignatura_plan. Los grupos existentes no cambian.
 -- @bloquearFila = 1: lee dbo.Asignatura con UPDLOCK, HOLDLOCK; el llamador debe tener una transaccion abierta (el bloqueo dura

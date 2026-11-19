@@ -57,7 +57,7 @@ BEGIN TRY
 
     TRUNCATE TABLE #subjectResult;
     SET @corr = NEWID();
-    -- HU074 (migracion 57): inactivar responde ASI_012 y reactivar ASI_011 (antes GEN_004 'EstadoAsignatura')
+    -- HU074 (migracion 58): inactivar responde ASI_012 y reactivar ASI_011 (antes GEN_004 'EstadoAsignatura')
     EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'ASI_012',
         @mensajeUsuarioResultado = @userMsg OUTPUT, @mensajeTecnicoResultado = @techMsg OUTPUT;
     INSERT INTO #subjectResult

@@ -3,7 +3,7 @@ param (
     [string]$Password = $env:MSSQL_SA_PASSWORD
 )
 
-# HU074: migracion 57 up -> down -> up con sqlcmd, y :r de migrations/.
+# HU074: migracion 58 up -> down -> up con sqlcmd, y :r de migrations/.
 #   HU074_MIG_UP_DOWN_UP     test_hu074_migracion.sql (transaccion revertida)
 # Salida: TEST_PASS:<ID> por caso aprobado y TEST FAILED: <ID> <motivo> por caso fallido.
 

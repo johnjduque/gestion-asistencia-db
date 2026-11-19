@@ -12,7 +12,7 @@ Ningún resultset cambia y ninguna firma pierde ni reordena parámetros (no brea
 `idCorrelacion, mensajeUsuarioResultado, mensajeTecnicoResultado, estadoResultado`; el mensaje técnico lleva
 `DBCODE=<código>|<texto técnico> Correlacion: <idCorrelacion>`.
 
-## Mensajes nuevos (`schema/seed/69_hu074_mensajes_estado_asignatura.sql`)
+## Mensajes nuevos (`schema/seed/70_hu074_mensajes_estado_asignatura.sql`)
 
 | Código | Tipo | Severidad | Mensaje de usuario |
 |---|---|---|---|

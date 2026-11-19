@@ -1,7 +1,7 @@
 -- ============================================================================
--- MIGRACION UP 57: HU074 activar o inactivar asignaturas (reglas nuevas)
+-- MIGRACION UP 58: HU074 activar o inactivar asignaturas (reglas nuevas)
 --   1. Mensajes ASI_009 (inactivar con grupos en el periodo vigente o futuro), ASI_010 (asignatura inactiva), ASI_011 y ASI_012 (exito:
---      quedo activa / inactiva). Seed: schema/seed/69_hu074_mensajes_estado_asignatura.sql.
+--      quedo activa / inactiva). Seed: schema/seed/70_hu074_mensajes_estado_asignatura.sql.
 --   2. Crea usp_validar_asignatura_activa_interno (ASI_010; interno, sin EXECUTE para el runtime).
 --   3. Recompila usp_toggle_estado_asignatura (ASI_009 al inactivar; ASI_011/ASI_012 en lugar de GEN_004), usp_crear_grupo (ASI_010) y
 --      usp_asociar_asignatura_plan (ASI_010 en lugar de GEN_001 para una asignatura inactiva). Resultsets sin cambio; los
@@ -9,7 +9,7 @@
 --      @estaActivaDeseada BIT = NULL (NULL alterna; 1/0 fija el estado y es idempotente).
 --   4. Concurrencia: el toggle (regla de grupos + UPDATE) y usp_crear_grupo (ASI_010 + INSERT) leen la fila de dbo.Asignatura con
 --      UPDLOCK, HOLDLOCK dentro de una transaccion (SET XACT_ABORT ON): inactivar y crear grupo a la vez se serializan.
--- Sin cambios de tablas. Los grupos existentes no cambian. Idempotente. Down: 57_hu074_estado_asignatura_reglas_down.sql.
+-- Sin cambios de tablas. Los grupos existentes no cambian. Idempotente. Down: 58_hu074_estado_asignatura_reglas_down.sql.
 -- ============================================================================
 :on error exit
 USE [gestionasistenciadb];
@@ -18,15 +18,15 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-PRINT 'MIGRACION 57 UP: HU074 estado de la asignatura';
+PRINT 'MIGRACION 58 UP: HU074 estado de la asignatura';
 GO
--- ---- schema/seed/69_hu074_mensajes_estado_asignatura.sql
+-- ---- schema/seed/70_hu074_mensajes_estado_asignatura.sql
 -- HU074: mensajes del estado de la asignatura (activar / inactivar y su efecto). Idempotente (MERGE por codigo).
 --   ASI_009  inactivar con grupos en el periodo vigente o en periodos futuros (usp_toggle_estado_asignatura)
 --   ASI_010  asignatura inactiva usada para crear un grupo o asociarla a un plan (usp_validar_asignatura_activa_interno)
 --   ASI_011  exito: la asignatura quedo activa
 --   ASI_012  exito: la asignatura quedo inactiva
--- Migracion: 57_hu074_estado_asignatura_reglas_up.sql.
+-- Migracion: 58_hu074_estado_asignatura_reglas_up.sql.
 MERGE INTO [dbo].[CatalogoMensajeUsuario] AS Target
 USING (VALUES
     ('ASI_009', 'BUSINESS_ERROR', 'ALTO',  N'No puedes inactivar la asignatura: tiene grupos en el período vigente o en períodos futuros.'),
@@ -59,7 +59,7 @@ GO
 -- ---- schema/stored-procedures/usp_validar_asignatura_activa_interno.sql
 -- =============================================================================
 -- Procedimiento: [dbo].[usp_validar_asignatura_activa_interno]   (INTERNO: sin EXECUTE para el runtime)
--- HU074 (migracion 57): una asignatura inactiva (Asignatura.estado = 0) no se usa para crear grupos ni para asociarla a un
+-- HU074 (migracion 58): una asignatura inactiva (Asignatura.estado = 0) no se usa para crear grupos ni para asociarla a un
 -- plan: ASI_010. La existencia la valida el llamador (VAL_002 / GEN_001); una asignatura inexistente pasa esta validacion.
 -- Llamadores: usp_crear_grupo y usp_asociar_asignatura_plan. Los grupos existentes no cambian.
 -- @bloquearFila = 1: lee dbo.Asignatura con UPDLOCK, HOLDLOCK; el llamador debe tener una transaccion abierta (el bloqueo dura
@@ -108,7 +108,7 @@ GO
 -- Procedimiento: [dbo].[usp_toggle_estado_asignatura]
 -- Alterna Asignatura.estado (activa <-> inactiva). RBAC COORDINADOR que coordine TODOS los programas con vinculo activo de la
 -- asignatura (usp_validar_gestion_asignatura_coordinador_interno con @exigirTodosLosProgramas = 1; si no, SEC_002 / ASI_006).
--- HU074 (migracion 57):
+-- HU074 (migracion 58):
 --   * Inactivar (1 -> 0) se rechaza con ASI_009 si la asignatura tiene grupos en un periodo academico vigente o futuro, en
 --     cualquier programa: uv_periodo_academico.estado distinto de CERRADO (fecha local institucional, TIEMPO/ZONA_HORARIA_SQLSERVER;
 --     misma regla que ASI_005 en usp_desvincular_asignatura_plan: fechaFin >= hoy). Grupo no tiene baja logica: cuentan todos.
@@ -236,7 +236,7 @@ END;
 GO
 -- ---- schema/stored-procedures/usp_crear_grupo.sql
 -- CULM-001 / DEC-065 (4): solo el COORDINADOR crea grupos; el DOCENTE recibe SEC_001 (perfil requerido COORDINADOR).
--- HU074 (migracion 57): una asignatura inactiva se rechaza con ASI_010 (usp_validar_asignatura_activa_interno). Desde el PASO 2B
+-- HU074 (migracion 58): una asignatura inactiva se rechaza con ASI_010 (usp_validar_asignatura_activa_interno). Desde el PASO 2B
 -- hasta el INSERT todo ocurre en una transaccion con la fila de dbo.Asignatura bloqueada (UPDLOCK, HOLDLOCK): una inactivacion
 -- simultanea (usp_toggle_estado_asignatura toma el mismo bloqueo) espera o se ve. Si el llamador ya tiene transaccion, se usa la suya.
 CREATE OR ALTER PROCEDURE [dbo].[usp_crear_grupo]
@@ -499,7 +499,7 @@ GO
 -- Procedimiento: [dbo].[usp_asociar_asignatura_plan]
 -- CULM-001 B2NM (DEC-019, R3): asocia una asignatura existente (catalogo) a un plan de estudios, con semestre y caracter.
 -- RBAC COORDINADOR; el plan existe (PLA_002) y es de un programa suyo (SEC_002); la asignatura existe y tiene algun vinculo en
--- un programa de la misma institucion (si no, GEN_001) y esta activa (HU074, migracion 57: si no, ASI_010). Reglas de vinculo en usp_internal_asociar_asignatura_plan
+-- un programa de la misma institucion (si no, GEN_001) y esta activa (HU074, migracion 58: si no, ASI_010). Reglas de vinculo en usp_internal_asociar_asignatura_plan
 -- (PLA_004, ASI_003, ASI_007). Salida canonica (idCorrelacion, mensajeUsuarioResultado, mensajeTecnicoResultado, estadoResultado).
 -- =============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_asociar_asignatura_plan]

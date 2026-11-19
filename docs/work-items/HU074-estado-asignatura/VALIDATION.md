@@ -57,6 +57,23 @@ Se intentó repetir la compuerta en un contenedor SQL Server 2022 desechable con
 **Pendiente:** correr la compuerta completa en un contenedor desechable con esa intercalación (o en el CI del PR) y anotar aquí los
 números; retirar el contenedor `qa_hu074_sql` si quedó creado.
 
+### Renumeración a la migración 58 (2026-11-19, integración de develop con NOTOMA-001)
+
+El PR #153 (NOTOMA-001) ocupó en develop la migración 57 (`57_notoma_aviso_sesion_sin_toma`) y el seed 69. HU074 pasa a
+`migrations/58_hu074_estado_asignatura_reglas_up|down.sql` y `schema/seed/70_hu074_mensajes_estado_asignatura.sql` (mismo contenido;
+solo cambian nombres y referencias). NOTOMA-001 no cambia `usp_toggle_estado_asignatura`, `usp_crear_grupo` ni
+`usp_asociar_asignatura_plan`, así que el down conserva el texto de develop. En la base local se ejecutó el down de HU074, se borró
+la fila `57_hu074_estado_asignatura_reglas` de `dbo.MigracionAplicada` y `scripts/migrar.ps1 -Modo Aplicar` aplicó la 57 de NOTOMA y la 58.
+
+| Paso | Resultado |
+|---|---|
+| `scripts/migrar.ps1 -Modo Aplicar` | `MIGRAR_APLICADA_AHORA 57_notoma_aviso_sesion_sin_toma` y `58_hu074_estado_asignatura_reglas`; `-Modo Estado`: `total=58 registradas=58 pendientes=0 deriva=0` |
+| `test/test_hu074_estado_asignatura.sql` | 19/19 PASAN |
+| `test/test_hu074_migracion.ps1` | `HU074_MIG_UP_DOWN_UP` PASA |
+| `test/test_notoma_aviso_sin_toma.sql`, `test/test_notoma_migraciones.ps1` | 10/10 PASAN; `NOTOMA_MIG_UP_DOWN_UP` PASA |
+| `test/test_contract_closure.sql`, `test/test_culm001_d3_parametros.sql` | 19/19 y 20/20 PASAN |
+| `freeze-manifest -Mode Verify`, `lb004d-manifest -Mode Verify`, `generar-catalogo-mensajes -Check` | OK (`culm001_d=81`, hash de `scripts/migrar-marcadores.json` actualizado), OK, OK (492 códigos) |
+
 ## Pendiente
 
 - Compuerta completa verde (ver arriba) y `VAL_MDET_*` en el CI.

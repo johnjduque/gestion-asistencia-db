@@ -9,7 +9,7 @@ GO
 -- Procedimiento: [dbo].[usp_toggle_estado_asignatura]
 -- Alterna Asignatura.estado (activa <-> inactiva). RBAC COORDINADOR que coordine TODOS los programas con vinculo activo de la
 -- asignatura (usp_validar_gestion_asignatura_coordinador_interno con @exigirTodosLosProgramas = 1; si no, SEC_002 / ASI_006).
--- HU074 (migracion 57):
+-- HU074 (migracion 58):
 --   * Inactivar (1 -> 0) se rechaza con ASI_009 si la asignatura tiene grupos en un periodo academico vigente o futuro, en
 --     cualquier programa: uv_periodo_academico.estado distinto de CERRADO (fecha local institucional, TIEMPO/ZONA_HORARIA_SQLSERVER;
 --     misma regla que ASI_005 en usp_desvincular_asignatura_plan: fechaFin >= hoy). Grupo no tiene baja logica: cuentan todos.

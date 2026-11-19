@@ -317,7 +317,8 @@ BEGIN TRY
        OR (SELECT MIN(totalRegistros) FROM #d3p) <> (SELECT COUNT(*) FROM #d3p)
         THROW 57350, 'TEST FAILED CULM001_D3_13: soloEditables = 1 no debe devolver tecnicos ni protegidos; debe exponer etiqueta, unidad, rango y ultimo cambio.', 1;
     TRUNCATE TABLE #d3p;
-    INSERT INTO #d3p EXEC dbo.usp_consultar_parametros_paginado @idUsuarioEjecutor = @admin, @idCorrelacion = @corr, @numeroPagina = 1, @tamanoPagina = 100, @soloEditables = 0;
+    INSERT INTO #d3p EXEC dbo.usp_consultar_parametros_paginado @idUsuarioEjecutor = @admin, @idCorrelacion = @corr, @numeroPagina = 1, @tamanoPagina = 100, @grupo = 'RED', @soloEditables = 0;
+    INSERT INTO #d3p EXEC dbo.usp_consultar_parametros_paginado @idUsuarioEjecutor = @admin, @idCorrelacion = @corr, @numeroPagina = 1, @tamanoPagina = 100, @grupo = 'SESION', @soloEditables = 0;
     IF NOT EXISTS (SELECT 1 FROM #d3p WHERE grupo = 'RED' AND esEditable = 0 AND esGrupoProtegido = 1) OR NOT EXISTS (SELECT 1 FROM #d3p WHERE grupo = 'SESION' AND esEditable = 0)
         THROW 57351, 'TEST FAILED CULM001_D3_13: soloEditables = 0 debe listar tambien los tecnicos de solo lectura.', 1;
     TRUNCATE TABLE #d3p;

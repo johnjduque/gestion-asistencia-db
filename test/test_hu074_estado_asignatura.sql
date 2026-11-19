@@ -1,6 +1,6 @@
 USE [gestionasistenciadb];
 GO
--- HU074 (migracion 57): activar o inactivar asignaturas. Fixtures propias dentro de UNA transaccion con ROLLBACK final (no deja datos).
+-- HU074 (migracion 58): activar o inactivar asignaturas. Fixtures propias dentro de UNA transaccion con ROLLBACK final (no deja datos).
 --   HU074_01_INACTIVAR_SIN_GRUPOS        sin grupos: queda inactiva con ASI_012
 --   HU074_02_REACTIVAR                   reactivar siempre se permite: ASI_011
 --   HU074_03_GRUPO_PERIODO_VIGENTE       grupo en el periodo vigente: ASI_009 y no cambia
@@ -19,7 +19,7 @@ GO
 --   HU074_16_BORDE_FIN_HOY               grupo en un periodo con fechaFin = hoy (fecha local institucional): vigente, ASI_009
 --   HU074_17_BORDE_INICIO_MANANA         grupo en un periodo con fechaInicio = manana: futuro, ASI_009 (tambien con @estaActivaDeseada = 0)
 --   HU074_18_CREAR_GRUPO_ACTIVA          usp_crear_grupo con una asignatura activa sigue creando el grupo (GEN_004) dentro de la
---                                        transaccion del llamador (regresion del bloqueo y la transaccion de la 57)
+--                                        transaccion del llamador (regresion del bloqueo y la transaccion de la 58)
 --   HU074_TRANCOUNT_ZERO                 no deja transacciones abiertas
 SET NOCOUNT ON;
 SET XACT_ABORT OFF;

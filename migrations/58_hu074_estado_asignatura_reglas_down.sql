@@ -1,6 +1,6 @@
 -- ============================================================================
--- MIGRACION DOWN 57: retira HU074 (reglas del estado de la asignatura)
---   Restaura el texto de develop (antes de la 57) de usp_toggle_estado_asignatura (alterna sin reglas, GEN_004), usp_crear_grupo (sin
+-- MIGRACION DOWN 58: retira HU074 (reglas del estado de la asignatura)
+--   Restaura el texto de develop (antes de la 58) de usp_toggle_estado_asignatura (alterna sin reglas, GEN_004), usp_crear_grupo (sin
 --   ASI_010) y usp_asociar_asignatura_plan (GEN_001 para una asignatura inactiva), elimina usp_validar_asignatura_activa_interno y los
 --   mensajes ASI_009..ASI_012. El estado de las asignaturas se conserva. Los permisos de los SP publicos se conservan. Idempotente.
 --   El toggle vuelve a su firma de develop (sin el parametro aditivo @estaActivaDeseada) y los dos SP vuelven a no bloquear la fila.
@@ -12,9 +12,9 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-PRINT 'MIGRACION 57 DOWN: retira HU074 estado de la asignatura';
+PRINT 'MIGRACION 58 DOWN: retira HU074 estado de la asignatura';
 GO
--- ---- schema/stored-procedures/usp_toggle_estado_asignatura.sql (texto de develop antes de la 57)
+-- ---- schema/stored-procedures/usp_toggle_estado_asignatura.sql (texto de develop antes de la 58)
 CREATE OR ALTER PROCEDURE [dbo].[usp_toggle_estado_asignatura]
 (
     @idAsignatura   UNIQUEIDENTIFIER,
@@ -91,7 +91,7 @@ BEGIN
         estadoResultado         = @estadoResultado;
 END;
 GO
--- ---- schema/stored-procedures/usp_crear_grupo.sql (texto de develop antes de la 57)
+-- ---- schema/stored-procedures/usp_crear_grupo.sql (texto de develop antes de la 58)
 -- CULM-001 / DEC-065 (4): solo el COORDINADOR crea grupos; el DOCENTE recibe SEC_001 (perfil requerido COORDINADOR).
 CREATE OR ALTER PROCEDURE [dbo].[usp_crear_grupo]
 (
@@ -318,7 +318,7 @@ BEGIN
         estadoResultado         = @estadoResultado;
 END;
 GO
--- ---- schema/stored-procedures/usp_asociar_asignatura_plan.sql (texto de develop antes de la 57)
+-- ---- schema/stored-procedures/usp_asociar_asignatura_plan.sql (texto de develop antes de la 58)
 -- =============================================================================
 -- Procedimiento: [dbo].[usp_asociar_asignatura_plan]
 -- CULM-001 B2NM (DEC-019, R3): asocia una asignatura existente (catalogo) a un plan de estudios, con semestre y caracter.

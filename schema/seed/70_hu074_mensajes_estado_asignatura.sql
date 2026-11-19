@@ -10,7 +10,7 @@ GO
 --   ASI_010  asignatura inactiva usada para crear un grupo o asociarla a un plan (usp_validar_asignatura_activa_interno)
 --   ASI_011  exito: la asignatura quedo activa
 --   ASI_012  exito: la asignatura quedo inactiva
--- Migracion: 57_hu074_estado_asignatura_reglas_up.sql.
+-- Migracion: 58_hu074_estado_asignatura_reglas_up.sql.
 MERGE INTO [dbo].[CatalogoMensajeUsuario] AS Target
 USING (VALUES
     ('ASI_009', 'BUSINESS_ERROR', 'ALTO',  N'No puedes inactivar la asignatura: tiene grupos en el período vigente o en períodos futuros.'),

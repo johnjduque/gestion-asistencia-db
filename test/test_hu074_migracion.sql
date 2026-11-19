@@ -1,6 +1,6 @@
--- HU074: migracion 57 up -> down -> up.
+-- HU074: migracion 58 up -> down -> up.
 -- Lo ejecuta test/test_hu074_migracion.ps1 con sqlcmd y la variable MIGDIR (copia de migrations/). Parte de una BD ya desplegada
--- desde schema/ (con la 57). Todo ocurre dentro de UNA transaccion que se revierte al final.
+-- desde schema/ (con la 58). Todo ocurre dentro de UNA transaccion que se revierte al final.
 --   HU074_MIG_UP1_OK      el up sobre una BD ya desplegada no cambia nada (idempotente)
 --   HU074_MIG_DOWN_OK     el down quita el interno y los mensajes ASI_009..ASI_012 y el toggle vuelve a GEN_004 (sin ASI_009 ni
 --                         @estaActivaDeseada)
@@ -16,13 +16,13 @@ BEGIN TRANSACTION;
 GO
 IF OBJECT_ID(N'dbo.usp_validar_asignatura_activa_interno', N'P') IS NULL
    OR (SELECT COUNT(*) FROM dbo.CatalogoMensajeUsuario WHERE codigo IN ('ASI_009', 'ASI_010', 'ASI_011', 'ASI_012')) <> 4
-    THROW 59570, 'TEST FAILED: HU074_MIG la base inicial no tiene la 57 (desplegar schema/ de la rama primero).', 1;
+    THROW 59570, 'TEST FAILED: HU074_MIG la base inicial no tiene la 58 (desplegar schema/ de la rama primero).', 1;
 GO
-:r $(MIGDIR)/57_hu074_estado_asignatura_reglas_up.sql
+:r $(MIGDIR)/58_hu074_estado_asignatura_reglas_up.sql
 GO
 PRINT 'HU074_MIG_UP1_OK';
 GO
-:r $(MIGDIR)/57_hu074_estado_asignatura_reglas_down.sql
+:r $(MIGDIR)/58_hu074_estado_asignatura_reglas_down.sql
 GO
 IF OBJECT_ID(N'dbo.usp_validar_asignatura_activa_interno', N'P') IS NOT NULL
    OR EXISTS (SELECT 1 FROM dbo.CatalogoMensajeUsuario WHERE codigo IN ('ASI_009', 'ASI_010', 'ASI_011', 'ASI_012'))
@@ -35,9 +35,9 @@ IF OBJECT_ID(N'dbo.usp_validar_asignatura_activa_interno', N'P') IS NOT NULL
     THROW 59571, 'TEST FAILED: HU074_MIG el down no restauro los SP ni retiro el interno y los mensajes.', 1;
 PRINT 'HU074_MIG_DOWN_OK';
 GO
-:r $(MIGDIR)/57_hu074_estado_asignatura_reglas_up.sql
+:r $(MIGDIR)/58_hu074_estado_asignatura_reglas_up.sql
 GO
-:r $(MIGDIR)/57_hu074_estado_asignatura_reglas_up.sql
+:r $(MIGDIR)/58_hu074_estado_asignatura_reglas_up.sql
 GO
 IF OBJECT_ID(N'dbo.usp_validar_asignatura_activa_interno', N'P') IS NULL
    OR (SELECT COUNT(*) FROM dbo.CatalogoMensajeUsuario WHERE codigo IN ('ASI_009', 'ASI_010', 'ASI_011', 'ASI_012')) <> 4

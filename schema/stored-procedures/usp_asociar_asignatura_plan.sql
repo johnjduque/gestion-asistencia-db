@@ -9,7 +9,7 @@ GO
 -- Procedimiento: [dbo].[usp_asociar_asignatura_plan]
 -- CULM-001 B2NM (DEC-019, R3): asocia una asignatura existente (catalogo) a un plan de estudios, con semestre y caracter.
 -- RBAC COORDINADOR; el plan existe (PLA_002) y es de un programa suyo (SEC_002); la asignatura existe y tiene algun vinculo en
--- un programa de la misma institucion (si no, GEN_001) y esta activa (HU074, migracion 57: si no, ASI_010). Reglas de vinculo en usp_internal_asociar_asignatura_plan
+-- un programa de la misma institucion (si no, GEN_001) y esta activa (HU074, migracion 58: si no, ASI_010). Reglas de vinculo en usp_internal_asociar_asignatura_plan
 -- (PLA_004, ASI_003, ASI_007). Salida canonica (idCorrelacion, mensajeUsuarioResultado, mensajeTecnicoResultado, estadoResultado).
 -- =============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_asociar_asignatura_plan]
