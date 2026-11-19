@@ -1,4 +1,4 @@
-USE [gestionasistenciadb];
+﻿USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
 GO
@@ -19,13 +19,15 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_actualizar_asignatura]
     -- REC2 (auditoria BD 2026-10-28): ejecutor obligatorio (GEN_002 si llega NULL). El DEFAULT solo conserva la
     -- compatibilidad de firma; RBAC COORDINADOR + titularidad del PROGRAMA se validan en usp_validar_gestion_asignatura_coordinador_interno.
     @idUsuarioEjecutor  UNIQUEIDENTIFIER = NULL,
-    @codigoCaracter     NVARCHAR(3) = NULL   -- CULM-001 B2NM: NULL conserva el caracter actual del vinculo
+    @codigoCaracter     NVARCHAR(3) = NULL,  -- CULM-001 B2NM: NULL conserva el caracter actual del vinculo
+    @horasSemanales     INT = NULL           -- SES-GEN-01: NULL conserva las horas actuales
 )
 AS
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idAsignaturaDefecto  UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idAsignatura, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @codigoDefecto        NVARCHAR(50)     = UPPER(TRIM(@codigo));
     DECLARE @creditosMaximo           INT              = dbo.ufn_obtener_parametro_int(NULL, 'ASIGNATURA', 'CREDITOS_MAXIMO');
+    DECLARE @horasSemanalesMaximo     INT              = dbo.ufn_obtener_parametro_int(NULL, 'ASIGNATURA', 'HORAS_SEMANALES_MAXIMO');
     DECLARE @nombreDefecto        NVARCHAR(50)     = TRIM(@nombre);
     DECLARE @idAreaResolved       UNIQUEIDENTIFIER;
     DECLARE @idComponenteResolved UNIQUEIDENTIFIER;
@@ -91,6 +93,20 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 2.1c (SES-GEN-01 H-04): horasSemanales, si llega, es un entero entre 1 y ASIGNATURA/HORAS_SEMANALES_MAXIMO (ASI_009).
+        --          Limite ausente: fail-closed. NULL = sin cargar (crear) o sin cambio (actualizar).
+        IF @estadoResultado = 1 AND @horasSemanales IS NOT NULL AND (@horasSemanalesMaximo IS NULL OR @horasSemanales < 1 OR @horasSemanales > @horasSemanalesMaximo)
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'ASI_009',
+                @p_param1 = @horasSemanalesMaximo,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
         -- PASO 3: Validar unicidad del código si cambia
         IF @estadoResultado = 1 AND @codigoDefecto IS NOT NULL AND @codigoDefecto <> ''
         BEGIN
@@ -146,6 +162,7 @@ BEGIN
                    (@codigoDefecto IS NOT NULL AND @codigoDefecto <> '' AND a.codigo <> @codigoDefecto)
                 OR (@nombreDefecto IS NOT NULL AND @nombreDefecto <> '' AND a.nombre <> @nombreDefecto)
                 OR (@creditos IS NOT NULL AND a.credito <> @creditos)
+                OR (@horasSemanales IS NOT NULL AND (a.horasSemanales IS NULL OR a.horasSemanales <> @horasSemanales))
                 OR (@idAreaResolved IS NOT NULL AND a.area <> @idAreaResolved)
                 OR (@idComponenteResolved IS NOT NULL AND a.componente <> @idComponenteResolved), 1, 0)
             FROM dbo.Asignatura a WHERE a.id = @idAsignaturaDefecto;
@@ -186,6 +203,7 @@ BEGIN
                 SET codigo = CASE WHEN @codigoDefecto IS NOT NULL AND @codigoDefecto <> '' THEN @codigoDefecto ELSE codigo END,
                     nombre = CASE WHEN @nombreDefecto IS NOT NULL AND @nombreDefecto <> '' THEN @nombreDefecto ELSE nombre END,
                     credito = CASE WHEN @creditos IS NOT NULL THEN @creditos ELSE credito END,
+                    horasSemanales = CASE WHEN @horasSemanales IS NOT NULL THEN @horasSemanales ELSE horasSemanales END,
                     area = CASE WHEN @idAreaResolved IS NOT NULL THEN @idAreaResolved ELSE area END,
                     componente = CASE WHEN @idComponenteResolved IS NOT NULL THEN @idComponenteResolved ELSE componente END
                 WHERE id = @idAsignaturaDefecto;

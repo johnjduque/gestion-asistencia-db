@@ -1,4 +1,4 @@
-USE [gestionasistenciadb];
+﻿USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
 GO
@@ -10,6 +10,10 @@ GO
 -- Reglas: formato, dia existente y horaFin > horaInicio (HOR_004); las franjas del grupo no se traslapan entre si,
 -- las contiguas si se permiten (HOR_003); el docente titular no tiene otro grupo a la misma hora en el periodo (HOR_002,
 -- usp_validar_cruce_horario_docente_interno). Grupo de otro programa: SEC_002. Ninguna regla deja escrituras parciales.
+-- SES-GEN-01: ademas, cada franja dura entre HORARIO/DURACION_MINIMA_MINUTOS y DURACION_MAXIMA_MINUTOS y cae dentro de la ventana
+-- HORARIO/VENTANA_INICIO..VENTANA_FIN (HOR_007/HOR_008); la suma semanal de las franjas es igual, exacta, a asignatura.horasSemanales * 60
+-- minutos (HOR_006; con horasSemanales NULL no se valida); y el horario nuevo no cruza con otros grupos de los estudiantes ya inscritos
+-- (HOR_009). Un parametro de horario ausente omite su regla (B7); B9 se valida dentro de la transaccion y deshace el reemplazo si falla.
 CREATE OR ALTER PROCEDURE [dbo].[usp_guardar_horarios_grupo]
 (
     @idGrupo                 UNIQUEIDENTIFIER,
@@ -25,6 +29,19 @@ AS
     DECLARE @motivoInvalido           NVARCHAR(200);
     DECLARE @franjaA                  NVARCHAR(100);
     DECLARE @franjaB                  NVARCHAR(100);
+    DECLARE @duracionMinima           INT          = dbo.ufn_obtener_parametro_int(NULL, 'HORARIO', 'DURACION_MINIMA_MINUTOS');
+    DECLARE @duracionMaxima           INT          = dbo.ufn_obtener_parametro_int(NULL, 'HORARIO', 'DURACION_MAXIMA_MINUTOS');
+    DECLARE @ventanaInicio            TIME(0)      = TRY_CAST(dbo.ufn_obtener_parametro('HORARIO', 'VENTANA_INICIO') AS TIME(0));
+    DECLARE @ventanaFin               TIME(0)      = TRY_CAST(dbo.ufn_obtener_parametro('HORARIO', 'VENTANA_FIN') AS TIME(0));
+    DECLARE @codigoRechazoHorario     VARCHAR(10);
+    DECLARE @franjaRechazo            NVARCHAR(100);
+    DECLARE @horasSemanalesMateria    INT;
+    DECLARE @minutosFranjas           INT;
+    DECLARE @estudiantesCruzados      INT;
+    DECLARE @textoParametro1          NVARCHAR(500);
+    DECLARE @textoParametro2          NVARCHAR(500);
+    DECLARE @franjaCruce              NVARCHAR(100);
+    DECLARE @codigoMatriculaActiva    NVARCHAR(10) = CAST(dbo.ufn_obtener_parametro('MATRICULA', 'ESTADO_INSCRITA') AS NVARCHAR(10));
 
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -149,6 +166,68 @@ BEGIN
             END
         END
 
+        -- PASO 5.1 (SES-GEN-01 B7): duracion minima/maxima de cada franja (HOR_007) y ventana horaria institucional (HOR_008)
+        IF @estadoResultado = 1
+        BEGIN
+            SELECT TOP 1
+                @franjaRechazo = CONCAT(nombreDia, ' ', CONVERT(CHAR(5), horaInicio, 108), '-', CONVERT(CHAR(5), horaFin, 108)),
+                @codigoRechazoHorario = CASE
+                    WHEN @duracionMinima IS NOT NULL AND DATEDIFF(MINUTE, horaInicio, horaFin) < @duracionMinima THEN 'HOR_007'
+                    WHEN @duracionMaxima IS NOT NULL AND DATEDIFF(MINUTE, horaInicio, horaFin) > @duracionMaxima THEN 'HOR_007'
+                    WHEN @ventanaInicio IS NOT NULL AND @ventanaFin IS NOT NULL AND (horaInicio < @ventanaInicio OR horaFin > @ventanaFin) THEN 'HOR_008'
+                END
+            FROM @franjas
+            WHERE (@duracionMinima IS NOT NULL AND DATEDIFF(MINUTE, horaInicio, horaFin) < @duracionMinima)
+               OR (@duracionMaxima IS NOT NULL AND DATEDIFF(MINUTE, horaInicio, horaFin) > @duracionMaxima)
+               OR (@ventanaInicio IS NOT NULL AND @ventanaFin IS NOT NULL AND (horaInicio < @ventanaInicio OR horaFin > @ventanaFin))
+            ORDER BY secuencia;
+
+            IF @codigoRechazoHorario = 'HOR_007'
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'HOR_007', @p_param1 = @franjaRechazo, @p_param2 = @duracionMinima, @p_param3 = @duracionMaxima,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            ELSE IF @codigoRechazoHorario = 'HOR_008'
+            BEGIN
+                SET @textoParametro2 = CONCAT(CONVERT(CHAR(5), @ventanaInicio, 108), '-', CONVERT(CHAR(5), @ventanaFin, 108));
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'HOR_008', @p_param1 = @franjaRechazo, @p_param2 = @textoParametro2,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            END
+
+            IF @codigoRechazoHorario IS NOT NULL
+            BEGIN
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+        END
+
+        -- PASO 5.2 (SES-GEN-01 B5): las horas semanales de las franjas (suma de duraciones) igualan, exacto, las de la materia (HOR_006).
+        --          Materia sin horas cargadas (NULL): no se valida.
+        IF @estadoResultado = 1
+        BEGIN
+            SELECT @horasSemanalesMateria = a.horasSemanales
+            FROM dbo.Grupo g
+            INNER JOIN dbo.Asignatura a ON a.id = g.asignatura
+            WHERE g.id = @idGrupoDefecto;
+
+            SELECT @minutosFranjas = SUM(DATEDIFF(MINUTE, horaInicio, horaFin)) FROM @franjas;
+
+            IF @horasSemanalesMateria IS NOT NULL AND @minutosFranjas <> @horasSemanalesMateria * 60
+            BEGIN
+                SET @textoParametro1 = IIF(@minutosFranjas % 60 = 0, CAST(@minutosFranjas / 60 AS NVARCHAR(20)), CAST(CAST(@minutosFranjas / 60.0 AS DECIMAL(6, 2)) AS NVARCHAR(20)));
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'HOR_006',
+                    @p_param1 = @textoParametro1,
+                    @p_param2 = @horasSemanalesMateria,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+        END
+
         -- PASO 6: Reemplazo atomico de las franjas y cruce del docente titular (HOR_002) sobre el horario nuevo
         IF @estadoResultado = 1
         BEGIN
@@ -181,6 +260,32 @@ BEGIN
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                     @estadoResultado = @estadoResultado OUTPUT;
+            END
+
+            -- PASO 6.1 (SES-GEN-01 B9): el horario nuevo no cruza con otros grupos de los estudiantes ya inscritos (HOR_009)
+            IF @estadoResultado = 1
+            BEGIN
+                SELECT @estudiantesCruzados = COUNT(DISTINCT egNuevo.idEstudiante),
+                       @franjaCruce = MIN(CONCAT(hNuevo.nombreDia, ' ', CONVERT(CHAR(5), hNuevo.horaInicio, 108), '-', CONVERT(CHAR(5), hNuevo.horaFin, 108)))
+                FROM dbo.uv_horario hNuevo
+                INNER JOIN dbo.uv_horario hExistente
+                    ON hExistente.idDia = hNuevo.idDia AND hExistente.idPeriodoAcademico = hNuevo.idPeriodoAcademico AND hExistente.idGrupo <> hNuevo.idGrupo
+                INNER JOIN dbo.uv_estudiante_grupo egNuevo
+                    ON egNuevo.idGrupo = hNuevo.idGrupo AND egNuevo.codigoEstadoEstudiante = @codigoMatriculaActiva
+                INNER JOIN dbo.uv_estudiante_grupo egOtro
+                    ON egOtro.idGrupo = hExistente.idGrupo AND egOtro.codigoEstadoEstudiante = @codigoMatriculaActiva AND egOtro.idEstudiante = egNuevo.idEstudiante
+                WHERE hNuevo.idGrupo = @idGrupoDefecto
+                  AND hNuevo.horaInicio < hExistente.horaFin AND hNuevo.horaFin > hExistente.horaInicio;
+
+                IF @estudiantesCruzados > 0
+                BEGIN
+                    EXEC dbo.usp_obtener_mensaje_catalogo
+                        @p_codigo = 'HOR_009', @p_param1 = @estudiantesCruzados, @p_param2 = @franjaCruce,
+                        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+                    SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                    SET @estadoResultado = 0;
+                END
             END
 
             IF @estadoResultado = 1

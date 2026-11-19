@@ -1,4 +1,4 @@
-USE [gestionasistenciadb];
+﻿USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
 GO
@@ -28,6 +28,7 @@ AS
 
     DECLARE @idPeriodoResolved         UNIQUEIDENTIFIER = @idPeriodoAcademicoDefecto;
     DECLARE @capacidadMaximaDefecto    INT;
+    DECLARE @nombrePeriodoRechazo      NVARCHAR(500);
 
     -- Variables locales de respuesta
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -86,16 +87,29 @@ BEGIN
             END
         END
 
-        -- PASO 3: Resolver período académico si viene nulo/guid defecto
+        -- PASO 2B (SES-GEN-01 B1, DR-14): la asignatura esta activa, tiene vinculo activo con un plan activo, y el coordinador coordina
+        --          TODOS los programas donde esta activa (mismo criterio que la edicion de asignaturas compartidas). Antes solo se
+        --          comprobaba que existiera (el ambito solo lo validaba usp_guardar_horarios_grupo, y solo con franjas).
+        IF @estadoResultado = 1
+           AND (NOT EXISTS (SELECT 1 FROM [dbo].[uv_asignatura] a WHERE a.id = @idAsignaturaDefecto AND a.estaActivaAsignatura = 1)
+                OR NOT EXISTS (SELECT 1 FROM [dbo].[uv_asignatura_plan_estudio] v
+                               WHERE v.idAsignatura = @idAsignaturaDefecto AND v.estaActivoVinculo = 1 AND v.estaActivoPlan = 1)
+                OR EXISTS (SELECT 1 FROM [dbo].[uv_asignatura_plan_estudio] v
+                           WHERE v.idAsignatura = @idAsignaturaDefecto AND v.estaActivoVinculo = 1 AND v.estaActivoPlan = 1
+                             AND NOT EXISTS (SELECT 1 FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutorDefecto) cp WHERE cp.idPrograma = v.idPrograma)))
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'ASI_010',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
+        -- PASO 3: El periodo academico es obligatorio y debe existir (SES-GEN-01 DR-06: ya no se sustituye en silencio por el mas reciente)
         IF @estadoResultado = 1
         BEGIN
-            IF @idPeriodoResolved IS NULL OR NOT EXISTS (SELECT 1 FROM [dbo].[uv_periodo_academico] WHERE id = @idPeriodoResolved)
-            BEGIN
-                SELECT TOP 1 @idPeriodoResolved = id 
-                FROM [dbo].[uv_periodo_academico] 
-                ORDER BY anio DESC;
-            END
-
             IF @idPeriodoResolved IS NULL OR NOT EXISTS (SELECT 1 FROM [dbo].[uv_periodo_academico] WHERE id = @idPeriodoResolved)
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
@@ -107,6 +121,28 @@ BEGIN
                 SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
                 SET @estadoResultado = 0;
             END
+        END
+
+        -- PASO 3B (SES-GEN-01 B2): el periodo es de la institucion del coordinador y no esta terminado ni cerrado (PER_010)
+        IF @estadoResultado = 1
+           AND NOT EXISTS (SELECT 1
+                           FROM [dbo].[uv_periodo_academico] pa
+                           INNER JOIN dbo.PeriodoAcademico p ON p.id = pa.id
+                           WHERE pa.id = @idPeriodoResolved
+                             AND pa.estado <> 'CERRADO'
+                             AND p.fechaCierreUtc IS NULL
+                             AND pa.idInstitucion IN (SELECT pr.idInstitucion FROM [dbo].[uv_programa] pr
+                                                      WHERE pr.id IN (SELECT cp.idPrograma FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutorDefecto) cp)))
+        BEGIN
+            SELECT TOP 1 @nombrePeriodoRechazo = pa.nombre FROM [dbo].[uv_periodo_academico] pa WHERE pa.id = @idPeriodoResolved;
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'PER_010',
+                @p_param1 = @nombrePeriodoRechazo,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
         END
 
         -- PASO 4: Validar docente mediante procedimiento interno estandarizado

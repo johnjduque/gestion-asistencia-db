@@ -1,4 +1,4 @@
-USE [gestionasistenciadb];
+﻿USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
 GO
@@ -27,7 +27,8 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_crear_asignatura]
     @nombreComponente   NVARCHAR(100),
     @idCorrelacion      UNIQUEIDENTIFIER,
     @idUsuarioEjecutor  UNIQUEIDENTIFIER = NULL,
-    @codigoCaracter     NVARCHAR(3) = NULL   -- CULM-001 B2NM (R1): NULL -> ASIGNATURA_PLAN/CARACTER_DEFECTO
+    @codigoCaracter     NVARCHAR(3) = NULL,  -- CULM-001 B2NM (R1): NULL -> ASIGNATURA_PLAN/CARACTER_DEFECTO
+    @horasSemanales     INT = NULL           -- SES-GEN-01: horas semanales de 60 min; NULL = sin cargar
 )
 AS
     DECLARE @idCorrelacionDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
@@ -36,6 +37,7 @@ AS
     DECLARE @idUsuarioEjecutorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @codigoDefecto            NVARCHAR(50)     = UPPER(TRIM(@codigo));
     DECLARE @creditosMaximo           INT              = dbo.ufn_obtener_parametro_int(NULL, 'ASIGNATURA', 'CREDITOS_MAXIMO');
+    DECLARE @horasSemanalesMaximo     INT              = dbo.ufn_obtener_parametro_int(NULL, 'ASIGNATURA', 'HORAS_SEMANALES_MAXIMO');
     DECLARE @nombreDefecto            NVARCHAR(50)     = TRIM(@nombre);
     DECLARE @nombreAreaDefecto        NVARCHAR(100)    = TRIM(@nombreArea);
     DECLARE @nombreCompDefecto        NVARCHAR(100)    = TRIM(@nombreComponente);
@@ -115,6 +117,20 @@ BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'ASI_008',
                 @p_param1 = @creditosMaximo,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
+        -- PASO 2.1c (SES-GEN-01 H-04): horasSemanales, si llega, es un entero entre 1 y ASIGNATURA/HORAS_SEMANALES_MAXIMO (ASI_009).
+        --          Limite ausente: fail-closed. NULL = sin cargar (crear) o sin cambio (actualizar).
+        IF @estadoResultado = 1 AND @horasSemanales IS NOT NULL AND (@horasSemanalesMaximo IS NULL OR @horasSemanales < 1 OR @horasSemanales > @horasSemanalesMaximo)
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'ASI_009',
+                @p_param1 = @horasSemanalesMaximo,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
@@ -223,8 +239,8 @@ BEGIN
 
             IF @estadoResultado = 1
             BEGIN
-                INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, estado)
-                VALUES (@idAsignaturaDefecto, @codigoDefecto, @nombreDefecto, @creditos, @idAreaResolved, @idComponenteResolved, 1);
+                INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, estado, horasSemanales)
+                VALUES (@idAsignaturaDefecto, @codigoDefecto, @nombreDefecto, @creditos, @idAreaResolved, @idComponenteResolved, 1, @horasSemanales);
 
                 EXEC dbo.usp_internal_asociar_asignatura_plan
                     @idAsignatura = @idAsignaturaDefecto,

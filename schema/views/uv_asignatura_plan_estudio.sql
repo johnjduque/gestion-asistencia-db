@@ -1,4 +1,4 @@
-USE [gestionasistenciadb];
+﻿USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
 GO
@@ -13,6 +13,7 @@ SELECT  idAsignaturaPlanEstudio = ape.id,
         codigoAsignatura = a.codigo,
         nombreAsignatura = a.nombre,
         credito = a.credito,
+        horasSemanales = a.horasSemanales,
         idArea = a.idArea,
         nombreArea = a.nombreArea,
         idComponente = a.idComponente,

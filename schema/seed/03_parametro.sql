@@ -33,6 +33,13 @@ USING (VALUES
 
     -- Parámetros de Grupos y Cupos
     ('GRUPO', 'CAPACIDAD_MAXIMA_DEFECTO', '40', 'INT', '40'),
+    -- SES-GEN-01 (migracion 57): calendario de sesiones del semestre
+    ('PERIODO', 'SEMANAS_DURACION', '16', 'INT', '16'),
+    ('ASIGNATURA', 'HORAS_SEMANALES_MAXIMO', '40', 'INT', '40'),
+    ('HORARIO', 'DURACION_MINIMA_MINUTOS', '60', 'INT', '60'),
+    ('HORARIO', 'DURACION_MAXIMA_MINUTOS', '240', 'INT', '240'),
+    ('HORARIO', 'VENTANA_INICIO', '06:00', 'STRING', '06:00'),
+    ('HORARIO', 'VENTANA_FIN', '22:00', 'STRING', '22:00'),
 
     -- Parámetros de Control de Asistencia y Tolerancia
     ('ASISTENCIA', 'TOLERANCIA_MINUTOS', '15', 'INT', '15'),

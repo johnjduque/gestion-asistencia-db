@@ -1,4 +1,4 @@
-USE [gestionasistenciadb];
+﻿USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
 GO
@@ -25,6 +25,10 @@ AS
     DECLARE @nombreDef                NVARCHAR(50)     = TRIM(@nombre);
     DECLARE @idInstitucion            UNIQUEIDENTIFIER;
     DECLARE @conteoBloqueo            INT;
+    DECLARE @semanasDuracion          INT              = dbo.ufn_obtener_parametro_int(NULL, 'PERIODO', 'SEMANAS_DURACION');
+    DECLARE @fechaFinCalculada        DATE;
+    DECLARE @parametroRechazo1        NVARCHAR(500);
+    DECLARE @parametroRechazo2        NVARCHAR(500);
 
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -82,6 +86,13 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 4.1 (SES-GEN-01 B2): @fechaFin es opcional; si falta se calcula como fechaInicio + 7 * PERIODO/SEMANAS_DURACION - 1
+        IF @estadoResultado = 1 AND @fechaInicio IS NOT NULL AND @semanasDuracion IS NOT NULL
+        BEGIN
+            SET @fechaFinCalculada = DATEADD(DAY, 7 * @semanasDuracion - 1, CAST(@fechaInicio AS DATE));
+            IF @fechaFin IS NULL SET @fechaFin = CAST(@fechaFinCalculada AS DATETIME2);
+        END
+
         -- PASO 5: Validar la accion y el motivo (codigo de rechazo)
         IF @estadoResultado = 1
         BEGIN
@@ -110,12 +121,23 @@ BEGIN
                     WHEN EXISTS (SELECT 1 FROM dbo.PeriodoAcademico pa
                                  WHERE pa.institucion = @idInstitucion AND pa.id <> @idPeriodoDefecto AND LOWER(pa.nombre) = LOWER(@nombreDef))
                         THEN 'PER_003'
+                    -- SES-GEN-01 B2 (DR-03): la duracion exacta solo se exige si cambian las fechas; un periodo historico que solo cambia de
+                    -- nombre se conserva. Parametro ausente: fail-closed.
+                    WHEN EXISTS (SELECT 1 FROM dbo.PeriodoAcademico pa
+                                 WHERE pa.id = @idPeriodoDefecto
+                                   AND (pa.fechaInicio <> CAST(@fechaInicio AS DATE) OR pa.fechaFin <> CAST(@fechaFin AS DATE)))
+                         AND (@semanasDuracion IS NULL OR CAST(@fechaFin AS DATE) <> @fechaFinCalculada)
+                        THEN 'PER_011'
                 END;
 
             IF @codigoRechazo IS NOT NULL
             BEGIN
+                SET @parametroRechazo1 = IIF(@codigoRechazo = 'PER_011', CAST(@semanasDuracion AS NVARCHAR(10)), NULL);
+                SET @parametroRechazo2 = IIF(@codigoRechazo = 'PER_011', CONVERT(NVARCHAR(10), @fechaFinCalculada, 23), NULL);
                 EXEC dbo.usp_obtener_mensaje_catalogo
                     @p_codigo = @codigoRechazo,
+                    @p_param1 = @parametroRechazo1,
+                    @p_param2 = @parametroRechazo2,
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
                 SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
