@@ -155,8 +155,8 @@ BEGIN TRY
     INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
     VALUES (@uSinVinculo, @tipoId, 913600001, N'Retirado', N'Qa', N'Docente', N'', N'retirado.hu136@test.local', 1, 1, N'HashBackend_Hu136');
     INSERT INTO dbo.Docente (id, usuario) VALUES (@dSinVinculo, @uSinVinculo);
-    INSERT INTO dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc)
-    VALUES (NEWID(), @dSinVinculo, @idProgramaDocente, (SELECT TOP 1 id FROM dbo.TipoVinculacion ORDER BY codigo), 0, SYSUTCDATETIME());
+    INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
+    VALUES (NEWID(), @dSinVinculo, @idProgramaDocente, 0, SYSUTCDATETIME());
     TRUNCATE TABLE #docentes;
     INSERT INTO #docentes EXEC dbo.usp_consultar_docentes_facultad_paginado
         @idUsuarioEjecutor = @uAdmin, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 100;

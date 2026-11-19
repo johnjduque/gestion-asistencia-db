@@ -99,7 +99,6 @@ INSERT INTO @esperados (codigo, tipoMensaje) VALUES
     ('ERR_TIPO_IDENTIFICACION_NOMBRE_REQUERIDO', 'VALIDATION_ERROR'),
     ('ERR_TIPO_IDENTIFICACION_NO_EXISTE', 'BUSINESS_ERROR'),
     ('ERR_TIPO_IDENTIFICACION_REQUERIDA', 'VALIDATION_ERROR'),
-    ('ERR_TIPO_VINCULACION_INVALIDO', 'VALIDATION_ERROR'),
     ('ERR_TOMA_NO_RECLAMABLE', 'BUSINESS_ERROR'),
     ('ERR_USUARIO_DOCENTE_INVALIDO', 'VALIDATION_ERROR'),
     ('ERR_USUARIO_DOCENTE_REQUERIDO', 'VALIDATION_ERROR'),
@@ -110,7 +109,7 @@ INSERT INTO @esperados (codigo, tipoMensaje) VALUES
     ('ERR_CORREO_REQUERIDO_MATRICULA', 'VALIDATION_ERROR'),
     ('ERR_ANTIVIRUS_NO_DISPONIBLE', 'TECHNICAL_ERROR');
 IF (SELECT COUNT(1) FROM @esperados e
-    JOIN dbo.CatalogoMensajeUsuario u ON u.codigo = e.codigo AND u.estaActivo = 1 AND u.tipoMensaje = e.tipoMensaje) <> 94
+    JOIN dbo.CatalogoMensajeUsuario u ON u.codigo = e.codigo AND u.estaActivo = 1 AND u.tipoMensaje = e.tipoMensaje) <> 93
     THROW 53970, 'TEST FAILED VAL_MSG03_01: faltan mensajes ERR_* del backend o su tipo no coincide (migracion 42 / semilla 63).', 1;
 IF EXISTS (SELECT 1 FROM @esperados e
            WHERE NOT EXISTS (SELECT 1 FROM dbo.CatalogoMensajeTecnico t WHERE t.codigo = e.codigo AND t.estaActivo = 1))

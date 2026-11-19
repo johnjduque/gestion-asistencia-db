@@ -32,7 +32,7 @@ $ids = (Invoke-Sql $setup).Split('|')
 $uC, $dD, $p = $ids[0], $ids[1], $ids[2]
 
 try {
-    $call = "DECLARE @tv UNIQUEIDENTIFIER = (SELECT id FROM dbo.TipoVinculacion WHERE codigo='CAT'); DECLARE @c UNIQUEIDENTIFIER = NEWID(); EXEC dbo.usp_vincular_docente_programa @idDocente='$dD', @idTipoVinculacion=@tv, @idPrograma='$p', @idCorrelacion=@c, @idUsuarioEjecutor='$uC';"
+    $call = "DECLARE @c UNIQUEIDENTIFIER = NEWID(); EXEC dbo.usp_vincular_docente_programa @idDocente='$dD', @idPrograma='$p', @idCorrelacion=@c, @idUsuarioEjecutor='$uC';"
     $jobs = 1..2 | ForEach-Object {
         Start-Job -ArgumentList $ContainerName, $Password, $call -ScriptBlock {
             param($c, $pw, $q)

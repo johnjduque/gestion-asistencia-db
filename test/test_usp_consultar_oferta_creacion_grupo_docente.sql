@@ -17,8 +17,7 @@ INNER JOIN dbo.uv_plan_estudio pe ON spe.idPlanEstudio = pe.id AND pe.estaActivo
 INNER JOIN dbo.uv_programa pr ON pe.idPrograma = pr.id AND pr.idCoordinador IS NOT NULL
 WHERE a.estaActivaAsignatura = 1;
 SELECT @uCoord = ci.idUsuario FROM dbo.uv_programa pr INNER JOIN dbo.uv_coordinador_identidad ci ON ci.id = pr.idCoordinador WHERE pr.id = @idProg;
-DECLARE @tvCat UNIQUEIDENTIFIER = (SELECT id FROM dbo.TipoVinculacion WHERE codigo = 'CAT');
-IF @tipoCC IS NULL OR @idAsig IS NULL OR @uCoord IS NULL OR @tvCat IS NULL
+IF @tipoCC IS NULL OR @idAsig IS NULL OR @uCoord IS NULL
     THROW 53300, 'TEST FAILED: faltan fixtures del seed (asignatura activa, coordinador o vinculacion).', 1;
 
 BEGIN TRANSACTION;
@@ -30,8 +29,8 @@ BEGIN TRY
            (@uD2, @tipoCC, 972100002, N'Oferta', N'Dos', N'Omar', N'Qa', N'qa.oferta.d2@test.local', 1, 1, N'HashBackend_O2');
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d1, @uD1), (@d2, @uD2);
     -- d1 tiene vinculo activo con el programa; d2 no tiene vinculo
-    INSERT INTO dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc)
-    VALUES (NEWID(), @d1, @idProg, @tvCat, 1, SYSUTCDATETIME());
+    INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
+    VALUES (NEWID(), @d1, @idProg, 1, SYSUTCDATETIME());
 
     CREATE TABLE #o (idDocente UNIQUEIDENTIFIER, idAsignatura UNIQUEIDENTIFIER, codigoAsignatura NVARCHAR(50), nombreAsignatura NVARCHAR(200),
                      programas NVARCHAR(1000));   -- CULM-001 B2NM (CONTRACT B2 fila 16): 1 fila por asignatura con programas

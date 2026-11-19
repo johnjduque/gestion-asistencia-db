@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **490**.
+Total de códigos: **488**.
 
 ## ACC
 
@@ -172,7 +172,6 @@ Total de códigos: **490**.
 | `DOC_001` | BUSINESS_ERROR | MEDIO | El docente especificado no existe o se encuentra inactivo. | Error de búsqueda: Docente no encontrado o deshabilitado en uv_docente: {}. | `04_mensaje.sql` |
 | `DOC_002` | BUSINESS_ERROR | MEDIO | El usuario ya se encuentra registrado como docente. | Unicidad: el usuario ya tiene un registro en dbo.Docente. | `17_mensaje_docente_programa.sql` |
 | `DOC_003` | BUSINESS_ERROR | ALTO | Ya existe una persona registrada con ese documento o correo. Use la opción "Vincular docente existente". | Conflicto de identidad: documento o correo ya existen en dbo.Usuario; el modo nuevo no hace find-or-create. | `17_mensaje_docente_programa.sql` |
-| `DOC_004` | BUSINESS_ERROR | MEDIO | El tipo de vinculación indicado no existe o está inactivo. | Validación: TipoVinculacion inexistente o con estado = 0. | `17_mensaje_docente_programa.sql` |
 | `DOC_005` | BUSINESS_ERROR | MEDIO | Debe indicar un docente existente o los datos de un docente nuevo, pero no ambos. | Validación de modo: exactamente uno entre @idDocente, @idUsuario o el bloque de datos de persona nueva. | `17_mensaje_docente_programa.sql` |
 | `DOC_006` | BUSINESS_ERROR | MEDIO | El docente ya está vinculado a este programa. | Unicidad: ya existe dbo.DocentePrograma para el par (docente, programa). | `17_mensaje_docente_programa.sql` |
 | `DOC_007` | BUSINESS_ERROR | BAJO | La búsqueda de candidatos requiere al menos 3 caracteres. | Validación: @busqueda de candidatos con menos caracteres que DOCENTE/BUSQUEDA_MIN_CARACTERES. | `17_mensaje_docente_programa.sql` |
@@ -291,7 +290,6 @@ Total de códigos: **490**.
 | `ERR_TIPO_IDENTIFICACION_NOMBRE_LONGITUD_INVALIDA` | VALIDATION_ERROR | BAJO | El nombre del tipo de identificación puede tener máximo 50 caracteres. | Backend (VALIDATION_ERROR, TipoIdentificacionErrorCode): El nombre del tipo de identificacion puede tener maximo 50 caracteres. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_TIPO_IDENTIFICACION_NOMBRE_REQUERIDO` | VALIDATION_ERROR | BAJO | El nombre del tipo de identificación es obligatorio. | Backend (VALIDATION_ERROR, TipoIdentificacionErrorCode): El nombre del tipo de identificacion es obligatorio. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_TIPO_IDENTIFICACION_REQUERIDA` | VALIDATION_ERROR | BAJO | El tipo de identificación es obligatorio. | Backend (VALIDATION_ERROR, TipoIdentificacionErrorCode): El tipo de identificacion es obligatorio. | `63_val_mensajes_err_pendientes.sql` |
-| `ERR_TIPO_VINCULACION_INVALIDO` | VALIDATION_ERROR | BAJO | El tipo de vinculación indicado no existe o está inactivo. | Backend (VALIDATION_ERROR, DocenteErrorCode): El tipo de vinculacion indicado no existe o esta inactivo. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_TOKEN_VERIFICACION_INVALIDO` | BUSINESS_ERROR | MEDIO | El codigo de verificacion de asistencia es incorrecto o ha expirado. | Fallo: Codigo de verificacion incorrecto o expirado para Sesion: {}. | `04_mensaje.sql` |
 | `ERR_TOMA_NO_RECLAMABLE` | BUSINESS_ERROR | MEDIO | Solo puedes reclamar una toma en la que quedaste ausente. | Backend (CONFLICT, AsistenciaErrorCode): Solo puedes reclamar una toma en la que quedaste ausente. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_UNICIDAD_CORREO` | BUSINESS_ERROR | ALTO | El correo electronico ya se encuentra registrado. | Fallo unicidad: El correo [{}] ya existe en uv_usuario. | `04_mensaje.sql` |

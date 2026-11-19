@@ -16,6 +16,7 @@ GO
 -- Ambito: filas de uv_auth_estudiante (fail-closed sin contexto) restringidas a las facultades cuyo decano es
 -- el ejecutor; cualquier otro usuario recibe 0 filas.
 -- SESSION_CONTEXT: se captura el previo y SIEMPRE se restaura (exito y error).
+-- MEJORAS-SERGIO-2026-11-18: codigoTipoIdentificacion (sigla del tipo de documento) al final del resultset (cambio aditivo).
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_estudiantes_facultad_paginado]
 (
@@ -117,7 +118,8 @@ BEGIN
             es.estaActivoUsuario,
             pr.programas,
             es.totalGrupos,
-            COUNT(*) OVER()         AS totalRegistros
+            COUNT(*) OVER()         AS totalRegistros,
+            u.TipoIdentificacion    AS codigoTipoIdentificacion
         FROM estudiantes es
         INNER JOIN programas pr ON pr.id = es.id
         LEFT JOIN dbo.uv_usuario u ON u.id = es.idUsuario

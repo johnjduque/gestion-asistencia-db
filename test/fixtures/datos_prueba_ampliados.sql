@@ -55,7 +55,6 @@ DECLARE @modoManual UNIQUEIDENTIFIER = (SELECT id FROM dbo.ModoTomaAsistencia WH
 DECLARE @modoQr UNIQUEIDENTIFIER = (SELECT id FROM dbo.ModoTomaAsistencia WHERE usaCodigoQr = 1);
 DECLARE @tomaCerrada UNIQUEIDENTIFIER = (SELECT id FROM dbo.EstadoTomaAsistencia WHERE estaAbierta = 0);
 DECLARE @cancelDocente UNIQUEIDENTIFIER = (SELECT id FROM dbo.TipoCancelacionSesion WHERE esAutomatica = 0);
-DECLARE @tv UNIQUEIDENTIFIER = (SELECT id FROM dbo.TipoVinculacion WHERE codigo = N'PLA');
 DECLARE @area UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.Area ORDER BY id);
 
 -- Entidades canonicas de las que cuelga el juego de datos.
@@ -69,7 +68,7 @@ DECLARE @sem1 UNIQUEIDENTIFIER = (SELECT id FROM dbo.Semestre WHERE numero = 1);
 DECLARE @sem2 UNIQUEIDENTIFIER = (SELECT id FROM dbo.Semestre WHERE numero = 2);
 IF @inst IS NULL OR @tipoCC IS NULL OR @esp IS NULL OR @bas IS NULL OR @ins IS NULL OR @obl IS NULL OR @opt IS NULL OR @estA IS NULL OR @estF IS NULL
    OR @estCI IS NULL OR @an IS NULL OR @sjc IS NULL OR @ex IS NULL OR @recP IS NULL OR @recA IS NULL OR @catMED IS NULL OR @catOTR IS NULL
-   OR @modoManual IS NULL OR @modoQr IS NULL OR @tomaCerrada IS NULL OR @cancelDocente IS NULL OR @tv IS NULL OR @area IS NULL
+   OR @modoManual IS NULL OR @modoQr IS NULL OR @tomaCerrada IS NULL OR @cancelDocente IS NULL OR @area IS NULL
    OR @prog0 IS NULL OR @fac0 IS NULL OR @coord0 IS NULL OR @tipoProg IS NULL OR @plan0 IS NULL OR @sem1 IS NULL OR @sem2 IS NULL
     THROW 58600, 'QA_DATOS: catalogos o entidades canonicas de la semilla no disponibles (aplique migraciones y deploy_schema.ps1).', 1;
 
@@ -300,7 +299,7 @@ USING (SELECT CAST(CONCAT(@A, '000F', @B, RIGHT(CONCAT('000000000000', dp.d * 10
               CAST(CONCAT(@A, '0006', @B, RIGHT(CONCAT('000000000000', dp.d), 12)) AS UNIQUEIDENTIFIER) AS docente, p.id AS programa
        FROM #dp dp INNER JOIN #p p ON p.n = dp.p) AS s
 ON t.id = s.id OR (t.docente = s.docente AND t.programa = s.programa)
-WHEN NOT MATCHED THEN INSERT (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc) VALUES (s.id, s.docente, s.programa, @tv, 1, SYSUTCDATETIME());
+WHEN NOT MATCHED THEN INSERT (id, docente, programa, estado, fechaVinculacionUtc) VALUES (s.id, s.docente, s.programa, 1, SYSUTCDATETIME());
 
 -- ---------------------------------------------------------------------------------------------------- 7. Matriculas
 CREATE TABLE #eg (g INT, e INT, PRIMARY KEY (g, e));

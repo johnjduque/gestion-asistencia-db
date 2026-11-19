@@ -496,9 +496,9 @@ def main():
     for c, *_n, links in DOCENTES:
         for pk, tv, act in links:
             dprows.append([g(gid("docenteprograma", f"{c}-{pk}")), g(rid(c, "docente")), g(prog_id[pk]), q(tv), str(act)])
-    w("INSERT INTO dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc)\n"
-      "SELECT v.id, v.docente, v.programa, tv.id, v.estado, '2025-12-01'\nFROM (VALUES\n" + values(dprows) +
-      "\n) AS v (id, docente, programa, tipo, estado)\nJOIN dbo.TipoVinculacion tv ON tv.codigo = v.tipo\n"
+    w("INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)\n"
+      "SELECT v.id, v.docente, v.programa, v.estado, '2025-12-01'\nFROM (VALUES\n" + values(dprows) +
+      "\n) AS v (id, docente, programa, tipo, estado)\n"
       "WHERE NOT EXISTS (SELECT 1 FROM dbo.DocentePrograma t WHERE t.docente = v.docente AND t.programa = v.programa);\n\n")
 
     # Periodos

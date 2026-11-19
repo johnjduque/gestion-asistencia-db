@@ -11,6 +11,7 @@ GO
 --   (c) datos de persona  alta nueva (usuario + docente + vinculo); documento/correo existentes => DOC_003
 -- RBAC COORDINADOR + titularidad PROGRAMA se validan DENTRO del SP. @password es el HASH (nunca texto plano).
 -- Una sola transaccion con ownership (transaccion propia o savepoint si el llamador ya tiene una).
+-- MEJORAS-SERGIO-2026-11-18 (migracion 56): sin tipo de vinculacion (el sistema ya no lo administra; se retiro DOC_004).
 CREATE OR ALTER PROCEDURE [dbo].[usp_vincular_docente_programa]
 (
     @idDocente              UNIQUEIDENTIFIER = NULL,
@@ -23,7 +24,6 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_vincular_docente_programa]
     @segundoApellido        NVARCHAR(50)     = NULL,
     @correo                 NVARCHAR(100)    = NULL,
     @password               NVARCHAR(500)    = NULL,
-    @idTipoVinculacion      UNIQUEIDENTIFIER,
     @idPrograma             UNIQUEIDENTIFIER,
     @idCorrelacion          UNIQUEIDENTIFIER,
     @idUsuarioEjecutor      UNIQUEIDENTIFIER = NULL
@@ -117,19 +117,6 @@ BEGIN
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'DOC_005',
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-            SET @estadoResultado = 0;
-        END
-
-        -- PASO 6: tipo de vinculacion antes de tocar datos (DOC_004)
-        IF @estadoResultado = 1
-           AND (@idTipoVinculacion IS NULL
-                OR NOT EXISTS (SELECT 1 FROM dbo.uv_tipo_vinculacion WHERE id = @idTipoVinculacion AND estaActivoTipoVinculacion = 1))
-        BEGIN
-            EXEC dbo.usp_obtener_mensaje_catalogo
-                @p_codigo = 'DOC_004',
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
             SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
@@ -261,13 +248,12 @@ BEGIN
                     SELECT TOP 1 @idDocenteResuelto = id FROM dbo.uv_docente_identidad WHERE idUsuario = @idUsuarioResuelto;
             END
 
-            -- 8C: vinculo (revalida tipo y unicidad bajo UPDLOCK, HOLDLOCK)
+            -- 8C: vinculo (revalida la unicidad bajo UPDLOCK, HOLDLOCK)
             IF @estadoResultado = 1
             BEGIN
                 EXEC dbo.usp_vincular_docente_programa_interno
                     @idDocente = @idDocenteResuelto,
                     @idPrograma = @idProgramaDefecto,
-                    @idTipoVinculacion = @idTipoVinculacion,
                     @idCorrelacion = @idCorrelacionDefecto,
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,

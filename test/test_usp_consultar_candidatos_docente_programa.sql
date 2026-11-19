@@ -30,8 +30,6 @@ BEGIN TRY
     INSERT INTO dbo.Facultad (id, nombre, institucion, decano, estado) VALUES (@fac2, N'Facultad QA Cand', @inst2, @idDecano, 1);
     INSERT INTO dbo.Programa (id, facultad, tipoDePrograma, nombre, coordinador, estado)
     VALUES (@p1, @idFacultad, @idTipoProg, N'Programa QA C1', @cC1, 1), (@p2, @idFacultad, @idTipoProg, N'Programa QA C2', @cC2, 1), (@p3, @fac2, @idTipoProg, N'Programa QA C3', @cC3, 1);
-    DECLARE @tvCat UNIQUEIDENTIFIER = (SELECT id FROM dbo.TipoVinculacion WHERE codigo = 'CAT');
-    IF @tvCat IS NULL THROW 52301, 'TEST FAILED: catalogo TipoVinculacion no existe.', 1;
 
     -- Docentes "Candidato": d1 solo en P1 (excluido), d2 en P2 (candidato), d3 en P3 otra institucion (excluido), d4 en P2 con usuario inactivo (excluido)
     DECLARE @u1 UNIQUEIDENTIFIER = NEWID(), @u2 UNIQUEIDENTIFIER = NEWID(), @u3 UNIQUEIDENTIFIER = NEWID(), @u4 UNIQUEIDENTIFIER = NEWID();
@@ -42,9 +40,9 @@ BEGIN TRY
            (@u3, @tipoCC, 940001003, N'Candidato', N'Tres',   N'Ana', N'Qa', N'qa.k3.cand@test.local', 1, 1, N'HashBackend_F6'),
            (@u4, @tipoCC, 940001004, N'Candidato', N'Cuatro', N'Ana', N'Qa', N'qa.k4.cand@test.local', 1, 0, N'HashBackend_F7');
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d1, @u1), (@d2, @u2), (@d3, @u3), (@d4, @u4);
-    INSERT INTO dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc)
-    VALUES (NEWID(), @d1, @p1, @tvCat, 1, SYSUTCDATETIME()), (NEWID(), @d2, @p2, @tvCat, 1, SYSUTCDATETIME()),
-           (NEWID(), @d3, @p3, @tvCat, 1, SYSUTCDATETIME()), (NEWID(), @d4, @p2, @tvCat, 1, SYSUTCDATETIME());
+    INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
+    VALUES (NEWID(), @d1, @p1, 1, SYSUTCDATETIME()), (NEWID(), @d2, @p2, 1, SYSUTCDATETIME()),
+           (NEWID(), @d3, @p3, 1, SYSUTCDATETIME()), (NEWID(), @d4, @p2, 1, SYSUTCDATETIME());
 
     -- D4: el resultset solo expone datos minimos (sin correo): 5 columnas.
     CREATE TABLE #c (idDocente UNIQUEIDENTIFIER, idUsuario UNIQUEIDENTIFIER, codigoTipoIdentificacion NVARCHAR(10), numeroIdentificacion INT, nombreCompleto NVARCHAR(250));

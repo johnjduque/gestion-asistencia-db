@@ -327,12 +327,7 @@ BEGIN
 END
 GO
 
--- 40. DocentePrograma -> TipoVinculacion (HU091)
-IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_DocentePrograma_TipoVinculacion')
-BEGIN
-    ALTER TABLE [dbo].[DocentePrograma] ADD CONSTRAINT [FK_DocentePrograma_TipoVinculacion] FOREIGN KEY ([tipoVinculacion]) REFERENCES [dbo].[TipoVinculacion] ([id]);
-END
-GO
+-- 40. (retirada) DocentePrograma -> TipoVinculacion: MEJORAS-SERGIO-2026-11-18, migracion 56.
 
 -- 41. IdentidadExterna -> Usuario (SEC-BASELINE-017)
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_IdentidadExterna_Usuario')

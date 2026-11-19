@@ -114,9 +114,8 @@ IF NOT EXISTS (SELECT 1 FROM dbo.Horario WHERE id = @horario)
 -- Vinculo docente-programa (HU091): todo docente con grupos en un programa tiene su DocentePrograma (T-MIG-02).
 IF NOT EXISTS (SELECT 1 FROM dbo.DocentePrograma WHERE id = CAST(@p + '0E' AS UNIQUEIDENTIFIER))
    AND NOT EXISTS (SELECT 1 FROM dbo.DocentePrograma WHERE docente = @docente AND programa = @programa)
-    INSERT INTO dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc)
-    SELECT CAST(@p + '0E' AS UNIQUEIDENTIFIER), @docente, @programa, tv.id, 1, SYSUTCDATETIME()
-    FROM dbo.TipoVinculacion tv WHERE tv.codigo = 'PLA';
+    INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
+    VALUES (CAST(@p + '0E' AS UNIQUEIDENTIFIER), @docente, @programa, 1, SYSUTCDATETIME());
 
 -- Matriculas activas y programa.
 INSERT INTO dbo.EstudianteGrupo (id, estado, estudiante, grupo)

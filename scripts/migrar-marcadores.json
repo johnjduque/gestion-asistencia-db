@@ -8,10 +8,8 @@
   ],
   "migraciones": {
     "05_hu091_docente_programa_tipo_vinculacion": [
-      { "tabla": "dbo.TipoVinculacion" },
       { "tabla": "dbo.DocentePrograma" },
       { "restriccion": "UQ_DocentePrograma_docente_programa" },
-      { "restriccion": "FK_DocentePrograma_TipoVinculacion" },
       { "restriccion": "FK_DocentePrograma_Docente" },
       { "objeto": "dbo.usp_registrar_docente_en_grupo_autonomo", "existe": false }
     ],
@@ -405,6 +403,14 @@
     "55_ata_retiro_oferta_grupos_estudiante": [
       { "objeto": "dbo.usp_consultar_oferta_grupos_estudiante", "existe": false },
       { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'OFERTA' AND clave = 'INCLUIR_TRANSVERSALES'", "existe": false }
+    ],
+    "56_mejoras_sergio_retiro_tipo_vinculacion": [
+      { "tabla": "dbo.TipoVinculacion", "existe": false },
+      { "objeto": "dbo.uv_tipo_vinculacion", "existe": false },
+      { "columna": "dbo.DocentePrograma.tipoVinculacion", "existe": false },
+      { "restriccion": "FK_DocentePrograma_TipoVinculacion", "existe": false },
+      { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'DOCENTE' AND clave = 'TIPO_VINCULACION_DEFECTO'", "existe": false },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'DOC_004'", "existe": false }
     ]
   }
 }

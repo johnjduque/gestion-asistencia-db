@@ -39,8 +39,8 @@ INSERT INTO dbo.Estudiante (id, usuario) VALUES (@eA, @uEA), (@eB, @uEB), (@e0, 
 INSERT INTO dbo.Programa (id, facultad, tipoDePrograma, nombre, coordinador, estado) VALUES (@progB, @fac, @tipoProg, N'B2NM-Programa B', @coordB, 1);
 INSERT INTO dbo.PlanEstudio (id, programa, inp, estado) VALUES (@planB, @progB, 99191, 1);
 INSERT INTO dbo.SemestrePlanEstudio (id, planEstudio, semestre) VALUES (@speB, @planB, @semB);
-INSERT INTO dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc)
-SELECT NEWID(), @docT, p.id, tv.id, 1, SYSUTCDATETIME() FROM (VALUES (@progA), (@progB)) p (id) CROSS JOIN dbo.TipoVinculacion tv WHERE tv.codigo = 'PLA';
+INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
+SELECT NEWID(), @docT, p.id, 1, SYSUTCDATETIME() FROM (VALUES (@progA), (@progB)) p (id);
 
 INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, estado) VALUES (@asigOPT, N'B2NM-OPT', N'B2NM Optativa', 3, @area, @comp, 1);
 INSERT INTO dbo.AsignaturaPlanEstudio (id, asignatura, semestrePlanEstudio, caracter, estaActivo, fechaVinculacionUtc)

@@ -14,9 +14,8 @@ DECLARE @tipoProg      UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.TipoPrograma
 DECLARE @semestre      UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.Semestre);
 DECLARE @area          UNIQUEIDENTIFIER = (SELECT TOP 1 area FROM dbo.Asignatura);
 DECLARE @componente    UNIQUEIDENTIFIER = (SELECT TOP 1 componente FROM dbo.Asignatura);
-DECLARE @tvCat         UNIQUEIDENTIFIER = (SELECT id FROM dbo.TipoVinculacion WHERE codigo = 'CAT');
 DECLARE @estA          UNIQUEIDENTIFIER = (SELECT id FROM dbo.EstadoEstudianteGrupo WHERE codigo = N'A');
-IF @idInstitucion IS NULL OR @tipoId IS NULL OR @tipoProg IS NULL OR @semestre IS NULL OR @area IS NULL OR @componente IS NULL OR @tvCat IS NULL OR @estA IS NULL
+IF @idInstitucion IS NULL OR @tipoId IS NULL OR @tipoProg IS NULL OR @semestre IS NULL OR @area IS NULL OR @componente IS NULL OR @estA IS NULL
     THROW 53700, 'TEST FAILED: fixtures base no disponibles.', 1;
 
 BEGIN TRANSACTION;
@@ -48,9 +47,9 @@ BEGIN TRY
         (@p1, @f, @tipoProg, CONCAT(N'HU094 P1 ', @sufijo), @c1, 1), (@p2, @f, @tipoProg, CONCAT(N'HU094 P2 ', @sufijo), @c2, 1);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d1, (SELECT id FROM #u WHERE n = 4)), (@d2, (SELECT id FROM #u WHERE n = 5)), (@d3, (SELECT id FROM #u WHERE n = 6));
     -- D1 vinculado a P1 INACTIVO (el historial se consulta igual) y a P2; D2 vinculado a P1; D3 sin vinculo con P1.
-    INSERT INTO dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc) VALUES
-        (NEWID(), @d1, @p1, @tvCat, 0, SYSUTCDATETIME()), (NEWID(), @d1, @p2, @tvCat, 1, SYSUTCDATETIME()),
-        (NEWID(), @d2, @p1, @tvCat, 1, SYSUTCDATETIME()), (NEWID(), @d3, @p2, @tvCat, 1, SYSUTCDATETIME());
+    INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc) VALUES
+        (NEWID(), @d1, @p1, 0, SYSUTCDATETIME()), (NEWID(), @d1, @p2, 1, SYSUTCDATETIME()),
+        (NEWID(), @d2, @p1, 1, SYSUTCDATETIME()), (NEWID(), @d3, @p2, 1, SYSUTCDATETIME());
 
     -- Periodos: vigente, finalizado y proximo (fechas relativas a hoy; holgura para la zona horaria local).
     DECLARE @hoy DATE = CAST(SYSUTCDATETIME() AS DATE);

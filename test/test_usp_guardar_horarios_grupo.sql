@@ -20,8 +20,7 @@ SELECT @uCoord = ci.idUsuario FROM dbo.uv_programa pr INNER JOIN dbo.uv_coordina
 DECLARE @idPeriodo UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_periodo_academico ORDER BY anio DESC);
 DECLARE @idFacultad UNIQUEIDENTIFIER = (SELECT TOP 1 idFacultad FROM dbo.uv_programa WHERE id = @idProg);
 DECLARE @idTipoProg UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.TipoPrograma);
-DECLARE @tvCat UNIQUEIDENTIFIER = (SELECT id FROM dbo.TipoVinculacion WHERE codigo = 'CAT');
-IF @tipoCC IS NULL OR @idAsig IS NULL OR @uCoord IS NULL OR @idPeriodo IS NULL OR @idFacultad IS NULL OR @idTipoProg IS NULL OR @tvCat IS NULL
+IF @tipoCC IS NULL OR @idAsig IS NULL OR @uCoord IS NULL OR @idPeriodo IS NULL OR @idFacultad IS NULL OR @idTipoProg IS NULL
     THROW 53200, 'TEST FAILED: faltan fixtures del seed (asignatura, coordinador, periodo, facultad o vinculacion).', 1;
 
 BEGIN TRANSACTION;
@@ -36,8 +35,8 @@ BEGIN TRY
     INSERT INTO dbo.Coordinador (id, usuario) VALUES (@c2, @uC2);
     INSERT INTO dbo.Programa (id, facultad, tipoDePrograma, nombre, coordinador, estado)
     VALUES (@p2, @idFacultad, @idTipoProg, N'Programa QA horario ajeno', @c2, 1);
-    INSERT INTO dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc)
-    VALUES (NEWID(), @d1, @idProg, @tvCat, 1, SYSUTCDATETIME()), (NEWID(), @d2, @idProg, @tvCat, 1, SYSUTCDATETIME());
+    INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
+    VALUES (NEWID(), @d1, @idProg, 1, SYSUTCDATETIME()), (NEWID(), @d2, @idProg, 1, SYSUTCDATETIME());
 
     CREATE TABLE #r (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT);
     DECLARE @corr UNIQUEIDENTIFIER = NEWID();
@@ -244,7 +243,6 @@ INNER JOIN dbo.uv_plan_estudio pe ON spe.idPlanEstudio = pe.id
 INNER JOIN dbo.uv_programa pr ON pe.idPrograma = pr.id AND pr.idCoordinador IS NOT NULL;
 SELECT @uCoord = ci.idUsuario FROM dbo.uv_programa pr INNER JOIN dbo.uv_coordinador_identidad ci ON ci.id = pr.idCoordinador WHERE pr.id = @idProg;
 DECLARE @idPeriodo UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_periodo_academico ORDER BY anio DESC);
-DECLARE @tvCat UNIQUEIDENTIFIER = (SELECT id FROM dbo.TipoVinculacion WHERE codigo = 'CAT');
 DECLARE @uD UNIQUEIDENTIFIER = NEWID(), @d UNIQUEIDENTIFIER = NEWID(), @gX UNIQUEIDENTIFIER = NEWID(), @gY UNIQUEIDENTIFIER = NEWID();
 DECLARE @corr UNIQUEIDENTIFIER = NEWID(), @userMsg NVARCHAR(4000), @techMsg NVARCHAR(4000);
 DECLARE @base INT = 69100 + ABS(CHECKSUM(NEWID()) % 800);
@@ -255,8 +253,8 @@ BEGIN TRY
     INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
     VALUES (@uD, @tipoCC, 972000009, N'Horario', N'Propio', N'Hilda', N'Qa', N'qa.horario.own@test.local', 1, 1, N'HashBackend_H9');
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d, @uD);
-    INSERT INTO dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc)
-    VALUES (NEWID(), @d, @idProg, @tvCat, 1, SYSUTCDATETIME());
+    INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
+    VALUES (NEWID(), @d, @idProg, 1, SYSUTCDATETIME());
     INSERT INTO #r EXEC dbo.usp_crear_grupo @idGrupo = @gX, @idAsignatura = @idAsig, @idPeriodoAcademico = @idPeriodo, @codigo = @base,
         @nombre = N'Grupo QA Horario X', @idDocente = @d, @idCorrelacion = @corr, @idUsuarioEjecutor = @uCoord;
     INSERT INTO #r EXEC dbo.usp_crear_grupo @idGrupo = @gY, @idAsignatura = @idAsig, @idPeriodoAcademico = @idPeriodo, @codigo = @codY,

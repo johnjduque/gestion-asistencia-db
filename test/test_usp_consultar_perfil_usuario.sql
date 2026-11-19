@@ -11,8 +11,7 @@ PRINT '==================================================';
 DECLARE @idInstitucion UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_institucion WHERE estaActivaInstitucion = 1);
 DECLARE @tipoId        UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.TipoIdentificacion ORDER BY tipoIdentificacion);
 DECLARE @tipoProg      UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.TipoPrograma ORDER BY nombre);
-DECLARE @tvCat         UNIQUEIDENTIFIER = (SELECT id FROM dbo.TipoVinculacion WHERE codigo = 'CAT');
-IF @idInstitucion IS NULL OR @tipoId IS NULL OR @tipoProg IS NULL OR @tvCat IS NULL
+IF @idInstitucion IS NULL OR @tipoId IS NULL OR @tipoProg IS NULL
     THROW 54100, 'TEST FAILED: fixtures base no disponibles.', 1;
 
 BEGIN TRANSACTION;
@@ -37,8 +36,8 @@ BEGIN TRY
     INSERT INTO dbo.Estudiante (id, usuario) VALUES (@est, @u1);
     INSERT INTO dbo.EstudiantePrograma (id, estudiante, programa) VALUES (NEWID(), @est, @p1);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@doc, @u1);
-    INSERT INTO dbo.DocentePrograma (id, docente, programa, tipoVinculacion, estado, fechaVinculacionUtc) VALUES
-        (NEWID(), @doc, @p1, @tvCat, 1, SYSUTCDATETIME()), (NEWID(), @doc, @p2, @tvCat, 0, SYSUTCDATETIME());
+    INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc) VALUES
+        (NEWID(), @doc, @p1, 1, SYSUTCDATETIME()), (NEWID(), @doc, @p2, 0, SYSUTCDATETIME());
     INSERT INTO dbo.Administrador (id, usuario, institucion) VALUES (NEWID(), @u1, @idInstitucion);
 
     DECLARE @c UNIQUEIDENTIFIER = NEWID(), @err NVARCHAR(4000);
@@ -65,7 +64,8 @@ BEGIN TRY
        OR (SELECT rolVinculo FROM #p WHERE n = 5) <> 'DECANO' OR (SELECT idEntidadVinculo FROM #p WHERE n = 5) <> @f
        OR (SELECT rolVinculo FROM #p WHERE n = 6) <> 'ADMINISTRADOR' OR (SELECT idEntidadVinculo FROM #p WHERE n = 6) <> @idInstitucion
         THROW 54103, 'TEST FAILED: P-01 orden o entidad de los vinculos.', 1;
-    IF (SELECT detalleVinculo FROM #p WHERE n = 2) <> (SELECT nombre FROM dbo.TipoVinculacion WHERE id = @tvCat)
+    -- MEJORAS-SERGIO-2026-11-18: el detalle del vinculo DOCENTE es la facultad del programa (antes, el tipo de vinculacion)
+    IF (SELECT detalleVinculo FROM #p WHERE n = 2) <> CONCAT(N'QA HU006 F ', @sufijo)
        OR (SELECT detalleVinculo FROM #p WHERE n = 1) <> CONCAT(N'QA HU006 F ', @sufijo)
         THROW 54104, 'TEST FAILED: P-01 detalle del vinculo.', 1;
     PRINT 'TEST_PASS:HU006_PERFIL_DATOS_VINCULOS';
