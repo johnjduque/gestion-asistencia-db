@@ -3,19 +3,24 @@ GO
 SET NOCOUNT ON;
 SET XACT_ABORT OFF;
 
-DECLARE @student UNIQUEIDENTIFIER, @faculty UNIQUEIDENTIFIER, @institution UNIQUEIDENTIFIER;
+DECLARE @student UNIQUEIDENTIFIER, @faculty UNIQUEIDENTIFIER;
 DECLARE @deanUser UNIQUEIDENTIFIER = (SELECT TOP 1 idUsuario FROM dbo.uv_decano WHERE estaActivoDecano = 1 AND idFacultad IS NOT NULL ORDER BY idFacultad, idUsuario);
 SELECT TOP 1 @faculty = idFacultad
 FROM dbo.uv_decano
 WHERE idUsuario = @deanUser AND estaActivoDecano = 1 AND idFacultad IS NOT NULL;
-SELECT TOP 1 @student = id, @institution = idInstitucion
+SELECT TOP 1 @student = id
 FROM dbo.uv_estudiante
 WHERE estaActivoEstudiante = 1 AND idFacultad = @faculty
 ORDER BY id;
 DECLARE @programType UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_tipo_programa);
 DECLARE @coordinator UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_coordinador_identidad WHERE estaActivoUsuario = 1);
 DECLARE @coordinatorUser UNIQUEIDENTIFIER = (SELECT TOP 1 idUsuario FROM dbo.uv_coordinador_identidad WHERE id = @coordinator);
-DECLARE @assignment UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_asignatura);
+DECLARE @assignment UNIQUEIDENTIFIER = NEWID();
+DECLARE @areaName NVARCHAR(100), @componentName NVARCHAR(100);
+SELECT TOP 1 @areaName = nombreArea, @componentName = nombreComponente FROM dbo.uv_asignatura ORDER BY id;
+DECLARE @assignmentCode NVARCHAR(50) = CONCAT(N'QAREACTIVE', LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8));
+DECLARE @semesterId UNIQUEIDENTIFIER, @semesterNumber INT;
+SELECT TOP 1 @semesterId = id, @semesterNumber = numero FROM dbo.uv_semestre ORDER BY numero;
 DECLARE @period UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_periodo_academico ORDER BY anio DESC);
 DECLARE @teacher UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_docente);
 DECLARE @programName NVARCHAR(50) = CONCAT(N'QA PROGRAMA ', LEFT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 16));
@@ -27,7 +32,8 @@ DECLARE @groupCode INT = 50000 + ABS(CHECKSUM(NEWID()) % 10000);
 DECLARE @groupCodeText NVARCHAR(50) = CONVERT(NVARCHAR(50), @groupCode);
 DECLARE @corr UNIQUEIDENTIFIER, @userMsg NVARCHAR(4000), @techMsg NVARCHAR(4000);
 IF @student IS NULL OR @faculty IS NULL OR @programType IS NULL OR @coordinator IS NULL OR
-   @coordinatorUser IS NULL OR @deanUser IS NULL OR @assignment IS NULL OR @period IS NULL OR @teacher IS NULL
+   @coordinatorUser IS NULL OR @deanUser IS NULL OR @assignment IS NULL OR @period IS NULL OR @teacher IS NULL OR
+   @areaName IS NULL OR @componentName IS NULL OR @semesterId IS NULL OR @semesterNumber IS NULL
     THROW 51990, 'TEST FAILED: REACTIVE_ACADEMIC fixture missing.', 1;
 CREATE TABLE #academicResult (idCorrelacion UNIQUEIDENTIFIER NULL, mensajeUsuarioResultado NVARCHAR(MAX),
     mensajeTecnicoResultado NVARCHAR(MAX), estadoResultado INT NOT NULL);
@@ -75,6 +81,21 @@ BEGIN TRY
     INSERT INTO dbo.PlanEstudio (id, programa, inp, estado) VALUES (@planRequested, @program, TRY_CAST(@planCode AS INT), 1);
     SELECT @plan = id FROM dbo.uv_plan_estudio WHERE idPrograma = @program AND inp = TRY_CAST(@planCode AS INT);
     IF @plan IS NULL THROW 51995, 'TEST FAILED: PLAN_UPSERT_CREATE not visible.', 1;
+    INSERT INTO dbo.SemestrePlanEstudio (id, planEstudio, semestre) VALUES (NEWID(), @plan, @semesterId);
+
+    TRUNCATE TABLE #academicResult;
+    SET @corr = NEWID();
+    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_004', @p_param1 = 'Asignatura',
+        @mensajeUsuarioResultado = @userMsg OUTPUT, @mensajeTecnicoResultado = @techMsg OUTPUT;
+    INSERT INTO #academicResult
+    EXEC dbo.usp_crear_asignatura
+        @idAsignatura = @assignment, @codigo = @assignmentCode,
+        @nombre = N'QA Asignatura Reactiva', @creditos = 3, @idPlanEstudio = @plan,
+        @semestreNumero = @semesterNumber, @nombreArea = @areaName, @nombreComponente = @componentName,
+        @idCorrelacion = @corr, @idUsuarioEjecutor = @coordinatorUser;
+    IF (SELECT COUNT(*) FROM #academicResult WHERE idCorrelacion = @corr AND estadoResultado = 1
+        AND mensajeUsuarioResultado = @userMsg AND mensajeTecnicoResultado = CONCAT(@techMsg, ' Correlacion: ', @corr)) <> 1
+        THROW 51996, 'TEST FAILED: REACTIVE_ACADEMIC assignment fixture was not created.', 1;
 
     TRUNCATE TABLE #academicResult;
     SET @corr = NEWID();

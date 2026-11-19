@@ -1,4 +1,4 @@
-USE [gestionasistenciadb];
+﻿USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
 GO
@@ -25,6 +25,8 @@ AS
     DECLARE @idAsigCurrent        UNIQUEIDENTIFIER;
     DECLARE @idPeriodoCurrent     UNIQUEIDENTIFIER;
     DECLARE @estudiantesActivos   INT;
+    DECLARE @ejecutorEsCoordinador BIT = 0;   -- SES-GEN-01 H-06: salida de la validacion de ambito
+    DECLARE @idDocenteTitular      UNIQUEIDENTIFIER;
 
     -- Variables locales de respuesta
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -82,6 +84,32 @@ BEGIN
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+        END
+
+        -- PASO 2B (SES-GEN-01 H-06, cierra SECURITY_FINDING-GRP-001): el coordinador solo edita grupos de los programas que coordina (SEC_002).
+        --          Antes el ambito solo lo validaba usp_guardar_horarios_grupo, y solo cuando llegaban franjas.
+        IF @estadoResultado = 1
+        BEGIN
+            EXEC dbo.usp_validar_gestion_grupo_coordinador_o_titular_interno
+                @idGrupo = @idGrupoDefecto,
+                @idUsuarioEjecutor = @idUsuarioEjecutor,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @ejecutorEsCoordinador = @ejecutorEsCoordinador OUTPUT,
+                @idDocenteTitular = @idDocenteTitular OUTPUT,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+
+            -- Solo el coordinador edita grupos: un titular que no coordina el programa no pasa (el PASO 1.5 ya exige el perfil COORDINADOR)
+            IF @estadoResultado = 1 AND @ejecutorEsCoordinador = 0
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'SEC_002',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
                 SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
                 SET @estadoResultado = 0;
             END

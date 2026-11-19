@@ -7,24 +7,28 @@ GO
 SET NOCOUNT ON;
 
 -- VAL-oleada3 MSG-05 (migracion 41 y semilla 62_val_mensajes_aplicacion):
---   VAL_MSG05_01: estan los 107 mensajes de usuario del backend (75 VAL_APP, 17 ACC_APP, 14 NOF_APP, 1 DIS_APP), activos y con su
---                 mensaje tecnico.
+--   VAL_MSG05_01: estan los 107 mensajes del contrato (VAL_APP_001..075, ACC_APP_001..017,
+--                 NOF_APP_001..014 y DIS_APP_001), activos y con su mensaje tecnico.
+--                 VAL_APP_076 pertenece al flujo SES-GEN-01 y queda fuera del alcance de MSG-05.
 --   VAL_MSG05_02: ningun texto de usuario esta vacio y los mensajes con parametros conservan sus marcadores {}.
 -- Solo lectura. Cada verificacion va en su propio lote.
 PRINT 'TEST START: test_val_oleada3_mensajes_aplicacion (VAL MSG-05)';
 GO
 
 DECLARE @usuario INT = (SELECT COUNT(1) FROM dbo.CatalogoMensajeUsuario
-                        WHERE estaActivo = 1 AND (codigo LIKE 'VAL[_]APP[_]___' OR codigo LIKE 'ACC[_]APP[_]___'
-                              OR codigo LIKE 'NOF[_]APP[_]___' OR codigo LIKE 'DIS[_]APP[_]___'));
+                        WHERE estaActivo = 1 AND (
+                              (codigo LIKE 'VAL[_]APP[_]___' AND TRY_CONVERT(INT, RIGHT(codigo, 3)) BETWEEN 1 AND 75)
+                              OR (codigo LIKE 'ACC[_]APP[_]___' AND TRY_CONVERT(INT, RIGHT(codigo, 3)) BETWEEN 1 AND 17)
+                              OR (codigo LIKE 'NOF[_]APP[_]___' AND TRY_CONVERT(INT, RIGHT(codigo, 3)) BETWEEN 1 AND 14)
+                              OR (codigo LIKE 'DIS[_]APP[_]___' AND TRY_CONVERT(INT, RIGHT(codigo, 3)) = 1)));
 DECLARE @porPrefijo NVARCHAR(200) = (SELECT CONCAT(
-        SUM(CASE WHEN codigo LIKE 'VAL[_]APP[_]%' THEN 1 ELSE 0 END), '/',
-        SUM(CASE WHEN codigo LIKE 'ACC[_]APP[_]%' THEN 1 ELSE 0 END), '/',
-        SUM(CASE WHEN codigo LIKE 'NOF[_]APP[_]%' THEN 1 ELSE 0 END), '/',
-        SUM(CASE WHEN codigo LIKE 'DIS[_]APP[_]%' THEN 1 ELSE 0 END))
+        SUM(CASE WHEN codigo LIKE 'VAL[_]APP[_]___' AND TRY_CONVERT(INT, RIGHT(codigo, 3)) BETWEEN 1 AND 75 THEN 1 ELSE 0 END), '/',
+        SUM(CASE WHEN codigo LIKE 'ACC[_]APP[_]___' AND TRY_CONVERT(INT, RIGHT(codigo, 3)) BETWEEN 1 AND 17 THEN 1 ELSE 0 END), '/',
+        SUM(CASE WHEN codigo LIKE 'NOF[_]APP[_]___' AND TRY_CONVERT(INT, RIGHT(codigo, 3)) BETWEEN 1 AND 14 THEN 1 ELSE 0 END), '/',
+        SUM(CASE WHEN codigo LIKE 'DIS[_]APP[_]___' AND TRY_CONVERT(INT, RIGHT(codigo, 3)) = 1 THEN 1 ELSE 0 END))
     FROM dbo.CatalogoMensajeUsuario WHERE estaActivo = 1);
 IF @usuario <> 107 OR @porPrefijo <> N'75/17/14/1'
-    THROW 53960, 'TEST FAILED VAL_MSG05_01: faltan mensajes de usuario del backend (migracion 41 / semilla 62).', 1;
+    THROW 53960, 'TEST FAILED VAL_MSG05_01: los mensajes del contrato de backend no coinciden (migracion 41 / semilla 62).', 1;
 IF EXISTS (SELECT 1 FROM dbo.CatalogoMensajeUsuario u
            WHERE (u.codigo LIKE 'VAL[_]APP[_]___' OR u.codigo LIKE 'ACC[_]APP[_]___' OR u.codigo LIKE 'NOF[_]APP[_]___'
                   OR u.codigo LIKE 'DIS[_]APP[_]___')

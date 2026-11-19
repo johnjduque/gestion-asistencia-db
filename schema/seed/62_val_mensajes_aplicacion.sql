@@ -1,4 +1,4 @@
-USE [gestionasistenciadb];
+﻿USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
 GO
@@ -88,6 +88,7 @@ USING (VALUES
     ('VAL_APP_073', 'VALIDATION_ERROR', 'BAJO', N'El identificador del estudiante es obligatorio.'),
     ('VAL_APP_074', 'VALIDATION_ERROR', 'BAJO', N'El identificador del docente es obligatorio.'),
     ('VAL_APP_075', 'VALIDATION_ERROR', 'BAJO', N'El identificador del programa es obligatorio.'),
+    ('VAL_APP_076', 'VALIDATION_ERROR', 'BAJO', N'El horario del grupo es obligatorio: envía al menos una franja.'),
     ('ACC_APP_001', 'SECURITY_ERROR', 'ALTO', N'El docente autenticado no tiene titularidad sobre el grupo consultado.'),
     ('ACC_APP_002', 'SECURITY_ERROR', 'ALTO', N'El docente autenticado no tiene titularidad sobre el grupo solicitado.'),
     ('ACC_APP_003', 'SECURITY_ERROR', 'ALTO', N'No fue posible resolver el docente autenticado.'),
@@ -206,6 +207,7 @@ USING (VALUES
     ('VAL_APP_073', 'VALIDATION_ERROR', 'BAJO', N'Backend (VALIDATION_ERROR): El identificador del estudiante es obligatorio.'),
     ('VAL_APP_074', 'VALIDATION_ERROR', 'BAJO', N'Backend (VALIDATION_ERROR): El identificador del docente es obligatorio.'),
     ('VAL_APP_075', 'VALIDATION_ERROR', 'BAJO', N'Backend (VALIDATION_ERROR): El identificador del programa es obligatorio.'),
+    ('VAL_APP_076', 'VALIDATION_ERROR', 'BAJO', N'Backend (VALIDATION_ERROR): El horario del grupo es obligatorio: envía al menos una franja.'),
     ('ACC_APP_001', 'SECURITY_ERROR', 'ALTO', N'Backend (FORBIDDEN): El docente autenticado no tiene titularidad sobre el grupo consultado.'),
     ('ACC_APP_002', 'SECURITY_ERROR', 'ALTO', N'Backend (FORBIDDEN): El docente autenticado no tiene titularidad sobre el grupo solicitado.'),
     ('ACC_APP_003', 'SECURITY_ERROR', 'ALTO', N'Backend (FORBIDDEN): No fue posible resolver el docente autenticado.'),

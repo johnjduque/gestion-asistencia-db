@@ -306,6 +306,7 @@ WHERE SCHEMA_NAME(sp.schema_id) = 'dbo'
   AND sp.name NOT IN ('usp_consultar_sesiones_pendientes_aviso_sin_toma', 'usp_consultar_destinatarios_aviso_sin_toma')  -- NOTOMA-001: READ_QUERY_RESULTSET de sistema (resultset de datos, no el canonico de 4 columnas)
   AND sp.name <> 'usp_consultar_sesiones_materia_estudiante'
   AND sp.name NOT IN ('usp_consultar_configuracion_reclamos', 'usp_evaluar_alertas_inasistencia_grupo', 'usp_consultar_grupos_pendientes_evaluacion_alertas', 'usp_consultar_alertas_estudiante', 'usp_decidir_revision_cancelacion', 'usp_resolver_revision_cancelacion', 'usp_consultar_revisiones_cancelacion_coordinador_paginado', 'usp_consultar_revisiones_cancelacion_decano_paginado', 'usp_consultar_revisiones_cancelacion_docente_paginado', 'usp_consultar_destinatarios_revision_cancelacion', 'usp_consultar_audiencias_realtime_grupo', 'usp_actualizar_resolutores_revisiones_cancelacion')
+  AND sp.name <> 'usp_previsualizar_horario_grupo' -- SES-GEN-01 READ_QUERY_RESULTSET
   AND d.error_number IS NOT NULL;
 
 INSERT @badResultSets (procedureName, reason)
@@ -339,6 +340,7 @@ WHERE SCHEMA_NAME(sp.schema_id) = 'dbo'
   AND sp.name <> 'usp_consultar_sesiones_materia_estudiante'
   AND sp.name NOT IN ('usp_radicar_solicitud_revision_asistencia_v4', 'usp_consultar_resumen_tomas_sesion')  -- PC puntos de control: comando de 7 columnas (4 canonicas + idSolicitudRevision, totalSoportes, idToma) y READ_QUERY_RESULTSET
   AND sp.name NOT IN ('usp_consultar_configuracion_reclamos', 'usp_evaluar_alertas_inasistencia_grupo', 'usp_consultar_grupos_pendientes_evaluacion_alertas', 'usp_consultar_alertas_estudiante', 'usp_decidir_revision_cancelacion', 'usp_resolver_revision_cancelacion', 'usp_consultar_revisiones_cancelacion_coordinador_paginado', 'usp_consultar_revisiones_cancelacion_decano_paginado', 'usp_consultar_revisiones_cancelacion_docente_paginado', 'usp_consultar_destinatarios_revision_cancelacion', 'usp_consultar_audiencias_realtime_grupo', 'usp_actualizar_resolutores_revisiones_cancelacion', 'usp_radicar_solicitud_revision_asistencia_v3')
+  AND sp.name <> 'usp_previsualizar_horario_grupo' -- SES-GEN-01 READ_QUERY_RESULTSET
   AND d.error_number IS NULL
 GROUP BY sp.name
 HAVING COUNT(d.column_ordinal) <> 4;
@@ -373,6 +375,7 @@ WHERE SCHEMA_NAME(sp.schema_id) = 'dbo'
   AND sp.name NOT IN ('usp_radicar_solicitud_revision_asistencia_v4', 'usp_consultar_resumen_tomas_sesion')  -- PC puntos de control: comando de 7 columnas (4 canonicas + idSolicitudRevision, totalSoportes, idToma) y READ_QUERY_RESULTSET
   AND sp.name <> 'usp_consultar_sesiones_materia_estudiante'
   AND sp.name NOT IN ('usp_consultar_configuracion_reclamos', 'usp_evaluar_alertas_inasistencia_grupo', 'usp_consultar_grupos_pendientes_evaluacion_alertas', 'usp_consultar_alertas_estudiante', 'usp_decidir_revision_cancelacion', 'usp_resolver_revision_cancelacion', 'usp_consultar_revisiones_cancelacion_coordinador_paginado', 'usp_consultar_revisiones_cancelacion_decano_paginado', 'usp_consultar_revisiones_cancelacion_docente_paginado', 'usp_consultar_destinatarios_revision_cancelacion', 'usp_consultar_audiencias_realtime_grupo', 'usp_actualizar_resolutores_revisiones_cancelacion')
+  AND sp.name <> 'usp_previsualizar_horario_grupo' -- SES-GEN-01 READ_QUERY_RESULTSET
   AND d.error_number IS NULL
   AND (
        (d.column_ordinal = 1 AND (d.name <> 'idCorrelacion' OR d.system_type_name <> 'uniqueidentifier'))
