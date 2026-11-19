@@ -4,7 +4,10 @@
 --   (planta, medio tiempo, catedra, ocasional) del docente con el programa; se retira de todas las capas.
 --   1. FK_DocentePrograma_TipoVinculacion, cualquier DEFAULT de la columna y la columna DocentePrograma.tipoVinculacion.
 --   2. La vista uv_tipo_vinculacion y la tabla TipoVinculacion (con sus filas).
---   3. El parametro DOCENTE/TIPO_VINCULACION_DEFECTO (con su historial y su fila de edicion, si las hubiera).
+--   3. El parametro DOCENTE/TIPO_VINCULACION_DEFECTO (con su historial y su fila de edicion, si las hubiera). Si la fila de
+--      edicion de OTRO parametro lo referencia como regla cruzada (parametroDebeSerMenorQue, FK_CatalogoParametroEdicion_MenorQue),
+--      esa regla se anula (NULL) y la fila se conserva: el otro parametro sigue siendo editable, solo pierde la comparacion
+--      contra un parametro que ya no existe.
 --   4. Los mensajes DOC_004 (usuario y tecnico) y ERR_TIPO_VINCULACION_INVALIDO (codigo del backend, usuario y tecnico).
 --   Los cuerpos nuevos de vistas y SP (uv_docente_programa, uv_auth_docente_programa, usp_vincular_docente_programa(_interno),
 --   usp_actualizar_docente_programa, usp_consultar_docentes_programa, usp_consultar_resumen_docentes_programa,
@@ -47,6 +50,10 @@ GO
 DELETE c FROM dbo.CambioParametro c
 INNER JOIN dbo.CatalogoParametro p ON p.id = c.parametro
 WHERE p.grupo = 'DOCENTE' AND p.clave = 'TIPO_VINCULACION_DEFECTO';
+UPDATE e SET e.parametroDebeSerMenorQue = NULL
+FROM dbo.CatalogoParametroEdicion e
+INNER JOIN dbo.CatalogoParametro p ON p.id = e.parametroDebeSerMenorQue
+WHERE p.grupo = 'DOCENTE' AND p.clave = 'TIPO_VINCULACION_DEFECTO';
 DELETE e FROM dbo.CatalogoParametroEdicion e
 INNER JOIN dbo.CatalogoParametro p ON p.id = e.parametro
 WHERE p.grupo = 'DOCENTE' AND p.clave = 'TIPO_VINCULACION_DEFECTO';
@@ -62,6 +69,10 @@ IF OBJECT_ID(N'dbo.TipoVinculacion', N'U') IS NOT NULL OR OBJECT_ID(N'dbo.uv_tip
 IF EXISTS (SELECT 1 FROM dbo.CatalogoParametro WHERE grupo = 'DOCENTE' AND clave = 'TIPO_VINCULACION_DEFECTO')
    OR EXISTS (SELECT 1 FROM dbo.CatalogoMensajeUsuario WHERE codigo IN ('DOC_004', 'ERR_TIPO_VINCULACION_INVALIDO'))
    OR EXISTS (SELECT 1 FROM dbo.CatalogoMensajeTecnico WHERE codigo IN ('DOC_004', 'ERR_TIPO_VINCULACION_INVALIDO'))
+   OR EXISTS (SELECT 1 FROM dbo.CatalogoParametroEdicion e
+              WHERE NOT EXISTS (SELECT 1 FROM dbo.CatalogoParametro p WHERE p.id = e.parametro)
+                 OR (e.parametroDebeSerMenorQue IS NOT NULL
+                     AND NOT EXISTS (SELECT 1 FROM dbo.CatalogoParametro p WHERE p.id = e.parametroDebeSerMenorQue)))
     THROW 55092, 'MIGRACION 50: quedaron el parametro o los mensajes del tipo de vinculacion.', 1;
 IF OBJECT_ID(N'dbo.DocentePrograma', N'U') IS NULL
     THROW 55093, 'MIGRACION 50: los vinculos docente-programa deben conservarse.', 1;

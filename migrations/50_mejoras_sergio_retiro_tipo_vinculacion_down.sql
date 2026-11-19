@@ -4,7 +4,9 @@
 --   2. Columna DocentePrograma.tipoVinculacion: se agrega NULL, los vinculos existentes toman el tipo por defecto (CAT), queda NOT
 --      NULL con DF_DocentePrograma_tipoVinculacion (= CAT, para que las altas sin tipo de pruebas y SP sigan funcionando) y la FK.
 --      El tipo real que tenian los vinculos antes del up NO se recupera (el up lo borra).
---   3. Parametro DOCENTE/TIPO_VINCULACION_DEFECTO y mensajes DOC_004 y ERR_TIPO_VINCULACION_INVALIDO.
+--   3. Parametro DOCENTE/TIPO_VINCULACION_DEFECTO y mensajes DOC_004 y ERR_TIPO_VINCULACION_INVALIDO. No se recrean filas de
+--      CatalogoParametroEdicion: las semillas nunca hicieron editable este parametro ni lo usaron como regla cruzada
+--      (parametroDebeSerMenorQue); si en una base alguien lo hizo a mano, el up anulo esa regla y el down no la recupera.
 --   4. El texto de develop (antes de la 50) de uv_docente_programa, uv_auth_docente_programa, usp_vincular_docente_programa(_interno),
 --      usp_actualizar_docente_programa, usp_consultar_docentes_programa, usp_consultar_resumen_docentes_programa,
 --      usp_consultar_perfil_usuario y usp_consultar_estudiantes_facultad_paginado (sin codigoTipoIdentificacion).
