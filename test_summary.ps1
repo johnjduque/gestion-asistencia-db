@@ -726,6 +726,16 @@ try {
 catch {
     $resultFailures += "ATA_P1_MIG_RUNNER $($_.Exception.Message)"
 }
+# ATA D11: migracion 55 (up/down/up) en test/test_ata_k_migracion.ps1.
+try {
+    $ataKMigOutput = @(& (Join-Path $PSScriptRoot 'test/test_ata_k_migracion.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $ataKMigOutput) { Write-Host $line }
+    if ($ataKMigOutput -contains 'TEST_PASS:ATA_K_MIG_UP_DOWN_UP') { $clientPassed += 'ATA_K_MIG_UP_DOWN_UP' }
+    else { $resultFailures += 'ATA_K_MIG_UP_DOWN_UP not reported by test_ata_k_migracion.ps1' }
+}
+catch {
+    $resultFailures += "ATA_K_MIG_RUNNER $($_.Exception.Message)"
+}
 # CULM-001 D.9-a: migracion 28 (up/down/up, D-RB-03) en test/test_culm001_d9.ps1.
 try {
     $culm001D9Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d9.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
@@ -1159,7 +1169,9 @@ $criticalIds = @(
     # ATA D10: faltas por reclamar del estudiante (test/test_ata_d10_faltas_reclamables.sql)
     'ATA_D10_00_OBJETOS_Y_PERMISOS', 'ATA_D10_01_ANTES_DEL_AVISO', 'ATA_D10_02_TOMAS_EN_FALTA', 'ATA_D10_03_RECLAMO', 'ATA_D10_04_PLAZO_VENCIDO',
     'ATA_D10_05_MARCA_CORREGIDA', 'ATA_D10_06_MATRICULA_CANCELADA', 'ATA_D10_07_AISLAMIENTO', 'ATA_D10_08_PAGINACION', 'ATA_D10_09_RBAC_Y_VALIDACIONES',
-    'ATA_D10_TRANCOUNT_ZERO'
+    'ATA_D10_TRANCOUNT_ZERO',
+    # ATA D11: retiro de la oferta de grupos del estudiante (test/test_ata_k_retiro_oferta_estudiante.sql) y migracion 55 (up/down/up)
+    'ATA_K_01_OFERTA_ESTUDIANTE_RETIRADA', 'ATA_K_02_OFERTA_DOCENTE_CONSERVADA', 'ATA_K_MIG_UP_DOWN_UP'
 )
 if ($Concurrencia) { $criticalIds += 'CULM001_B2_CON_01_5X40' }
 $sqlPasses = @([regex]::Matches($outputStr, '(?m)^TEST_PASS:([A-Z0-9_]+)\s*$') | ForEach-Object { $_.Groups[1].Value })

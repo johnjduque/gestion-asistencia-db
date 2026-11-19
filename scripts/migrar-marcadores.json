@@ -401,6 +401,10 @@
     "54_ata_faltas_reclamables_estudiante": [
       { "objeto": "dbo.uv_falta_reclamable_estudiante" },
       { "objeto": "dbo.usp_consultar_faltas_reclamables_estudiante" }
+    ],
+    "55_ata_retiro_oferta_grupos_estudiante": [
+      { "objeto": "dbo.usp_consultar_oferta_grupos_estudiante", "existe": false },
+      { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'OFERTA' AND clave = 'INCLUIR_TRANSVERSALES'", "existe": false }
     ]
   }
 }

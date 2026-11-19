@@ -55,7 +55,6 @@ PRINT '======================================================================';
 :r /tmp/test/test_runtime_grants_backend_inventory.sql
 :r /tmp/test/test_usp_consultar_historial_grupos_docente_programa.sql
 :r /tmp/test/test_usp_consultar_resumen_docentes_programa.sql
-:r /tmp/test/test_usp_consultar_oferta_grupos_estudiante.sql
 :r /tmp/test/test_hu008_regla_inscripcion_programa.sql
 :r /tmp/test/test_int_hu01_reactivar_matricula_retirada.sql
 :r /tmp/test/test_usp_crear_actualizar_grupo.sql
@@ -210,6 +209,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_ata_p2_solicitudes_calendario.sql
 -- ATA D10 (migracion 54): faltas por reclamar del estudiante (vista y SP de consulta paginada)
 :r /tmp/test/test_ata_d10_faltas_reclamables.sql
+-- ATA D11 (migracion 55): la oferta de grupos del estudiante (HU008) y su parametro ya no existen tras el despliegue
+:r /tmp/test/test_ata_k_retiro_oferta_estudiante.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN

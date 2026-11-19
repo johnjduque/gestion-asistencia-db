@@ -237,10 +237,6 @@ CREATE TABLE #as (asistencia UNIQUEIDENTIFIER, estudiante UNIQUEIDENTIFIER, grup
 CREATE TABLE #mat (idAsignatura UNIQUEIDENTIFIER, nombreAsignatura NVARCHAR(100), idGrupo UNIQUEIDENTIFIER, nombreGrupo NVARCHAR(100), creditos INT);  -- CULM-001 D.9-a (F-EST-006, CONTRACT §11.1): quinta columna
 CREATE TABLE #hor (id UNIQUEIDENTIFIER, idEstudiante UNIQUEIDENTIFIER, idGrupo UNIQUEIDENTIFIER, codigoMateria NVARCHAR(50), nombreMateria NVARCHAR(100),
     grupo NVARCHAR(100), dia NVARCHAR(50), horaInicio VARCHAR(5), horaFin VARCHAR(5), docente NVARCHAR(400));
-CREATE TABLE #o (idGrupo UNIQUEIDENTIFIER, codigoGrupo INT, nombreGrupo NVARCHAR(50), idAsignatura UNIQUEIDENTIFIER, codigoAsignatura NVARCHAR(50),
-    nombreAsignatura NVARCHAR(100), nombreDocente NVARCHAR(400), idPeriodoAcademico UNIQUEIDENTIFIER, nombrePeriodoAcademico NVARCHAR(50),
-    fechaInicioPeriodo DATE, fechaFinPeriodo DATE, estadoPeriodo NVARCHAR(10), horario NVARCHAR(400), capacidadMaxima INT, estudiantesActivos INT,
-    cuposDisponibles INT, matriculado BIT, codigoComponente NVARCHAR(3), codigoCaracter NVARCHAR(3), nombreCaracter NVARCHAR(50), totalRegistros INT);   -- CULM-001 B2NM (CONTRACT B2 fila 113): 21 columnas
 CREATE TABLE #r (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT);
 CREATE TABLE #dec (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT,
     idUsuario UNIQUEIDENTIFIER, personaSinRolesActivos BIT, estaActivoDecano BIT);
@@ -413,9 +409,6 @@ BEGIN TRY
     INSERT INTO #hor EXEC dbo.usp_consultar_horario_estudiante @idUsuarioEjecutor = @uE8, @idCorrelacion = @c;
     IF (SELECT COUNT(*) FROM #hor) <> 1 OR NOT EXISTS (SELECT 1 FROM #hor WHERE idGrupo = @G5)
         THROW 58126, 'TEST FAILED: A2-T-08 horario: solo el grupo con matricula A.', 1;
-    INSERT INTO #o EXEC dbo.usp_consultar_oferta_grupos_estudiante @busqueda = N'A2 Estado', @idCorrelacion = @c, @idUsuarioEjecutor = @uE8;
-    IF (SELECT COUNT(*) FROM #o) <> 5 OR (SELECT COUNT(*) FROM #o WHERE matriculado = 1) <> 1 OR NOT EXISTS (SELECT 1 FROM #o WHERE idGrupo = @G5 AND matriculado = 1)
-        THROW 58127, 'TEST FAILED: A2-T-08 la oferta marca matriculado = 1 solo en el grupo A.', 1;
     TRUNCATE TABLE #mat;
     INSERT INTO #mat EXEC dbo.usp_consultar_materias_estudiante @idUsuarioEjecutor = @uDocT, @idCorrelacion = @c;
     IF (SELECT COUNT(*) FROM #mat) <> 0
