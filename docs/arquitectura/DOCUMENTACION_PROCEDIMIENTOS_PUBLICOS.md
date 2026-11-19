@@ -382,7 +382,7 @@ La auditoría BD 2026-10-28 encontró 48 SP públicos sin ficha aquí; 10 de ell
 ## Addendum F1 — horario semanal del grupo (2026-10-30)
 
 ### `dbo.usp_consultar_oferta_creacion_grupo_docente`
-- **Caso de uso (F3):** alimenta el formulario "Nuevo grupo" del docente: devuelve su propio `idDocente` y las asignaturas activas (de planes activos) de los programas con los que tiene vínculo activo. No expone nada fuera de esos programas. El período no se elige: `usp_crear_grupo` toma el más reciente si no se envía.
+- **Caso de uso (F3):** alimenta el formulario "Nuevo grupo" del docente: devuelve su propio `idDocente` y las asignaturas activas (de planes activos) de los programas con los que tiene vínculo activo. No expone nada fuera de esos programas. SES-GEN-01 exige que el cliente envíe `idPeriodoAcademico` explícito al crear el grupo; el SP no elige el más reciente.
 - **Parámetros:** `@idUsuarioEjecutor`, `@idCorrelacion`.
 - **Resultset:** `READ_QUERY_RESULTSET` (una fila por asignatura: `idDocente`, `idAsignatura`, `codigoAsignatura`, `nombreAsignatura`, `idPrograma`, `nombrePrograma`). Un ejecutor ausente (`GEN_002`) o que no es DOCENTE (`SEC_001`) se rechaza con `THROW` y el código de catálogo.
 - **Permiso:** `GRANT EXECUTE` al runtime en `schema/security/rol_asistencias_runtime_f3_docente_crea_grupo.sql`.
@@ -419,6 +419,16 @@ La auditoría BD 2026-10-28 encontró 48 SP públicos sin ficha aquí; 10 de ell
 - **Escritura:** la hace `usp_guardar_horarios_grupo_interno` (`DELETE` + `INSERT` sobre `dbo.Horario`); este SP controla la transacción: propia, o savepoint si ya hay una abierta, sin `XACT_ABORT ON`. Un rechazo después de escribir deshace todo lo escrito. El runtime solo tiene `EXECUTE` sobre el SP público (`DENY` sobre el interno) y no puede escribir `dbo.Horario` directamente (`rol_asistencias_runtime_f1_horario_grupo.sql`).
 - **Resultset:** canónico de 4 columnas (`GEN_005` en éxito).
 - **Pruebas:** `test/test_usp_guardar_horarios_grupo.sql`. Work item: `docs/work-items/F1-horario-grupo/`.
+
+---
+
+### `dbo.usp_previsualizar_horario_grupo`
+- **Caso de uso (SES-GEN-01):** previsualiza el calendario de sesiones y los conflictos del horario semanal, para un grupo nuevo o existente. Solo lectura; no escribe ni abre una transacción. El backend todavía no tiene un endpoint asociado.
+- **Parámetros:** `@idGrupo` opcional; `@idAsignatura`, `@idPeriodoAcademico`, `@idDocente` para grupo nuevo (con grupo existente se toman del grupo; los cambios de asignatura o periodo se rechazan); `@horariosJSON` (arreglo no vacío de franjas); `@idCorrelacion`, `@idUsuarioEjecutor`.
+- **Ámbito:** solo COORDINADOR; la asignatura debe estar activa (`ASI_010`), tener vínculo y plan activos en sus programas (`ASI_014`), y el período debe estar vigente, abierto y pertenecer a su institución (`PER_010`).
+- **Resultset:** `READ_QUERY_RESULTSET`; filas discriminadas por `tipoFila` (`RESUMEN`, `FRANJA`, `SESION`, `FESTIVO`, `CONFLICTO`). Los conflictos de horario son datos con severidad, no excepciones; insumos inválidos, recursos inexistentes y fallas de ámbito se propagan como `THROW 51000` con código de catálogo.
+- **Permisos:** solo `EXECUTE` para `rol_asistencias_runtime`; las consultas internas usan vistas base y no se concede `SELECT` a la vista auxiliar `uv_periodo_academico_cierre`.
+- **Pruebas:** `test/test_ses_gen_01_calendario_semestre.sql`; work item `docs/work-items/SES-GEN-01-calendario-semestre/`.
 
 ---
 
@@ -510,3 +520,30 @@ Contrato: `AsistenciasUCO-Infra/docs/contracts/ADDENDUM_ATA_ASISTENCIA_TOMAS_AVI
 ## Addendum ATA D11 — retiro de la oferta de grupos del estudiante (HU008 descartada, 2026-11-18)
 
 Decisión del usuario: el sistema solo gestiona asistencia; la inscripción a grupos la gestiona otro sistema. Migración `55_ata_retiro_oferta_grupos_estudiante` (up/down). Se retiran `dbo.usp_consultar_oferta_grupos_estudiante` (y su EXECUTE, `rol_asistencias_runtime_hu008.sql`) y el parámetro `OFERTA.INCLUIR_TRANSVERSALES` (seed `24_parametro_oferta_grupos.sql`); las secciones "Addendum HU008" y la fila de `VAL_001` anteriores son históricas. Se conservan `usp_consultar_oferta_creacion_grupo_docente` y la regla de inscripción en el programa (`test/test_hu008_regla_inscripcion_programa.sql`). Prueba: `test/test_ata_k_retiro_oferta_estudiante.sql` y `test/test_ata_k_migracion.ps1`.
+
+## Addendum NOTOMA-001 — aviso a la coordinación cuando el docente no toma asistencia (2026-11-19)
+
+Work item: `AsistenciasUCO-Infra/docs/work-items/NOTOMA-001-aviso-coordinador-sesion-sin-toma/` (addendum propuesto, no congelado). Migración `57_notoma_aviso_sesion_sin_toma_up|down.sql`. Pruebas: `test/test_notoma_aviso_sin_toma.sql` y `test/test_notoma_migraciones.ps1`.
+
+| Objeto | Qué entrega o cambia | Ámbito | Códigos |
+|---|---|---|---|
+| `dbo.usp_consultar_sesiones_pendientes_aviso_sin_toma(@idCorrelacion, @tamanoLote)` | Comando de sistema NUEVO (sin usuario; lectura): `idSesion`, `idGrupo`, `fechaHoraFinUtc` de las sesiones terminadas SIN ninguna toma, no canceladas, sin solicitud pendiente, con la ventana de registro vencida, dentro de `AVISO_SESION_SIN_TOMA/HORAS_MAXIMAS_ATRASO` y sin aviso previo; lote = `@tamanoLote` o `AVISO_SESION_SIN_TOMA/LOTE`; `HABILITADO = false` da 0 filas | rol runtime (job) | sin cambio |
+| `dbo.usp_consultar_destinatarios_aviso_sin_toma(@idSesion, @idCorrelacion)` | Comando de sistema NUEVO (lectura): una fila por coordinador activo con correo de los programas vigentes del grupo (una persona sale una vez) con los datos de la sesión y del docente titular; 0 filas si la sesión no existe, está cancelada o tiene tomas | rol runtime (job) | sin cambio |
+| `dbo.usp_registrar_aviso_sesion_sin_toma(@idSesion, @totalCoordinadoresAvisados, @idCorrelacion)` | Comando de sistema NUEVO con la tupla canónica: marca la sesión en `AvisoSesionSinToma`; idempotente (si ya existe, éxito sin escritura) | rol runtime (job) | `GEN_002`, `SES_001` |
+| `dbo.AvisoSesionSinToma` | Tabla NUEVA: `sesion` (PK, FK a `Sesion`), `fechaAvisoUtc`, `totalCoordinadoresAvisados`, `idCorrelacion` | solo por SP | n/a |
+| Parámetros `AVISO_SESION_SIN_TOMA/HABILITADO`, `LOTE`, `HORAS_MAXIMAS_ATRASO` | `true`, 50 y 24; no editables por el administrador | n/a | n/a |
+| Plantilla `SESION_SIN_TOMA_COORDINADOR` (es, v1) | Texto del correo y 8 marcadores obligatorios (`coordinador`, `asignatura`, `grupo`, `fecha`, `horaInicio`, `horaFin`, `docente`, `enlaceSesiones`) | n/a | n/a |
+
+## Addendum HU074 — activar o inactivar asignaturas (2026-11-19)
+
+Migración `58_hu074_estado_asignatura_reglas_up|down.sql`. Work item: `docs/work-items/HU074-estado-asignatura/`. Resultsets sin cambio; única extensión de firma, aditiva: `usp_toggle_estado_asignatura` recibe `@estaActivaDeseada BIT = NULL` al final. Pruebas: `test/test_hu074_estado_asignatura.sql` y `test/test_hu074_migracion.ps1`.
+
+| Objeto | Qué entrega o cambia | Ámbito | Códigos |
+|---|---|---|---|
+| `dbo.usp_toggle_estado_asignatura` | Inactivar (1 → 0) se rechaza si la asignatura tiene grupos en un período vigente o futuro, en cualquier programa (`uv_periodo_academico.estado` distinto de `CERRADO`; misma regla de fechas que `ASI_005`). Reactivar (0 → 1) siempre se permite. Éxito: `ASI_011` (quedó activa) o `ASI_012` (quedó inactiva), en lugar de `GEN_004`. Parámetro aditivo `@estaActivaDeseada BIT = NULL`: `NULL` alterna; `1`/`0` fija ese estado y, si ya está en él, responde éxito sin cambios (`ASI_011`/`ASI_012`) sin evaluar la regla de grupos. La regla de grupos y el `UPDATE` corren en una transacción con la fila de `Asignatura` bloqueada (`UPDLOCK, HOLDLOCK`) | COORDINADOR de todos los programas con vínculo activo | `GEN_002`, `SEC_001`, `VAL_002`, `SEC_002`, `ASI_006`, `ASI_009`, `ASI_011`, `ASI_012`, `SYS_001` |
+| `dbo.usp_crear_grupo` | HU074 conserva `ASI_010` para asignatura inactiva y bloquea la fila hasta el `INSERT`. SES-GEN-01 exige vínculo y plan activos en todos los programas del coordinador (`ASI_014`), período explícito y abierto de su institución (`PER_010`); ya no sustituye un período ausente por el más reciente | sin cambio | + `ASI_010`, `ASI_014`, `PER_010` |
+| `dbo.usp_asociar_asignatura_plan` | Una asignatura inactiva no se asocia a un plan: `ASI_010` (antes caía en `GEN_001`). `GEN_001` queda para la asignatura inexistente o de otra institución | sin cambio | + `ASI_010` |
+| `dbo.usp_consultar_oferta_creacion_grupo_docente`, `dbo.usp_consultar_asignaturas_asociables_paginado` | Sin cambio: ya excluían las asignaturas inactivas (`estaActivaAsignatura = 1`), así que no ofrecen algo que luego se rechaza | sin cambio | sin cambio |
+| `dbo.usp_consultar_asignaturas_plan_paginado` (malla) | Sin cambio: muestra las inactivas con `estaActivaAsignatura = 0` (reflejo de `Asignatura.estado`) para que el coordinador las reactive | sin cambio | sin cambio |
+
+Los grupos existentes no cambian al inactivar. El modelo no tiene baja lógica de `Grupo`: cuentan todos los grupos del período vigente o futuro.

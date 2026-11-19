@@ -26,6 +26,9 @@ PRINT '======================================================================';
 :r /tmp/test/test_user_dean_close.sql
 :r /tmp/test/test_subject_catalog.sql
 :r /tmp/test/test_rec2_rbac_asignatura.sql
+-- HU074 (migracion 58): activar o inactivar asignaturas (ASI_009..ASI_012, @estaActivaDeseada idempotente, bordes de fecha) y efecto
+-- del estado en grupos, planes y ofertas
+:r /tmp/test/test_hu074_estado_asignatura.sql
 :r /tmp/test/test_reactive_academic.sql
 :r /tmp/test/test_mass_period_close.sql
 :r /tmp/test/test_usp_registrar_estudiante_en_grupo_usuario_no_existente.sql
@@ -179,7 +182,7 @@ PRINT '======================================================================';
 :r /tmp/test/test_int003_sincronizar_mensaje.sql
 -- CULM-001 D.9-a (hallazgos medios y bajos, migracion 28): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_culm001_d9_hallazgos.sql
--- SES-GEN-01 (calendario de sesiones del semestre, migracion 57): registro por nombre exacto (DEC-028, sin comodin)
+-- SES-GEN-01 (calendario de sesiones del semestre, migracion 59): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_ses_gen_01_calendario_semestre.sql
 -- CULM-001 / DEC-064 (sesiones manuales: destinatarios y cancelacion por el coordinador, migracion 29): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_sesiones_manuales_notificacion.sql
@@ -207,6 +210,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_ata_p1_tomas_denominador.sql
 -- ATA P1-C (aviso de falta por sesion): sesiones pendientes, faltas por toma, marca idempotente, parametros y plantilla
 :r /tmp/test/test_ata_p1_aviso_falta.sql
+-- NOTOMA-001 (aviso al coordinador de la sesion sin toma): pendientes, destinatarios, marca idempotente, parametros y plantilla
+:r /tmp/test/test_notoma_aviso_sin_toma.sql
 -- ATA D6/D7 (migracion 52): solicitudes de sesion del docente y calendario de sesiones con fechas
 :r /tmp/test/test_ata_p2_solicitudes_calendario.sql
 -- ATA D10 (migracion 54): faltas por reclamar del estudiante (vista y SP de consulta paginada)

@@ -74,7 +74,7 @@ USING (VALUES
     ('HOR_003', 'BUSINESS_ERROR', 'MEDIO', 'Las franjas del horario del grupo no pueden cruzarse: {} se cruza con {}.'),
     ('HOR_004', 'BUSINESS_ERROR', 'MEDIO', 'El horario del grupo no es válido: {}.'),
     ('HOR_005', 'BUSINESS_ERROR', 'MEDIO', 'El grupo ya tiene un horario definido. Para cambiarlo, solicita la aprobación del coordinador.'),
-    -- SES-GEN-01 (migracion 57)
+    -- SES-GEN-01 (migracion 59)
     ('HOR_006', 'BUSINESS_ERROR', 'ALTO', 'Las horas semanales del horario ({} h) no coinciden con las de la materia ({} h). Ajusta las franjas para que sumen exactamente las horas de la materia.'),
     ('HOR_007', 'BUSINESS_ERROR', 'MEDIO', 'La franja {} debe durar entre {} y {} minutos.'),
     ('HOR_008', 'BUSINESS_ERROR', 'MEDIO', 'La franja {} debe estar dentro del horario permitido ({}).'),
@@ -84,8 +84,8 @@ USING (VALUES
     ('HOR_012', 'INFORMATIVO', 'BAJO', '{} h ya no se pueden programar porque el período ya inició; las sesiones se programan desde {}.'),
     ('HOR_013', 'INFORMATIVO', 'MEDIO', 'La materia aún no tiene horas semanales cargadas: no se valida el total del horario.'),
     ('HOR_014', 'INFORMATIVO', 'BAJO', 'Se conservan {} sesión(es) ya dictadas o con asistencia ({} h).'),
-    ('ASI_009', 'BUSINESS_ERROR', 'MEDIO', 'Las horas semanales de la materia deben ser un entero entre 1 y {}.'),
-    ('ASI_010', 'BUSINESS_ERROR', 'ALTO', 'La asignatura no está disponible para crear grupos: debe estar activa y vinculada a un plan activo de tus programas.'),
+    ('ASI_013', 'BUSINESS_ERROR', 'MEDIO', 'Las horas semanales de la materia deben ser un entero entre 1 y {}.'),
+    ('ASI_014', 'BUSINESS_ERROR', 'ALTO', 'La asignatura no tiene un vínculo activo con un plan activo de los programas que coordinas.'),
     ('PER_010', 'BUSINESS_ERROR', 'ALTO', 'El período académico {} no está vigente: ya terminó, está cerrado o no es de tu institución.'),
     ('PER_011', 'BUSINESS_ERROR', 'MEDIO', 'El período debe durar {} semanas: la fecha de fin debe ser {}.'),
 
@@ -221,7 +221,7 @@ USING (VALUES
     ('HOR_003', 'BUSINESS_ERROR', 'MEDIO', 'Franjas traslapadas en el horario del grupo: {} y {}.'),
     ('HOR_004', 'BUSINESS_ERROR', 'MEDIO', 'Horario de grupo invalido: {}.'),
     ('HOR_005', 'BUSINESS_ERROR', 'MEDIO', 'El docente ejecutor intento reemplazar un horario ya definido del grupo.'),
-    -- SES-GEN-01 (migracion 57)
+    -- SES-GEN-01 (migracion 59)
     ('HOR_006', 'BUSINESS_ERROR', 'ALTO', 'Suma de minutos de las franjas distinta de horasSemanales*60 de la asignatura. Franjas: {} h; materia: {} h.'),
     ('HOR_007', 'BUSINESS_ERROR', 'MEDIO', 'Duracion de franja fuera de HORARIO/DURACION_MINIMA_MINUTOS..DURACION_MAXIMA_MINUTOS. Franja {}; minimo {}; maximo {}.'),
     ('HOR_008', 'BUSINESS_ERROR', 'MEDIO', 'Franja fuera de la ventana HORARIO/VENTANA_INICIO..VENTANA_FIN. Franja {}; ventana {}.'),
@@ -231,8 +231,8 @@ USING (VALUES
     ('HOR_012', 'INFORMATIVO', 'BAJO', 'Horas no programables por inicio tardio: {} h; se programa desde {}.'),
     ('HOR_013', 'INFORMATIVO', 'MEDIO', 'Asignatura sin horasSemanales: B5 y B8 no se evaluan.'),
     ('HOR_014', 'INFORMATIVO', 'BAJO', 'Sesiones conservadas por estar dictadas o con asistencia: {}; horas: {}.'),
-    ('ASI_009', 'BUSINESS_ERROR', 'MEDIO', 'horasSemanales invalida: debe ser entero entre 1 y {}.'),
-    ('ASI_010', 'BUSINESS_ERROR', 'ALTO', 'Asignatura inactiva, sin vinculo activo con un plan activo, o de un programa que el ejecutor no coordina.'),
+    ('ASI_013', 'BUSINESS_ERROR', 'MEDIO', 'horasSemanales invalida: debe ser entero entre 1 y {}.'),
+    ('ASI_014', 'BUSINESS_ERROR', 'ALTO', 'Regla SES-GEN-01: sin vinculo activo a plan activo o la asignatura incluye un programa fuera del ambito del coordinador.'),
     ('PER_010', 'BUSINESS_ERROR', 'ALTO', 'Periodo {} inexistente, de otra institucion, cerrado o terminado.'),
     ('PER_011', 'BUSINESS_ERROR', 'MEDIO', 'Duracion de periodo invalida: se exigen {} semanas; fecha de fin calculada {}.'),
 

@@ -41,6 +41,7 @@ AS
     DECLARE @nombreDefecto            NVARCHAR(50)     = TRIM(@nombre);
     DECLARE @nombreAreaDefecto        NVARCHAR(100)    = TRIM(@nombreArea);
     DECLARE @nombreCompDefecto        NVARCHAR(100)    = TRIM(@nombreComponente);
+    DECLARE @codigoCaracterValidar    NVARCHAR(3);
 
     DECLARE @idAreaResolved       UNIQUEIDENTIFIER;
     DECLARE @idComponenteResolved UNIQUEIDENTIFIER;
@@ -124,12 +125,12 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
-        -- PASO 2.1c (SES-GEN-01 H-04): horasSemanales, si llega, es un entero entre 1 y ASIGNATURA/HORAS_SEMANALES_MAXIMO (ASI_009).
+        -- PASO 2.1c (SES-GEN-01 H-04): horasSemanales, si llega, es un entero entre 1 y ASIGNATURA/HORAS_SEMANALES_MAXIMO (ASI_013).
         --          Limite ausente: fail-closed. NULL = sin cargar (crear) o sin cambio (actualizar).
         IF @estadoResultado = 1 AND @horasSemanales IS NOT NULL AND (@horasSemanalesMaximo IS NULL OR @horasSemanales < 1 OR @horasSemanales > @horasSemanalesMaximo)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
-                @p_codigo = 'ASI_009',
+                @p_codigo = 'ASI_013',
                 @p_param1 = @horasSemanalesMaximo,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
@@ -204,13 +205,18 @@ BEGIN
         IF @estadoResultado = 1
         BEGIN
             DECLARE @codigoRechazoPlan NVARCHAR(10);
-            IF NOT EXISTS (SELECT 1 FROM dbo.SemestrePlanEstudio spe INNER JOIN dbo.Semestre sm ON sm.id = spe.semestre
-                           WHERE spe.planEstudio = @idPlanEstudioDefecto AND sm.numero = @semestreNumero)
+            IF NOT EXISTS (SELECT 1 FROM dbo.uv_semestre_plan_estudio sp
+                           WHERE sp.idPlanEstudio = @idPlanEstudioDefecto AND sp.numeroSemestre = @semestreNumero)
                 SET @codigoRechazoPlan = 'PLA_004';
-            ELSE IF NOT EXISTS (SELECT 1 FROM dbo.CaracterAsignaturaPlan c
-                                WHERE c.estado = 1 AND c.codigo = COALESCE(NULLIF(TRIM(@codigoCaracter), N''),
-                                      CAST(dbo.ufn_obtener_parametro('ASIGNATURA_PLAN', 'CARACTER_DEFECTO') AS NVARCHAR(3))))
-                SET @codigoRechazoPlan = 'ASI_007';
+            ELSE
+            BEGIN
+                SET @codigoCaracterValidar = TRIM(@codigoCaracter);
+                IF @codigoCaracterValidar IS NULL OR @codigoCaracterValidar = N''
+                    SET @codigoCaracterValidar = CAST(dbo.ufn_obtener_parametro('ASIGNATURA_PLAN', 'CARACTER_DEFECTO') AS NVARCHAR(3));
+                IF NOT EXISTS (SELECT 1 FROM dbo.uv_caracter_asignatura_plan c
+                               WHERE c.estaActivo = 1 AND c.codigo = @codigoCaracterValidar)
+                    SET @codigoRechazoPlan = 'ASI_007';
+            END
             IF @codigoRechazoPlan IS NOT NULL
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = @codigoRechazoPlan,

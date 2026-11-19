@@ -7,7 +7,7 @@ SET ANSI_NULLS ON;
 GO
 
 -- ============================================================================
--- SES-GEN-01 (migracion 57): calendario de sesiones del semestre al definir el grupo.
+-- SES-GEN-01 (migracion 59): calendario de sesiones del semestre al definir el grupo.
 --   SES_01_PER_CALC     usp_crear_periodo_academico sin fechaFin: fin = inicio + 16 semanas - 1 dia (112 dias)
 --   SES_02_PER_RECHAZO  fechaFin que no mide 112 dias -> PER_011; fechaFin correcta -> exito
 --   SES_03_PER_EDIT     usp_actualizar_periodo_academico: solo cambia el nombre -> no valida la duracion; cambia fechas -> PER_011
@@ -15,8 +15,8 @@ GO
 --   SES_05_B5           suma semanal de las franjas igual, exacta, a horasSemanales * 60 (HOR_006); NULL no valida
 --   SES_06_B7           duracion de la franja (HOR_007) y ventana horaria (HOR_008)
 --   SES_07_PREVIEW      usp_previsualizar_horario_grupo: grupo nuevo = mismas sesiones que la precarga de la confirmacion; conflictos como datos
---   SES_08_B1_B2        usp_crear_grupo: periodo terminado -> PER_010; asignatura sin vinculo activo -> ASI_010
---   SES_09_ASI_009      usp_actualizar_asignatura: horasSemanales fuera de rango -> ASI_009
+--   SES_08_B1_B2        usp_crear_grupo: periodo terminado -> PER_010; asignatura sin vinculo activo -> ASI_014
+--   SES_09_ASI_013      usp_actualizar_asignatura: horasSemanales fuera de rango -> ASI_013
 -- Todo corre en UNA transaccion con ROLLBACK final.
 -- ============================================================================
 IF OBJECT_ID('tempdb..#ses_expect') IS NOT NULL DROP PROCEDURE #ses_expect;
@@ -33,7 +33,6 @@ END;
 GO
 
 DECLARE @uAdmin UNIQUEIDENTIFIER, @uCoord UNIQUEIDENTIFIER, @asignatura UNIQUEIDENTIFIER, @docente UNIQUEIDENTIFIER;
-SELECT TOP 1 @uAdmin = a.usuario FROM dbo.Administrador a ORDER BY a.id;
 -- Un coordinador, una asignatura activa con vinculo activo cuyos programas coordina por completo, y un docente con grupo en esa asignatura
 SELECT TOP 1 @uCoord = c.usuario, @asignatura = g.idAsignatura, @docente = g.idDocente
 FROM dbo.Coordinador c
@@ -44,12 +43,18 @@ WHERE NOT EXISTS (SELECT 1 FROM dbo.uv_asignatura_plan_estudio v2
                   WHERE v2.idAsignatura = v.idAsignatura AND v2.estaActivoVinculo = 1 AND v2.estaActivoPlan = 1
                     AND NOT EXISTS (SELECT 1 FROM dbo.ufn_programas_coordinador(c.usuario) cp WHERE cp.idPrograma = v2.idPrograma))
 ORDER BY c.id;
+SELECT TOP 1 @uAdmin = a.usuario
+FROM dbo.Administrador a
+INNER JOIN dbo.uv_programa p ON p.idInstitucion = a.institucion
+INNER JOIN dbo.Coordinador c ON c.usuario = @uCoord
+WHERE p.idCoordinador = c.id
+ORDER BY a.id;
 IF @uAdmin IS NULL OR @uCoord IS NULL OR @asignatura IS NULL OR @docente IS NULL
     THROW 52971, 'TEST FAILED: SES_GEN_01 faltan fixtures del seed (administrador, coordinador, asignatura o docente).', 1;
 
 DECLARE @corr UNIQUEIDENTIFIER = NEWID(), @ok BIT, @err NVARCHAR(4000), @n INT, @codigo NVARCHAR(60);
 DECLARE @per UNIQUEIDENTIFIER = NEWID(), @per2 UNIQUEIDENTIFIER = NEWID(), @perViejo UNIQUEIDENTIFIER = NEWID();
-DECLARE @grupo UNIQUEIDENTIFIER = NEWID(), @grupo2 UNIQUEIDENTIFIER = NEWID();
+DECLARE @grupo UNIQUEIDENTIFIER = NEWID(), @grupo2 UNIQUEIDENTIFIER = NEWID(), @grupo3 UNIQUEIDENTIFIER = NEWID();
 DECLARE @inicio DATE = DATEADD(DAY, 60, CAST(SYSUTCDATETIME() AS DATE));
 -- El periodo debe iniciar a mitad de semana (miercoles) para probar que numeroSemana no depende del primer dia de la semana
 WHILE DATEDIFF(DAY, '19000101', @inicio) % 7 <> 2 SET @inicio = DATEADD(DAY, 1, @inicio);
@@ -118,6 +123,24 @@ BEGIN TRY
         @idDocente = @docente, @idCorrelacion = @corr, @idUsuarioEjecutor = @uCoord;
     SET @ok = IIF(EXISTS (SELECT 1 FROM #r4 WHERE estadoResultado = 1), 1, 0);
     EXEC #ses_expect 'SES_FIXTURE_GRUPO', @ok;
+
+    -- ---------------------------------------------------------------- SES_08 B1: sin vinculo activo a plan activo -> ASI_014 (la asignatura sigue activa)
+    DECLARE @vinculosActivos TABLE (id UNIQUEIDENTIFIER PRIMARY KEY);
+    INSERT @vinculosActivos (id)
+    SELECT id FROM dbo.AsignaturaPlanEstudio WHERE asignatura = @asignatura AND estaActivo = 1;
+    UPDATE dbo.AsignaturaPlanEstudio
+    SET estaActivo = 0, fechaDesvinculacionUtc = DATEADD(MILLISECOND, 1, fechaVinculacionUtc)
+    WHERE id IN (SELECT id FROM @vinculosActivos);
+    DELETE #r4;
+    INSERT #r4 EXEC dbo.usp_crear_grupo @idGrupo = @grupo3, @idAsignatura = @asignatura, @idPeriodoAcademico = @per, @codigo = 989, @nombre = N'SES-GEN-01 g3',
+        @idDocente = @docente, @idCorrelacion = @corr, @idUsuarioEjecutor = @uCoord;
+    SET @ok = IIF(EXISTS (SELECT 1 FROM #r4 WHERE estadoResultado = 0 AND mensajeTecnicoResultado LIKE N'DBCODE=ASI_014%')
+                  AND NOT EXISTS (SELECT 1 FROM dbo.Grupo WHERE id = @grupo3)
+                  AND EXISTS (SELECT 1 FROM dbo.uv_asignatura WHERE id = @asignatura AND estaActivaAsignatura = 1), 1, 0);
+    UPDATE dbo.AsignaturaPlanEstudio
+    SET estaActivo = 1, fechaDesvinculacionUtc = NULL
+    WHERE id IN (SELECT id FROM @vinculosActivos);
+    EXEC #ses_expect 'SES_08_B1_SIN_VINCULO_ASI_014', @ok;
 
     -- ---------------------------------------------------------------- SES_08 B2: periodo terminado -> PER_010 (sin sustitucion silenciosa)
     DELETE #r4;
@@ -210,7 +233,7 @@ BEGIN TRY
     EXEC #ses_expect 'SES_07_PREVIEW_CONFLICTO_B5', @ok;
     PRINT 'TEST_PASS:SES_GEN_01_PREVIEW';
 
-    -- ---------------------------------------------------------------- SES_09 ASI_009
+    -- ---------------------------------------------------------------- SES_09 ASI_013
     DECLARE @idPlan UNIQUEIDENTIFIER, @sem INT;
     SELECT TOP 1 @idPlan = v.idPlanEstudio, @sem = v.numeroSemestre
     FROM dbo.uv_asignatura_plan_estudio v WHERE v.idAsignatura = @asignatura AND v.estaActivoVinculo = 1 AND v.estaActivoPlan = 1
@@ -218,9 +241,9 @@ BEGIN TRY
     DELETE #r4;
     INSERT #r4 EXEC dbo.usp_actualizar_asignatura @idAsignatura = @asignatura, @codigo = NULL, @nombre = NULL, @creditos = NULL, @idPlanEstudio = @idPlan,
         @semestreNumero = @sem, @nombreArea = NULL, @nombreComponente = NULL, @idCorrelacion = @corr, @idUsuarioEjecutor = @uCoord, @horasSemanales = 99;
-    SET @ok = IIF(EXISTS (SELECT 1 FROM #r4 WHERE estadoResultado = 0 AND mensajeTecnicoResultado LIKE N'DBCODE=ASI_009%'), 1, 0);
-    EXEC #ses_expect 'SES_09_ASI_009', @ok;
-    PRINT 'TEST_PASS:SES_GEN_01_ASI_009';
+    SET @ok = IIF(EXISTS (SELECT 1 FROM #r4 WHERE estadoResultado = 0 AND mensajeTecnicoResultado LIKE N'DBCODE=ASI_013%'), 1, 0);
+    EXEC #ses_expect 'SES_09_ASI_013', @ok;
+    PRINT 'TEST_PASS:SES_GEN_01_ASI_013';
 END TRY
 BEGIN CATCH
     IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;

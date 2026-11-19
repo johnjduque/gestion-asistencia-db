@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **488**.
+Total de códigos: **506**.
 
 ## ACC
 
@@ -114,8 +114,12 @@ Total de códigos: **488**.
 | `ASI_006` | BUSINESS_ERROR | MEDIO | La asignatura es compartida con programas que no coordinas; solo puedes cambiar su semestre y su carácter en tu plan. | Regla S2: el catalogo de una asignatura compartida solo lo cambia quien coordina todos sus programas con vinculo activo. | `38_mensajes_asignatura_plan.sql` |
 | `ASI_007` | BUSINESS_ERROR | MEDIO | El carácter de la asignatura no es válido. | Validacion: codigoCaracter no existe en CaracterAsignaturaPlan o esta inactivo. | `38_mensajes_asignatura_plan.sql` |
 | `ASI_008` | BUSINESS_ERROR | MEDIO | Los créditos de la asignatura no pueden superar {}. | Regla DEC-073: @creditos supera ASIGNATURA/CREDITOS_MAXIMO ({}) o el parametro no existe. | `64_dec073_validaciones.sql` |
-| `ASI_009` | BUSINESS_ERROR | MEDIO | Las horas semanales de la materia deben ser un entero entre 1 y {}. | SES-GEN-01: `@horasSemanales` fuera de 1..`ASIGNATURA/HORAS_SEMANALES_MAXIMO` o el parametro no existe. | `57_ses_gen_01_calendario_semestre_up.sql` |
-| `ASI_010` | BUSINESS_ERROR | ALTO | La asignatura no está disponible para crear grupos: debe estar activa y vinculada a un plan activo de tus programas. | SES-GEN-01 B1 (crear grupo y previsualizar): asignatura inactiva, sin vinculo activo con un plan activo o con programas que el coordinador no coordina (todos). | `57_ses_gen_01_calendario_semestre_up.sql` |
+| `ASI_009` | BUSINESS_ERROR | ALTO | No puedes inactivar la asignatura: tiene grupos en el período vigente o en períodos futuros. | Regla HU074: la asignatura tiene grupos en un periodo academico vigente o futuro (uv_periodo_academico.estado distinto de CERRADO); no se inactiva. | `70_hu074_mensajes_estado_asignatura.sql` |
+| `ASI_010` | BUSINESS_ERROR | MEDIO | La asignatura está inactiva; actívala para usarla. | Regla HU074: Asignatura.estado = 0; no se crean grupos ni se asocia a planes hasta reactivarla. | `70_hu074_mensajes_estado_asignatura.sql` |
+| `ASI_011` | SUCCESS | BAJO | La asignatura quedó activa. | HU074: Asignatura.estado pasa de 0 a 1. | `70_hu074_mensajes_estado_asignatura.sql` |
+| `ASI_012` | SUCCESS | BAJO | La asignatura quedó inactiva. | HU074: Asignatura.estado pasa de 1 a 0. | `70_hu074_mensajes_estado_asignatura.sql` |
+| `ASI_013` | BUSINESS_ERROR | MEDIO | Las horas semanales de la materia deben ser un entero entre 1 y {}. | horasSemanales invalida: debe ser entero entre 1 y {}. | `04_mensaje.sql` |
+| `ASI_014` | BUSINESS_ERROR | ALTO | La asignatura no tiene un vínculo activo con un plan activo de los programas que coordinas. | Regla SES-GEN-01: sin vinculo activo a plan activo o la asignatura incluye un programa fuera del ambito del coordinador. | `04_mensaje.sql` |
 
 ## ATT
 
@@ -364,15 +368,15 @@ Total de códigos: **488**.
 | `HOR_003` | BUSINESS_ERROR | MEDIO | Las franjas del horario del grupo no pueden cruzarse: {} se cruza con {}. | Franjas traslapadas en el horario del grupo: {} y {}. | `04_mensaje.sql` |
 | `HOR_004` | BUSINESS_ERROR | MEDIO | El horario del grupo no es válido: {}. | Horario de grupo invalido: {}. | `04_mensaje.sql` |
 | `HOR_005` | BUSINESS_ERROR | MEDIO | El grupo ya tiene un horario definido. Para cambiarlo, solicita la aprobación del coordinador. | El docente ejecutor intento reemplazar un horario ya definido del grupo. | `04_mensaje.sql` |
-| `HOR_006` | BUSINESS_ERROR | ALTO | Las horas semanales del horario ({} h) no coinciden con las de la materia ({} h). Ajusta las franjas para que sumen exactamente las horas de la materia. | SES-GEN-01 B5: la suma de minutos de las franjas es distinta de `Asignatura.horasSemanales` x 60 (con `horasSemanales` NULL no se valida). | `57_ses_gen_01_calendario_semestre_up.sql` |
-| `HOR_007` | BUSINESS_ERROR | MEDIO | La franja {} debe durar entre {} y {} minutos. | SES-GEN-01 B7: la duracion de la franja esta fuera de `HORARIO/DURACION_MINIMA_MINUTOS`..`DURACION_MAXIMA_MINUTOS`. | `57_ses_gen_01_calendario_semestre_up.sql` |
-| `HOR_008` | BUSINESS_ERROR | MEDIO | La franja {} debe estar dentro del horario permitido ({}). | SES-GEN-01 B7: la franja sale de la ventana `HORARIO/VENTANA_INICIO`..`VENTANA_FIN`. | `57_ses_gen_01_calendario_semestre_up.sql` |
-| `HOR_009` | BUSINESS_ERROR | ALTO | El nuevo horario se cruza con otros grupos de {} estudiante(s) inscrito(s) en la franja {}. | SES-GEN-01 B9: al cambiar las franjas, estudiantes con matricula INSCRITA tendrian cruce con otro grupo del periodo. | `57_ses_gen_01_calendario_semestre_up.sql` |
-| `HOR_010` | INFORMATIVO | BAJO | El horario programa {} h en el período y la materia espera {} h. | SES-GEN-01 B8: solo previsualizacion; informa, no bloquea. | `57_ses_gen_01_calendario_semestre_up.sql` |
-| `HOR_011` | INFORMATIVO | BAJO | {} h caen en días festivos ({} sesión(es)); esas sesiones quedan canceladas. | SES-GEN-01: solo previsualizacion. | `57_ses_gen_01_calendario_semestre_up.sql` |
-| `HOR_012` | INFORMATIVO | BAJO | {} h ya no se pueden programar porque el período ya inició; las sesiones se programan desde {}. | SES-GEN-01 B11: solo previsualizacion. | `57_ses_gen_01_calendario_semestre_up.sql` |
-| `HOR_013` | INFORMATIVO | MEDIO | La materia aún no tiene horas semanales cargadas: no se valida el total del horario. | SES-GEN-01: `Asignatura.horasSemanales` es NULL; B5 y B8 no se evaluan. | `57_ses_gen_01_calendario_semestre_up.sql` |
-| `HOR_014` | INFORMATIVO | BAJO | Se conservan {} sesión(es) ya dictadas o con asistencia ({} h). | SES-GEN-01 B10: solo previsualizacion de un grupo existente. | `57_ses_gen_01_calendario_semestre_up.sql` |
+| `HOR_006` | BUSINESS_ERROR | ALTO | Las horas semanales del horario ({} h) no coinciden con las de la materia ({} h). Ajusta las franjas para que sumen exactamente las horas de la materia. | Suma de minutos de las franjas distinta de horasSemanales*60 de la asignatura. Franjas: {} h; materia: {} h. | `04_mensaje.sql` |
+| `HOR_007` | BUSINESS_ERROR | MEDIO | La franja {} debe durar entre {} y {} minutos. | Duracion de franja fuera de HORARIO/DURACION_MINIMA_MINUTOS..DURACION_MAXIMA_MINUTOS. Franja {}; minimo {}; maximo {}. | `04_mensaje.sql` |
+| `HOR_008` | BUSINESS_ERROR | MEDIO | La franja {} debe estar dentro del horario permitido ({}). | Franja fuera de la ventana HORARIO/VENTANA_INICIO..VENTANA_FIN. Franja {}; ventana {}. | `04_mensaje.sql` |
+| `HOR_009` | BUSINESS_ERROR | ALTO | El nuevo horario se cruza con otros grupos de {} estudiante(s) inscrito(s) en la franja {}. | El horario nuevo cruza con otros grupos de estudiantes inscritos. Estudiantes: {}; franja {}. | `04_mensaje.sql` |
+| `HOR_010` | INFORMATIVO | BAJO | El horario programa {} h en el período y la materia espera {} h. | Total programado {} h frente a {} h esperadas de la materia. | `04_mensaje.sql` |
+| `HOR_011` | INFORMATIVO | BAJO | {} h caen en días festivos ({} sesión(es)); esas sesiones quedan canceladas. | Horas perdidas por festivo: {} h en {} sesion(es). | `04_mensaje.sql` |
+| `HOR_012` | INFORMATIVO | BAJO | {} h ya no se pueden programar porque el período ya inició; las sesiones se programan desde {}. | Horas no programables por inicio tardio: {} h; se programa desde {}. | `04_mensaje.sql` |
+| `HOR_013` | INFORMATIVO | MEDIO | La materia aún no tiene horas semanales cargadas: no se valida el total del horario. | Asignatura sin horasSemanales: B5 y B8 no se evaluan. | `04_mensaje.sql` |
+| `HOR_014` | INFORMATIVO | BAJO | Se conservan {} sesión(es) ya dictadas o con asistencia ({} h). | Sesiones conservadas por estar dictadas o con asistencia: {}; horas: {}. | `04_mensaje.sql` |
 
 ## IAM
 
@@ -470,8 +474,8 @@ Total de códigos: **488**.
 | `PER_007` | BUSINESS_ERROR | MEDIO | El período académico aún no ha finalizado; el cierre masivo solo puede ejecutarse después de su fecha de fin ({}). | Regla: uv_periodo_academico.estado del periodo no es CERRADO (fecha local institucional <= fechaFin {}); usp_ejecutar_cierre_masivo_periodo no cierra ni audita nada. | `17_mensajes_periodo_academico.sql` |
 | `PER_008` | BUSINESS_ERROR | MEDIO | El período académico {} ya fue cerrado; no se pueden registrar ni modificar tomas, asistencias ni reclamos de sus sesiones. | Regla: PeriodoAcademico.fechaCierreUtc no es nula (periodo {} cerrado el {} UTC); no se registran ni modifican tomas, lotes ni reclamos de sus sesiones. | `17_mensajes_periodo_academico.sql` |
 | `PER_009` | BUSINESS_ERROR | MEDIO | El período académico ya fue cerrado el {}; el cierre masivo no se puede repetir. | Regla: PeriodoAcademico.fechaCierreUtc ya registrada (cierre del {}, fecha local institucional); usp_ejecutar_cierre_masivo_periodo no repite el cierre ni audita nada. | `17_mensajes_periodo_academico.sql` |
-| `PER_010` | BUSINESS_ERROR | ALTO | El período académico {} no está vigente: ya terminó, está cerrado o no es de tu institución. | SES-GEN-01 B2 (crear grupo y previsualizar): periodo de otra institucion, terminado o cerrado; ya no se sustituye en silencio por el mas reciente. | `57_ses_gen_01_calendario_semestre_up.sql` |
-| `PER_011` | BUSINESS_ERROR | MEDIO | El período debe durar {} semanas: la fecha de fin debe ser {}. | SES-GEN-01 B2: la fecha de fin no es fechaInicio + `PERIODO/SEMANAS_DURACION` x 7 - 1 (solo al crear o al cambiar fechas). | `57_ses_gen_01_calendario_semestre_up.sql` |
+| `PER_010` | BUSINESS_ERROR | ALTO | El período académico {} no está vigente: ya terminó, está cerrado o no es de tu institución. | Periodo {} inexistente, de otra institucion, cerrado o terminado. | `04_mensaje.sql` |
+| `PER_011` | BUSINESS_ERROR | MEDIO | El período debe durar {} semanas: la fecha de fin debe ser {}. | Duracion de periodo invalida: se exigen {} semanas; fecha de fin calculada {}. | `04_mensaje.sql` |
 
 ## PLA
 
@@ -740,7 +744,7 @@ Total de códigos: **488**.
 | `VAL_APP_073` | VALIDATION_ERROR | BAJO | El identificador del estudiante es obligatorio. | Backend (VALIDATION_ERROR): El identificador del estudiante es obligatorio. | `62_val_mensajes_aplicacion.sql` |
 | `VAL_APP_074` | VALIDATION_ERROR | BAJO | El identificador del docente es obligatorio. | Backend (VALIDATION_ERROR): El identificador del docente es obligatorio. | `62_val_mensajes_aplicacion.sql` |
 | `VAL_APP_075` | VALIDATION_ERROR | BAJO | El identificador del programa es obligatorio. | Backend (VALIDATION_ERROR): El identificador del programa es obligatorio. | `62_val_mensajes_aplicacion.sql` |
-| `VAL_APP_076` | VALIDATION_ERROR | BAJO | El horario del grupo es obligatorio: envía al menos una franja. | Backend (VALIDATION_ERROR): todo grupo nace con horario (SES-GEN-01, decision 4). | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_076` | VALIDATION_ERROR | BAJO | El horario del grupo es obligatorio: envía al menos una franja. | Backend (VALIDATION_ERROR): El horario del grupo es obligatorio: envía al menos una franja. | `62_val_mensajes_aplicacion.sql` |
 
 ## VCE
 

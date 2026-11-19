@@ -32,6 +32,8 @@ INSERT INTO @requeridos (nombre) VALUES
  (N'usp_retirar_solicitud_revision_asistencia'), (N'usp_cambiar_estado_decano'), (N'usp_buscar_estudiante_por_documento_grupo'),
  -- ATA D1: aviso de falta por sesion (job del backend)
  (N'usp_consultar_sesiones_pendientes_aviso_falta'), (N'usp_consultar_faltas_sesion_aviso'), (N'usp_registrar_aviso_falta_sesion'),
+ -- NOTOMA-001: aviso al coordinador de la sesion sin toma (job del backend)
+ (N'usp_consultar_sesiones_pendientes_aviso_sin_toma'), (N'usp_consultar_destinatarios_aviso_sin_toma'), (N'usp_registrar_aviso_sesion_sin_toma'),
  -- ATA D10: faltas por reclamar del estudiante
  (N'usp_consultar_faltas_reclamables_estudiante');
 

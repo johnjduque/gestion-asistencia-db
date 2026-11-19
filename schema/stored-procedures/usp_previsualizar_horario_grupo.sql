@@ -6,13 +6,14 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 -- =============================================================================
+-- READ_QUERY_RESULTSET
 -- SES-GEN-01: previsualizacion de solo lectura del horario propuesto de un grupo (nuevo o existente). No escribe ni abre transaccion.
 -- Calcula, con la misma definicion de ranuras que usp_precargar_sesiones_grupo_interno (mismo dia de semana, mismo fuso institucional,
 -- mismo festivo), las sesiones del periodo, las horas semanales y del periodo, el efecto de los festivos y del inicio tardio, y los
 -- conflictos del horario con las reglas de usp_guardar_horarios_grupo (HOR_002, HOR_003, HOR_006, HOR_007, HOR_008, HOR_009) y la
 -- advertencia de la materia sin horas (HOR_013). Los conflictos son DATOS (BLOQUEANTE / ADVERTENCIA / INFORMATIVO); un insumo invalido,
 -- un recurso inexistente o fuera de ambito se rechazan con THROW 51000 (mismo contrato que las lecturas paginadas): VAL_001, VAL_002,
--- HOR_004, ASI_010, PER_010, SEC_001, SEC_002, GEN_001/DOC_*.
+-- HOR_004, ASI_010, ASI_014, PER_010, SEC_001, SEC_002, GEN_001/DOC_*.
 --
 -- @idGrupo NULL = grupo nuevo (usa @idAsignatura, @idPeriodoAcademico y @idDocente). Con @idGrupo se toman del grupo; si se envia
 -- @idAsignatura o @idPeriodoAcademico y difieren, VAL_001. @idDocente ausente con grupo = titular actual.
@@ -185,7 +186,7 @@ BEGIN
                  OR (@idPeriodoAcademico IS NOT NULL AND @idPeriodoAcademico <> @idPeriodoRes)
                 SELECT @codigoRechazo = 'VAL_001';
             ELSE
-                SET @idDocenteRes = COALESCE(@idDocente, @idDocenteRes);
+                IF @idDocente IS NOT NULL SET @idDocenteRes = @idDocente;
         END
         ELSE
         BEGIN
@@ -195,7 +196,7 @@ BEGIN
         END
     END
 
-    -- PASO 3: asignatura (VAL_002), B1 (ASI_010: activa, vinculada a un plan activo y todos sus programas coordinados por el ejecutor)
+    -- PASO 3: asignatura activa (VAL_002 / ASI_010); B1 (ASI_014: vinculo activo a plan activo y todos sus programas en custodia)
     IF @estadoResultado = 1 AND @codigoRechazo IS NULL
     BEGIN
         SELECT @codigoAsignatura = a.codigo, @nombreAsignatura = a.nombre, @horasSemanalesMateria = a.horasSemanales
@@ -204,12 +205,13 @@ BEGIN
         IF @codigoAsignatura IS NULL
             SELECT @codigoRechazo = 'VAL_002', @paramRechazo = N'Asignatura';
         ELSE IF NOT EXISTS (SELECT 1 FROM dbo.uv_asignatura a WHERE a.id = @idAsignaturaRes AND a.estaActivaAsignatura = 1)
-             OR NOT EXISTS (SELECT 1 FROM dbo.uv_asignatura_plan_estudio v
-                            WHERE v.idAsignatura = @idAsignaturaRes AND v.estaActivoVinculo = 1 AND v.estaActivoPlan = 1)
+            SET @codigoRechazo = 'ASI_010';
+        ELSE IF NOT EXISTS (SELECT 1 FROM dbo.uv_asignatura_plan_estudio v
+                            WHERE v.idAsignatura = @idAsignaturaRes AND v.estaActivoVinculo = 1 AND v.estaActivoPlan = 1 AND v.estaActivaAsignatura = 1)
              OR EXISTS (SELECT 1 FROM dbo.uv_asignatura_plan_estudio v
                         WHERE v.idAsignatura = @idAsignaturaRes AND v.estaActivoVinculo = 1 AND v.estaActivoPlan = 1
                           AND NOT EXISTS (SELECT 1 FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutorDefecto) cp WHERE cp.idPrograma = v.idPrograma))
-            SET @codigoRechazo = 'ASI_010';
+            SET @codigoRechazo = 'ASI_014';
     END
 
     -- PASO 4: periodo (VAL_002) de la institucion del coordinador, no terminado ni cerrado (PER_010)
@@ -221,7 +223,7 @@ BEGIN
         IF @nombrePeriodo IS NULL
             SELECT @codigoRechazo = 'VAL_002', @paramRechazo = N'PeriodoAcademico';
         ELSE IF @estadoPeriodo = 'CERRADO'
-             OR EXISTS (SELECT 1 FROM dbo.PeriodoAcademico p WHERE p.id = @idPeriodoRes AND p.fechaCierreUtc IS NOT NULL)
+             OR EXISTS (SELECT 1 FROM dbo.uv_periodo_academico_cierre p WHERE p.id = @idPeriodoRes AND p.fechaCierreUtc IS NOT NULL)
              OR NOT EXISTS (SELECT 1 FROM dbo.uv_periodo_academico pa
                             WHERE pa.id = @idPeriodoRes
                               AND pa.idInstitucion IN (SELECT pr.idInstitucion FROM dbo.uv_programa pr
@@ -292,7 +294,7 @@ BEGIN
 
     -- PASO 7: zona horaria institucional (GEN_001 si falta) y fecha local de hoy
     SELECT TOP 1 @zonaSql = CONVERT(SYSNAME, valor)
-    FROM dbo.CatalogoParametro WHERE grupo = 'TIEMPO' AND clave = 'ZONA_HORARIA_SQLSERVER' AND estaActivo = 1;
+    FROM dbo.uv_parametro WHERE grupo = 'TIEMPO' AND clave = 'ZONA_HORARIA_SQLSERVER' AND estaActivo = 1;
     IF @zonaSql IS NULL OR NOT EXISTS (SELECT 1 FROM sys.time_zone_info WHERE [name] = @zonaSql)
     BEGIN
         EXEC dbo.usp_obtener_mensaje_catalogo
@@ -342,7 +344,7 @@ BEGIN
                           ELSE 'PROGRAMADA' END,
             nombreFestivo = IIF(s.inicioUtc <= @ahoraUtc, NULL, df.nombre)
         FROM @slots s
-        LEFT JOIN dbo.DiaFestivo df ON df.estaActivo = 1 AND df.fecha = s.fecha;
+        LEFT JOIN dbo.uv_dia_festivo df ON df.estaActivo = 1 AND df.fecha = s.fecha;
     END
 
     -- PASO 9: totales
@@ -365,11 +367,11 @@ BEGIN
         SELECT s.id, s.fechaHoraInicio, s.fechaHoraFin, DATEDIFF(MINUTE, s.fechaHoraInicio, s.fechaHoraFin),
                CAST(IIF(s.fechaHoraInicio > @ahoraUtc, 1, 0) AS BIT),
                CAST(IIF(s.procedenciaTemporal = N'UTC_GENERADOR', 1, 0) AS BIT),
-               CAST(IIF(EXISTS (SELECT 1 FROM dbo.Asistencia a WHERE a.sesion = s.id)
-                        OR EXISTS (SELECT 1 FROM dbo.TomaAsistencia t WHERE t.sesion = s.id)
-                        OR EXISTS (SELECT 1 FROM dbo.SesionProcedenciaClasificacion c WHERE c.sesion = s.id), 1, 0) AS BIT),
+               CAST(IIF(s.procedenciaTemporal = N'UTC_OWNER'
+                        OR EXISTS (SELECT 1 FROM dbo.uv_asistencia a WHERE a.idSesion = s.id)
+                        OR EXISTS (SELECT 1 FROM dbo.uv_toma_asistencia t WHERE t.idSesion = s.id), 1, 0) AS BIT),
                CAST(IIF(EXISTS (SELECT 1 FROM @slots x WHERE x.inicioUtc = s.fechaHoraInicio AND x.finUtc = s.fechaHoraFin), 1, 0) AS BIT)
-        FROM dbo.Sesion s WHERE s.grupo = @idGrupo;
+        FROM dbo.uv_sesion_v2 s WHERE s.idGrupo = @idGrupo;
 
         SELECT @sesionesConservadas = COUNT(*), @minutosConservados = COALESCE(SUM(minutos), 0)
         FROM @existentes WHERE esFutura = 0 OR esGenerada = 0 OR esProtegida = 1;

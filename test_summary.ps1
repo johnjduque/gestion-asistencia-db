@@ -726,6 +726,16 @@ try {
 catch {
     $resultFailures += "ATA_P1_MIG_RUNNER $($_.Exception.Message)"
 }
+# NOTOMA-001: migracion 57 (up/down/up) en test/test_notoma_migraciones.ps1.
+try {
+    $notomaMigOutput = @(& (Join-Path $PSScriptRoot 'test/test_notoma_migraciones.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $notomaMigOutput) { Write-Host $line }
+    if ($notomaMigOutput -contains 'TEST_PASS:NOTOMA_MIG_UP_DOWN_UP') { $clientPassed += 'NOTOMA_MIG_UP_DOWN_UP' }
+    else { $resultFailures += 'NOTOMA_MIG_UP_DOWN_UP not reported by test_notoma_migraciones.ps1' }
+}
+catch {
+    $resultFailures += "NOTOMA_MIG_RUNNER $($_.Exception.Message)"
+}
 # ATA D11: migracion 55 (up/down/up) en test/test_ata_k_migracion.ps1.
 try {
     $ataKMigOutput = @(& (Join-Path $PSScriptRoot 'test/test_ata_k_migracion.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
@@ -735,6 +745,26 @@ try {
 }
 catch {
     $resultFailures += "ATA_K_MIG_RUNNER $($_.Exception.Message)"
+}
+# HU074: migracion 58 (up/down/up) en test/test_hu074_migracion.ps1.
+try {
+    $hu074MigOutput = @(& (Join-Path $PSScriptRoot 'test/test_hu074_migracion.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $hu074MigOutput) { Write-Host $line }
+    if ($hu074MigOutput -contains 'TEST_PASS:HU074_MIG_UP_DOWN_UP') { $clientPassed += 'HU074_MIG_UP_DOWN_UP' }
+    else { $resultFailures += 'HU074_MIG_UP_DOWN_UP not reported by test_hu074_migracion.ps1' }
+}
+catch {
+    $resultFailures += "HU074_MIG_RUNNER $($_.Exception.Message)"
+}
+# SES-GEN-01: migracion 59 (up/down/up) en test/test_ses_gen_01_migracion.ps1.
+try {
+    $sesGenMigOutput = @(& (Join-Path $PSScriptRoot 'test/test_ses_gen_01_migracion.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $sesGenMigOutput) { Write-Host $line }
+    if ($sesGenMigOutput -contains 'TEST_PASS:SES_GEN_01_MIG_UP_DOWN_UP') { $clientPassed += 'SES_GEN_01_MIG_UP_DOWN_UP' }
+    else { $resultFailures += 'SES_GEN_01_MIG_UP_DOWN_UP not reported by test_ses_gen_01_migracion.ps1' }
+}
+catch {
+    $resultFailures += "SES_GEN_01_MIG_RUNNER $($_.Exception.Message)"
 }
 # CULM-001 D.9-a: migracion 28 (up/down/up, D-RB-03) en test/test_culm001_d9.ps1.
 try {
@@ -1114,9 +1144,10 @@ $criticalIds = @(
     'CULM001_D9_MSG_01', 'CULM001_D9_DEC_01', 'CULM001_D9_DEC_05', 'CULM001_D9_DEC_02', 'CULM001_D9_DEC_03', 'CULM001_D9_DEC_04',
     'CULM001_D9_NTF_01', 'CULM001_D9_NTF_02', 'CULM001_D9_PER_01', 'CULM001_D9_PER_02', 'CULM001_D9_HOR_01', 'CULM001_D9_TRX_01',
     'CULM001_D9_CRU_01', 'CULM001_D9_TRX_02', 'CULM001_D9_TRX_03', 'CULM001_D9_MIG_UP_DOWN_UP',
-    # SES-GEN-01: calendario de sesiones del semestre (test/test_ses_gen_01_calendario_semestre.sql, migracion 57)
+    # SES-GEN-01: calendario de sesiones del semestre (test/test_ses_gen_01_calendario_semestre.sql, migracion 59)
     'SES_GEN_01_PER_CALC', 'SES_GEN_01_PER_RECHAZO', 'SES_GEN_01_PER_EDIT', 'SES_GEN_01_B1_B2', 'SES_GEN_01_B5', 'SES_GEN_01_B7',
-    'SES_GEN_01_B2B', 'SES_GEN_01_PREVIEW', 'SES_GEN_01_ASI_009',
+    'SES_GEN_01_B2B', 'SES_GEN_01_PREVIEW', 'SES_GEN_01_B1_SIN_VINCULO_ASI_014', 'SES_GEN_01_ASI_013', 'SES_GEN_01_RUNTIME_GRANT',
+    'SES_GEN_01_MIG_UP_DOWN_UP',
     # CULM-001 / DEC-064: sesiones manuales (test/test_sesiones_manuales_notificacion.sql) y migracion 29 (.ps1). Mismo caso.
     'CULM001_SMN_00_OBJETOS_Y_SEMILLAS', 'CULM001_SMN_01_DESTINATARIOS_GRUPO_MIXTO', 'CULM001_SMN_01_COORDINADOR_DOS_PROGRAMAS_UNA_FILA',
     'CULM001_SMN_02_SESION_NO_MANUAL_SIN_DESTINATARIOS', 'CULM001_SMN_03_SOLO_DOCENTE', 'CULM001_SMN_04_COORDINADOR_INACTIVO_OMITIDO',
@@ -1162,10 +1193,15 @@ $criticalIds = @(
     # ATA P1-C: aviso de falta por sesion (test/test_ata_p1_aviso_falta.sql)
     'ATA_P1_C00_OBJETOS', 'ATA_P1_C01_SESIONES_PENDIENTES', 'ATA_P1_C02_FALTAS_POR_TOMA', 'ATA_P1_C03_REGISTRAR_IDEMPOTENTE', 'ATA_P1_C04_SESION_INEXISTENTE',
     'ATA_P1_C05_HABILITADO_FALSE', 'ATA_P1_C06_ATRASO_MAXIMO', 'ATA_P1_C_TRANCOUNT_ZERO',
+    # NOTOMA-001: aviso al coordinador de la sesion sin toma (test/test_notoma_aviso_sin_toma.sql)
+    'NOTOMA_00_OBJETOS', 'NOTOMA_01_PENDIENTES', 'NOTOMA_02_DESTINATARIOS', 'NOTOMA_03_REGISTRAR_IDEMPOTENTE', 'NOTOMA_04_SESION_INEXISTENTE',
+    'NOTOMA_05_HABILITADO_FALSE', 'NOTOMA_06_ATRASO_MAXIMO', 'NOTOMA_07_SIN_ESTUDIANTES', 'NOTOMA_08_DOCENTE_INACTIVO', 'NOTOMA_TRANCOUNT_ZERO',
     # ATA D9: nueva toma cierra la anterior (test/test_ata_p1_tomas_denominador.sql)
     'ATA_D9_01_NUEVA_TOMA_CIERRA_ANTERIOR', 'ATA_D9_02_MAXIMO_TOM_004_NO_CIERRA', 'ATA_D9_03_SIN_ABIERTA_COLUMNAS_NULL', 'ATA_D9_04_CIERRE_MANUAL_SIN_CAMBIOS',
     # ATA P1: migraciones 50 y 51 (test/test_ata_p1_migraciones.ps1)
     'ATA_P1_MIG_UP_DOWN_UP',
+    # NOTOMA-001: migracion 57 (test/test_notoma_migraciones.ps1)
+    'NOTOMA_MIG_UP_DOWN_UP',
     # ATA D6/D7: solicitudes de sesion del docente y calendario (test/test_ata_p2_solicitudes_calendario.sql)
     'ATA_P2_00_OBJETOS_Y_PERMISOS', 'ATA_P2_01_DOCENTE_VE_SUS_PENDIENTES', 'ATA_P2_02_TODAS_FILTRO_Y_PAGINACION', 'ATA_P2_03_AISLAMIENTO_Y_RBAC',
     'ATA_P2_04_CALENDARIO_DOCENTE', 'ATA_P2_05_CALENDARIO_ESTUDIANTE', 'ATA_P2_06_RANGO_Y_RBAC', 'ATA_P2_TRANCOUNT_ZERO',
@@ -1174,7 +1210,14 @@ $criticalIds = @(
     'ATA_D10_05_MARCA_CORREGIDA', 'ATA_D10_06_MATRICULA_CANCELADA', 'ATA_D10_07_AISLAMIENTO', 'ATA_D10_08_PAGINACION', 'ATA_D10_09_RBAC_Y_VALIDACIONES',
     'ATA_D10_TRANCOUNT_ZERO',
     # ATA D11: retiro de la oferta de grupos del estudiante (test/test_ata_k_retiro_oferta_estudiante.sql) y migracion 55 (up/down/up)
-    'ATA_K_01_OFERTA_ESTUDIANTE_RETIRADA', 'ATA_K_02_OFERTA_DOCENTE_CONSERVADA', 'ATA_K_MIG_UP_DOWN_UP'
+    'ATA_K_01_OFERTA_ESTUDIANTE_RETIRADA', 'ATA_K_02_OFERTA_DOCENTE_CONSERVADA', 'ATA_K_MIG_UP_DOWN_UP',
+    # HU074: activar o inactivar asignaturas (test/test_hu074_estado_asignatura.sql) y migracion 58 (up/down/up, test/test_hu074_migracion.ps1)
+    'HU074_01_INACTIVAR_SIN_GRUPOS', 'HU074_02_REACTIVAR', 'HU074_03_GRUPO_PERIODO_VIGENTE', 'HU074_04_GRUPO_PERIODO_FUTURO',
+    'HU074_05_GRUPO_SOLO_PERIODO_PASADO', 'HU074_06_COMPARTIDA_PROGRAMA_AJENO', 'HU074_07_CREAR_GRUPO_INACTIVA', 'HU074_08_ASOCIAR_PLAN_INACTIVA',
+    'HU074_09_OFERTA_EXCLUYE_INACTIVA', 'HU074_10_ASOCIABLES_EXCLUYE_INACTIVA', 'HU074_11_MALLA_MUESTRA_INACTIVA',
+    'HU074_12_DESEADA_INACTIVA_YA_INACTIVA', 'HU074_13_DESEADA_ACTIVA_YA_ACTIVA', 'HU074_14_DESEADA_ACTIVA_DESDE_INACTIVA',
+    'HU074_15_COMPARTIDA_PROPIA_CON_GRUPO', 'HU074_16_BORDE_FIN_HOY', 'HU074_17_BORDE_INICIO_MANANA', 'HU074_18_CREAR_GRUPO_ACTIVA', 'HU074_TRANCOUNT_ZERO',
+    'HU074_MIG_UP_DOWN_UP'
 )
 if ($Concurrencia) { $criticalIds += 'CULM001_B2_CON_01_5X40' }
 $sqlPasses = @([regex]::Matches($outputStr, '(?m)^TEST_PASS:([A-Z0-9_]+)\s*$') | ForEach-Object { $_.Groups[1].Value })

@@ -208,8 +208,8 @@ BEGIN
         IF @estadoResultado = 1
         BEGIN
             SELECT @horasSemanalesMateria = a.horasSemanales
-            FROM dbo.Grupo g
-            INNER JOIN dbo.Asignatura a ON a.id = g.asignatura
+            FROM dbo.uv_grupo g
+            INNER JOIN dbo.uv_asignatura a ON a.id = g.idAsignatura
             WHERE g.id = @idGrupoDefecto;
 
             SELECT @minutosFranjas = SUM(DATEDIFF(MINUTE, horaInicio, horaFin)) FROM @franjas;

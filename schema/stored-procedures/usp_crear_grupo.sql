@@ -1,4 +1,4 @@
-﻿USE [gestionasistenciadb];
+USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
 GO
@@ -6,6 +6,11 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 -- CULM-001 / DEC-065 (4): solo el COORDINADOR crea grupos; el DOCENTE recibe SEC_001 (perfil requerido COORDINADOR).
+-- HU074 (migracion 58): una asignatura inactiva se rechaza con ASI_010 (usp_validar_asignatura_activa_interno). Desde el PASO 2B
+-- hasta el INSERT todo ocurre en una transaccion con la fila de dbo.Asignatura bloqueada (UPDLOCK, HOLDLOCK): una inactivacion
+-- simultanea (usp_toggle_estado_asignatura toma el mismo bloqueo) espera o se ve. Si el llamador ya tiene transaccion, se usa la suya.
+-- SES-GEN-01 (migracion 59): la asignatura debe tener vinculos activos con planes activos de todos los programas del coordinador
+-- (ASI_014); el periodo es obligatorio, debe estar vigente, no cerrado y pertenecer a la institucion de sus programas (PER_010).
 CREATE OR ALTER PROCEDURE [dbo].[usp_crear_grupo]
 (
     @idGrupo                 UNIQUEIDENTIFIER,
@@ -28,6 +33,7 @@ AS
 
     DECLARE @idPeriodoResolved         UNIQUEIDENTIFIER = @idPeriodoAcademicoDefecto;
     DECLARE @capacidadMaximaDefecto    INT;
+    DECLARE @transaccionPropia         BIT = 0;
     DECLARE @nombrePeriodoRechazo      NVARCHAR(500);
 
     -- Variables locales de respuesta
@@ -37,6 +43,7 @@ AS
 
 BEGIN
     SET NOCOUNT ON;
+    SET XACT_ABORT ON;
     BEGIN TRY
         -- PASO 1: Validación de correlación
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
@@ -87,19 +94,39 @@ BEGIN
             END
         END
 
-        -- PASO 2B (SES-GEN-01 B1, DR-14): la asignatura esta activa, tiene vinculo activo con un plan activo, y el coordinador coordina
-        --          TODOS los programas donde esta activa (mismo criterio que la edicion de asignaturas compartidas). Antes solo se
-        --          comprobaba que existiera (el ambito solo lo validaba usp_guardar_horarios_grupo, y solo con franjas).
+        -- PASO 2B (HU074): una asignatura inactiva no se usa para crear grupos (ASI_010). Abre la transaccion (si el llamador no
+        --          tiene una) y bloquea la fila de la asignatura hasta el INSERT del PASO 7.
         IF @estadoResultado = 1
-           AND (NOT EXISTS (SELECT 1 FROM [dbo].[uv_asignatura] a WHERE a.id = @idAsignaturaDefecto AND a.estaActivaAsignatura = 1)
-                OR NOT EXISTS (SELECT 1 FROM [dbo].[uv_asignatura_plan_estudio] v
-                               WHERE v.idAsignatura = @idAsignaturaDefecto AND v.estaActivoVinculo = 1 AND v.estaActivoPlan = 1)
-                OR EXISTS (SELECT 1 FROM [dbo].[uv_asignatura_plan_estudio] v
-                           WHERE v.idAsignatura = @idAsignaturaDefecto AND v.estaActivoVinculo = 1 AND v.estaActivoPlan = 1
-                             AND NOT EXISTS (SELECT 1 FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutorDefecto) cp WHERE cp.idPrograma = v.idPrograma)))
+        BEGIN
+            IF @@TRANCOUNT = 0
+            BEGIN
+                BEGIN TRANSACTION;
+                SET @transaccionPropia = 1;
+            END
+
+            EXEC dbo.usp_validar_asignatura_activa_interno
+                @idAsignatura = @idAsignaturaDefecto,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT,
+                @bloquearFila = 1;
+        END
+
+        -- PASO 2C (SES-GEN-01 B1): la asignatura debe estar vinculada a un plan activo de los programas del coordinador;
+        --          si es compartida, el coordinador debe custodiar todos sus programas activos (ASI_014).
+        IF @estadoResultado = 1
+           AND (NOT EXISTS (SELECT 1 FROM dbo.uv_asignatura_plan_estudio v
+                            WHERE v.idAsignatura = @idAsignaturaDefecto
+                              AND v.estaActivoVinculo = 1 AND v.estaActivoPlan = 1 AND v.estaActivaAsignatura = 1)
+                OR EXISTS (SELECT 1 FROM dbo.uv_asignatura_plan_estudio v
+                           WHERE v.idAsignatura = @idAsignaturaDefecto
+                             AND v.estaActivoVinculo = 1 AND v.estaActivoPlan = 1
+                             AND NOT EXISTS (SELECT 1 FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutorDefecto) cp
+                                             WHERE cp.idPrograma = v.idPrograma)))
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
-                @p_codigo = 'ASI_010',
+                @p_codigo = 'ASI_014',
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
@@ -107,7 +134,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
-        -- PASO 3: El periodo academico es obligatorio y debe existir (SES-GEN-01 DR-06: ya no se sustituye en silencio por el mas reciente)
+        -- PASO 3 (SES-GEN-01 DR-06): el período es obligatorio; nunca se sustituye en silencio por el más reciente.
         IF @estadoResultado = 1
         BEGIN
             IF @idPeriodoResolved IS NULL OR NOT EXISTS (SELECT 1 FROM [dbo].[uv_periodo_academico] WHERE id = @idPeriodoResolved)
@@ -123,18 +150,22 @@ BEGIN
             END
         END
 
-        -- PASO 3B (SES-GEN-01 B2): el periodo es de la institucion del coordinador y no esta terminado ni cerrado (PER_010)
+        -- PASO 3B (SES-GEN-01 B2): el periodo debe estar vigente, no cerrado y ser de la institucion del coordinador (PER_010).
         IF @estadoResultado = 1
            AND NOT EXISTS (SELECT 1
-                           FROM [dbo].[uv_periodo_academico] pa
-                           INNER JOIN dbo.PeriodoAcademico p ON p.id = pa.id
+                           FROM dbo.uv_periodo_academico pa
+                           INNER JOIN dbo.uv_periodo_academico_cierre pc ON pc.id = pa.id
                            WHERE pa.id = @idPeriodoResolved
                              AND pa.estado <> 'CERRADO'
-                             AND p.fechaCierreUtc IS NULL
-                             AND pa.idInstitucion IN (SELECT pr.idInstitucion FROM [dbo].[uv_programa] pr
-                                                      WHERE pr.id IN (SELECT cp.idPrograma FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutorDefecto) cp)))
+                             AND pc.fechaCierreUtc IS NULL
+                             AND pa.idInstitucion IN (SELECT pr.idInstitucion FROM dbo.uv_programa pr
+                                                      WHERE pr.id IN (SELECT cp.idPrograma
+                                                                      FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutorDefecto) cp)))
         BEGIN
-            SELECT TOP 1 @nombrePeriodoRechazo = pa.nombre FROM [dbo].[uv_periodo_academico] pa WHERE pa.id = @idPeriodoResolved;
+            SELECT TOP 1 @nombrePeriodoRechazo = pa.nombre
+            FROM dbo.uv_periodo_academico pa
+            WHERE pa.id = @idPeriodoResolved;
+
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'PER_010',
                 @p_param1 = @nombrePeriodoRechazo,
@@ -248,8 +279,17 @@ BEGIN
             SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
         END
 
+        -- Cierre de la transaccion propia: confirma el INSERT; las ramas de rechazo no escriben y solo liberan el bloqueo
+        IF @transaccionPropia = 1
+        BEGIN
+            IF @estadoResultado = 1 COMMIT TRANSACTION;
+            ELSE ROLLBACK TRANSACTION;
+        END
+
     END TRY
     BEGIN CATCH
+        IF XACT_STATE() <> 0 AND @transaccionPropia = 1 ROLLBACK TRANSACTION;
+
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,

@@ -8,8 +8,8 @@ GO
 -- =============================================================================
 -- Procedimiento: [dbo].[usp_asociar_asignatura_plan]
 -- CULM-001 B2NM (DEC-019, R3): asocia una asignatura existente (catalogo) a un plan de estudios, con semestre y caracter.
--- RBAC COORDINADOR; el plan existe (PLA_002) y es de un programa suyo (SEC_002); la asignatura existe y esta activa, y tiene
--- algun vinculo en un programa de la misma institucion (si no, GEN_001). Reglas de vinculo en usp_internal_asociar_asignatura_plan
+-- RBAC COORDINADOR; el plan existe (PLA_002) y es de un programa suyo (SEC_002); la asignatura existe y tiene algun vinculo en
+-- un programa de la misma institucion (si no, GEN_001) y esta activa (HU074, migracion 58: si no, ASI_010). Reglas de vinculo en usp_internal_asociar_asignatura_plan
 -- (PLA_004, ASI_003, ASI_007). Salida canonica (idCorrelacion, mensajeUsuarioResultado, mensajeTecnicoResultado, estadoResultado).
 -- =============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_asociar_asignatura_plan]
@@ -77,16 +77,23 @@ BEGIN
                     @estadoResultado = @estadoResultado OUTPUT;
         END
 
-        -- La asignatura existe, esta activa y pertenece a la institucion del plan (tiene algun vinculo en ella)
+        -- La asignatura existe y pertenece a la institucion del plan (tiene algun vinculo en ella)
         IF @estadoResultado = 1
            AND NOT EXISTS (SELECT 1 FROM dbo.uv_asignatura_plan_estudio v
-                           WHERE v.idAsignatura = @idAsignatura AND v.estaActivaAsignatura = 1 AND v.idInstitucion = @idInstitucionPlan)
+                           WHERE v.idAsignatura = @idAsignatura AND v.idInstitucion = @idInstitucionPlan)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_001', @p_param1 = 'Asignatura',
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
             SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
             SET @estadoResultado = 0;
         END
+
+        -- HU074: una asignatura inactiva no se asocia a un plan (ASI_010)
+        IF @estadoResultado = 1
+            EXEC dbo.usp_validar_asignatura_activa_interno
+                @idAsignatura = @idAsignatura, @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
 
         IF @estadoResultado = 1
         BEGIN

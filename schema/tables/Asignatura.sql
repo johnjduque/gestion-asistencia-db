@@ -25,7 +25,7 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_Asignatura_codigo' AND
     CREATE UNIQUE NONCLUSTERED INDEX UX_Asignatura_codigo ON dbo.Asignatura (codigo);
 GO
 
--- SES-GEN-01 (migracion 57): horas semanales de la materia (hora = 60 min de reloj). NULL = aun sin cargar (B5/B8 no se evaluan).
+-- SES-GEN-01 (migracion 59): horas semanales de la materia (hora = 60 min de reloj). NULL = aun sin cargar (B5/B8 no se evaluan).
 IF COL_LENGTH(N'dbo.Asignatura', N'horasSemanales') IS NULL
     ALTER TABLE [dbo].[Asignatura] ADD [horasSemanales] INT NULL;
 GO
