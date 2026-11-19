@@ -16,7 +16,9 @@ Orden de John (2026-11-18): ejecutar las 13 mejoras reportadas por Sergio. El pl
 
 - **Up:** `DROP` de `FK_DocentePrograma_TipoVinculacion`, de cualquier `DEFAULT` y de la columna `DocentePrograma.tipoVinculacion`;
   `DROP VIEW uv_tipo_vinculacion`; `DROP TABLE TipoVinculacion`; borra el parámetro `DOCENTE/TIPO_VINCULACION_DEFECTO` (con su
-  historial y edición) y los mensajes `DOC_004` y `ERR_TIPO_VINCULACION_INVALIDO` (usuario y técnico). Valida el resultado
+  historial y edición) y los mensajes `DOC_004` y `ERR_TIPO_VINCULACION_INVALIDO` (usuario y técnico). Si la fila de edición de
+  otro parámetro lo usa como regla cruzada (`parametroDebeSerMenorQue`, `FK_CatalogoParametroEdicion_MenorQue`), esa regla se
+  anula (`NULL`) y la fila se conserva: el otro parámetro sigue editable, solo pierde la comparación contra uno que ya no existe. Valida el resultado
   (`THROW 55091..55093`). Los cuerpos de vistas y SP se despliegan con `deploy_schema.ps1`, como en la 48 y la 49 (obligatorio,
   ver `docs/runbooks/ACTUALIZAR_BD_LOCAL_EXISTENTE.md`).
 - **Down:** recrea la tabla con `PLA/MTI/CAT/OCA`, la vista, la columna (los vínculos existentes quedan con `CAT`, NOT NULL con
@@ -44,3 +46,20 @@ Orden de John (2026-11-18): ejecutar las 13 mejoras reportadas por Sergio. El pl
 Rompe la firma de `usp_vincular_docente_programa` y `usp_actualizar_docente_programa` (se retira `@idTipoVinculacion`) y el
 resultset de `usp_consultar_resumen_docentes_programa` y `usp_consultar_docentes_programa`: se despliega junto con el backend
 de la misma rama.
+
+## HU090 retirada
+
+HU090 (selector controlado de tipo de vinculación) queda **retirada el 2026-11-18** por orden de John y reporte de Sergio: el
+sistema no administra el tipo de vinculación del docente (esta migración 50). En la BD no hay matriz de pruebas que la liste con
+ese sentido; `docs/arquitectura/Plan_de_Trabajo_Historias_de_Usuario.md` usa el número HU090 para otra historia de la numeración
+antigua ("Buscar la información de un usuario institucional") y no se toca.
+
+## Orden de subida y despliegue
+
+- **Subida y merge:** BD → BE → FE, cerrando los tres PR juntos. El CI de integración del backend usa la rama de la BD con el
+  mismo nombre (`feat/mejoras-sergio-2026-11-18`) si existe; por eso la BD sube primero.
+- **Despliegue:** primero la migración 50 (`50_mejoras_sergio_retiro_tipo_vinculacion_up.sql`) y después `deploy_schema.ps1`,
+  nunca al revés: los cuerpos nuevos de vistas y SP ya no leen la columna, y los viejos quedan inválidos entre ambos pasos.
+  Luego el backend y al final el frontend.
+- **Manifiesto:** `docs/contracts/DB_CULM001_D_POST_FREEZE_MANIFEST.sha256` se actualizó a propósito (3 archivos de su lista
+  cambiaron: `63_val_mensajes_err_pendientes.sql`, `zz_foreign_keys.sql` y `migrar-marcadores.json`); mencionarlo en el PR.

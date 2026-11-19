@@ -39,6 +39,15 @@ comporta la 50, y lo dice su cabecera (igual que la 48 y la 49): entre el `up` y
 inválidos, por eso el despliegue es obligatorio (`docs/runbooks/ACTUALIZAR_BD_LOCAL_EXISTENTE.md`). No es una regresión del
 esquema.
 
+## Correcciones de la revisión independiente (2026-11-18)
+
+- `generar_datos_prueba.py` vuelve a CRLF (como en develop): el diff contra `origin/develop` queda en las 6 líneas reales.
+- Migración 50: regla cruzada `parametroDebeSerMenorQue` que apunte al parámetro retirado. Verificado en un contenedor SQL Server
+  2022 desechable (`SQL_Latin1_General_CP1_CI_AS`), dentro de una transacción revertida: `down`, fila de edición del parámetro
+  retirado + 2 filas de otros parámetros con la regla cruzada hacia él, `up` (las 2 filas se conservan con la regla en `NULL`),
+  `up` repetido (idempotente) y `ROLLBACK`. Con el `up` anterior el mismo caso fallaba con el error 547 de
+  `FK_CatalogoParametroEdicion_MenorQue`. `test_migracion_docente_programa.sql`: PASA.
+
 ## Pendiente
 
 - `VAL_MDET_03..08` en el CI del PR.
