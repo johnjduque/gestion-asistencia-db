@@ -237,20 +237,21 @@ BEGIN TRY
     PRINT 'TEST_PASS:CULM001_B2_HOR_01_DOS_TOMAS';
 
     -- --------------------------------------------------------------------------------------------------------
-    -- B2-HOR-02 / B2-HOR-06: sesiones de 2 h y 4 h con falta en la de 4 h => 66.67 por horas y 50.00 por sesiones;
-    -- una sesion vencida sin registro ni tomas no entra en el denominador
+    -- B2-HOR-02 / B2-HOR-06: sesiones de 2 h y 4 h con falta en la de 4 h => horasDictadas 6 (66.67 de las horas dictadas, 33.33 asistencia) y 50.00 por sesiones;
+    -- una sesion vencida sin registro ni tomas no entra en lo dictado (horasDictadas). ATA D2 (ADDENDUM_ATA_ASISTENCIA_TOMAS_AVISOS B): si entra en las horas del
+    -- periodo (2 + 4 + 3 = 9 h), asi que porcentajeInasistencia = 4 / 9 = 44.44 (PERDIDA).
     -- --------------------------------------------------------------------------------------------------------
     IF NOT EXISTS (SELECT 1 FROM dbo.uv_resumen_asistencia_estudiante_grupo r WHERE r.idGrupo = @gH2 AND r.idEstudiante = @e1
                    AND r.sesionesEjecutadas = 2 AND r.horasDictadas = 6.000000 AND r.horasFalta = 4.000000 AND r.horasAsistidas = 2.000000
-                   AND r.porcentajeInasistencia = 66.67 AND r.porcentajeInasistenciaSesiones = 50.00 AND r.porcentajeAsistenciaHoras = 33.33
+                   AND r.horasPeriodo = 9.000000 AND r.porcentajeInasistencia = 44.44 AND r.porcentajeInasistenciaSesiones = 50.00 AND r.porcentajeAsistenciaHoras = 33.33
                    AND r.codigoPermanencia = N'PERDIDA')
        OR NOT EXISTS (SELECT 1 FROM dbo.uv_resumen_asistencia_estudiante_grupo r WHERE r.idGrupo = @gH2 AND r.idEstudiante = @e3
                    AND r.horasDictadas = 6.000000 AND r.horasSinRegistro = 6.000000 AND r.porcentajeSinRegistroHoras = 100.00 AND r.porcentajeInasistencia = 0.00)
-        THROW 57621, 'TEST FAILED CULM001_B2_HOR_02: sesiones de 2 h y 4 h con falta en la de 4 h deben dar 66.67 por horas y 50.00 por sesiones.', 1;
+        THROW 57621, 'TEST FAILED CULM001_B2_HOR_02: sesiones de 2 h y 4 h (mas una de 3 h sin registro) con falta en la de 4 h deben dar 44.44 sobre el periodo (9 h) y 50.00 por sesiones.', 1;
     PRINT 'TEST_PASS:CULM001_B2_HOR_02_DURACIONES_DISTINTAS';
     IF NOT EXISTS (SELECT 1 FROM dbo.uv_cumplimiento_sesion_grupo c INNER JOIN #b2hS s ON s.id = c.idSesion WHERE s.k = N'H2C' AND c.estaVencida = 1 AND c.tieneRegistroAsistencia = 0 AND c.totalTomas = 0 AND c.horasSesion = 3.000000)
         THROW 57622, 'TEST FAILED CULM001_B2_HOR_06: una sesion vencida sin registro ni tomas no cuenta como ejecutada.', 1;
-    PRINT 'TEST_PASS:CULM001_B2_HOR_06_SIN_REGISTRO_FUERA_DEL_DENOMINADOR';
+    PRINT 'TEST_PASS:CULM001_B2_HOR_06_SIN_REGISTRO_FUERA_DEL_DENOMINADOR';   -- fuera de lo dictado; entra en las horas del periodo (ATA D2)
 
     -- --------------------------------------------------------------------------------------------------------
     -- B2-HOR-03: grupo con 3 sesiones vencidas, una cancelada => horasDictadas y sesionesEjecutadas la excluyen
@@ -301,16 +302,17 @@ BEGIN TRY
 
     -- --------------------------------------------------------------------------------------------------------
     -- B2-HOR-07: KPI por horas. Periodo del fixture: grupos H1..H5, H9, HK con 4 estudiantes activos cada uno.
-    -- Calculo manual: Sigma horasFalta / Sigma horasDictadas de las matriculas A del periodo.
+    -- Calculo manual: Sigma horasFalta / Sigma horasPeriodo de las matriculas A del periodo (ATA D2: el denominador son las horas de todas las sesiones del periodo).
     -- --------------------------------------------------------------------------------------------------------
-    DECLARE @hFalta DECIMAL(12,6), @hDict DECIMAL(12,6), @tDict INT, @esperado DECIMAL(5,2);
-    SELECT @hFalta = SUM(r.horasFalta), @hDict = SUM(r.horasDictadas), @tDict = SUM(r.tomasDictadas)
+    DECLARE @hFalta DECIMAL(12,6), @hDict DECIMAL(12,6), @hPer DECIMAL(12,6), @tDict INT, @esperado DECIMAL(5,2);
+    SELECT @hFalta = SUM(r.horasFalta), @hDict = SUM(r.horasDictadas), @hPer = SUM(r.horasPeriodo), @tDict = SUM(r.tomasDictadas)
     FROM dbo.uv_resumen_asistencia_estudiante_grupo r WHERE r.idPeriodoAcademico = @per AND r.codigoEstadoEstudiante = N'A';
     -- H1 2 + H2 4 + H3 1 + H4 1 + H5 (3 + 4) + HK (2 + 4) = 21 h de falta; dictadas por estudiante 2 + 6 + 2 + 4 + 20 + 2 + 6 = 42 => 168
     -- PC (puntos de control): antes 19 h; AN + SJC en 2 tomas (H1S1 y HKA del estudiante 1) pasa de 1 h a 2 h de falta por tramos.
-    IF @hFalta <> 21.000000 OR @hDict <> 168.000000
-        THROW 57627, 'TEST FAILED CULM001_B2_HOR_07: el fixture de horas no suma 21 h de falta sobre 168 h dictadas.', 1;
-    SET @esperado = CAST(100.0 * @hFalta / @hDict AS DECIMAL(5,2));
+    -- Horas del periodo por estudiante: H1 2 + H2 (2 + 4 + 3 sin registro) 9 + H3 2 (sin la cancelada) + H4 4 + H5 20 + H9 2 + HK 6 = 45 => 180 h con 4 estudiantes.
+    IF @hFalta <> 21.000000 OR @hDict <> 168.000000 OR @hPer <> 180.000000
+        THROW 57627, 'TEST FAILED CULM001_B2_HOR_07: el fixture de horas no suma 21 h de falta, 168 h dictadas y 180 h del periodo.', 1;
+    SET @esperado = CAST(100.0 * @hFalta / @hPer AS DECIMAL(5,2));
     SET @corr = NEWID();
     INSERT INTO #b2hKd EXEC dbo.usp_consultar_kpis_decano @idUsuarioEjecutor = @uDec, @idCorrelacion = @corr, @idPeriodoAcademico = @per;
     INSERT INTO #b2hKi EXEC dbo.usp_consultar_kpis_institucion @idUsuarioEjecutor = @uAdm, @idCorrelacion = @corr, @idPeriodoAcademico = @per;
@@ -319,7 +321,7 @@ BEGIN TRY
                    AND tomasDictadas = @tDict AND horasDictadas = @hDict AND horasFalta = @hFalta)
        OR NOT EXISTS (SELECT 1 FROM #b2hKi WHERE idPeriodoAcademico = @per AND porcentajeAusentismo = @esperado
                    AND tomasDictadas = @tDict AND horasDictadas = @hDict AND horasFalta = @hFalta)
-        THROW 57628, 'TEST FAILED CULM001_B2_HOR_07: porcentajeAusentismo de decano e institucion debe ser 100 * horasFalta / horasDictadas.', 1;
+        THROW 57628, 'TEST FAILED CULM001_B2_HOR_07: porcentajeAusentismo de decano e institucion debe ser 100 * horasFalta / horasPeriodo (ATA D2).', 1;
     -- Semaforo del coordinador sobre el porcentaje por horas (vista): estudiante en RIESGO o PERDIDA segun su peor matricula
     IF NOT EXISTS (SELECT 1 FROM #b2hKc k
                    WHERE k.idPeriodoAcademico = @per AND k.totalEstudiantes = 4

@@ -55,7 +55,6 @@ PRINT '======================================================================';
 :r /tmp/test/test_runtime_grants_backend_inventory.sql
 :r /tmp/test/test_usp_consultar_historial_grupos_docente_programa.sql
 :r /tmp/test/test_usp_consultar_resumen_docentes_programa.sql
-:r /tmp/test/test_usp_consultar_oferta_grupos_estudiante.sql
 :r /tmp/test/test_hu008_regla_inscripcion_programa.sql
 :r /tmp/test/test_int_hu01_reactivar_matricula_retirada.sql
 :r /tmp/test/test_usp_crear_actualizar_grupo.sql
@@ -202,6 +201,16 @@ PRINT '======================================================================';
 :r /tmp/test/test_w3m_matriz_asistencia.sql
 -- CIERRE-W3I (indicadores en la base): totales de los tableros por rol, aforo, resumen de grupos del docente y nivel de permanencia del consolidado
 :r /tmp/test/test_w3i_indicadores.sql
+-- ATA P1-A/B (edicion de tomas durante la sesion, cierre al fin con margen 0 y denominador por horas del periodo): TOM_012 retirado, ventana unica, cuentaParaPeriodo y horasPeriodo
+:r /tmp/test/test_ata_p1_tomas_denominador.sql
+-- ATA P1-C (aviso de falta por sesion): sesiones pendientes, faltas por toma, marca idempotente, parametros y plantilla
+:r /tmp/test/test_ata_p1_aviso_falta.sql
+-- ATA D6/D7 (migracion 52): solicitudes de sesion del docente y calendario de sesiones con fechas
+:r /tmp/test/test_ata_p2_solicitudes_calendario.sql
+-- ATA D10 (migracion 54): faltas por reclamar del estudiante (vista y SP de consulta paginada)
+:r /tmp/test/test_ata_d10_faltas_reclamables.sql
+-- ATA D11 (migracion 55): la oferta de grupos del estudiante (HU008) y su parametro ya no existen tras el despliegue
+:r /tmp/test/test_ata_k_retiro_oferta_estudiante.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN

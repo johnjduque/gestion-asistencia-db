@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **487**.
+Total de códigos: **488**.
 
 ## ACC
 
@@ -129,6 +129,12 @@ Total de códigos: **487**.
 |---|---|---|---|---|---|
 | `AUD_001` | BUSINESS_ERROR | MEDIO | La consulta de auditoría requiere una sola institución activa. | SUPUESTO-D-16: hay {} instituciones activas; la auditoría no tiene ámbito por institución. | `56_culm001_d6_mensajes.sql` |
 | `AUD_002` | VALIDATION_ERROR | BAJO | Los filtros de solo asistencia y solo administración no se pueden combinar. | @soloAsistencia = 1 y @soloAdministracion = 1 son excluyentes; el llamador debe enviar los dos parametros explicitos. | `56_culm001_d6_mensajes.sql` |
+
+## CAL
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `CAL_001` | VALIDATION_ERROR | BAJO | El rango de fechas no es válido: indique inicio y fin, con el fin igual o posterior y máximo 31 días. | ATA D7: rango [{}] a [{}] inválido (fechas ausentes, hasta < desde o más de {} días). | `68_ata_mensajes_calendario.sql` |
 
 ## COO
 

@@ -1,5 +1,5 @@
 -- ============================================================================
--- MIGRACION UP 50: MEJORAS-SERGIO-2026-11-18 (items 1 y 12) - retiro del tipo de vinculacion del docente
+-- MIGRACION UP 56: MEJORAS-SERGIO-2026-11-18 (items 1 y 12) - retiro del tipo de vinculacion del docente
 --   Orden de John (2026-11-18): "hay que ejecutar todas esas mejoras y cambios". El sistema no administra el tipo de vinculacion
 --   (planta, medio tiempo, catedra, ocasional) del docente con el programa; se retira de todas las capas.
 --   1. FK_DocentePrograma_TipoVinculacion, cualquier DEFAULT de la columna y la columna DocentePrograma.tipoVinculacion.
@@ -15,7 +15,7 @@
 --   se despliegan con deploy_schema.ps1 (CREATE OR ALTER), como en la 48 y la 49: dependen de vistas que otras ramas cambiaron
 --   solo por despliegue. Entre esta migracion y el despliegue, las vistas y SP viejos que leian el tipo quedan invalidos: el
 --   despliegue es obligatorio (docs/runbooks/ACTUALIZAR_BD_LOCAL_EXISTENTE.md). Los vinculos docente-programa se conservan.
--- Idempotente. Down: 50_mejoras_sergio_retiro_tipo_vinculacion_down.sql.
+-- Idempotente. Down: 56_mejoras_sergio_retiro_tipo_vinculacion_down.sql.
 -- ============================================================================
 :on error exit
 USE [gestionasistenciadb];
@@ -24,7 +24,7 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-PRINT 'MIGRACION 50 UP: MEJORAS-SERGIO retiro del tipo de vinculacion del docente';
+PRINT 'MIGRACION 56 UP: MEJORAS-SERGIO retiro del tipo de vinculacion del docente';
 GO
 IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_DocentePrograma_TipoVinculacion')
     ALTER TABLE [dbo].[DocentePrograma] DROP CONSTRAINT [FK_DocentePrograma_TipoVinculacion];
@@ -65,7 +65,7 @@ GO
 IF OBJECT_ID(N'dbo.TipoVinculacion', N'U') IS NOT NULL OR OBJECT_ID(N'dbo.uv_tipo_vinculacion', N'V') IS NOT NULL
    OR COL_LENGTH(N'dbo.DocentePrograma', N'tipoVinculacion') IS NOT NULL
    OR EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_DocentePrograma_TipoVinculacion')
-    THROW 55091, 'MIGRACION 50: quedaron objetos del tipo de vinculacion.', 1;
+    THROW 55691, 'MIGRACION 56: quedaron objetos del tipo de vinculacion.', 1;
 IF EXISTS (SELECT 1 FROM dbo.CatalogoParametro WHERE grupo = 'DOCENTE' AND clave = 'TIPO_VINCULACION_DEFECTO')
    OR EXISTS (SELECT 1 FROM dbo.CatalogoMensajeUsuario WHERE codigo IN ('DOC_004', 'ERR_TIPO_VINCULACION_INVALIDO'))
    OR EXISTS (SELECT 1 FROM dbo.CatalogoMensajeTecnico WHERE codigo IN ('DOC_004', 'ERR_TIPO_VINCULACION_INVALIDO'))
@@ -73,9 +73,9 @@ IF EXISTS (SELECT 1 FROM dbo.CatalogoParametro WHERE grupo = 'DOCENTE' AND clave
               WHERE NOT EXISTS (SELECT 1 FROM dbo.CatalogoParametro p WHERE p.id = e.parametro)
                  OR (e.parametroDebeSerMenorQue IS NOT NULL
                      AND NOT EXISTS (SELECT 1 FROM dbo.CatalogoParametro p WHERE p.id = e.parametroDebeSerMenorQue)))
-    THROW 55092, 'MIGRACION 50: quedaron el parametro o los mensajes del tipo de vinculacion.', 1;
+    THROW 55692, 'MIGRACION 56: quedaron el parametro o los mensajes del tipo de vinculacion.', 1;
 IF OBJECT_ID(N'dbo.DocentePrograma', N'U') IS NULL
-    THROW 55093, 'MIGRACION 50: los vinculos docente-programa deben conservarse.', 1;
+    THROW 55693, 'MIGRACION 56: los vinculos docente-programa deben conservarse.', 1;
 GO
-PRINT 'MIGRACION 50 UP OK (ejecute deploy_schema.ps1 para los cuerpos de vistas y SP)';
+PRINT 'MIGRACION 56 UP OK (ejecute deploy_schema.ps1 para los cuerpos de vistas y SP)';
 GO

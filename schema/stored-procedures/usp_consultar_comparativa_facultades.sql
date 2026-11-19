@@ -12,6 +12,8 @@ GO
 -- CULM-001 D.8 (CONTRACT D 9.2, DEC-012/DEC-024, HU139): porcentajeAusentismo por HORAS = ROUND(100 x SUM(horasFalta) / SUM(horasDictadas), 2)
 -- (NULL si no hay horas dictadas) sobre las matriculas activas con vinculo en la facultad (cada matricula una sola vez);
 -- sesionesEjecutadas y faltasSinJustaCausa siguen en sesiones. Columnas nuevas al final: horasDictadas y horasFalta (horas, 2 decimales).
+-- ATA D2 (ADDENDUM_ATA_ASISTENCIA_TOMAS_AVISOS B): el denominador del porcentaje pasa a horasPeriodo (horas de todas las sesiones del periodo:
+-- programadas, vencidas y futuras; sin canceladas ni solicitudes no aprobadas). horasDictadas se sigue mostrando como lo dictado hasta hoy.
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_comparativa_facultades]
 (
@@ -54,7 +56,8 @@ BEGIN
                 faltas = SUM(r.sesionesConFaltaSinJustaCausa),
                 -- CULM-001 D.8: horas dictadas y de falta sin justa causa de las mismas matriculas
                 horasDictadas = CAST(SUM(r.horasDictadas) AS DECIMAL(19,6)),
-                horasFalta = CAST(SUM(r.horasFalta) AS DECIMAL(19,6))
+                horasFalta = CAST(SUM(r.horasFalta) AS DECIMAL(19,6)),
+                horasPeriodo = CAST(SUM(r.horasPeriodo) AS DECIMAL(19,6))
         FROM    dbo.uv_resumen_asistencia_estudiante_grupo r
         INNER JOIN (SELECT DISTINCT p.idFacultad, idEstudianteGrupo = egp.id
                     FROM dbo.uv_estudiante_grupo_programa egp
@@ -78,7 +81,7 @@ BEGIN
             tasaRetencion = CAST(IIF(ISNULL(c.total, 0) = 0, NULL, 100.0 * (c.regulares + c.riesgo) / c.total) AS DECIMAL(5,2)),
             sesionesEjecutadas = ISNULL(a.sesiones, 0),
             faltasSinJustaCausa = ISNULL(a.faltas, 0),
-            porcentajeAusentismo = CAST(IIF(ISNULL(a.horasDictadas, 0) = 0, NULL, ROUND(100.0 * a.horasFalta / a.horasDictadas, 2)) AS DECIMAL(5,2)),
+            porcentajeAusentismo = CAST(IIF(ISNULL(a.horasPeriodo, 0) = 0, NULL, ROUND(100.0 * a.horasFalta / a.horasPeriodo, 2)) AS DECIMAL(5,2)),
             horasDictadas = CAST(ISNULL(a.horasDictadas, 0) AS DECIMAL(12,2)),
             horasFalta = CAST(ISNULL(a.horasFalta, 0) AS DECIMAL(12,2))
         FROM dbo.uv_facultad f

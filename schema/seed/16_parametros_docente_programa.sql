@@ -5,7 +5,7 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
--- Parametros de la vertical de docentes (HU091). MEJORAS-SERGIO-2026-11-18 (migracion 50): se retiraron el catalogo
+-- Parametros de la vertical de docentes (HU091). MEJORAS-SERGIO-2026-11-18 (migracion 56): se retiraron el catalogo
 -- TipoVinculacion y el parametro DOCENTE/TIPO_VINCULACION_DEFECTO (el sistema no administra el tipo de vinculacion).
 MERGE INTO [dbo].[CatalogoParametro] AS Target
 USING (VALUES

@@ -81,6 +81,8 @@ DECLARE @userMsg NVARCHAR(4000), @techMsg NVARCHAR(4000), @corr UNIQUEIDENTIFIER
 
 BEGIN TRANSACTION;
 BEGIN TRY
+    -- ATA D4: el margen sembrado es 0 (la ventana cierra al fin de la sesion); esta prueba ejercita la ventana con margen 30 min fijado dentro de la transaccion revertida.
+    UPDATE dbo.CatalogoParametro SET valor = N'30' WHERE grupo = 'ASISTENCIA' AND clave = 'MARGEN_RETARDO_MINUTOS';
     -- Fixture: docente titular, otro docente, 2 estudiantes activos y 1 inactivo, periodo vigente y grupo del programa
     DECLARE @uD1 UNIQUEIDENTIFIER = NEWID(), @uD2 UNIQUEIDENTIFIER = NEWID(), @uE1 UNIQUEIDENTIFIER = NEWID(), @uE2 UNIQUEIDENTIFIER = NEWID(), @uE3 UNIQUEIDENTIFIER = NEWID();
     DECLARE @d1 UNIQUEIDENTIFIER = NEWID(), @d2 UNIQUEIDENTIFIER = NEWID(), @e1 UNIQUEIDENTIFIER = NEWID(), @e2 UNIQUEIDENTIFIER = NEWID(), @e3 UNIQUEIDENTIFIER = NEWID();

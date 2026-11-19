@@ -5,7 +5,7 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
--- HU092: edita los nombres/apellidos de la persona vinculada al programa. MEJORAS-SERGIO-2026-11-18 (migracion 50): se retiro
+-- HU092: edita los nombres/apellidos de la persona vinculada al programa. MEJORAS-SERGIO-2026-11-18 (migracion 56): se retiro
 -- el tipo de vinculacion (el sistema ya no lo administra).
 -- Solo se actualizan los parametros no nulos (''/vacio en un segundo nombre o apellido lo limpia). El correo NO se
 -- edita aqui (exige sincronizar Keycloak: IAM-001). HU159 (decision de John 2026-11-05): (c) el tipo y el numero de

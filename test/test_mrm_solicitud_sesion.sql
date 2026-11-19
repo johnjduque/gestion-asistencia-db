@@ -131,7 +131,8 @@ BEGIN TRY
     DECLARE @modo NVARCHAR(20) = (SELECT TOP 1 codigo FROM dbo.ModoTomaAsistencia ORDER BY codigo);
     CREATE TABLE #mrm_tom (idCorrelacion UNIQUEIDENTIFIER NULL, mensajeUsuarioResultado NVARCHAR(4000) NULL, mensajeTecnicoResultado NVARCHAR(4000) NULL, estadoResultado BIT NOT NULL,
         idToma UNIQUEIDENTIFIER NULL, numero INT NULL, codigoModo NVARCHAR(20) NULL, usaCodigoQr BIT NULL, fechaAperturaUtc DATETIME2 NULL, ventanaCierreUtc DATETIME2 NULL,
-        totalTomasSesion INT NULL, horasToma DECIMAL(12,6) NULL);
+        totalTomasSesion INT NULL, horasToma DECIMAL(12,6) NULL,
+    idTomaCerradaAnterior UNIQUEIDENTIFIER NULL, numeroTomaCerradaAnterior SMALLINT NULL, totalAusentesMarcadosAnterior INT NULL);
     INSERT #mrm_tom EXEC dbo.usp_abrir_toma_asistencia @idSesion = @sAhora, @codigoModo = @modo, @idCorrelacion = @c, @idUsuarioEjecutor = @uT;
     IF NOT EXISTS (SELECT 1 FROM #mrm_tom WHERE estadoResultado = 0 AND mensajeTecnicoResultado LIKE N'DBCODE=SES[_]023|%') OR EXISTS (SELECT 1 FROM dbo.TomaAsistencia WHERE sesion = @sAhora)
         THROW 59040, 'TEST FAILED CULM001_MRM_04: abrir una toma en una sesion pendiente debe responder SES_023 sin escrituras.', 1;

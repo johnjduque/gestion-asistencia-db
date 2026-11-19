@@ -7,7 +7,7 @@ GO
 
 -- HU062/HU089: una fila por vinculo (docente, programa). No depende de los grupos (un docente recien
 -- vinculado aparece con totalGruposPrograma = 0). uv_docente y uv_auth_docente no cambian.
--- MEJORAS-SERGIO-2026-11-18 (migracion 50): sin columnas de tipo de vinculacion.
+-- MEJORAS-SERGIO-2026-11-18 (migracion 56): sin columnas de tipo de vinculacion.
 CREATE OR ALTER VIEW [dbo].[uv_docente_programa]
 AS
 SELECT		idDocentePrograma = dp.id,

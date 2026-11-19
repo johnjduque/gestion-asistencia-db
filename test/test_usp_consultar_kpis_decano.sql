@@ -183,13 +183,13 @@ BEGIN TRY
         gruposActivos INT, cupoTotal INT, matriculadosActivos INT, tasaAforo DECIMAL(7,2), umbralAdvertencia DECIMAL(5,2), umbralPerdida DECIMAL(5,2),
         -- CULM-001 B.2 (CONTRACT §2.9, NB-2): columnas nuevas al final del resultset (forma del contrato, sin cambio de asercion).
         tomasDictadas INT, horasDictadas DECIMAL(12,6), horasFalta DECIMAL(12,6), totalCoordinadores INT, totalDocentes INT);
-    -- T-DB-06: cifras exactas de F (periodo por defecto)
+    -- T-DB-06: cifras exactas de F (periodo por defecto). ATA D2 (ADDENDUM_ATA_ASISTENCIA_TOMAS_AVISOS B): el denominador pasa a las horas del periodo (matriculas A: G1 24 h x 5 + G2 6 h + G3 4 h = 130 h; faltas 12 h => 9.23). E1 pasa a RIESGO (16.67) y E2 a REGULAR (8.33).
     INSERT INTO #k EXEC dbo.usp_consultar_kpis_decano @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @idPeriodoAcademico = NULL;
     IF NOT ((SELECT COUNT(*) FROM #k) = 1) THROW 53401, 'TEST FAILED: se esperaba exactamente 1 fila', 1;
-    IF NOT EXISTS (SELECT 1 FROM #k WHERE idFacultad = @f AND idPeriodoAcademico = @per AND totalProgramas = 3 AND totalEstudiantes = 6 AND estudiantesRegulares = 2 AND estudiantesRiesgo = 1 AND estudiantesPerdida = 3 AND tasaRetencion = 50.00)
-        THROW 53402, 'TEST FAILED: T-DB-06 conteos distintos de los calculados a mano (3 programas / 6 / 2 / 1 / 3 / 50.00)', 1;
-    IF NOT EXISTS (SELECT 1 FROM #k WHERE sesionesEjecutadas = 35 AND faltasSinJustaCausa = 6 AND porcentajeAusentismo = 17.14 AND porcentajeAsistencia = 82.86)
-        THROW 53403, 'TEST FAILED: T-DB-06 ausentismo ponderado distinto del calculado a mano (35 / 6 / 17.14 / 82.86)', 1;
+    IF NOT EXISTS (SELECT 1 FROM #k WHERE idFacultad = @f AND idPeriodoAcademico = @per AND totalProgramas = 3 AND totalEstudiantes = 6 AND estudiantesRegulares = 3 AND estudiantesRiesgo = 1 AND estudiantesPerdida = 2 AND tasaRetencion = 66.67)
+        THROW 53402, 'TEST FAILED: T-DB-06 conteos distintos de los calculados a mano (3 programas / 6 / 3 / 1 / 2 / 66.67)', 1;
+    IF NOT EXISTS (SELECT 1 FROM #k WHERE sesionesEjecutadas = 35 AND faltasSinJustaCausa = 6 AND porcentajeAusentismo = 9.23 AND porcentajeAsistencia = 90.77)
+        THROW 53403, 'TEST FAILED: T-DB-06 ausentismo ponderado distinto del calculado a mano (35 / 6 / 9.23 / 90.77)', 1;
     IF NOT EXISTS (SELECT 1 FROM #k WHERE gruposActivos = 3 AND cupoTotal = 55 AND matriculadosActivos = 7 AND tasaAforo = 12.73 AND umbralAdvertencia = 15 AND umbralPerdida = 20)
         THROW 53404, 'TEST FAILED: T-DB-06 aforo/umbrales distintos de los calculados a mano (3 / 55 / 7 / 12.73 / 15 / 20)', 1;
     -- T-DB-07: invariante y conciliacion contra tablas

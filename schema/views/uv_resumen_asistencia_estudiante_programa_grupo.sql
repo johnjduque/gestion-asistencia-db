@@ -7,6 +7,7 @@ GO
 
 -- CULM-001 B2NM (R9): resumen por (matricula, programa) para los KPI por programa; las columnas son las de
 -- uv_resumen_asistencia_estudiante_grupo (B.2) mas idPrograma, solo para estudiantes con vinculo en ese programa.
+-- ATA D2: horasPeriodo (denominador de la perdida, horas de todas las sesiones del periodo) se propaga AL FINAL.
 CREATE OR ALTER VIEW [dbo].[uv_resumen_asistencia_estudiante_programa_grupo]
 AS
 SELECT  r.idEstudianteGrupo,
@@ -36,7 +37,8 @@ SELECT  r.idEstudianteGrupo,
         r.umbralPerdida,
         r.sesionesAsistidas,
         r.sesionesConFaltaSinJustaCausa,
-        r.sesionesConExcusa
+        r.sesionesConExcusa,
+        r.horasPeriodo
 FROM    uv_resumen_asistencia_estudiante_grupo r
 INNER JOIN uv_estudiante_grupo_programa egp ON egp.id = r.idEstudianteGrupo
 GO

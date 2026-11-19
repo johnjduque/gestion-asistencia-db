@@ -16,8 +16,8 @@ GO
 -- y las columnas de la toma en NULL (el docente ve la ventana antes de abrir la primera toma).
 -- PC (puntos de control): columnas al final (NULL en la fila sin tomas):
 --   fechaPuntoControlUtc, ordenPuntoControl, minutosTramoAnterior, minutosTramoSiguiente (uv_toma_asistencia);
---   esEditable       = ventana abierta y la toma es la abierta o no tiene toma posterior (regla TOM_012);
---   editableHastaUtc = apertura de la toma siguiente o, para la ultima, el cierre de la ventana (fin + margen).
+--   esEditable       = ventana de la sesion abierta (ATA D4: toda toma, abierta o cerrada, es editable mientras la ventana siga abierta);
+--   editableHastaUtc = cierre de la ventana (fin + margen) para todas las tomas.
 -- horasToma (1/n) queda OBSOLETO: se conserva por compatibilidad; las horas salen de usp_consultar_resumen_tomas_sesion.
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_tomas_sesion]
@@ -108,9 +108,8 @@ BEGIN
         ordenPuntoControl     = t.ordenPuntoControl,
         minutosTramoAnterior  = t.minutosTramoAnterior,
         minutosTramoSiguiente = t.minutosTramoSiguiente,
-        esEditable            = CAST(IIF(t.idToma IS NULL, NULL,
-                                         IIF(se.ventanaAbierta = 1 AND (t.estaAbierta = 1 OR t.fechaAperturaSiguienteUtc IS NULL), 1, 0)) AS BIT),
-        editableHastaUtc      = CAST(IIF(t.idToma IS NULL, NULL, COALESCE(CAST(t.fechaAperturaSiguienteUtc AS DATETIME2(7)), se.ventanaCierreUtc)) AS DATETIME2(7))
+        esEditable            = CAST(IIF(t.idToma IS NULL, NULL, IIF(se.ventanaAbierta = 1, 1, 0)) AS BIT),
+        editableHastaUtc      = CAST(IIF(t.idToma IS NULL, NULL, se.ventanaCierreUtc) AS DATETIME2(7))
     FROM dbo.uv_sesion_estado se
     LEFT JOIN dbo.uv_toma_asistencia t ON t.idSesion = se.idSesion
     WHERE se.idSesion = @idSesionDefecto

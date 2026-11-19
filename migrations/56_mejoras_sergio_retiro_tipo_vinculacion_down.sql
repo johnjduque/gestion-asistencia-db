@@ -1,5 +1,5 @@
 -- ============================================================================
--- MIGRACION DOWN 50: restaura el tipo de vinculacion del docente (MEJORAS-SERGIO-2026-11-18, items 1 y 12)
+-- MIGRACION DOWN 56: restaura el tipo de vinculacion del docente (MEJORAS-SERGIO-2026-11-18, items 1 y 12)
 --   1. Tabla TipoVinculacion (PK, UQ por codigo) con PLA, MTI, CAT y OCA, y la vista uv_tipo_vinculacion.
 --   2. Columna DocentePrograma.tipoVinculacion: se agrega NULL, los vinculos existentes toman el tipo por defecto (CAT), queda NOT
 --      NULL con DF_DocentePrograma_tipoVinculacion (= CAT, para que las altas sin tipo de pruebas y SP sigan funcionando) y la FK.
@@ -7,7 +7,7 @@
 --   3. Parametro DOCENTE/TIPO_VINCULACION_DEFECTO y mensajes DOC_004 y ERR_TIPO_VINCULACION_INVALIDO. No se recrean filas de
 --      CatalogoParametroEdicion: las semillas nunca hicieron editable este parametro ni lo usaron como regla cruzada
 --      (parametroDebeSerMenorQue); si en una base alguien lo hizo a mano, el up anulo esa regla y el down no la recupera.
---   4. El texto de develop (antes de la 50) de uv_docente_programa, uv_auth_docente_programa, usp_vincular_docente_programa(_interno),
+--   4. El texto de develop (antes de la 56) de uv_docente_programa, uv_auth_docente_programa, usp_vincular_docente_programa(_interno),
 --      usp_actualizar_docente_programa, usp_consultar_docentes_programa, usp_consultar_resumen_docentes_programa,
 --      usp_consultar_perfil_usuario y usp_consultar_estudiantes_facultad_paginado (sin codigoTipoIdentificacion).
 -- Idempotente.
@@ -19,7 +19,7 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-PRINT 'MIGRACION 50 DOWN: restaura el tipo de vinculacion del docente';
+PRINT 'MIGRACION 56 DOWN: restaura el tipo de vinculacion del docente';
 GO
 -- ---- schema/tables/TipoVinculacion.sql
 IF OBJECT_ID(N'dbo.TipoVinculacion', N'U') IS NULL
@@ -108,7 +108,7 @@ WHEN NOT MATCHED THEN
     INSERT (codigo, tipoMensaje, severidad, contenido, estaActivo, fechaCreacion, fechaModificacion)
     VALUES (Source.codigo, Source.tipoMensaje, Source.severidad, Source.contenido, 1, SYSUTCDATETIME(), SYSUTCDATETIME());
 GO
--- ---- schema/views/uv_docente_programa.sql (texto de develop antes de la 50)
+-- ---- schema/views/uv_docente_programa.sql (texto de develop antes de la 56)
 USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
@@ -164,7 +164,7 @@ ON			dp.programa = pr.id
 INNER JOIN	uv_tipo_vinculacion tv
 ON			dp.tipoVinculacion = tv.id
 GO
--- ---- schema/views/uv_auth_docente_programa.sql (texto de develop antes de la 50)
+-- ---- schema/views/uv_auth_docente_programa.sql (texto de develop antes de la 56)
 USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
@@ -219,7 +219,7 @@ WHERE   dbo.ufn_obtener_usuario_ejecutor_contexto() IS NOT NULL
         OR  d.idUsuario = dbo.ufn_obtener_usuario_ejecutor_contexto()
         );
 GO
--- ---- schema/stored-procedures/usp_vincular_docente_programa_interno.sql (texto de develop antes de la 50)
+-- ---- schema/stored-procedures/usp_vincular_docente_programa_interno.sql (texto de develop antes de la 56)
 USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
@@ -286,7 +286,7 @@ BEGIN
     SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
 END;
 GO
--- ---- schema/stored-procedures/usp_vincular_docente_programa.sql (texto de develop antes de la 50)
+-- ---- schema/stored-procedures/usp_vincular_docente_programa.sql (texto de develop antes de la 56)
 USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
@@ -613,7 +613,7 @@ BEGIN
         estadoResultado         = @estadoResultado;
 END;
 GO
--- ---- schema/stored-procedures/usp_actualizar_docente_programa.sql (texto de develop antes de la 50)
+-- ---- schema/stored-procedures/usp_actualizar_docente_programa.sql (texto de develop antes de la 56)
 USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
@@ -875,7 +875,7 @@ BEGIN
         estadoResultado         = @estadoResultado;
 END;
 GO
--- ---- schema/stored-procedures/usp_consultar_docentes_programa.sql (texto de develop antes de la 50)
+-- ---- schema/stored-procedures/usp_consultar_docentes_programa.sql (texto de develop antes de la 56)
 USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
@@ -1006,7 +1006,7 @@ BEGIN
     END CATCH;
 END;
 GO
--- ---- schema/stored-procedures/usp_consultar_resumen_docentes_programa.sql (texto de develop antes de la 50)
+-- ---- schema/stored-procedures/usp_consultar_resumen_docentes_programa.sql (texto de develop antes de la 56)
 USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
@@ -1061,7 +1061,7 @@ BEGIN
     ORDER BY tv.nombre ASC, tv.id ASC;
 END;
 GO
--- ---- schema/stored-procedures/usp_consultar_perfil_usuario.sql (texto de develop antes de la 50)
+-- ---- schema/stored-procedures/usp_consultar_perfil_usuario.sql (texto de develop antes de la 56)
 USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
@@ -1186,7 +1186,7 @@ BEGIN
     ORDER BY v.orden ASC, v.nombreEntidad ASC, v.idEntidad ASC;
 END;
 GO
--- ---- schema/stored-procedures/usp_consultar_estudiantes_facultad_paginado.sql (texto de develop antes de la 50)
+-- ---- schema/stored-procedures/usp_consultar_estudiantes_facultad_paginado.sql (texto de develop antes de la 56)
 USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
@@ -1338,7 +1338,7 @@ GO
 IF OBJECT_ID(N'dbo.TipoVinculacion', N'U') IS NULL OR COL_LENGTH(N'dbo.DocentePrograma', N'tipoVinculacion') IS NULL
    OR NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_DocentePrograma_TipoVinculacion')
    OR NOT EXISTS (SELECT 1 FROM dbo.CatalogoMensajeUsuario WHERE codigo = 'DOC_004')
-    THROW 55097, 'MIGRACION 50 DOWN: el tipo de vinculacion no quedo restaurado.', 1;
+    THROW 55697, 'MIGRACION 56 DOWN: el tipo de vinculacion no quedo restaurado.', 1;
 GO
-PRINT 'MIGRACION 50 DOWN OK';
+PRINT 'MIGRACION 56 DOWN OK';
 GO

@@ -12,9 +12,10 @@ GO
 -- (NULL si estadoResultado = 0).
 --
 -- Lote del docente titular sobre UNA toma, siempre dentro de la ventana [inicio - TOLERANCIA, fin + MARGEN) (SES_007..010).
--- PC (puntos de control, reemplaza [SUPUESTO-B-08]): la toma abierta se edita; una toma cerrada solo se corrige mientras no
--- exista una toma posterior (TOM_012 en cuanto se abre la siguiente); la ultima, hasta el fin de la ventana. Despues, la
--- correccion es por reclamo del estudiante. @asistenciaJSON = [{"idEstudiante":"uuid","estado":"AN|SJC|EX"}] con las mismas
+-- ATA D4 (ADDENDUM_ATA_ASISTENCIA_TOMAS_AVISOS A; reemplaza la regla PC de edicion hasta la toma siguiente): mientras la ventana de la
+-- sesion este abierta se registra y corrige CUALQUIER toma, abierta o cerrada; la unica barrera temporal es la ventana (SES_007..010).
+-- TOM_012 ya no se emite (el mensaje se conserva en el catalogo). Despues de la ventana, la correccion es por reclamo del estudiante.
+-- @asistenciaJSON = [{"idEstudiante":"uuid","estado":"AN|SJC|EX"}] con las mismas
 -- reglas del lote congelado: ATT_001 (no es arreglo o claves distintas de idEstudiante/estado), ATT_002 (vacio), GEN_002
 -- (idEstudiante nulo o invalido), RC_001 (estado fuera de AN/SJC/EX), ATT_003 (duplicado), EST_004 (sin matricula A).
 -- Todo se valida antes de escribir; el lote es atomico; la ventana se revalida al confirmar. Exito TOM_010.
@@ -209,24 +210,6 @@ BEGIN
 
             IF @estadoResultado = 1
                 SELECT @idSesion = t.sesion FROM dbo.TomaAsistencia t WITH (UPDLOCK, HOLDLOCK) WHERE t.id = @idTomaDefecto;
-
-            -- PC (puntos de control): una toma cerrada solo se corrige hasta que se abre la siguiente (TOM_012). Bajo el bloqueo
-            -- de la Sesion (UPDLOCK, HOLDLOCK hasta el fin de la transaccion) ninguna apertura concurrente cambia esta respuesta.
-            IF @estadoResultado = 1
-            BEGIN
-                SELECT TOP 1 @p1 = CONVERT(NVARCHAR(20), t.numero), @p2 = CONVERT(NVARCHAR(20), t2.numero)
-                FROM dbo.TomaAsistencia t
-                INNER JOIN dbo.TomaAsistencia t2 ON t2.sesion = t.sesion AND t2.numero > t.numero
-                WHERE t.id = @idTomaDefecto AND t.fechaCierreUtc IS NOT NULL
-                ORDER BY t2.numero;
-                IF @p2 IS NOT NULL
-                BEGIN
-                    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'TOM_012', @p_param1 = @p1, @p_param2 = @p2,
-                        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-                    SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-                    SET @estadoResultado = 0;
-                END
-            END
 
             WHILE @iterador <= @totalEstudiantes AND @estadoResultado = 1
             BEGIN

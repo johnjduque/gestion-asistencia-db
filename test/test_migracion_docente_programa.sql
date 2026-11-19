@@ -4,12 +4,12 @@ GO
 SET NOCOUNT ON;
 
 -- HU091 (T-MIG-01..03): estructura, seed, backfill (R2) y retiro del SP autonomo (D7).
--- MEJORAS-SERGIO-2026-11-18 (migracion 50): el tipo de vinculacion se retiro (tabla, vista, columna, FK y DOC_004).
+-- MEJORAS-SERGIO-2026-11-18 (migracion 56): el tipo de vinculacion se retiro (tabla, vista, columna, FK y DOC_004).
 PRINT 'TEST START: test_migracion_docente_programa';
 
 IF OBJECT_ID('dbo.TipoVinculacion', 'U') IS NOT NULL OR OBJECT_ID('dbo.uv_tipo_vinculacion', 'V') IS NOT NULL
    OR COL_LENGTH('dbo.DocentePrograma', 'tipoVinculacion') IS NOT NULL
-    THROW 52400, 'T-MIG FAILED: el tipo de vinculacion debio retirarse (migracion 50).', 1;
+    THROW 52400, 'T-MIG FAILED: el tipo de vinculacion debio retirarse (migracion 56).', 1;
 IF OBJECT_ID('dbo.DocentePrograma', 'U') IS NULL THROW 52401, 'T-MIG FAILED: falta la tabla DocentePrograma.', 1;
 IF NOT EXISTS (SELECT 1 FROM sys.key_constraints WHERE name = 'UQ_DocentePrograma_docente_programa')
     THROW 52402, 'T-MIG FAILED: falta UNIQUE (docente, programa).', 1;
@@ -44,7 +44,7 @@ IF EXISTS (
 IF EXISTS (SELECT 1 FROM dbo.CatalogoMensajeUsuario WHERE codigo = 'DOC_004') OR EXISTS (SELECT 1 FROM dbo.CatalogoMensajeTecnico WHERE codigo = 'DOC_004')
    OR EXISTS (SELECT 1 FROM dbo.CatalogoMensajeUsuario WHERE codigo = 'ERR_TIPO_VINCULACION_INVALIDO')
    OR EXISTS (SELECT 1 FROM dbo.CatalogoParametro WHERE grupo = 'DOCENTE' AND clave = 'TIPO_VINCULACION_DEFECTO')
-    THROW 52431, 'T-MIG FAILED: DOC_004, ERR_TIPO_VINCULACION_INVALIDO y DOCENTE/TIPO_VINCULACION_DEFECTO debieron retirarse (migracion 50).', 1;
+    THROW 52431, 'T-MIG FAILED: DOC_004, ERR_TIPO_VINCULACION_INVALIDO y DOCENTE/TIPO_VINCULACION_DEFECTO debieron retirarse (migracion 56).', 1;
 PRINT 'TEST_PASS:MENSAJES_DOC';
 PRINT 'TEST_PASS:TEST_MIGRACION_DOCENTE_PROGRAMA';
 GO

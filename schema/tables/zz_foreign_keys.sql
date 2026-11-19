@@ -327,7 +327,7 @@ BEGIN
 END
 GO
 
--- 40. (retirada) DocentePrograma -> TipoVinculacion: MEJORAS-SERGIO-2026-11-18, migracion 50.
+-- 40. (retirada) DocentePrograma -> TipoVinculacion: MEJORAS-SERGIO-2026-11-18, migracion 56.
 
 -- 41. IdentidadExterna -> Usuario (SEC-BASELINE-017)
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_IdentidadExterna_Usuario')
@@ -545,4 +545,10 @@ GO
 IF COL_LENGTH('dbo.SolicitudRevisionAsistencia', 'toma') IS NOT NULL
    AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.SolicitudRevisionAsistencia') AND name = 'IX_SolicitudRevisionAsistencia_Asistencia_Toma')
     CREATE NONCLUSTERED INDEX [IX_SolicitudRevisionAsistencia_Asistencia_Toma] ON [dbo].[SolicitudRevisionAsistencia] ([asistencia], [toma]) INCLUDE ([estado]);
+GO
+-- ATA D1: marca de aviso de falta por sesion
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_AvisoFaltaSesion_Sesion')
+BEGIN
+    ALTER TABLE [dbo].[AvisoFaltaSesion] ADD CONSTRAINT [FK_AvisoFaltaSesion_Sesion] FOREIGN KEY ([sesion]) REFERENCES [dbo].[Sesion] ([id]);
+END
 GO

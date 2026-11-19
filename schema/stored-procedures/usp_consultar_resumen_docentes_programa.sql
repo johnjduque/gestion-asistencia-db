@@ -12,7 +12,7 @@ GO
 -- Consolidado del directorio docente del programa del COORDINADOR: UNA fila con los vinculos activos e inactivos (mismo
 -- criterio estaActivoDocentePrograma del directorio HU062/HU089).
 --   - el programa se resuelve del ejecutor (usp_resolver_programa_coordinador_interno; KPI_001 si no coordina);
---   - MEJORAS-SERGIO-2026-11-18 (migracion 50): ya no se agrupa por tipo de vinculacion (retirado); sin vinculos => 0 y 0.
+--   - MEJORAS-SERGIO-2026-11-18 (migracion 56): ya no se agrupa por tipo de vinculacion (retirado); sin vinculos => 0 y 0.
 -- Solo lectura: sin XACT_ABORT.
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_resumen_docentes_programa]

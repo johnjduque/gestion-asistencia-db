@@ -98,6 +98,8 @@ IF OBJECT_ID(N'dbo.SesionCancelacion', N'U') IS NOT NULL
     DELETE FROM dbo.SesionCancelacion WHERE sesion = @session;
 IF OBJECT_ID(N'dbo.SesionSolicitud', N'U') IS NOT NULL   -- DEC-065 (2): la solicitud que deja usp_crear_sesion_v2
     DELETE FROM dbo.SesionSolicitud WHERE sesion = @session;
+IF OBJECT_ID(N'dbo.AvisoFaltaSesion', N'U') IS NOT NULL   -- ATA D1: marca de aviso de falta por sesion
+    DELETE FROM dbo.AvisoFaltaSesion WHERE sesion = @session;
 
 DELETE FROM dbo.Asistencia WHERE sesion = @session;
 

@@ -139,7 +139,7 @@ BEGIN TRY
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msg) THROW 52061, 'T-091-06 FAILED: dos modos no retorno DOC_005.', 1;
     PRINT 'TEST_PASS:T-091-06';
 
-    -- ================= T-091-07 (MEJORAS-SERGIO-2026-11-18, migracion 50): sin tipo de vinculacion =================
+    -- ================= T-091-07 (MEJORAS-SERGIO-2026-11-18, migracion 56): sin tipo de vinculacion =================
     IF EXISTS (SELECT 1 FROM sys.parameters WHERE object_id IN (OBJECT_ID('dbo.usp_vincular_docente_programa'), OBJECT_ID('dbo.usp_vincular_docente_programa_interno'))
                                             AND name = '@idTipoVinculacion')
         THROW 52070, 'T-091-07 FAILED: el vinculo docente-programa ya no recibe tipo de vinculacion.', 1;

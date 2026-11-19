@@ -69,7 +69,7 @@ BEGIN
         INNER JOIN dbo.Facultad f ON f.id = p.facultad
         WHERE e.usuario = @idUsuarioDefecto
         UNION ALL
-        -- MEJORAS-SERGIO-2026-11-18 (migracion 50): el detalle del vinculo docente es la facultad del programa (antes, el tipo de vinculacion)
+        -- MEJORAS-SERGIO-2026-11-18 (migracion 56): el detalle del vinculo docente es la facultad del programa (antes, el tipo de vinculacion)
         SELECT 'DOCENTE', 2, p.id, p.nombre, f.nombre, dp.estado
         FROM dbo.Docente d
         INNER JOIN dbo.DocentePrograma dp ON dp.docente = d.id

@@ -716,6 +716,26 @@ try {
 catch {
     $resultFailures += "CULM001_D8_RUNNER $($_.Exception.Message)"
 }
+# ATA P1: migraciones 50 y 51 (up/down/up) en test/test_ata_p1_migraciones.ps1.
+try {
+    $ataP1MigOutput = @(& (Join-Path $PSScriptRoot 'test/test_ata_p1_migraciones.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $ataP1MigOutput) { Write-Host $line }
+    if ($ataP1MigOutput -contains 'TEST_PASS:ATA_P1_MIG_UP_DOWN_UP') { $clientPassed += 'ATA_P1_MIG_UP_DOWN_UP' }
+    else { $resultFailures += 'ATA_P1_MIG_UP_DOWN_UP not reported by test_ata_p1_migraciones.ps1' }
+}
+catch {
+    $resultFailures += "ATA_P1_MIG_RUNNER $($_.Exception.Message)"
+}
+# ATA D11: migracion 55 (up/down/up) en test/test_ata_k_migracion.ps1.
+try {
+    $ataKMigOutput = @(& (Join-Path $PSScriptRoot 'test/test_ata_k_migracion.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $ataKMigOutput) { Write-Host $line }
+    if ($ataKMigOutput -contains 'TEST_PASS:ATA_K_MIG_UP_DOWN_UP') { $clientPassed += 'ATA_K_MIG_UP_DOWN_UP' }
+    else { $resultFailures += 'ATA_K_MIG_UP_DOWN_UP not reported by test_ata_k_migracion.ps1' }
+}
+catch {
+    $resultFailures += "ATA_K_MIG_RUNNER $($_.Exception.Message)"
+}
 # CULM-001 D.9-a: migracion 28 (up/down/up, D-RB-03) en test/test_culm001_d9.ps1.
 try {
     $culm001D9Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d9.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
@@ -1065,7 +1085,7 @@ $criticalIds = @(
     'PC_CAL_11', 'PC_CAL_12', 'PC_CAL_13', 'PC_CAL_14', 'PC_INV_01', 'PC_CAL_TRANCOUNT_ZERO',
     # PC BD-2 / BD-3 / BD-4: ciclo de vida de la toma, reclamo por toma, permisos y migracion 37 (test/test_pc_puntos_control.sql,
     # test/test_public_objects.sql, test/test_pc_migracion_37.ps1)
-    'PC_TOM_00_OBJETOS_Y_SEMILLAS', 'PC_TOM_01_EDICION_HASTA_SIGUIENTE', 'PC_TOM_02_ULTIMA_HASTA_MARGEN', 'PC_TOM_03_CIERRE_MANUAL_MARCA',
+    'PC_TOM_00_OBJETOS_Y_SEMILLAS', 'PC_TOM_01_EDICION_EN_VENTANA', 'PC_TOM_02_ULTIMA_HASTA_MARGEN', 'PC_TOM_03_CIERRE_MANUAL_MARCA',
     'PC_TOM_04_TOPE_20', 'PC_TOM_05_CONSULTAS', 'PC_REC_01_RADICAR_V4', 'PC_REC_02_TOMA_SIN_AUSENCIA', 'PC_REC_03_DUPLICADO',
     'PC_REC_04_TOMA_DE_OTRA_SESION', 'PC_REC_05_APROBADA_PRESENTE', 'PC_REC_06_APROBADA_JUSTIFICADA_SOLO_LA_TOMA', 'PC_REC_07_LEGADO_SESION',
     'PC_REC_08_IDEMPOTENCIA_Y_RESULTADO', 'PC_REC_09_RETIRADO_PERMITE_OTRO', 'PC_REC_10_CONSULTAS_RECLAMOS', 'PC_TRANCOUNT_ZERO', 'PC_SEG_01',
@@ -1131,7 +1151,27 @@ $criticalIds = @(
     'W3M_SES_01_ESTADOS', 'W3M_SES_02_CONTEOS', 'W3M_SES_03_GRUPO', 'W3M_SES_04_SIN_SESIONES', 'W3M_AMB_01_RECHAZOS', 'W3M_TRANCOUNT_ZERO',
     # CIERRE-W3I: indicadores de los tableros por rol, aforo y nivel de permanencia (test/test_w3i_indicadores.sql)
     'W3I_COO_01_TOTALES', 'W3I_COO_02_SIN_PERIODO', 'W3I_COO_03_AISLAMIENTO', 'W3I_DEC_01_TOTALES', 'W3I_DEC_02_AISLAMIENTO', 'W3I_ADM_01_TOTALES',
-    'W3I_DOC_01_RESUMEN', 'W3I_DOC_02_AMBITO', 'W3I_PER_01_CONSOLIDADO', 'W3I_DIF_01_PERDIDA', 'W3I_TRANCOUNT_ZERO'
+    'W3I_DOC_01_RESUMEN', 'W3I_DOC_02_AMBITO', 'W3I_PER_01_CONSOLIDADO', 'W3I_DIF_01_PERDIDA', 'W3I_TRANCOUNT_ZERO',
+    # ATA P1-A/B: edicion durante la sesion, cierre al fin y denominador por horas del periodo (test/test_ata_p1_tomas_denominador.sql)
+    'ATA_P1_A00_MARGEN_DEFECTO_CERO', 'ATA_P1_A01_EDITAR_TOMA_CERRADA', 'ATA_P1_A02_ESEDITABLE_EN_VENTANA', 'ATA_P1_A03_TRAS_VENTANA_SES_008',
+    'ATA_P1_A04_CIERRE_AL_FIN', 'ATA_P1_B01_DENOMINADOR_PERIODO', 'ATA_P1_B02_CANCELADA_NO_SUMA', 'ATA_P1_B03_SOLICITUD_NO_APROBADA',
+    'ATA_P1_B04_ALERTAS_SOBRE_VISTA', 'ATA_P1_B05_PROGRAMA_GRUPO_HORAS', 'ATA_P1_TRANCOUNT_ZERO',
+    # ATA P1-C: aviso de falta por sesion (test/test_ata_p1_aviso_falta.sql)
+    'ATA_P1_C00_OBJETOS', 'ATA_P1_C01_SESIONES_PENDIENTES', 'ATA_P1_C02_FALTAS_POR_TOMA', 'ATA_P1_C03_REGISTRAR_IDEMPOTENTE', 'ATA_P1_C04_SESION_INEXISTENTE',
+    'ATA_P1_C05_HABILITADO_FALSE', 'ATA_P1_C06_ATRASO_MAXIMO', 'ATA_P1_C_TRANCOUNT_ZERO',
+    # ATA D9: nueva toma cierra la anterior (test/test_ata_p1_tomas_denominador.sql)
+    'ATA_D9_01_NUEVA_TOMA_CIERRA_ANTERIOR', 'ATA_D9_02_MAXIMO_TOM_004_NO_CIERRA', 'ATA_D9_03_SIN_ABIERTA_COLUMNAS_NULL', 'ATA_D9_04_CIERRE_MANUAL_SIN_CAMBIOS',
+    # ATA P1: migraciones 50 y 51 (test/test_ata_p1_migraciones.ps1)
+    'ATA_P1_MIG_UP_DOWN_UP',
+    # ATA D6/D7: solicitudes de sesion del docente y calendario (test/test_ata_p2_solicitudes_calendario.sql)
+    'ATA_P2_00_OBJETOS_Y_PERMISOS', 'ATA_P2_01_DOCENTE_VE_SUS_PENDIENTES', 'ATA_P2_02_TODAS_FILTRO_Y_PAGINACION', 'ATA_P2_03_AISLAMIENTO_Y_RBAC',
+    'ATA_P2_04_CALENDARIO_DOCENTE', 'ATA_P2_05_CALENDARIO_ESTUDIANTE', 'ATA_P2_06_RANGO_Y_RBAC', 'ATA_P2_TRANCOUNT_ZERO',
+    # ATA D10: faltas por reclamar del estudiante (test/test_ata_d10_faltas_reclamables.sql)
+    'ATA_D10_00_OBJETOS_Y_PERMISOS', 'ATA_D10_01_ANTES_DEL_AVISO', 'ATA_D10_02_TOMAS_EN_FALTA', 'ATA_D10_03_RECLAMO', 'ATA_D10_04_PLAZO_VENCIDO',
+    'ATA_D10_05_MARCA_CORREGIDA', 'ATA_D10_06_MATRICULA_CANCELADA', 'ATA_D10_07_AISLAMIENTO', 'ATA_D10_08_PAGINACION', 'ATA_D10_09_RBAC_Y_VALIDACIONES',
+    'ATA_D10_TRANCOUNT_ZERO',
+    # ATA D11: retiro de la oferta de grupos del estudiante (test/test_ata_k_retiro_oferta_estudiante.sql) y migracion 55 (up/down/up)
+    'ATA_K_01_OFERTA_ESTUDIANTE_RETIRADA', 'ATA_K_02_OFERTA_DOCENTE_CONSERVADA', 'ATA_K_MIG_UP_DOWN_UP'
 )
 if ($Concurrencia) { $criticalIds += 'CULM001_B2_CON_01_5X40' }
 $sqlPasses = @([regex]::Matches($outputStr, '(?m)^TEST_PASS:([A-Z0-9_]+)\s*$') | ForEach-Object { $_.Groups[1].Value })

@@ -1,3 +1,10 @@
+-- ============================================================================
+-- MIGRACION DOWN 55: restaura la oferta de grupos del estudiante (HU008) tal como estaba antes del retiro ATA D11:
+--   el SP en su ultima version, su EXECUTE para el rol runtime y el parametro OFERTA/INCLUIR_TRANSVERSALES (1). Idempotente.
+-- ============================================================================
+:on error exit
+PRINT 'MIGRACION 55 DOWN: restaura la oferta de grupos del estudiante';
+GO
 USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
@@ -160,4 +167,26 @@ BEGIN
     OFFSET @offset ROWS
     FETCH NEXT @tamano ROWS ONLY;
 END;
+GO
+
+USE [gestionasistenciadb];
+GO
+IF DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime') IS NOT NULL
+    GRANT EXECUTE ON [dbo].[usp_consultar_oferta_grupos_estudiante] TO [rol_asistencias_runtime];
+GO
+MERGE INTO [dbo].[CatalogoParametro] AS Target
+USING (VALUES
+    ('OFERTA', 'INCLUIR_TRANSVERSALES', '1', 'INT', '1')
+) AS Source (grupo, clave, valor, tipoDato, valorDefecto)
+ON (Target.grupo = Source.grupo AND Target.clave = Source.clave)
+WHEN MATCHED THEN
+    UPDATE SET
+        Target.tipoDato = Source.tipoDato,
+        Target.valorDefecto = Source.valorDefecto,
+        Target.fechaModificacion = SYSUTCDATETIME()
+WHEN NOT MATCHED THEN
+    INSERT (grupo, clave, valor, tipoDato, valorDefecto, estaActivo, fechaCreacion, fechaModificacion)
+    VALUES (Source.grupo, Source.clave, Source.valor, Source.tipoDato, Source.valorDefecto, 1, SYSUTCDATETIME(), SYSUTCDATETIME());
+GO
+PRINT 'MIGRACION 55 DOWN OK';
 GO

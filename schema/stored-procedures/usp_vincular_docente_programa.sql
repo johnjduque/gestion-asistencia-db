@@ -11,7 +11,7 @@ GO
 --   (c) datos de persona  alta nueva (usuario + docente + vinculo); documento/correo existentes => DOC_003
 -- RBAC COORDINADOR + titularidad PROGRAMA se validan DENTRO del SP. @password es el HASH (nunca texto plano).
 -- Una sola transaccion con ownership (transaccion propia o savepoint si el llamador ya tiene una).
--- MEJORAS-SERGIO-2026-11-18 (migracion 50): sin tipo de vinculacion (el sistema ya no lo administra; se retiro DOC_004).
+-- MEJORAS-SERGIO-2026-11-18 (migracion 56): sin tipo de vinculacion (el sistema ya no lo administra; se retiro DOC_004).
 CREATE OR ALTER PROCEDURE [dbo].[usp_vincular_docente_programa]
 (
     @idDocente              UNIQUEIDENTIFIER = NULL,

@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 SET XACT_ABORT OFF;
 
 -- HU092 (T-092-01..05): usp_actualizar_docente_programa. Edita los nombres/apellidos de la persona. Correo y documento no
--- se editan. MEJORAS-SERGIO-2026-11-18 (migracion 50): el tipo de vinculacion se retiro (T-092-01 y T-092-05 lo comprueban).
+-- se editan. MEJORAS-SERGIO-2026-11-18 (migracion 56): el tipo de vinculacion se retiro (T-092-01 y T-092-05 lo comprueban).
 PRINT 'TEST START: test_usp_actualizar_docente_programa';
 
 DECLARE @tipoCC UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_tipo_identificacion WHERE tipoIdentificacion = 'CC');
@@ -34,7 +34,7 @@ BEGIN TRY
     CREATE TABLE #r (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT);
     DECLARE @msg NVARCHAR(4000);
 
-    -- T-092-01: el SP ya no recibe tipo de vinculacion (retirado en la migracion 50)
+    -- T-092-01: el SP ya no recibe tipo de vinculacion (retirado en la migracion 56)
     IF EXISTS (SELECT 1 FROM sys.parameters WHERE object_id = OBJECT_ID('dbo.usp_actualizar_docente_programa') AND name = '@idTipoVinculacion')
         THROW 52510, 'T-092-01 FAILED: usp_actualizar_docente_programa no debe recibir @idTipoVinculacion.', 1;
     PRINT 'TEST_PASS:T-092-01';

@@ -15,7 +15,7 @@ GO
 -- Paginacion normalizada (pagina >= 1, tamano 1..100) igual que usp_consultar_grupos_paginado.
 -- Busqueda: solo digitos => prefijo de numeroIdentificacion; en otro caso => contiene en nombreCompleto.
 -- SESSION_CONTEXT se aplica solo durante la consulta y SIEMPRE se restaura.
--- MEJORAS-SERGIO-2026-11-18 (migracion 50): sin filtro ni columnas de tipo de vinculacion.
+-- MEJORAS-SERGIO-2026-11-18 (migracion 56): sin filtro ni columnas de tipo de vinculacion.
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_docentes_programa]
 (
