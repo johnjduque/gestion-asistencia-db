@@ -10,14 +10,6 @@ SET QUOTED_IDENTIFIER ON;
 GO
 BEGIN TRANSACTION;
 GO
--- Las vistas actuales proyectan horasSemanales. En un rollback real se despliegan primero
--- las definiciones previas a SES-GEN-01; aqui se retiran temporalmente dentro de la
--- transaccion para probar el down. El ROLLBACK final restaura sus definiciones actuales.
-IF OBJECT_ID(N'dbo.uv_asignatura_plan_estudio', N'V') IS NOT NULL
-    DROP VIEW dbo.uv_asignatura_plan_estudio;
-IF OBJECT_ID(N'dbo.uv_asignatura', N'V') IS NOT NULL
-    DROP VIEW dbo.uv_asignatura;
-GO
 IF COL_LENGTH(N'dbo.Asignatura', N'horasSemanales') IS NULL
    OR (SELECT COUNT(*) FROM dbo.CatalogoMensajeUsuario
        WHERE codigo IN ('HOR_006','HOR_007','HOR_008','HOR_009','HOR_010','HOR_011','HOR_012','HOR_013','HOR_014','ASI_013','ASI_014','PER_010','PER_011')) <> 13
@@ -28,11 +20,15 @@ GO
 IF COL_LENGTH(N'dbo.Asignatura', N'horasSemanales') IS NOT NULL
    OR OBJECT_ID(N'dbo.usp_previsualizar_horario_grupo', N'P') IS NOT NULL
    OR OBJECT_ID(N'dbo.uv_periodo_academico_cierre', N'V') IS NOT NULL
+   OR OBJECT_ID(N'dbo.uv_asignatura', N'V') IS NULL
+   OR OBJECT_ID(N'dbo.uv_asignatura_plan_estudio', N'V') IS NULL
    OR EXISTS (SELECT 1 FROM dbo.CatalogoMensajeUsuario WHERE codigo IN ('HOR_006','HOR_007','HOR_008','HOR_009','HOR_010','HOR_011','HOR_012','HOR_013','HOR_014','ASI_013','ASI_014','PER_010','PER_011'))
    OR EXISTS (SELECT 1 FROM dbo.CatalogoMensajeTecnico WHERE codigo IN ('HOR_006','HOR_007','HOR_008','HOR_009','HOR_010','HOR_011','HOR_012','HOR_013','HOR_014','ASI_013','ASI_014','PER_010','PER_011'))
    OR (SELECT COUNT(*) FROM dbo.CatalogoMensajeUsuario WHERE codigo IN ('ASI_009','ASI_010')) <> 2
    OR (SELECT COUNT(*) FROM dbo.CatalogoMensajeUsuario WHERE codigo = 'VAL_APP_076') <> 1
     THROW 59971, 'TEST FAILED: SES_GEN_01_MIG el down no retiro SES-GEN-01 o borro codigos de HU074.', 1;
+SELECT TOP (0) * FROM dbo.uv_asignatura;
+SELECT TOP (0) * FROM dbo.uv_asignatura_plan_estudio;
 PRINT 'SES_GEN_01_MIG_DOWN_OK';
 GO
 :r $(MIGDIR)/59_ses_gen_01_calendario_semestre_up.sql

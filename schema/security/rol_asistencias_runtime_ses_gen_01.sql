@@ -17,3 +17,8 @@ GO
 
 GRANT EXECUTE ON [dbo].[usp_previsualizar_horario_grupo] TO [rol_asistencias_runtime];
 GO
+
+-- La concesion base de rol_asistencias_runtime incluye todas las vistas uv_*;
+-- esta vista auxiliar solo es consumida internamente por el SP de previsualizacion.
+REVOKE SELECT ON [dbo].[uv_periodo_academico_cierre] FROM [rol_asistencias_runtime];
+GO
