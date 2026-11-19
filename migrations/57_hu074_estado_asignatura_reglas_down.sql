@@ -1,0 +1,446 @@
+-- ============================================================================
+-- MIGRACION DOWN 57: retira HU074 (reglas del estado de la asignatura)
+--   Restaura el texto de develop (antes de la 57) de usp_toggle_estado_asignatura (alterna sin reglas, GEN_004), usp_crear_grupo (sin
+--   ASI_010) y usp_asociar_asignatura_plan (GEN_001 para una asignatura inactiva), elimina usp_validar_asignatura_activa_interno y los
+--   mensajes ASI_009..ASI_012. El estado de las asignaturas se conserva. Los permisos de los SP publicos se conservan. Idempotente.
+--   El toggle vuelve a su firma de develop (sin el parametro aditivo @estaActivaDeseada) y los dos SP vuelven a no bloquear la fila.
+-- ============================================================================
+:on error exit
+USE [gestionasistenciadb];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+PRINT 'MIGRACION 57 DOWN: retira HU074 estado de la asignatura';
+GO
+-- ---- schema/stored-procedures/usp_toggle_estado_asignatura.sql (texto de develop antes de la 57)
+CREATE OR ALTER PROCEDURE [dbo].[usp_toggle_estado_asignatura]
+(
+    @idAsignatura   UNIQUEIDENTIFIER,
+    @idCorrelacion  UNIQUEIDENTIFIER,
+    -- REC2 (auditoria BD 2026-10-28): ejecutor obligatorio (GEN_002 si llega NULL). El DEFAULT solo conserva la
+    -- compatibilidad de firma; RBAC COORDINADOR + titularidad del PROGRAMA se validan en usp_validar_gestion_asignatura_coordinador_interno.
+    @idUsuarioEjecutor UNIQUEIDENTIFIER = NULL
+)
+AS
+    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idAsignaturaDefecto  UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idAsignatura, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+
+    -- Variables locales de respuesta
+    DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
+    DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
+    DECLARE @estadoResultado         BIT = 1;
+
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        -- PASO 1: Validación del identificador de correlación
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
+            @idCorrelacion = @idCorrelacionDefecto, 
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
+            @estadoResultado = @estadoResultado OUTPUT;
+
+        -- PASO 2: Ejecutor obligatorio, perfil COORDINADOR, existencia de la asignatura y titularidad del
+        --         programa (REC2: logica comun en usp_validar_gestion_asignatura_coordinador_interno)
+        IF @estadoResultado = 1
+        BEGIN
+            EXEC dbo.usp_validar_gestion_asignatura_coordinador_interno
+                @idAsignatura = @idAsignaturaDefecto,
+                @idUsuarioEjecutor = @idUsuarioEjecutor,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @exigirTodosLosProgramas = 1,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
+
+        -- PASO 3: Alternar estado atómicamente
+        IF @estadoResultado = 1
+        BEGIN
+            UPDATE dbo.Asignatura
+            SET estado = CASE WHEN estado = 1 THEN 0 ELSE 1 END
+            WHERE id = @idAsignaturaDefecto;
+
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'GEN_004',
+                @p_param1 = 'EstadoAsignatura',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+        END
+
+    END TRY
+    BEGIN CATCH
+        EXEC dbo.usp_obtener_mensaje_catalogo
+            @p_codigo = 'SYS_001',
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
+        SET @estadoResultado = 0;
+    END CATCH
+
+    -- BLOQUE FINAL: Retorno unificado de resultados
+    SELECT 
+        idCorrelacion           = @idCorrelacionDefecto,
+        mensajeUsuarioResultado = @mensajeUsuarioResultado,
+        mensajeTecnicoResultado = @mensajeTecnicoResultado,
+        estadoResultado         = @estadoResultado;
+END;
+GO
+-- ---- schema/stored-procedures/usp_crear_grupo.sql (texto de develop antes de la 57)
+-- CULM-001 / DEC-065 (4): solo el COORDINADOR crea grupos; el DOCENTE recibe SEC_001 (perfil requerido COORDINADOR).
+CREATE OR ALTER PROCEDURE [dbo].[usp_crear_grupo]
+(
+    @idGrupo                 UNIQUEIDENTIFIER,
+    @idAsignatura            UNIQUEIDENTIFIER,
+    @idPeriodoAcademico      UNIQUEIDENTIFIER,
+    @codigo                  INT,
+    @nombre                  NVARCHAR(50),
+    @idDocente               UNIQUEIDENTIFIER,
+    @idCorrelacion           UNIQUEIDENTIFIER,
+    @idUsuarioEjecutor       UNIQUEIDENTIFIER = NULL
+)
+AS
+    DECLARE @idCorrelacionDefecto      UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idGrupoDefecto            UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idGrupo, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idAsignaturaDefecto       UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idAsignatura, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idPeriodoAcademicoDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idPeriodoAcademico, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idDocenteDefecto          UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idDocente, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idUsuarioEjecutorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @nombreDefecto             NVARCHAR(50)     = TRIM(@nombre);
+
+    DECLARE @idPeriodoResolved         UNIQUEIDENTIFIER = @idPeriodoAcademicoDefecto;
+    DECLARE @capacidadMaximaDefecto    INT;
+
+    -- Variables locales de respuesta
+    DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
+    DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
+    DECLARE @estadoResultado         BIT = 1;
+
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        -- PASO 1: Validación de correlación
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
+            @idCorrelacion = @idCorrelacionDefecto, 
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
+            @estadoResultado = @estadoResultado OUTPUT;
+
+        -- PASO 1.5: Validación de perfil RBAC del usuario ejecutor si es suministrado
+        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'GEN_002',
+                @p_param1 = 'idUsuarioEjecutor',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
+        IF @estadoResultado = 1
+        BEGIN
+            EXEC dbo.usp_validar_permiso_rbac_usuario_interno
+                @idUsuario = @idUsuarioEjecutorDefecto,
+                @codigoPerfilRequerido = 'COORDINADOR',
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
+
+        -- PASO 1.6 (DEC-065 (4)): solo el COORDINADOR crea grupos (el docente ya no los crea; el PASO 1.5 lo rechaza con SEC_001)
+
+        -- PASO 2: Validar asignatura en uv_asignatura
+        IF @estadoResultado = 1
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM [dbo].[uv_asignatura] WHERE id = @idAsignaturaDefecto)
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'VAL_002',
+                    @p_param1 = 'Asignatura',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+        END
+
+        -- PASO 3: Resolver período académico si viene nulo/guid defecto
+        IF @estadoResultado = 1
+        BEGIN
+            IF @idPeriodoResolved IS NULL OR NOT EXISTS (SELECT 1 FROM [dbo].[uv_periodo_academico] WHERE id = @idPeriodoResolved)
+            BEGIN
+                SELECT TOP 1 @idPeriodoResolved = id 
+                FROM [dbo].[uv_periodo_academico] 
+                ORDER BY anio DESC;
+            END
+
+            IF @idPeriodoResolved IS NULL OR NOT EXISTS (SELECT 1 FROM [dbo].[uv_periodo_academico] WHERE id = @idPeriodoResolved)
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'VAL_002',
+                    @p_param1 = 'PeriodoAcademico',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+        END
+
+        -- PASO 4: Validar docente mediante procedimiento interno estandarizado
+        IF @estadoResultado = 1
+        BEGIN
+            EXEC dbo.usp_validar_docente_exista_por_id_interno
+                @idDocente = @idDocenteDefecto,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
+
+        -- PASO 4B (HU093/D12): el titular no puede tener su vinculo con el programa inactivado
+        IF @estadoResultado = 1
+        BEGIN
+            EXEC dbo.usp_validar_docente_vinculo_activo_programa_interno
+                @idDocente = @idDocenteDefecto,
+                @idAsignatura = @idAsignaturaDefecto,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
+
+        -- PASO 4C (DEC-073): el codigo del grupo es un entero mayor que cero (ERR_CODIGO_GRUPO_INVALIDO); 0 o negativo no se
+        --          ignora en silencio.
+        IF @estadoResultado = 1 AND (@codigo IS NULL OR @codigo <= 0)
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'ERR_CODIGO_GRUPO_INVALIDO',
+                @p_param1 = @codigo,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
+        -- PASO 5: Validar unicidad de código de grupo en el período consultando uv_grupo
+        IF @estadoResultado = 1
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM [dbo].[uv_grupo]
+                WHERE idAsignatura = @idAsignaturaDefecto AND idPeriodoAcademico = @idPeriodoResolved AND codigo = @codigo
+            )
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'VAL_006',
+                    @p_param1 = 'Grupo',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+        END
+
+        -- PASO 6: Resolver capacidad máxima por defecto desde el catálogo de parámetros (GRUPO/CAPACIDAD_MAXIMA_DEFECTO)
+        IF @estadoResultado = 1
+        BEGIN
+            SET @capacidadMaximaDefecto = dbo.ufn_obtener_parametro_int(NULL, 'GRUPO', 'CAPACIDAD_MAXIMA_DEFECTO');
+
+            IF @capacidadMaximaDefecto IS NULL OR @capacidadMaximaDefecto <= 0
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'ERR_CAPACIDAD_GRUPO_INVALIDA',
+                    @p_param1 = @capacidadMaximaDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+        END
+
+        -- PASO 7: Inserción directa de Grupo con capacidad máxima proveniente del catálogo
+        IF @estadoResultado = 1
+        BEGIN
+            INSERT INTO dbo.Grupo (
+                id, asignatura, periodoAcademico, codigo, nombre,
+                cantidadEstudiantes, cantidadEstudiantesFinalizaron,
+                cantidadEstudiantesCancelaronVoluntadPropia,
+                cantidadEstudiantesCancelaronAutomaticamente,
+                docente
+            )
+            VALUES (
+                @idGrupoDefecto,
+                @idAsignaturaDefecto,
+                @idPeriodoResolved,
+                @codigo,
+                CASE WHEN @nombreDefecto IS NOT NULL AND @nombreDefecto <> '' THEN @nombreDefecto ELSE CONCAT('Grupo ', @codigo) END,
+                @capacidadMaximaDefecto, 0, 0, 0,
+                @idDocenteDefecto
+            );
+
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'GEN_004',
+                @p_param1 = 'Grupo',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+        END
+
+    END TRY
+    BEGIN CATCH
+        EXEC dbo.usp_obtener_mensaje_catalogo
+            @p_codigo = 'SYS_001',
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
+        SET @estadoResultado = 0;
+    END CATCH
+
+    -- BLOQUE FINAL: Retorno unificado de resultados
+    SELECT 
+        idCorrelacion           = @idCorrelacionDefecto,
+        mensajeUsuarioResultado = @mensajeUsuarioResultado,
+        mensajeTecnicoResultado = @mensajeTecnicoResultado,
+        estadoResultado         = @estadoResultado;
+END;
+GO
+-- ---- schema/stored-procedures/usp_asociar_asignatura_plan.sql (texto de develop antes de la 57)
+-- =============================================================================
+-- Procedimiento: [dbo].[usp_asociar_asignatura_plan]
+-- CULM-001 B2NM (DEC-019, R3): asocia una asignatura existente (catalogo) a un plan de estudios, con semestre y caracter.
+-- RBAC COORDINADOR; el plan existe (PLA_002) y es de un programa suyo (SEC_002); la asignatura existe y esta activa, y tiene
+-- algun vinculo en un programa de la misma institucion (si no, GEN_001). Reglas de vinculo en usp_internal_asociar_asignatura_plan
+-- (PLA_004, ASI_003, ASI_007). Salida canonica (idCorrelacion, mensajeUsuarioResultado, mensajeTecnicoResultado, estadoResultado).
+-- =============================================================================
+CREATE OR ALTER PROCEDURE [dbo].[usp_asociar_asignatura_plan]
+(
+    @idAsignatura       UNIQUEIDENTIFIER,
+    @idPlanEstudio      UNIQUEIDENTIFIER,
+    @semestreNumero     INT,
+    @codigoCaracter     NVARCHAR(3) = NULL,
+    @idCorrelacion      UNIQUEIDENTIFIER,
+    @idUsuarioEjecutor  UNIQUEIDENTIFIER = NULL
+)
+AS
+    DECLARE @idCorrelacionDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idUsuarioEjecutorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @idProgramaPlan UNIQUEIDENTIFIER, @idInstitucionPlan UNIQUEIDENTIFIER;
+    DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
+    DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
+    DECLARE @estadoResultado BIT = 1;
+    DECLARE @transaccionPropia BIT = 0;
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+    BEGIN TRY
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
+            @idCorrelacion = @idCorrelacionDefecto,
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+            @estadoResultado = @estadoResultado OUTPUT;
+
+        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_002', @p_param1 = 'idUsuarioEjecutor',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
+        IF @estadoResultado = 1
+            EXEC dbo.usp_validar_permiso_rbac_usuario_interno
+                @idUsuario = @idUsuarioEjecutorDefecto, @codigoPerfilRequerido = 'COORDINADOR', @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+
+        -- Plan existente (PLA_002) y titularidad del programa del plan (SEC_002)
+        IF @estadoResultado = 1
+        BEGIN
+            SELECT @idProgramaPlan = pe.programa, @idInstitucionPlan = f.institucion
+            FROM dbo.PlanEstudio pe
+            INNER JOIN dbo.Programa p ON p.id = pe.programa
+            INNER JOIN dbo.Facultad f ON f.id = p.facultad
+            WHERE pe.id = @idPlanEstudio;
+
+            IF @idProgramaPlan IS NULL
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'PLA_002',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+            ELSE
+                EXEC dbo.usp_validar_titularidad_jerarquica_interno
+                    @idUsuario = @idUsuarioEjecutorDefecto, @idEntidadPadre = @idProgramaPlan, @tipoEntidadPadre = 'PROGRAMA',
+                    @idCorrelacion = @idCorrelacionDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                    @estadoResultado = @estadoResultado OUTPUT;
+        END
+
+        -- La asignatura existe, esta activa y pertenece a la institucion del plan (tiene algun vinculo en ella)
+        IF @estadoResultado = 1
+           AND NOT EXISTS (SELECT 1 FROM dbo.uv_asignatura_plan_estudio v
+                           WHERE v.idAsignatura = @idAsignatura AND v.estaActivaAsignatura = 1 AND v.idInstitucion = @idInstitucionPlan)
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_001', @p_param1 = 'Asignatura',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
+        IF @estadoResultado = 1
+        BEGIN
+            IF @@TRANCOUNT = 0
+            BEGIN
+                BEGIN TRANSACTION;
+                SET @transaccionPropia = 1;
+            END
+
+            EXEC dbo.usp_internal_asociar_asignatura_plan
+                @idAsignatura = @idAsignatura, @idPlanEstudio = @idPlanEstudio, @semestreNumero = @semestreNumero,
+                @codigoCaracter = @codigoCaracter, @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+
+            IF @estadoResultado = 1
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_004', @p_param1 = 'Vinculo de asignatura',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                IF @transaccionPropia = 1 COMMIT TRANSACTION;
+            END
+            ELSE IF @transaccionPropia = 1
+                ROLLBACK TRANSACTION;
+        END
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 AND @transaccionPropia = 1 ROLLBACK TRANSACTION;
+        EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SYS_001',
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
+        SET @estadoResultado = 0;
+    END CATCH
+
+    SELECT idCorrelacion = @idCorrelacionDefecto, mensajeUsuarioResultado = @mensajeUsuarioResultado,
+           mensajeTecnicoResultado = @mensajeTecnicoResultado, estadoResultado = @estadoResultado;
+END;
+GO
+DROP PROCEDURE IF EXISTS [dbo].[usp_validar_asignatura_activa_interno];
+GO
+DELETE FROM [dbo].[CatalogoMensajeUsuario] WHERE codigo IN ('ASI_009', 'ASI_010', 'ASI_011', 'ASI_012');
+DELETE FROM [dbo].[CatalogoMensajeTecnico] WHERE codigo IN ('ASI_009', 'ASI_010', 'ASI_011', 'ASI_012');
+GO

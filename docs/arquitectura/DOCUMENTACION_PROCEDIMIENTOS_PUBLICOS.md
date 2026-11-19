@@ -510,3 +510,17 @@ Contrato: `AsistenciasUCO-Infra/docs/contracts/ADDENDUM_ATA_ASISTENCIA_TOMAS_AVI
 ## Addendum ATA D11 — retiro de la oferta de grupos del estudiante (HU008 descartada, 2026-11-18)
 
 Decisión del usuario: el sistema solo gestiona asistencia; la inscripción a grupos la gestiona otro sistema. Migración `55_ata_retiro_oferta_grupos_estudiante` (up/down). Se retiran `dbo.usp_consultar_oferta_grupos_estudiante` (y su EXECUTE, `rol_asistencias_runtime_hu008.sql`) y el parámetro `OFERTA.INCLUIR_TRANSVERSALES` (seed `24_parametro_oferta_grupos.sql`); las secciones "Addendum HU008" y la fila de `VAL_001` anteriores son históricas. Se conservan `usp_consultar_oferta_creacion_grupo_docente` y la regla de inscripción en el programa (`test/test_hu008_regla_inscripcion_programa.sql`). Prueba: `test/test_ata_k_retiro_oferta_estudiante.sql` y `test/test_ata_k_migracion.ps1`.
+
+## Addendum HU074 — activar o inactivar asignaturas (2026-11-19)
+
+Migración `57_hu074_estado_asignatura_reglas_up|down.sql`. Work item: `docs/work-items/HU074-estado-asignatura/`. Resultsets sin cambio; única extensión de firma, aditiva: `usp_toggle_estado_asignatura` recibe `@estaActivaDeseada BIT = NULL` al final. Pruebas: `test/test_hu074_estado_asignatura.sql` y `test/test_hu074_migracion.ps1`.
+
+| Objeto | Qué entrega o cambia | Ámbito | Códigos |
+|---|---|---|---|
+| `dbo.usp_toggle_estado_asignatura` | Inactivar (1 → 0) se rechaza si la asignatura tiene grupos en un período vigente o futuro, en cualquier programa (`uv_periodo_academico.estado` distinto de `CERRADO`; misma regla de fechas que `ASI_005`). Reactivar (0 → 1) siempre se permite. Éxito: `ASI_011` (quedó activa) o `ASI_012` (quedó inactiva), en lugar de `GEN_004`. Parámetro aditivo `@estaActivaDeseada BIT = NULL`: `NULL` alterna; `1`/`0` fija ese estado y, si ya está en él, responde éxito sin cambios (`ASI_011`/`ASI_012`) sin evaluar la regla de grupos. La regla de grupos y el `UPDATE` corren en una transacción con la fila de `Asignatura` bloqueada (`UPDLOCK, HOLDLOCK`) | COORDINADOR de todos los programas con vínculo activo | `GEN_002`, `SEC_001`, `VAL_002`, `SEC_002`, `ASI_006`, `ASI_009`, `ASI_011`, `ASI_012`, `SYS_001` |
+| `dbo.usp_crear_grupo` | Una asignatura inactiva no se usa para crear grupos (PASO 2B, después de la existencia). Desde el PASO 2B hasta el `INSERT` corre en una transacción (la propia, o la del llamador si ya hay una) con la fila de `Asignatura` bloqueada: una inactivación simultánea espera o se ve | sin cambio | + `ASI_010` |
+| `dbo.usp_asociar_asignatura_plan` | Una asignatura inactiva no se asocia a un plan: `ASI_010` (antes caía en `GEN_001`). `GEN_001` queda para la asignatura inexistente o de otra institución | sin cambio | + `ASI_010` |
+| `dbo.usp_consultar_oferta_creacion_grupo_docente`, `dbo.usp_consultar_asignaturas_asociables_paginado` | Sin cambio: ya excluían las asignaturas inactivas (`estaActivaAsignatura = 1`), así que no ofrecen algo que luego se rechaza | sin cambio | sin cambio |
+| `dbo.usp_consultar_asignaturas_plan_paginado` (malla) | Sin cambio: muestra las inactivas con `estaActivaAsignatura = 0` (reflejo de `Asignatura.estado`) para que el coordinador las reactive | sin cambio | sin cambio |
+
+Los grupos existentes no cambian al inactivar. El modelo no tiene baja lógica de `Grupo`: cuentan todos los grupos del período vigente o futuro.

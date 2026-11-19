@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **488**.
+Total de códigos: **492**.
 
 ## ACC
 
@@ -114,6 +114,10 @@ Total de códigos: **488**.
 | `ASI_006` | BUSINESS_ERROR | MEDIO | La asignatura es compartida con programas que no coordinas; solo puedes cambiar su semestre y su carácter en tu plan. | Regla S2: el catalogo de una asignatura compartida solo lo cambia quien coordina todos sus programas con vinculo activo. | `38_mensajes_asignatura_plan.sql` |
 | `ASI_007` | BUSINESS_ERROR | MEDIO | El carácter de la asignatura no es válido. | Validacion: codigoCaracter no existe en CaracterAsignaturaPlan o esta inactivo. | `38_mensajes_asignatura_plan.sql` |
 | `ASI_008` | BUSINESS_ERROR | MEDIO | Los créditos de la asignatura no pueden superar {}. | Regla DEC-073: @creditos supera ASIGNATURA/CREDITOS_MAXIMO ({}) o el parametro no existe. | `64_dec073_validaciones.sql` |
+| `ASI_009` | BUSINESS_ERROR | ALTO | No puedes inactivar la asignatura: tiene grupos en el período vigente o en períodos futuros. | Regla HU074: la asignatura tiene grupos en un periodo academico vigente o futuro (uv_periodo_academico.estado distinto de CERRADO); no se inactiva. | `69_hu074_mensajes_estado_asignatura.sql` |
+| `ASI_010` | BUSINESS_ERROR | MEDIO | La asignatura está inactiva; actívala para usarla. | Regla HU074: Asignatura.estado = 0; no se crean grupos ni se asocia a planes hasta reactivarla. | `69_hu074_mensajes_estado_asignatura.sql` |
+| `ASI_011` | SUCCESS | BAJO | La asignatura quedó activa. | HU074: Asignatura.estado pasa de 0 a 1. | `69_hu074_mensajes_estado_asignatura.sql` |
+| `ASI_012` | SUCCESS | BAJO | La asignatura quedó inactiva. | HU074: Asignatura.estado pasa de 1 a 0. | `69_hu074_mensajes_estado_asignatura.sql` |
 
 ## ATT
 

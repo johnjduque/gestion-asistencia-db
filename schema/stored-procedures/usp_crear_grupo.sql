@@ -6,6 +6,9 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 -- CULM-001 / DEC-065 (4): solo el COORDINADOR crea grupos; el DOCENTE recibe SEC_001 (perfil requerido COORDINADOR).
+-- HU074 (migracion 57): una asignatura inactiva se rechaza con ASI_010 (usp_validar_asignatura_activa_interno). Desde el PASO 2B
+-- hasta el INSERT todo ocurre en una transaccion con la fila de dbo.Asignatura bloqueada (UPDLOCK, HOLDLOCK): una inactivacion
+-- simultanea (usp_toggle_estado_asignatura toma el mismo bloqueo) espera o se ve. Si el llamador ya tiene transaccion, se usa la suya.
 CREATE OR ALTER PROCEDURE [dbo].[usp_crear_grupo]
 (
     @idGrupo                 UNIQUEIDENTIFIER,
@@ -28,6 +31,7 @@ AS
 
     DECLARE @idPeriodoResolved         UNIQUEIDENTIFIER = @idPeriodoAcademicoDefecto;
     DECLARE @capacidadMaximaDefecto    INT;
+    DECLARE @transaccionPropia         BIT = 0;
 
     -- Variables locales de respuesta
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -36,6 +40,7 @@ AS
 
 BEGIN
     SET NOCOUNT ON;
+    SET XACT_ABORT ON;
     BEGIN TRY
         -- PASO 1: Validación de correlación
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
@@ -84,6 +89,25 @@ BEGIN
                 SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
                 SET @estadoResultado = 0;
             END
+        END
+
+        -- PASO 2B (HU074): una asignatura inactiva no se usa para crear grupos (ASI_010). Abre la transaccion (si el llamador no
+        --          tiene una) y bloquea la fila de la asignatura hasta el INSERT del PASO 7.
+        IF @estadoResultado = 1
+        BEGIN
+            IF @@TRANCOUNT = 0
+            BEGIN
+                BEGIN TRANSACTION;
+                SET @transaccionPropia = 1;
+            END
+
+            EXEC dbo.usp_validar_asignatura_activa_interno
+                @idAsignatura = @idAsignaturaDefecto,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT,
+                @bloquearFila = 1;
         END
 
         -- PASO 3: Resolver período académico si viene nulo/guid defecto
@@ -212,8 +236,17 @@ BEGIN
             SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
         END
 
+        -- Cierre de la transaccion propia: confirma el INSERT; las ramas de rechazo no escriben y solo liberan el bloqueo
+        IF @transaccionPropia = 1
+        BEGIN
+            IF @estadoResultado = 1 COMMIT TRANSACTION;
+            ELSE ROLLBACK TRANSACTION;
+        END
+
     END TRY
     BEGIN CATCH
+        IF XACT_STATE() <> 0 AND @transaccionPropia = 1 ROLLBACK TRANSACTION;
+
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,

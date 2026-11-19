@@ -386,7 +386,7 @@ Todos los procedimientos listados en esta documentación han sido compilados y p
 - **Lecturas**: por las vistas `uv_asignatura` y `uv_semestre_plan_estudio`.
 - **Parámetros de Entrada**: `@idAsignatura`, `@idUsuarioEjecutor` (puede llegar NULL y entonces responde `GEN_002`), `@idCorrelacion`.
 - **Parámetros de Salida**: `@mensajeUsuarioResultado`, `@mensajeTecnicoResultado`, `@estadoResultado`.
-- **Invocado por**: `usp_actualizar_asignatura` y `usp_toggle_estado_asignatura`.
+- **Invocado por**: `usp_actualizar_asignatura` y `usp_toggle_estado_asignatura` (este con `@exigirTodosLosProgramas = 1`: `ASI_006` si la asignatura es compartida con un programa que el ejecutor no coordina).
 - **Códigos de Catálogo Consumidos**: `GEN_002`, `SEC_001`, `VAL_002`, `SEC_002`, `SYS_001`.
 - **Ampliación al decano**: perfil `'COORDINADOR,DECANO'` y titularidad de `FACULTAD`.
 - Work item: `docs/work-items/REC2-rbac-asignatura/`.
@@ -457,3 +457,13 @@ Todos los procedimientos listados en esta documentación han sido compilados y p
 - **Consumidores**: `usp_validar_sesion_ventana_registro_interno` (PASO 2.7: abrir toma o QR, lotes por toma y por sesión, registro por token), `usp_cerrar_toma_asistencia`, `usp_internal_radicar_solicitud_revision` (v2, v3 y v4), `usp_radicar_solicitud_revision_asistencia` (v1), `usp_resolver_solicitud_revision_asistencia` (solo reclamos pendientes) y `usp_retirar_solicitud_revision_asistencia`. No lo usa `usp_cerrar_tomas_vencidas` (el job sigue cerrando tomas abiertas).
 - **Permisos**: sin `EXECUTE` para `rol_asistencias_runtime`. Sin escrituras ni transacciones.
 - **Work item**: `docs/work-items/VAL-pendientes-john/PLAN.md`.
+
+## Addendum HU074 (2026-11-19)
+
+### `dbo.usp_validar_asignatura_activa_interno`
+- **Propósito**: una asignatura inactiva (`Asignatura.estado = 0`, leída por `uv_asignatura.estaActivaAsignatura`) no se usa para crear grupos ni para asociarla a un plan. La existencia la valida el llamador; una asignatura inexistente pasa esta validación.
+- **Parámetros de Entrada**: `@idAsignatura`, `@idCorrelacion`, `@bloquearFila BIT = 0` (1: lee `dbo.Asignatura` con `UPDLOCK, HOLDLOCK`; el llamador debe tener una transacción abierta, el bloqueo dura hasta su `COMMIT`).
+- **Parámetros de Salida**: `@mensajeUsuarioResultado`, `@mensajeTecnicoResultado`, `@estadoResultado`.
+- **Invocado por**: `usp_crear_grupo` (PASO 2B, con `@bloquearFila = 1`, dentro de su transacción hasta el `INSERT`: se serializa con `usp_toggle_estado_asignatura`, que toma el mismo bloqueo) y `usp_asociar_asignatura_plan` (sin bloqueo). Sin `EXECUTE` para `rol_asistencias_runtime`.
+- **Códigos de Catálogo Consumidos**: `ASI_010`.
+- Work item: `docs/work-items/HU074-estado-asignatura/` (migración 57).

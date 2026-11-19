@@ -411,6 +411,11 @@
       { "restriccion": "FK_DocentePrograma_TipoVinculacion", "existe": false },
       { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'DOCENTE' AND clave = 'TIPO_VINCULACION_DEFECTO'", "existe": false },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'DOC_004'", "existe": false }
+    ],
+    "57_hu074_estado_asignatura_reglas": [
+      { "objeto": "dbo.usp_validar_asignatura_activa_interno" },
+      { "objeto": "dbo.usp_toggle_estado_asignatura", "contiene": "SET @codigoResultado = 'ASI_009';" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ASI_012'" }
     ]
   }
 }

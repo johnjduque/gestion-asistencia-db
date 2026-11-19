@@ -57,7 +57,8 @@ BEGIN TRY
 
     TRUNCATE TABLE #subjectResult;
     SET @corr = NEWID();
-    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_004', @p_param1 = 'EstadoAsignatura',
+    -- HU074 (migracion 57): inactivar responde ASI_012 y reactivar ASI_011 (antes GEN_004 'EstadoAsignatura')
+    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'ASI_012',
         @mensajeUsuarioResultado = @userMsg OUTPUT, @mensajeTecnicoResultado = @techMsg OUTPUT;
     INSERT INTO #subjectResult
     EXEC dbo.usp_toggle_estado_asignatura @idAsignatura = @subject, @idCorrelacion = @corr, @idUsuarioEjecutor = @coordinatorUser;
@@ -71,7 +72,11 @@ BEGIN TRY
     TRUNCATE TABLE #subjectResult;
     INSERT INTO #subjectResult
     EXEC dbo.usp_toggle_estado_asignatura @idAsignatura = @subject, @idCorrelacion = @corr, @idUsuarioEjecutor = @coordinatorUser;
-    IF (SELECT COUNT(*) FROM #subjectResult WHERE idCorrelacion = @corr AND estadoResultado = 1) <> 1 OR
+    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'ASI_011',
+        @mensajeUsuarioResultado = @userMsg OUTPUT, @mensajeTecnicoResultado = @techMsg OUTPUT;
+    IF (SELECT COUNT(*) FROM #subjectResult WHERE idCorrelacion = @corr AND estadoResultado = 1
+        AND mensajeUsuarioResultado = @userMsg
+        AND mensajeTecnicoResultado = CONCAT(@techMsg, ' Correlacion: ', @corr)) <> 1 OR
         NOT EXISTS (SELECT 1 FROM dbo.uv_asignatura WHERE id = @subject AND estaActivaAsignatura = 1)
         THROW 51977, 'TEST FAILED: SUBJECT_TOGGLE did not restore state.', 1;
 
