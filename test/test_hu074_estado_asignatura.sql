@@ -261,7 +261,7 @@ BEGIN TRY
     DECLARE @ma TABLE (idAsignatura UNIQUEIDENTIFIER, codigo NVARCHAR(50), nombre NVARCHAR(200), credito INT, idArea UNIQUEIDENTIFIER, nombreArea NVARCHAR(200),
         idComponente UNIQUEIDENTIFIER, nombreComponente NVARCHAR(200), idPlanEstudio UNIQUEIDENTIFIER, inpPlanEstudio INT, idPrograma UNIQUEIDENTIFIER,
         nombrePrograma NVARCHAR(200), idSemestrePlanEstudio UNIQUEIDENTIFIER, numeroSemestre INT, codigoSemestre NVARCHAR(50), codigoCaracter NVARCHAR(10),
-        nombreCaracter NVARCHAR(100), estaActivoVinculo BIT, estaActivaAsignatura BIT, compartida BIT, totalRegistros INT);
+        nombreCaracter NVARCHAR(100), estaActivoVinculo BIT, estaActivaAsignatura BIT, compartida BIT, horasSemanales INT NULL, totalRegistros INT);
     INSERT INTO @ma EXEC dbo.usp_consultar_asignaturas_plan_paginado @idUsuarioEjecutor = @uC, @idCorrelacion = @corr, @idPlanEstudio = @pl1,
         @numeroPagina = 1, @tamanoPagina = 100;
     IF NOT EXISTS (SELECT 1 FROM @ma WHERE idAsignatura = @aLibre AND estaActivaAsignatura = 0)
