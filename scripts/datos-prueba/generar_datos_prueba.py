@@ -264,8 +264,10 @@ ESTUDIANTES = [
 # Asistencia: % de faltas sin justa causa por matricula (resto: 0-8 % segun hash) y excusas
 TASAS = {
     ("E-SANTIAGO", "BDA-1"): (28, 0), ("E-BRAYAN", "ETI-2"): (25, 0), ("E-KEVIN", "CAL-3"): (30, 0),   # perdida
-    ("E-MATEO", "CAL-1"): (17, 0), ("E-LAURA", "IOP-1"): (16, 0), ("E-CAMILA", "COS-1"): (18, 0),     # riesgo
-    ("E-VALERIA", "PSD-1"): (16, 0),
+    # riesgo: el % es de las sesiones ya dictadas, pero desde ATA (migracion 50) la alerta usa las horas de TODO el periodo:
+    # 19 % de lo dictado queda entre el 15 % (riesgo) y el 20 % (perdida) del periodo.
+    ("E-MATEO", "CAL-1"): (19, 0), ("E-LAURA", "IOP-1"): (19, 0), ("E-CAMILA", "COS-1"): (18, 0),     # riesgo
+    ("E-VALERIA", "PSD-1"): (19, 0),
     ("E-CARLOS", "ARQ-1"): (4, 1), ("E-SARA", "CAL-2"): (4, 1), ("E-DANIELA", "FPR-1"): (0, 2),        # excusas
     ("E-ALEJANDRO", "H-FAD"): (25, 0),                                                                # 2026-1: CI al cierre
 }
@@ -388,6 +390,9 @@ def main():
     per_id = {p[0]: (p[1] or gid("periodo", p[0])) for p in PERIODOS}
     grupo_id = {x[0]: GRUPO_ID.get(x[0]) or gid("grupo", x[0]) for x in GRUPOS}
     asig_nombre = {a[0]: a[1] for a in ASIGNATURAS}
+    # DEC-077: programa responsable del grupo = el primer programa de la asignatura (el del coordinador que crea el grupo);
+    # en un grupo compartido solo su coordinador gestiona el grupo y resuelve sus solicitudes de sesion.
+    asig_responsable = {a[0]: a[5][0][0] for a in ASIGNATURAS}
 
     out = []
     w = out.append
@@ -526,14 +531,15 @@ def main():
         n = inscritos.get(k, 0)
         cupo = n if cupo == "LLENO" else (n + 1 if cupo == "CASI" else cupo)
         nombre = f"Grupo {cod:02d} - {asig_nombre[ac]}"[:50]
-        grows.append([g(grupo_id[k]), g(asig_id[ac]), g(per_id[per]), str(cod), q(nombre), str(cupo), "0", "0", "0", g(rid(doc if doc != "T-DIA" else "T-DIA", "docente"))])
+        grows.append([g(grupo_id[k]), g(asig_id[ac]), g(per_id[per]), str(cod), q(nombre), str(cupo), "0", "0", "0", g(rid(doc if doc != "T-DIA" else "T-DIA", "docente")),
+                      g(prog_id[asig_responsable[ac]])])
     w("UPDATE dbo.Grupo SET docente = 'F1A2B3C4-0000-0000-0000-000000000003' WHERE id = @gArq;\n")
     w(insert("Grupo", ["id", "asignatura", "periodoAcademico", "codigo", "nombre", "cantidadEstudiantes",
                        "cantidadEstudiantesFinalizaron", "cantidadEstudiantesCancelaronVoluntadPropia",
-                       "cantidadEstudiantesCancelaronAutomaticamente", "docente"], grows))
+                       "cantidadEstudiantesCancelaronAutomaticamente", "docente", "programaResponsable"], grows))
     for r in grows:
         if r[0] == g(grupo_id["ARQ-1"]):
-            w(f"UPDATE dbo.Grupo SET nombre = {r[4]}, cantidadEstudiantes = {r[5]} WHERE id = @gArq;\n\n")
+            w(f"UPDATE dbo.Grupo SET nombre = {r[4]}, cantidadEstudiantes = {r[5]}, programaResponsable = {r[10]} WHERE id = @gArq;\n\n")
     hrows = []
     for k, _a, _c, _d, _p, fr, _cu in GRUPOS:
         for i, (dia, a, b) in enumerate(fr):
