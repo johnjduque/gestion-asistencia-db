@@ -17,3 +17,14 @@ CREATE TABLE [dbo].[EstudianteGrupo] (
 ALTER TABLE [dbo].[EstudianteGrupo] ADD CONSTRAINT [PK__Estudian__3213E83F84F4715A] PRIMARY KEY CLUSTERED ([id]);
 END
 GO
+
+-- PERF-EST-MM (docs/work-items/PERF-estudiante-mis-materias/PLAN.md): las vistas del estudiante filtran las matriculas por
+-- estudiante (uv_estudiante_grupo, uv_materia_estudiante, sesiones de la materia) y unen por grupo (uv_sesion_estudiante_reclamo,
+-- resumenes por grupo). Sin estos indices cada consulta recorre la tabla completa.
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.EstudianteGrupo') AND name = 'IX_EstudianteGrupo_Estudiante')
+    CREATE NONCLUSTERED INDEX IX_EstudianteGrupo_Estudiante ON dbo.EstudianteGrupo (estudiante) INCLUDE (grupo, estado);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.EstudianteGrupo') AND name = 'IX_EstudianteGrupo_Grupo')
+    CREATE NONCLUSTERED INDEX IX_EstudianteGrupo_Grupo ON dbo.EstudianteGrupo (grupo) INCLUDE (estudiante, estado);
+GO

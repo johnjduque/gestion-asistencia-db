@@ -36,7 +36,9 @@ MERGE INTO [dbo].[Componente] AS Target
 USING (VALUES
     ('63A26358-4651-4A3B-8B94-9481DDA60EC6', 'basicas', 'BAS'),
     ('412B5540-4CA2-4746-9476-E1DEC7B42BDB', 'institucionales', 'INS'),
-    ('04ED2BC1-2C56-4116-855F-E2789125FBD2', 'especificas', 'ESP')
+    ('04ED2BC1-2C56-4116-855F-E2789125FBD2', 'especificas', 'ESP'),
+    -- COMP-ELE (2026-11-19, decision de John): componente de las asignaturas electivas.
+    ('9A0EFAA3-9840-4FE3-BC04-048FD0E83C4E', 'electivas', 'ELE')
 ) AS Source (id, nombre, codigo)
 ON (Target.id = TRY_CAST(Source.id AS UNIQUEIDENTIFIER))
 WHEN MATCHED THEN

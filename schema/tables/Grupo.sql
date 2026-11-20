@@ -32,3 +32,8 @@ IF EXISTS (
 )
     THROW 50005, 'SCHEMA_CONTRACT_CONFLICT: dbo.Grupo contains ghost columns outside DB-GP-001.', 1;
 GO
+
+-- PERF-EST-MM: las consultas del estudiante y del coordinador filtran los grupos por asignatura (g.asignatura = @idMateria).
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Grupo') AND name = 'IX_Grupo_Asignatura')
+    CREATE NONCLUSTERED INDEX IX_Grupo_Asignatura ON dbo.Grupo (asignatura) INCLUDE (periodoAcademico, docente);
+GO

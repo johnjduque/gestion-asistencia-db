@@ -7,7 +7,7 @@ GO
 
 -- CULM-001 D.1 (CONTRACT §2.2, DEC-044 (2); HU026B): una fila por (sesion, matricula del estudiante) con la fecha limite
 -- para justificar. Sobre uv_sesion_v2 + uv_sesion_estado (B.1) + uv_estudiante_grupo; uv_sesion (congelada) no se toca.
---   fechaLimiteJustificacionUtc = ufn_calcular_fecha_limite_justificacion(fechaHoraFin)  (limite exclusivo; NULL si falta
+--   fechaLimiteJustificacionUtc = ufn_calcular_fecha_limite_justificacion_conjunto(fechaHoraFin)  (limite exclusivo; NULL si falta
 --                                 ASISTENCIA/DIAS_LIMITE_JUSTIFICACION o TIEMPO/ZONA_HORARIA_SQLSERVER)
 --   plazoJustificacionVigente   = 1 solo si la sesion NO esta cancelada y SYSUTCDATETIME() < limite
 -- idAsignatura, codigo, numeroSemana, codigoGrupo, nombreGrupo y codigoEstadoEstudiante completan las columnas que hoy
@@ -45,6 +45,8 @@ LEFT JOIN dbo.SesionSolicitud ssol
 ON      ssol.sesion = s.id
 LEFT JOIN dbo.EstadoSolicitudSesion esol
 ON      esol.id = ssol.idEstado
-CROSS APPLY (SELECT fechaLimiteUtc = dbo.ufn_calcular_fecha_limite_justificacion(s.fechaHoraFin)) lim
+-- PERF-EST-MM: version en linea de ufn_calcular_fecha_limite_justificacion (mismo resultado): los parametros y la zona se leen
+-- una vez por consulta y no por fila; la escalar obligaba a un plan en serie evaluado fila por fila.
+CROSS APPLY dbo.ufn_calcular_fecha_limite_justificacion_conjunto(s.fechaHoraFin) lim
 WHERE   esol.id IS NULL OR esol.esAprobada = 1;
 GO
