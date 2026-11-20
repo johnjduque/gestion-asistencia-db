@@ -1,4 +1,4 @@
-USE [gestionasistenciadb];
+﻿USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
 GO
@@ -31,6 +31,8 @@ AS
     DECLARE @nombreDef                NVARCHAR(50)     = TRIM(@nombre);
     DECLARE @idInstitucion            UNIQUEIDENTIFIER;
     DECLARE @conteoBloqueo            INT;
+    DECLARE @semanasDuracion          INT              = dbo.ufn_obtener_parametro_int(NULL, 'PERIODO', 'SEMANAS_DURACION');
+    DECLARE @fechaFinCalculada        DATE;
 
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -81,11 +83,30 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
-        -- PASO 5: Validacion de negocio (PER_002)
+        -- PASO 5 (SES-GEN-01 B2): el semestre dura PERIODO/SEMANAS_DURACION semanas (112 dias con 16): fechaFin = fechaInicio + 7 * semanas - 1.
+        --         @fechaFin es opcional: si falta se calcula. Parametro ausente: fail-closed (PER_011).
+        IF @estadoResultado = 1 AND @fechaInicio IS NOT NULL AND @semanasDuracion IS NOT NULL
+        BEGIN
+            SET @fechaFinCalculada = DATEADD(DAY, 7 * @semanasDuracion - 1, CAST(@fechaInicio AS DATE));
+            IF @fechaFin IS NULL SET @fechaFin = CAST(@fechaFinCalculada AS DATETIME2);
+        END
+
+        -- PASO 5.1: Validacion de negocio (PER_002)
         IF @estadoResultado = 1 AND (@fechaInicio IS NULL OR @fechaFin IS NULL OR @fechaInicio >= @fechaFin)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'PER_002',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
+        -- PASO 5.2 (SES-GEN-01 B2): la duracion exacta del semestre (PER_011)
+        IF @estadoResultado = 1 AND (@semanasDuracion IS NULL OR CAST(@fechaFin AS DATE) <> @fechaFinCalculada)
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'PER_011', @p_param1 = @semanasDuracion, @p_param2 = @fechaFinCalculada,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
             SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);

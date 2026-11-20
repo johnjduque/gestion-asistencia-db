@@ -183,7 +183,7 @@ BEGIN TRY
     DECLARE @idPeriodo UNIQUEIDENTIFIER = NEWID();
     SET @corr = NEWID();
     DELETE FROM #p;
-    INSERT #p EXEC dbo.usp_crear_periodo_academico @idPeriodo = @idPeriodo, @nombre = N'QA-D9-2099-1', @fechaInicio = '2099-01-10', @fechaFin = '2099-06-10',
+    INSERT #p EXEC dbo.usp_crear_periodo_academico @idPeriodo = @idPeriodo, @nombre = N'QA-D9-2099-1', @fechaInicio = '2099-01-10', @fechaFin = '2099-05-01',
         @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdmin;
     SET @ok = IIF(EXISTS (SELECT 1 FROM #p WHERE estadoResultado = 1 AND idPeriodo = @idPeriodo)
                   AND EXISTS (SELECT 1 FROM dbo.PeriodoAcademico WHERE id = @idPeriodo), 1, 0);

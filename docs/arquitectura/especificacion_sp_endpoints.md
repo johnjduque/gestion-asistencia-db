@@ -402,7 +402,7 @@
 
 | Tabla | Transacción / Acción de Negocio | Procedimiento Almacenado (BD) | Método del Controlador (Backend) | Rol / Permiso Requerido | Descripción del procedimiento |
 |:---|:---|:---|:---|:---|:---|
-| `Grupo` | Crear grupo académico | `usp_crear_grupo` | `POST /api/v1/grupos` | `DOCENTE`, `COORDINADOR` | El COORDINADOR crea y asigna cualquier docente; el DOCENTE solo crea grupos a su propio nombre (`SEC_002` si asigna a otro; F3). Valida existencia de asignatura y que esté activa (ASI_010, HU074, `usp_validar_asignatura_activa_interno` con la fila bloqueada hasta el `INSERT`, en la misma transacción). Resuelve periodo académico. Valida docente activo. Valida unicidad de código de grupo en asignatura/periodo. Inserta `Grupo` con contadores en 0. Invoca: `usp_validar_docente_exista_por_id_interno`. |
+| `Grupo` | Crear grupo académico | `usp_crear_grupo` | `POST /api/v1/grupos` | `COORDINADOR` | Valida existencia y estado de la asignatura (`VAL_002`, `ASI_010`); SES-GEN-01 requiere un vínculo activo con plan activo y todos sus programas dentro de la custodia del coordinador (`ASI_014`). Exige un período explícito, vigente, no cerrado y de la institución de sus programas (`VAL_002`, `PER_010`); no elige el más reciente en silencio. La fila de la asignatura queda bloqueada hasta el `INSERT` para evitar una inactivación concurrente. Valida docente activo y unicidad de código en asignatura/período, e inserta `Grupo` con contadores en 0. |
 | `Grupo` | Actualizar datos operativos del grupo | `usp_actualizar_grupo` | `PUT /api/v1/grupos/{id}` | `DOCENTE` (titular), `COORDINADOR` | Valida existencia del grupo. Valida docente si se modifica y, si cambia el titular, que no tenga otro grupo a la misma hora (HOR_002, HTTP 409). Valida unicidad de código (excluyendo el propio grupo). Actualiza nombre, código y docente de forma granular (solo campos proporcionados). |
 | `Asignatura` | Crear nueva asignatura en plan | `usp_crear_asignatura` | `POST /api/v1/coordinador/planes-estudio/{id}/asignaturas` | `COORDINADOR` (del programa) | Crea una asignatura en un `SemestrePlanEstudio` existente del plan. Exige perfil `COORDINADOR` (SEC_001), plan existente (PLA_002) de su programa (SEC_002), créditos > 0 (ASI_001), área y componente reales por código o nombre exactos (GEN_001) y semestre del plan (PLA_004; ya no se crea). |
 | `Asignatura` | Actualizar datos de asignatura | `usp_actualizar_asignatura` | `PUT /api/v1/coordinador/planes-estudio/{planId}/asignaturas/{asigId}` | `COORDINADOR` (del programa) | Exige `@idUsuarioEjecutor` (GEN_002), perfil `COORDINADOR` (SEC_001) y que coordine el programa de la asignatura (SEC_002). Actualiza código, nombre, créditos (> 0, ASI_001; nulo conserva), área y componente reales (GEN_001) de una asignatura existente. |
@@ -634,6 +634,12 @@ El backend de `develop` no lo invoca y no tiene `GRANT EXECUTE` al runtime. Se c
 | `Horario` | `usp_guardar_horarios_grupo` | `POST /api/v1/grupos` y `PUT /api/v1/grupos/{id}` con `franjas` (misma transacción que crear o actualizar el grupo) | COORDINADOR (del programa); DOCENTE titular solo para el horario inicial (`HOR_005` si ya existe; F3) | `@idGrupo, @horariosJSON, @idCorrelacion, @idUsuarioEjecutor` | Reemplaza el horario semanal del grupo. HOR_004 (formato), HOR_003 (franjas que se cruzan) y HOR_002 (cruce del docente) responden 400, 400 y 409 |
 
 `GET /api/v1/grupos` devuelve además las `franjas` de cada grupo, leídas de `uv_horario`, que ahora expone `codigoDia`; `uv_dia` también expone `codigo`.
+
+## Addendum SES-GEN-01 (2026-11-19): previsualización del calendario del semestre
+
+| Vista | SP | Endpoint | Rol | Parámetros | Propósito |
+|---|---|---|---|---|---|
+| `uv_asignatura`, `uv_periodo_academico`, `uv_periodo_academico_cierre`, `uv_horario` | `usp_previsualizar_horario_grupo` | Sin endpoint implementado en backend | COORDINADOR | `@idGrupo`, `@idAsignatura`, `@idPeriodoAcademico`, `@idDocente`, `@horariosJSON`, `@idCorrelacion`, `@idUsuarioEjecutor` | Devuelve calendario y conflictos como filas `READ_QUERY_RESULTSET`; el alta de grupo requiere período explícito y validación de vínculo activo a plan activo (`ASI_014`). |
 
 ## Addendum PC (2026-11-11): tomas de asistencia como puntos de control
 

@@ -24,3 +24,11 @@ END
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_Asignatura_codigo' AND object_id = OBJECT_ID('dbo.Asignatura'))
     CREATE UNIQUE NONCLUSTERED INDEX UX_Asignatura_codigo ON dbo.Asignatura (codigo);
 GO
+
+-- SES-GEN-01 (migracion 59): horas semanales de la materia (hora = 60 min de reloj). NULL = aun sin cargar (B5/B8 no se evaluan).
+IF COL_LENGTH(N'dbo.Asignatura', N'horasSemanales') IS NULL
+    ALTER TABLE [dbo].[Asignatura] ADD [horasSemanales] INT NULL;
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Asignatura_horasSemanales' AND parent_object_id = OBJECT_ID(N'dbo.Asignatura'))
+    ALTER TABLE [dbo].[Asignatura] ADD CONSTRAINT [CK_Asignatura_horasSemanales] CHECK ([horasSemanales] IS NULL OR [horasSemanales] > 0);
+GO

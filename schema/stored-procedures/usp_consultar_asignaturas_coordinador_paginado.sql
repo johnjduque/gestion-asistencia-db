@@ -1,4 +1,4 @@
-USE [gestionasistenciadb];
+﻿USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
 GO
@@ -80,6 +80,7 @@ BEGIN
         estaActivoVinculo     = v.estaActivoVinculo,
         estaActivaAsignatura  = v.estaActivaAsignatura,
         compartida            = CAST(IIF(v.totalProgramasActivos > 1, 1, 0) AS BIT),
+        horasSemanales        = v.horasSemanales,   -- SES-GEN-01: NULL = sin cargar
         totalRegistros        = COUNT(*) OVER()
     FROM dbo.uv_asignatura_plan_estudio v
     WHERE v.estaActivoVinculo = 1

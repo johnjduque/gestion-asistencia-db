@@ -1,4 +1,4 @@
-USE [gestionasistenciadb];
+﻿USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
 GO
@@ -171,7 +171,9 @@ BEGIN
                    CONCAT(N'Sesi', NCHAR(243), N'n ', CAST(n.numero AS NVARCHAR(10))),
                    n.numero,
                    UPPER(LEFT(REPLACE(CAST(NEWID() AS NVARCHAR(50)), '-', ''), 6)),
-                   DATEDIFF(WEEK, @fechaInicio, n.fecha) + 1,
+                   -- SES-GEN-01 B2b: semana en bloques de 7 dias desde el inicio del periodo (1..16 en 112 dias);
+                   -- DATEDIFF(WEEK, ...) cuenta cruces de semana de calendario y daba 17 si el periodo no empieza en lunes.
+                   DATEDIFF(DAY, @fechaInicio, n.fecha) / 7 + 1,
                    @idGrupoDefecto,
                    n.inicioUtc,
                    n.finUtc,

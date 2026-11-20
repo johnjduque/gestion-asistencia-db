@@ -14,7 +14,7 @@ DECLARE @zonaHorariaSqlServer SYSNAME = (SELECT TOP 1 valor FROM dbo.uv_parametr
 DECLARE @fechaHoraLocalAhora DATETIME2(0) = CAST(SYSUTCDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE @zonaHorariaSqlServer AS DATETIME2(0));
 DECLARE @fechaHoyLocal DATE = CAST(@fechaHoraLocalAhora AS DATE);
 DECLARE @inicioSlotVencidoLocal DATETIME2(0) = DATEADD(MINUTE, DATEDIFF(MINUTE, 0, @fechaHoraLocalAhora) + 5, 0);
-DECLARE @finSlotVencidoLocal DATETIME2(0) = DATEADD(MINUTE, 5, @inicioSlotVencidoLocal);
+DECLARE @finSlotVencidoLocal DATETIME2(0) = DATEADD(MINUTE, 60, @inicioSlotVencidoLocal); -- SES-GEN-01: una franja dura 60 min como minimo y cae en la ventana 06:00-22:00
 DECLARE @codigoDiaHoy NVARCHAR(2) = CASE DATEDIFF(DAY, '19000101', @fechaHoyLocal) % 7
     WHEN 0 THEN N'LU' WHEN 1 THEN N'MA' WHEN 2 THEN N'MI' WHEN 3 THEN N'JU'
     WHEN 4 THEN N'VI' WHEN 5 THEN N'SA' ELSE N'DO' END;
@@ -111,9 +111,10 @@ BEGIN TRY
 
     -- Horario de A: lunes y miercoles 08-10. C (periodo vencido) programa hoy en una franja futura.
     IF CAST(@inicioSlotVencidoLocal AS DATE) <> @fechaHoyLocal OR CAST(@finSlotVencidoLocal AS DATE) <> @fechaHoyLocal
+       OR CAST(@inicioSlotVencidoLocal AS TIME(0)) < '06:00' OR CAST(@finSlotVencidoLocal AS TIME(0)) > '22:00'
     BEGIN
-        SET @inicioSlotVencidoLocal = DATEADD(HOUR, 22, CAST(@fechaHoyLocal AS DATETIME2(0)));
-        SET @finSlotVencidoLocal = DATEADD(MINUTE, 1439, CAST(@fechaHoyLocal AS DATETIME2(0)));
+        SET @inicioSlotVencidoLocal = DATEADD(HOUR, 21, CAST(@fechaHoyLocal AS DATETIME2(0)));
+        SET @finSlotVencidoLocal = DATEADD(HOUR, 22, CAST(@fechaHoyLocal AS DATETIME2(0)));
     END
     DECLARE @horarioVencido NVARCHAR(MAX) = CONCAT(N'[{"codigoDia":"', @codigoDiaHoy, N'","horaInicio":"',
         CONVERT(CHAR(5), CAST(@inicioSlotVencidoLocal AS TIME(0)), 108), N'","horaFin":"',

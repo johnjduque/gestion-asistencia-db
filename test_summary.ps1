@@ -756,6 +756,16 @@ try {
 catch {
     $resultFailures += "HU074_MIG_RUNNER $($_.Exception.Message)"
 }
+# SES-GEN-01: migracion 64 (up/down/up) en test/test_ses_gen_01_migracion.ps1.
+try {
+    $sesGenMigOutput = @(& (Join-Path $PSScriptRoot 'test/test_ses_gen_01_migracion.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $sesGenMigOutput) { Write-Host $line }
+    if ($sesGenMigOutput -contains 'TEST_PASS:SES_GEN_01_MIG_UP_DOWN_UP') { $clientPassed += 'SES_GEN_01_MIG_UP_DOWN_UP' }
+    else { $resultFailures += 'SES_GEN_01_MIG_UP_DOWN_UP not reported by test_ses_gen_01_migracion.ps1' }
+}
+catch {
+    $resultFailures += "SES_GEN_01_MIG_RUNNER $($_.Exception.Message)"
+}
 # CULM-001 D.9-a: migracion 28 (up/down/up, D-RB-03) en test/test_culm001_d9.ps1.
 try {
     $culm001D9Output = @(& (Join-Path $PSScriptRoot 'test/test_culm001_d9.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
@@ -1134,6 +1144,10 @@ $criticalIds = @(
     'CULM001_D9_MSG_01', 'CULM001_D9_DEC_01', 'CULM001_D9_DEC_05', 'CULM001_D9_DEC_02', 'CULM001_D9_DEC_03', 'CULM001_D9_DEC_04',
     'CULM001_D9_NTF_01', 'CULM001_D9_NTF_02', 'CULM001_D9_PER_01', 'CULM001_D9_PER_02', 'CULM001_D9_HOR_01', 'CULM001_D9_TRX_01',
     'CULM001_D9_CRU_01', 'CULM001_D9_TRX_02', 'CULM001_D9_TRX_03', 'CULM001_D9_MIG_UP_DOWN_UP',
+    # SES-GEN-01: calendario de sesiones del semestre (test/test_ses_gen_01_calendario_semestre.sql, migracion 64)
+    'SES_GEN_01_PER_CALC', 'SES_GEN_01_PER_RECHAZO', 'SES_GEN_01_PER_EDIT', 'SES_GEN_01_B1_B2', 'SES_GEN_01_B5', 'SES_GEN_01_B7',
+    'SES_GEN_01_B2B', 'SES_GEN_01_PREVIEW', 'SES_GEN_01_B1_SIN_VINCULO_ASI_014', 'SES_GEN_01_ASI_013', 'SES_GEN_01_RUNTIME_GRANT',
+    'SES_GEN_01_MIG_UP_DOWN_UP',
     # CULM-001 / DEC-064: sesiones manuales (test/test_sesiones_manuales_notificacion.sql) y migracion 29 (.ps1). Mismo caso.
     'CULM001_SMN_00_OBJETOS_Y_SEMILLAS', 'CULM001_SMN_01_DESTINATARIOS_GRUPO_MIXTO', 'CULM001_SMN_01_COORDINADOR_DOS_PROGRAMAS_UNA_FILA',
     'CULM001_SMN_02_SESION_NO_MANUAL_SIN_DESTINATARIOS', 'CULM001_SMN_03_SOLO_DOCENTE', 'CULM001_SMN_04_COORDINADOR_INACTIVO_OMITIDO',

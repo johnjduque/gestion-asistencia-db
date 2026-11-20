@@ -297,3 +297,17 @@ IF EXISTS (
     THROW 51921, 'TEST FAILED: CULM001_B2_SEG_01 una vista de B.2 no tiene SELECT para el rol runtime.', 1;
 PRINT 'TEST_PASS:CULM001_B2_SEG_01_PERMISOS';
 GO
+
+-- SES-GEN-01: el endpoint de previsualizacion tiene solo EXECUTE; la vista auxiliar queda interna.
+IF OBJECT_ID(N'dbo.usp_previsualizar_horario_grupo', N'P') IS NULL
+   OR NOT EXISTS (SELECT 1 FROM sys.database_permissions dp
+                  WHERE dp.major_id = OBJECT_ID(N'dbo.usp_previsualizar_horario_grupo')
+                    AND dp.permission_name = N'EXECUTE' AND dp.state IN ('G', 'W')
+                    AND dp.grantee_principal_id = DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime'))
+   OR EXISTS (SELECT 1 FROM sys.database_permissions dp
+              WHERE dp.major_id = OBJECT_ID(N'dbo.uv_periodo_academico_cierre')
+                AND dp.permission_name = N'SELECT' AND dp.state IN ('G', 'W')
+                AND dp.grantee_principal_id = DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime'))
+    THROW 51966, 'TEST FAILED: SES_GEN_01_RUNTIME_GRANT el SP o la vista auxiliar no cumplen minimo privilegio.', 1;
+PRINT 'TEST_PASS:SES_GEN_01_RUNTIME_GRANT';
+GO
