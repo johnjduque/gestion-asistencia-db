@@ -224,7 +224,7 @@ DECLARE @c UNIQUEIDENTIFIER = NEWID(), @mu NVARCHAR(4000), @mt NVARCHAR(4000), @
 
 CREATE TABLE #dl (n INT IDENTITY(1,1), id UNIQUEIDENTIFIER, idUsuario UNIQUEIDENTIFIER, tipoIdentificacionId UNIQUEIDENTIFIER, numeroIdentificacion INT,
     primerApellido NVARCHAR(50), segundoApellido NVARCHAR(50), primerNombre NVARCHAR(50), segundoNombre NVARCHAR(50), nombreCompleto NVARCHAR(400),
-    correo NVARCHAR(100), estaActivoUsuario BIT, totalRegistros INT);
+    correo NVARCHAR(100), estaActivoUsuario BIT, totalRegistros INT, idPrograma UNIQUEIDENTIFIER, nombrePrograma NVARCHAR(50), semestreActual INT);
 CREATE TABLE #dd (id UNIQUEIDENTIFIER, idUsuario UNIQUEIDENTIFIER, tipoIdentificacionId UNIQUEIDENTIFIER, numeroIdentificacion INT,
     primerApellido NVARCHAR(50), segundoApellido NVARCHAR(50), primerNombre NVARCHAR(50), segundoNombre NVARCHAR(50), nombreCompleto NVARCHAR(400),
     correo NVARCHAR(100), estaActivoUsuario BIT, idInstitucion UNIQUEIDENTIFIER, nombreInstitucion NVARCHAR(100), idFacultad UNIQUEIDENTIFIER,
@@ -258,7 +258,7 @@ BEGIN TRY
 
     -- ======================================================= A2-T-01: directorio, ADMINISTRADOR (solo su institucion)
     INSERT INTO #dl (id, idUsuario, tipoIdentificacionId, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre,
-        nombreCompleto, correo, estaActivoUsuario, totalRegistros)
+        nombreCompleto, correo, estaActivoUsuario, totalRegistros, idPrograma, nombrePrograma, semestreActual)
     EXEC dbo.usp_consultar_directorio_estudiantes_paginado @idUsuarioEjecutor = @uAdmin1, @idCorrelacion = @c, @nombre = N'culmdir', @numeroPagina = 1, @tamanoPagina = 20;
     IF (SELECT COUNT(*) FROM #dl) <> 5 OR EXISTS (SELECT 1 FROM #dl WHERE totalRegistros <> 5)
        OR NOT EXISTS (SELECT 1 FROM #dl WHERE id = @E1) OR NOT EXISTS (SELECT 1 FROM #dl WHERE id = @E3)
@@ -266,7 +266,7 @@ BEGIN TRY
         THROW 58101, 'TEST FAILED: A2-T-01 el administrador ve E1, E2, E3, E4 y E8 (su institucion; E5 sin vinculos y E6 de otra institucion no).', 1;
     TRUNCATE TABLE #dl;
     INSERT INTO #dl (id, idUsuario, tipoIdentificacionId, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre,
-        nombreCompleto, correo, estaActivoUsuario, totalRegistros)
+        nombreCompleto, correo, estaActivoUsuario, totalRegistros, idPrograma, nombrePrograma, semestreActual)
     EXEC dbo.usp_consultar_directorio_estudiantes_paginado @idUsuarioEjecutor = @uAdmin2, @idCorrelacion = @c, @nombre = N'culmdir';
     IF (SELECT COUNT(*) FROM #dl) <> 1 OR NOT EXISTS (SELECT 1 FROM #dl WHERE id = @E6 AND totalRegistros = 1)
         THROW 58102, 'TEST FAILED: A2-T-01 el administrador de otra institucion solo ve a E6.', 1;
@@ -275,7 +275,7 @@ BEGIN TRY
     -- ======================================================= A2-T-02: directorio, COORDINADOR (EstudiantePrograma de sus programas)
     TRUNCATE TABLE #dl;
     INSERT INTO #dl (id, idUsuario, tipoIdentificacionId, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre,
-        nombreCompleto, correo, estaActivoUsuario, totalRegistros)
+        nombreCompleto, correo, estaActivoUsuario, totalRegistros, idPrograma, nombrePrograma, semestreActual)
     EXEC dbo.usp_consultar_directorio_estudiantes_paginado @idUsuarioEjecutor = @uCoordA, @idCorrelacion = @c, @nombre = N'culmdir';
     IF (SELECT COUNT(*) FROM #dl) <> 3 OR EXISTS (SELECT 1 FROM #dl WHERE id NOT IN (@E1, @E4, CAST(@p + '58' AS UNIQUEIDENTIFIER)))
         THROW 58103, 'TEST FAILED: A2-T-02 el coordinador de PA ve solo E1, E4 y E8.', 1;
@@ -287,7 +287,7 @@ BEGIN TRY
     UPDATE dbo.Coordinador SET estado = 0 WHERE usuario = @uCoordA;
     TRUNCATE TABLE #dl;
     INSERT INTO #dl (id, idUsuario, tipoIdentificacionId, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre,
-        nombreCompleto, correo, estaActivoUsuario, totalRegistros)
+        nombreCompleto, correo, estaActivoUsuario, totalRegistros, idPrograma, nombrePrograma, semestreActual)
     EXEC dbo.usp_consultar_directorio_estudiantes_paginado @idUsuarioEjecutor = @uCoordA, @idCorrelacion = @c;
     UPDATE dbo.Coordinador SET estado = 1 WHERE usuario = @uCoordA;
     IF (SELECT COUNT(*) FROM #dl) <> 0
@@ -297,7 +297,7 @@ BEGIN TRY
     -- ======================================================= A2-T-03: directorio, DOCENTE (matriculas en sus grupos, incluidas I)
     TRUNCATE TABLE #dl;
     INSERT INTO #dl (id, idUsuario, tipoIdentificacionId, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre,
-        nombreCompleto, correo, estaActivoUsuario, totalRegistros)
+        nombreCompleto, correo, estaActivoUsuario, totalRegistros, idPrograma, nombrePrograma, semestreActual)
     EXEC dbo.usp_consultar_directorio_estudiantes_paginado @idUsuarioEjecutor = @uDocT, @idCorrelacion = @c;
     IF (SELECT COUNT(*) FROM #dl) <> 3 OR EXISTS (SELECT 1 FROM #dl WHERE id NOT IN (@E1, @E2, @E3))
         THROW 58106, 'TEST FAILED: A2-T-03 el docente titular ve E1, E2 y E3 (incluida la matricula I), no E4.', 1;
@@ -323,41 +323,41 @@ BEGIN TRY
     -- ======================================================= A2-T-05: otros roles, orden, escape y paginacion
     TRUNCATE TABLE #dl;
     INSERT INTO #dl (id, idUsuario, tipoIdentificacionId, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre,
-        nombreCompleto, correo, estaActivoUsuario, totalRegistros)
+        nombreCompleto, correo, estaActivoUsuario, totalRegistros, idPrograma, nombrePrograma, semestreActual)
     EXEC dbo.usp_consultar_directorio_estudiantes_paginado @idUsuarioEjecutor = @uDec1, @idCorrelacion = @c;
     INSERT INTO #dl (id, idUsuario, tipoIdentificacionId, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre,
-        nombreCompleto, correo, estaActivoUsuario, totalRegistros)
+        nombreCompleto, correo, estaActivoUsuario, totalRegistros, idPrograma, nombrePrograma, semestreActual)
     EXEC dbo.usp_consultar_directorio_estudiantes_paginado @idUsuarioEjecutor = @uE1, @idCorrelacion = @c;
     IF (SELECT COUNT(*) FROM #dl) <> 0
         THROW 58111, 'TEST FAILED: A2-T-05 DECANO y ESTUDIANTE tienen ambito vacio.', 1;
     TRUNCATE TABLE #dl;
     INSERT INTO #dl (id, idUsuario, tipoIdentificacionId, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre,
-        nombreCompleto, correo, estaActivoUsuario, totalRegistros)
+        nombreCompleto, correo, estaActivoUsuario, totalRegistros, idPrograma, nombrePrograma, semestreActual)
     EXEC dbo.usp_consultar_directorio_estudiantes_paginado @idUsuarioEjecutor = @uAdmin1, @idCorrelacion = @c, @nombre = N'culmdir';
     IF (SELECT id FROM #dl WHERE n = 1) <> @E1 OR (SELECT id FROM #dl WHERE n = 2) <> @E2 OR (SELECT id FROM #dl WHERE n = 3) <> @E3
        OR (SELECT id FROM #dl WHERE n = 4) <> @E4
         THROW 58112, 'TEST FAILED: A2-T-05 orden fijo primerApellido, primerNombre, numeroIdentificacion, id.', 1;
     TRUNCATE TABLE #dl;
     INSERT INTO #dl (id, idUsuario, tipoIdentificacionId, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre,
-        nombreCompleto, correo, estaActivoUsuario, totalRegistros)
+        nombreCompleto, correo, estaActivoUsuario, totalRegistros, idPrograma, nombrePrograma, semestreActual)
     EXEC dbo.usp_consultar_directorio_estudiantes_paginado @idUsuarioEjecutor = @uAdmin1, @idCorrelacion = @c, @nombre = N'pct_1';
     IF (SELECT COUNT(*) FROM #dl) <> 1 OR NOT EXISTS (SELECT 1 FROM #dl WHERE id = @E1)
         THROW 58113, 'TEST FAILED: A2-T-05 el _ del filtro nombre se escapa (no es comodin).', 1;
     TRUNCATE TABLE #dl;
     INSERT INTO #dl (id, idUsuario, tipoIdentificacionId, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre,
-        nombreCompleto, correo, estaActivoUsuario, totalRegistros)
+        nombreCompleto, correo, estaActivoUsuario, totalRegistros, idPrograma, nombrePrograma, semestreActual)
     EXEC dbo.usp_consultar_directorio_estudiantes_paginado @idUsuarioEjecutor = @uAdmin1, @idCorrelacion = @c, @nombre = N'%';
     IF (SELECT COUNT(*) FROM #dl) <> 0
         THROW 58114, 'TEST FAILED: A2-T-05 el % del filtro nombre se escapa (no es comodin).', 1;
     TRUNCATE TABLE #dl;
     INSERT INTO #dl (id, idUsuario, tipoIdentificacionId, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre,
-        nombreCompleto, correo, estaActivoUsuario, totalRegistros)
+        nombreCompleto, correo, estaActivoUsuario, totalRegistros, idPrograma, nombrePrograma, semestreActual)
     EXEC dbo.usp_consultar_directorio_estudiantes_paginado @idUsuarioEjecutor = @uAdmin1, @idCorrelacion = @c, @nombre = N'culmdir', @numeroPagina = 2, @tamanoPagina = 2;
     IF (SELECT COUNT(*) FROM #dl) <> 2 OR EXISTS (SELECT 1 FROM #dl WHERE totalRegistros <> 5) OR (SELECT id FROM #dl WHERE n = 1) <> @E3
         THROW 58115, 'TEST FAILED: A2-T-05 la pagina 2 de tamano 2 trae E3 y E4 con totalRegistros real.', 1;
     TRUNCATE TABLE #dl;
     INSERT INTO #dl (id, idUsuario, tipoIdentificacionId, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre,
-        nombreCompleto, correo, estaActivoUsuario, totalRegistros)
+        nombreCompleto, correo, estaActivoUsuario, totalRegistros, idPrograma, nombrePrograma, semestreActual)
     EXEC dbo.usp_consultar_directorio_estudiantes_paginado @idUsuarioEjecutor = @uAdmin1, @idCorrelacion = @c, @nombre = N'culmdir', @numeroPagina = 9, @tamanoPagina = 2;
     IF (SELECT COUNT(*) FROM #dl) <> 0
         THROW 58116, 'TEST FAILED: A2-T-05 una pagina posterior a la ultima da 0 filas.', 1;
@@ -631,12 +631,12 @@ BEGIN TRY
         THROW 58158, 'TEST FAILED: A2-T-06b @tamanoPagina NULL devuelve todas las filas (101).', 1;
     TRUNCATE TABLE #dl;
     INSERT INTO #dl (id, idUsuario, tipoIdentificacionId, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre,
-        nombreCompleto, correo, estaActivoUsuario, totalRegistros)
+        nombreCompleto, correo, estaActivoUsuario, totalRegistros, idPrograma, nombrePrograma, semestreActual)
     EXEC dbo.usp_consultar_directorio_estudiantes_paginado @idUsuarioEjecutor = @uDocT, @idCorrelacion = @c, @tamanoPagina = NULL;
     SET @n = (SELECT COUNT(*) FROM #dl);
     TRUNCATE TABLE #dl;
     INSERT INTO #dl (id, idUsuario, tipoIdentificacionId, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre,
-        nombreCompleto, correo, estaActivoUsuario, totalRegistros)
+        nombreCompleto, correo, estaActivoUsuario, totalRegistros, idPrograma, nombrePrograma, semestreActual)
     EXEC dbo.usp_consultar_directorio_estudiantes_paginado @idUsuarioEjecutor = @uDocT, @idCorrelacion = @c, @tamanoPagina = 500;
     IF @n > 100 OR (SELECT COUNT(*) FROM #dl) <> 100 OR (SELECT MAX(totalRegistros) FROM #dl) < 104
         THROW 58159, 'TEST FAILED: A2-T-06b el directorio acota el tamano (NULL o 500 => como mucho 100).', 1;

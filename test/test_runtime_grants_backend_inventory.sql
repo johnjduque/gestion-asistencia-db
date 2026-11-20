@@ -35,7 +35,9 @@ INSERT INTO @requeridos (nombre) VALUES
  -- NOTOMA-001: aviso al coordinador de la sesion sin toma (job del backend)
  (N'usp_consultar_sesiones_pendientes_aviso_sin_toma'), (N'usp_consultar_destinatarios_aviso_sin_toma'), (N'usp_registrar_aviso_sesion_sin_toma'),
  -- ATA D10: faltas por reclamar del estudiante
- (N'usp_consultar_faltas_reclamables_estudiante');
+ (N'usp_consultar_faltas_reclamables_estudiante'),
+ -- Migracion 63: semestre actual del estudiante en el programa (coordinador)
+ (N'usp_actualizar_semestre_estudiante_programa');
 
 DECLARE @sinConcesion NVARCHAR(MAX) = (
     SELECT STRING_AGG(r.nombre, ', ')

@@ -17,7 +17,7 @@ BEGIN TRY
     -- las listas sin @idPrograma incluyen ambos programas (directorio que sirve GET /coordinador/estudiantes)
     DECLARE @dl TABLE (id UNIQUEIDENTIFIER, idUsuario UNIQUEIDENTIFIER, tipoIdentificacionId UNIQUEIDENTIFIER, numeroIdentificacion INT, primerApellido NVARCHAR(100),
         segundoApellido NVARCHAR(100), primerNombre NVARCHAR(100), segundoNombre NVARCHAR(100), nombreCompleto NVARCHAR(400), correo NVARCHAR(100),
-        estaActivoUsuario BIT, totalRegistros INT);
+        estaActivoUsuario BIT, totalRegistros INT, idPrograma UNIQUEIDENTIFIER, nombrePrograma NVARCHAR(50), semestreActual INT);
     INSERT INTO @dl EXEC dbo.usp_consultar_directorio_estudiantes_paginado @idUsuarioEjecutor = @uCA, @idCorrelacion = @c, @nombre = N'B2NM';
     IF NOT EXISTS (SELECT 1 FROM @dl WHERE id = @eA) OR NOT EXISTS (SELECT 1 FROM @dl WHERE id = @eB) OR EXISTS (SELECT 1 FROM @dl WHERE id = @e0)
         THROW 53902, 'TEST FAILED: B2NM-08 el directorio sin programa debe incluir a EA y EB y no a E0.', 1;

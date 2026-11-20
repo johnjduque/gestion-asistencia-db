@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **493**.
+Total de códigos: **496**.
 
 ## ACC
 
@@ -316,6 +316,9 @@ Total de códigos: **493**.
 | `EST_004` | BUSINESS_ERROR | ALTO | El estudiante no pertenece al grupo de la sesion seleccionada. | Validación de pertenencia fallida: El estudiante {} no está inscrito en el grupo de la sesión {}. | `04_mensaje.sql` |
 | `EST_005` | BUSINESS_ERROR | MEDIO | El grupo pertenece a varios programas: indica el programa. | Regla R7/S3: el grupo tiene varios programas y no se envio idPrograma. | `38_mensajes_asignatura_plan.sql` |
 | `EST_006` | BUSINESS_ERROR | MEDIO | El programa indicado no corresponde a los programas del grupo. | Regla R7/S3: idPrograma no esta entre los programas del grupo. | `38_mensajes_asignatura_plan.sql` |
+| `EST_007` | SUCCESS | BAJO | El semestre del estudiante quedó actualizado. | EstudiantePrograma.semestreActual actualizado por el coordinador del programa (NULL lo limpia). | `71_estudiante_semestre_mensajes.sql` |
+| `EST_008` | BUSINESS_ERROR | MEDIO | El estudiante no está vinculado a este programa académico. | Regla: no existe dbo.EstudiantePrograma para el estudiante y el programa indicados. | `71_estudiante_semestre_mensajes.sql` |
+| `EST_009` | VALIDATION_ERROR | BAJO | El semestre debe estar entre {} y {}. | Regla: @semestreActual fuera del rango [MIN(Semestre.numero), MAX(Semestre.numero)] del catalogo dbo.Semestre. | `71_estudiante_semestre_mensajes.sql` |
 
 ## FAC
 

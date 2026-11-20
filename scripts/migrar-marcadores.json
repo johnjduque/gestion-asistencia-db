@@ -441,6 +441,11 @@
     "62_dec078_matricula_programa_estudiante": [
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'MQR_008' AND contenido LIKE N'%elige el programa%'" },
       { "tabla": "dbo.CatalogoMensajeTecnico", "donde": "codigo = 'MQR_008' AND contenido LIKE N'%DEC-078%'" }
+    ],
+    "63_semestre_actual_estudiante_programa": [
+      { "columna": "dbo.EstudiantePrograma.semestreActual" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'EST_009'" },
+      { "tabla": "dbo.CatalogoMensajeTecnico", "donde": "codigo = 'EST_009'" }
     ]
   }
 }
