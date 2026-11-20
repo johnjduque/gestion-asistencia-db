@@ -558,3 +558,9 @@ BEGIN
     ALTER TABLE [dbo].[AvisoSesionSinToma] ADD CONSTRAINT [FK_AvisoSesionSinToma_Sesion] FOREIGN KEY ([sesion]) REFERENCES [dbo].[Sesion] ([id]);
 END
 GO
+-- DEC-077: programa responsable del grupo
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Grupo_ProgramaResponsable')
+BEGIN
+    ALTER TABLE [dbo].[Grupo] ADD CONSTRAINT [FK_Grupo_ProgramaResponsable] FOREIGN KEY ([programaResponsable]) REFERENCES [dbo].[Programa] ([id]);
+END
+GO

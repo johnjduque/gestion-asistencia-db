@@ -22,7 +22,8 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_estudiante_por_token_publico]
     @primerApellido        NVARCHAR(50)     = NULL,
     @segundoApellido       NVARCHAR(50)     = NULL,
     @correo                NVARCHAR(100)    = NULL,
-    @password              NVARCHAR(500)    = NULL
+    @password              NVARCHAR(500)    = NULL,
+    @idPrograma            UNIQUEIDENTIFIER = NULL   -- DEC-078: programa elegido en un grupo compartido
 )
 AS
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
@@ -49,7 +50,8 @@ BEGIN
         @estadoResultado = @estadoResultado OUTPUT,
         @idEstudianteResultado = @idEstudianteResultado OUTPUT,
         @idUsuarioResultado = @idUsuarioResultado OUTPUT,
-        @idGrupoResultado = @idGrupoResultado OUTPUT;
+        @idGrupoResultado = @idGrupoResultado OUTPUT,
+        @idProgramaElegido = @idPrograma;
 
     SELECT
         idCorrelacion           = @idCorrelacionDefecto,

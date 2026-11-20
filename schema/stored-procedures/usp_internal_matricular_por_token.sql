@@ -34,7 +34,9 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_internal_matricular_por_token]
     @estadoResultado          BIT              OUTPUT,
     @idEstudianteResultado    UNIQUEIDENTIFIER OUTPUT,
     @idUsuarioResultado       UNIQUEIDENTIFIER OUTPUT,
-    @idGrupoResultado         UNIQUEIDENTIFIER OUTPUT
+    @idGrupoResultado         UNIQUEIDENTIFIER OUTPUT,
+    -- DEC-078: programa que elige el estudiante en un grupo compartido (uno de ufn_programas_grupo; EST_006 si es ajeno).
+    @idProgramaElegido        UNIQUEIDENTIFIER = NULL
 )
 AS
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
@@ -153,12 +155,18 @@ BEGIN
            )
             SET @codigoRechazo = 'MQR_004';
 
-        DECLARE @programaVentana UNIQUEIDENTIFIER = (SELECT t.programaPorDefecto FROM dbo.TokenMatriculaGrupo t WHERE t.id = @idVentana);
-        -- CULM-001 B2NM (S3 minimo): grupo multiprograma sin programaPorDefecto en la ventana y sin vinculo previo -> MQR_008,
-        -- antes de crear usuario o matricula.
+        -- DEC-078: el programa de la ventana (si el docente lo fijo) o el que eligio el estudiante.
+        DECLARE @programaVentana UNIQUEIDENTIFIER = COALESCE(
+            (SELECT t.programaPorDefecto FROM dbo.TokenMatriculaGrupo t WHERE t.id = @idVentana), @idProgramaElegido);
+        -- DEC-078: un programa elegido que no es del grupo se rechaza antes de crear usuario o matricula (EST_006).
+        IF @estadoResultado = 1 AND @codigoRechazo IS NULL AND @programaVentana IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM dbo.ufn_programas_grupo(@idGrupo) pg WHERE pg.idPrograma = @programaVentana)
+            SET @codigoRechazo = 'EST_006';
+        -- CULM-001 B2NM (S3) / DEC-078: grupo multiprograma sin programa (ni de la ventana ni elegido) y sin vinculo previo ->
+        -- MQR_008 (el estudiante debe elegir su programa), antes de crear usuario o matricula.
         IF @estadoResultado = 1 AND @codigoRechazo IS NULL
            AND (SELECT COUNT(*) FROM dbo.ufn_programas_grupo(@idGrupo)) > 1
-           AND (SELECT t.programaPorDefecto FROM dbo.TokenMatriculaGrupo t WHERE t.id = @idVentana) IS NULL
+           AND @programaVentana IS NULL
            AND NOT EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep
                            INNER JOIN dbo.ufn_programas_grupo(@idGrupo) pg ON pg.idPrograma = ep.programa
                            WHERE ep.estudiante = @idEstudianteTarget)

@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **492**.
+Total de códigos: **493**.
 
 ## ACC
 
@@ -407,7 +407,7 @@ Total de códigos: **492**.
 | `MQR_005` | BUSINESS_ERROR | MEDIO | Ya tienes una cuenta registrada. Inicia sesión para completar tu matrícula. | Existencia: el documento o el correo ya pertenecen a un usuario registrado. | `29_mensajes_matricula_qr.sql` |
 | `MQR_006` | BUSINESS_ERROR | BAJO | No fue posible generar un código único. Inténtalo de nuevo. | Unicidad: el PIN ya está en uso por el token vigente o anterior de otra ventana activa. | `29_mensajes_matricula_qr.sql` |
 | `MQR_007` | BUSINESS_ERROR | MEDIO | Debes indicar el código QR o el PIN, pero no ambos. | Validación: debe indicarse exactamente uno entre tokenHash y pin. | `29_mensajes_matricula_qr.sql` |
-| `MQR_008` | BUSINESS_ERROR | MEDIO | No se pudo determinar tu programa en este grupo. Pide a tu docente que te matricule. | Regla S3: el token no tiene programaPorDefecto y el grupo tiene varios programas. | `38_mensajes_asignatura_plan.sql` |
+| `MQR_008` | BUSINESS_ERROR | MEDIO | Este grupo lo comparten varios programas: elige el programa al que perteneces para matricularte. | Regla S3/DEC-078: el grupo tiene varios programas, la ventana no fija programa, el estudiante no eligio uno (@idPrograma) y no pertenece a ninguno del grupo. | `38_mensajes_asignatura_plan.sql` |
 
 ## NOF
 
@@ -463,6 +463,7 @@ Total de códigos: **492**.
 | `PER_007` | BUSINESS_ERROR | MEDIO | El período académico aún no ha finalizado; el cierre masivo solo puede ejecutarse después de su fecha de fin ({}). | Regla: uv_periodo_academico.estado del periodo no es CERRADO (fecha local institucional <= fechaFin {}); usp_ejecutar_cierre_masivo_periodo no cierra ni audita nada. | `17_mensajes_periodo_academico.sql` |
 | `PER_008` | BUSINESS_ERROR | MEDIO | El período académico {} ya fue cerrado; no se pueden registrar ni modificar tomas, asistencias ni reclamos de sus sesiones. | Regla: PeriodoAcademico.fechaCierreUtc no es nula (periodo {} cerrado el {} UTC); no se registran ni modifican tomas, lotes ni reclamos de sus sesiones. | `17_mensajes_periodo_academico.sql` |
 | `PER_009` | BUSINESS_ERROR | MEDIO | El período académico ya fue cerrado el {}; el cierre masivo no se puede repetir. | Regla: PeriodoAcademico.fechaCierreUtc ya registrada (cierre del {}, fecha local institucional); usp_ejecutar_cierre_masivo_periodo no repite el cierre ni audita nada. | `17_mensajes_periodo_academico.sql` |
+| `PER_010` | BUSINESS_ERROR | MEDIO | El período académico {} ya terminó; no se pueden crear grupos en él porque no tendrían sesiones por programar. | Regla: uv_periodo_academico.estado del periodo {} es CERRADO (fecha local institucional > fechaFin); usp_crear_grupo no crea grupos en un periodo terminado (la precarga no generaria sesiones). | `17_mensajes_periodo_academico.sql` |
 
 ## PLA
 

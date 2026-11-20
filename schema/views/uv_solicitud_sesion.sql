@@ -5,8 +5,8 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
--- CULM-001 / DEC-065 (2): solicitudes de sesion extraordinaria. Una fila por (sesion, programa vigente del grupo): en un grupo
--- mixto la solicitud aparece para cada programa y el SP de consulta del coordinador la colapsa a una fila por sesion.
+-- CULM-001 / DEC-065 (2): solicitudes de sesion extraordinaria. DEC-077: una fila por sesion, con el programa responsable del grupo
+-- (ufn_programas_grupo_responsable): en un grupo compartido la solicitud solo aparece en la bandeja de ese coordinador.
 --   pendienteAprobacion = estado en espera (esFinal = 0) y sesion no cancelada (una cancelacion del docente cierra el tramite)
 --   estaCancelada       = la sesion tiene SesionCancelacion (rechazada por el coordinador o cancelada por el docente)
 CREATE OR ALTER VIEW [dbo].[uv_solicitud_sesion]
@@ -37,6 +37,6 @@ INNER JOIN dbo.uv_grupo g                ON g.id = s.grupo
 INNER JOIN dbo.uv_docente_identidad di   ON di.id = g.idDocente
 INNER JOIN dbo.EstadoSolicitudSesion e   ON e.id = ss.idEstado
 LEFT JOIN  dbo.SesionCancelacion sc      ON sc.sesion = ss.sesion
-CROSS APPLY dbo.ufn_programas_grupo(s.grupo) pg
+CROSS APPLY dbo.ufn_programas_grupo_responsable(s.grupo) pg
 INNER JOIN dbo.Programa p                ON p.id = pg.idPrograma;
 GO

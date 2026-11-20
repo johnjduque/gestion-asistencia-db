@@ -18,6 +18,8 @@ BEGIN TRY
 :r /tmp/test/fixtures/culm001_b2nm_asignatura_compartida.sql
     DECLARE @c UNIQUEIDENTIFIER = NEWID();
     DECLARE @sMan UNIQUEIDENTIFIER = NEWID(), @sGen UNIQUEIDENTIFIER = NEWID(), @sMan2 UNIQUEIDENTIFIER = NEWID(), @sV1 UNIQUEIDENTIFIER = NEWID(), @sOwner UNIQUEIDENTIFIER = NEWID();
+    -- DEC-077: el grupo mixto tiene un programa responsable (A): solo su coordinador (CA) recibe el aviso y cancela.
+    UPDATE dbo.Grupo SET programaResponsable = @progA WHERE id = @grupoG;
 
     -- SMN-00: objetos y semillas
     IF OBJECT_ID(N'dbo.usp_consultar_destinatarios_sesion_manual', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_cancelar_sesion_coordinador', N'P') IS NULL
@@ -49,15 +51,15 @@ BEGIN TRY
     CREATE TABLE #dest (tipoDestinatario NVARCHAR(20), idUsuario UNIQUEIDENTIFIER, nombreCompleto NVARCHAR(400), correo NVARCHAR(200),
         nombreAsignatura NVARCHAR(200), nombreGrupo NVARCHAR(300), nombreDocente NVARCHAR(400), fechaHoraInicio DATETIME2, fechaHoraFin DATETIME2);
 
-    -- SMN-01: 3 estudiantes activos + 2 coordinadores (grupo mixto A/B)
+    -- SMN-01: 3 estudiantes activos + el coordinador del programa responsable (DEC-077; antes, los 2 del grupo mixto A/B)
     INSERT #dest EXEC dbo.usp_consultar_destinatarios_sesion_manual @idSesion = @sMan, @idCorrelacion = @c, @idUsuarioEjecutor = @uT;
     IF (SELECT COUNT(*) FROM #dest WHERE tipoDestinatario = N'ESTUDIANTE') <> 3
-       OR (SELECT COUNT(*) FROM #dest WHERE tipoDestinatario = N'COORDINADOR') <> 2
+       OR (SELECT COUNT(*) FROM #dest WHERE tipoDestinatario = N'COORDINADOR') <> 1
        OR NOT EXISTS (SELECT 1 FROM #dest WHERE tipoDestinatario = N'COORDINADOR' AND idUsuario = @uCA)
-       OR NOT EXISTS (SELECT 1 FROM #dest WHERE tipoDestinatario = N'COORDINADOR' AND idUsuario = @uCB)
+       OR EXISTS (SELECT 1 FROM #dest WHERE tipoDestinatario = N'COORDINADOR' AND idUsuario = @uCB)
        OR NOT EXISTS (SELECT 1 FROM #dest WHERE tipoDestinatario = N'ESTUDIANTE' AND idUsuario = @uE0)
        OR EXISTS (SELECT 1 FROM #dest WHERE correo IS NULL OR nombreAsignatura IS NULL OR nombreDocente IS NULL OR fechaHoraInicio IS NULL)
-        THROW 58010, 'TEST FAILED CULM001_SMN_01: el grupo mixto debe notificar a 3 estudiantes y a los 2 coordinadores.', 1;
+        THROW 58010, 'TEST FAILED CULM001_SMN_01: el grupo mixto debe notificar a 3 estudiantes y solo al coordinador responsable (DEC-077).', 1;
     TRUNCATE TABLE #dest;
     PRINT 'TEST_PASS:CULM001_SMN_01_DESTINATARIOS_GRUPO_MIXTO';
 
@@ -65,8 +67,8 @@ BEGIN TRY
     INSERT #dest EXEC dbo.usp_consultar_destinatarios_sesion_manual @idSesion = @sGen, @idCorrelacion = @c, @idUsuarioEjecutor = @uT;
     IF EXISTS (SELECT 1 FROM #dest) THROW 58011, 'TEST FAILED CULM001_SMN_02: una sesion no manual no tiene destinatarios.', 1;
     INSERT #dest EXEC dbo.usp_consultar_destinatarios_sesion_manual @idSesion = @sV1, @idCorrelacion = @c, @idUsuarioEjecutor = @uT;
-    -- DEC-065 (2): el resultset suma la fila del DOCENTE titular (1 docente + 3 estudiantes + 2 coordinadores = 6)
-    IF (SELECT COUNT(*) FROM #dest) <> 6 THROW 58015, 'TEST FAILED CULM001_SMN_01: la sesion creada por v1 (procedencia NULL) tambien notifica a 3 estudiantes, 2 coordinadores y al docente titular.', 1;
+    -- DEC-065 (2): el resultset suma la fila del DOCENTE titular (1 docente + 3 estudiantes + 1 coordinador responsable = 5, DEC-077)
+    IF (SELECT COUNT(*) FROM #dest) <> 5 THROW 58015, 'TEST FAILED CULM001_SMN_01: la sesion creada por v1 (procedencia NULL) tambien notifica a 3 estudiantes, al coordinador responsable y al docente titular.', 1;
     TRUNCATE TABLE #dest;
     PRINT 'TEST_PASS:CULM001_SMN_02_SESION_NO_MANUAL_SIN_DESTINATARIOS';
 
@@ -81,13 +83,16 @@ BEGIN TRY
     PRINT 'TEST_PASS:CULM001_SMN_01_COORDINADOR_DOS_PROGRAMAS_UNA_FILA';
 
     -- SMN-04: coordinador inactivo no es destinatario (B vuelve a CB, que queda inactivo)
+    -- DEC-077: el responsable pasa a ser B, cuyo coordinador (CB) queda inactivo: nadie de coordinacion recibe el aviso.
     UPDATE dbo.Programa SET coordinador = @coordCB WHERE id = @progB;
+    UPDATE dbo.Grupo SET programaResponsable = @progB WHERE id = @grupoG;
     UPDATE dbo.Coordinador SET estado = 0 WHERE id = @coordCB;
     INSERT #dest EXEC dbo.usp_consultar_destinatarios_sesion_manual @idSesion = @sMan, @idCorrelacion = @c, @idUsuarioEjecutor = @uT;
-    IF (SELECT COUNT(*) FROM #dest WHERE tipoDestinatario = N'COORDINADOR') <> 1 OR EXISTS (SELECT 1 FROM #dest WHERE idUsuario = @uCB)
+    IF (SELECT COUNT(*) FROM #dest WHERE tipoDestinatario = N'COORDINADOR') <> 0 OR EXISTS (SELECT 1 FROM #dest WHERE idUsuario = @uCB)
         THROW 58014, 'TEST FAILED CULM001_SMN_04: un coordinador inactivo no debe recibir la notificacion.', 1;
     TRUNCATE TABLE #dest;
     UPDATE dbo.Coordinador SET estado = 1 WHERE id = @coordCB;
+    UPDATE dbo.Grupo SET programaResponsable = @progA WHERE id = @grupoG;
     PRINT 'TEST_PASS:CULM001_SMN_04_COORDINADOR_INACTIVO_OMITIDO';
 
     -- ---- cancelacion por el coordinador ----
@@ -158,10 +163,15 @@ BEGIN TRY
     TRUNCATE TABLE #can;
     PRINT 'TEST_PASS:CULM001_SMN_05_COORDINADOR_CANCELA';
 
-    -- el otro coordinador del grupo mixto tambien puede cancelar; sin observacion el motivo es solo el nombre del catalogo
+    -- DEC-077: el otro coordinador del grupo mixto (CB, no responsable) ya no cancela (SEC_002); el responsable cancela sin
+    -- observacion y el motivo es solo el nombre del catalogo.
     INSERT #can EXEC dbo.usp_cancelar_sesion_coordinador @idSesion = @sMan2, @codigoMotivo = @motivo, @observacion = NULL, @idCorrelacion = @c, @idUsuarioEjecutor = @uCB;
-    IF NOT EXISTS (SELECT 1 FROM #can WHERE estadoResultado = 1) OR NOT EXISTS (SELECT 1 FROM dbo.SesionCancelacion WHERE sesion = @sMan2 AND motivo = @nombreMotivo AND usuarioEjecutor = @uCB)
-        THROW 58035, 'TEST FAILED CULM001_SMN_05: el otro coordinador del grupo mixto puede cancelar; sin observacion el motivo es solo el nombre del catalogo.', 1;
+    IF NOT EXISTS (SELECT 1 FROM #can WHERE estadoResultado = 0 AND mensajeTecnicoResultado LIKE N'%SEC[_]002%') OR EXISTS (SELECT 1 FROM dbo.SesionCancelacion WHERE sesion = @sMan2)
+        THROW 58036, 'TEST FAILED CULM001_SMN_05: DEC-077 el coordinador no responsable del grupo mixto no cancela (SEC_002).', 1;
+    TRUNCATE TABLE #can;
+    INSERT #can EXEC dbo.usp_cancelar_sesion_coordinador @idSesion = @sMan2, @codigoMotivo = @motivo, @observacion = NULL, @idCorrelacion = @c, @idUsuarioEjecutor = @uCA;
+    IF NOT EXISTS (SELECT 1 FROM #can WHERE estadoResultado = 1) OR NOT EXISTS (SELECT 1 FROM dbo.SesionCancelacion WHERE sesion = @sMan2 AND motivo = @nombreMotivo AND usuarioEjecutor = @uCA)
+        THROW 58035, 'TEST FAILED CULM001_SMN_05: el coordinador responsable cancela; sin observacion el motivo es solo el nombre del catalogo.', 1;
     TRUNCATE TABLE #can;
     PRINT 'TEST_PASS:CULM001_SMN_05_GRUPO_MIXTO_SEGUNDO_COORDINADOR';
 

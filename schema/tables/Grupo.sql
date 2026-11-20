@@ -37,3 +37,12 @@ GO
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Grupo') AND name = 'IX_Grupo_Asignatura')
     CREATE NONCLUSTERED INDEX IX_Grupo_Asignatura ON dbo.Grupo (asignatura) INCLUDE (periodoAcademico, docente);
 GO
+
+-- DEC-077 (2026-11-20): programa responsable del grupo. Es el programa del coordinador que lo crea; en un grupo compartido por
+-- varios programas solo su coordinador gestiona el grupo, aprueba sus sesiones y recibe los avisos del grupo. NULL en grupos
+-- anteriores: dbo.ufn_programa_responsable_grupo lo resuelve igual (ver la funcion). FK en zz_foreign_keys.sql.
+IF COL_LENGTH('dbo.Grupo', 'programaResponsable') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[Grupo] ADD [programaResponsable] uniqueidentifier NULL;
+END
+GO

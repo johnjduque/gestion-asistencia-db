@@ -431,6 +431,16 @@
     ],
     "60_componente_electiva": [
       { "tabla": "dbo.Componente", "donde": "codigo = 'ELE'" }
+    ],
+    "61_dec076_dec077_creacion_grupo": [
+      { "columna": "dbo.Grupo.programaResponsable" },
+      { "objeto": "dbo.ufn_programas_grupo_responsable" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'PER_010'" },
+      { "tabla": "dbo.CatalogoMensajeTecnico", "donde": "codigo = 'PER_010'" }
+    ],
+    "62_dec078_matricula_programa_estudiante": [
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'MQR_008' AND contenido LIKE N'%elige el programa%'" },
+      { "tabla": "dbo.CatalogoMensajeTecnico", "donde": "codigo = 'MQR_008' AND contenido LIKE N'%DEC-078%'" }
     ]
   }
 }

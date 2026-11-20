@@ -61,6 +61,7 @@ PRINT '======================================================================';
 :r /tmp/test/test_hu008_regla_inscripcion_programa.sql
 :r /tmp/test/test_int_hu01_reactivar_matricula_retirada.sql
 :r /tmp/test/test_usp_crear_actualizar_grupo.sql
+:r /tmp/test/test_dec076_dec077_creacion_grupo.sql
 :r /tmp/test/test_usp_crear_actualizar_sesion.sql
 :r /tmp/test/test_usp_validar_sesion_operacion_interno.sql
 :r /tmp/test/test_maint_003k_error_priority.sql
@@ -129,6 +130,7 @@ PRINT '======================================================================';
 :r /tmp/test/test_usp_rotar_token_matricula_grupo.sql
 :r /tmp/test/test_usp_validar_token_matricula_publico.sql
 :r /tmp/test/test_usp_matricular_estudiante_por_token.sql
+:r /tmp/test/test_dec078_matricula_programa_estudiante.sql
 :r /tmp/test/test_culm001_a_retiro_solicitudes.sql
 :r /tmp/test/test_culm001_a_correcciones.sql
 :r /tmp/test/test_culm001_a_fixture_segundo_ambito.sql

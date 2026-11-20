@@ -76,6 +76,13 @@ BEGIN TRY
     SELECT @plan = id FROM dbo.uv_plan_estudio WHERE idPrograma = @program AND inp = TRY_CAST(@planCode AS INT);
     IF @plan IS NULL THROW 51995, 'TEST FAILED: PLAN_UPSERT_CREATE not visible.', 1;
 
+    -- DEC-077: usp_crear_grupo exige que el coordinador coordine un programa de la asignatura. El coordinador
+    -- aprovisionado arriba solo coordina @program, asi que la asignatura del grupo se vincula a su plan (dato de fixture).
+    DECLARE @semestrePlan UNIQUEIDENTIFIER = NEWID();
+    INSERT INTO dbo.SemestrePlanEstudio (id, planEstudio, semestre) VALUES (@semestrePlan, @plan, (SELECT TOP 1 id FROM dbo.Semestre ORDER BY numero));
+    INSERT INTO dbo.AsignaturaPlanEstudio (id, asignatura, semestrePlanEstudio, caracter, estaActivo, fechaVinculacionUtc)
+    VALUES (NEWID(), @assignment, @semestrePlan, (SELECT TOP 1 id FROM dbo.CaracterAsignaturaPlan ORDER BY codigo), 1, '2020-01-01');
+
     TRUNCATE TABLE #academicResult;
     SET @corr = NEWID();
     EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_004', @p_param1 = 'Grupo',

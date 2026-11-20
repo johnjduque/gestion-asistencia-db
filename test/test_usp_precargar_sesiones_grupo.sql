@@ -82,8 +82,16 @@ BEGIN TRY
         @nombre = N'Grupo QA Precarga A', @idDocente = @d1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uCoord;
     INSERT INTO #r EXEC dbo.usp_crear_grupo @idGrupo = @gB, @idAsignatura = @idAsig, @idPeriodoAcademico = @idFuturo, @codigo = @codB,
         @nombre = N'Grupo QA Precarga B', @idDocente = @d1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uCoord;
+    -- DEC-076: usp_crear_grupo ya no crea grupos en un periodo terminado (PER_010). El caso C (precarga de un grupo cuyo periodo ya
+    -- termino) sigue vigente para grupos existentes, asi que el grupo C se inserta como dato heredado.
     INSERT INTO #r EXEC dbo.usp_crear_grupo @idGrupo = @gC, @idAsignatura = @idAsig, @idPeriodoAcademico = @idPasado, @codigo = @codC,
         @nombre = N'Grupo QA Precarga C', @idDocente = @d1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uCoord;
+    IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeTecnicoResultado LIKE N'%PER_010%')
+        THROW 53402, 'TEST FAILED: DEC-076 crear un grupo en un periodo terminado debe dar PER_010.', 1;
+    DELETE FROM #r WHERE estadoResultado = 0;
+    INSERT INTO dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron,
+        cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)
+    VALUES (@gC, @idAsig, @idPasado, @codC, N'Grupo QA Precarga C', 30, 0, 0, 0, @d1);
     INSERT INTO #r EXEC dbo.usp_crear_grupo @idGrupo = @gV8, @idAsignatura = @idAsig, @idPeriodoAcademico = @idPeriodo8, @codigo = @codV8,
         @nombre = N'Grupo QA Precarga 8 semanas', @idDocente = @d1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uCoord;
     INSERT INTO #r EXEC dbo.usp_crear_grupo @idGrupo = @gV12, @idAsignatura = @idAsig, @idPeriodoAcademico = @idPeriodo12, @codigo = @codV12,
@@ -92,7 +100,7 @@ BEGIN TRY
         @nombre = N'Grupo QA Precarga 16 semanas', @idDocente = @d1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uCoord;
     INSERT INTO #r EXEC dbo.usp_crear_grupo @idGrupo = @gV18, @idAsignatura = @idAsig, @idPeriodoAcademico = @idPeriodo18, @codigo = @codV18,
         @nombre = N'Grupo QA Precarga 18 semanas', @idDocente = @d1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uCoord;
-    IF (SELECT COUNT(*) FROM #r WHERE estadoResultado = 1) <> 7 OR @@TRANCOUNT <> 1
+    IF (SELECT COUNT(*) FROM #r WHERE estadoResultado = 1) <> 6 OR @@TRANCOUNT <> 1
         THROW 53401, 'TEST FAILED: los grupos de prueba debieron crearse dentro de la transaccion externa.', 1;
 
     DECLARE @idEstadoActivo UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_estado_estudiante_grupo WHERE codigo = 'A');

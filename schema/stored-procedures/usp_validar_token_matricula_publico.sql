@@ -104,8 +104,19 @@ BEGIN
         nombreGrupo        = v.nombreGrupo,
         nombreDocente      = v.nombreDocente,
         fechaExpiracionUtc = v.fechaExpiracionUtc,
-        cupoDisponible     = v.cupoDisponible
+        cupoDisponible     = v.cupoDisponible,
+        -- DEC-078: programas entre los que elige el estudiante (JSON [{idPrograma, nombre}] por nombre); NULL si la ventana fija
+        -- el programa o el grupo tiene uno solo. Solo nombres de programas: ningun dato de estudiantes.
+        programasElegibles = CASE
+            WHEN t.programaPorDefecto IS NULL AND (SELECT COUNT(*) FROM dbo.ufn_programas_grupo(v.grupo)) > 1
+            THEN (SELECT pg.idPrograma, p.nombre
+                  FROM dbo.ufn_programas_grupo(v.grupo) pg
+                  INNER JOIN dbo.Programa p ON p.id = pg.idPrograma
+                  ORDER BY p.nombre, p.id
+                  FOR JSON PATH)
+        END
     FROM dbo.uv_token_matricula_grupo v
+    INNER JOIN dbo.TokenMatriculaGrupo t ON t.id = v.id
     WHERE v.id = @idVentana;
 END;
 GO

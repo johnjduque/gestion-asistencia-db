@@ -6,10 +6,16 @@ SET XACT_ABORT OFF;
 
 PRINT 'TEST START: test_usp_crear_actualizar_grupo';
 
-DECLARE @idAsig UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_asignatura);
+-- DEC-077: el coordinador debe coordinar un programa de la asignatura (crear) y el responsable del grupo (actualizar); el
+-- docente es el titular de un grupo de esa asignatura en ese programa (vinculo activo).
+DECLARE @idAsig UNIQUEIDENTIFIER, @idDocente UNIQUEIDENTIFIER, @idUsuarioCoordinador UNIQUEIDENTIFIER;
+SELECT TOP 1 @idAsig = d.idAsignatura, @idDocente = d.id, @idUsuarioCoordinador = ci.idUsuario
+FROM dbo.uv_docente d
+INNER JOIN dbo.Programa p ON p.id = d.idPrograma
+INNER JOIN dbo.Coordinador co ON co.id = p.coordinador
+INNER JOIN dbo.uv_coordinador_identidad ci ON ci.idUsuario = co.usuario AND ci.estaActivoUsuario = 1
+ORDER BY d.idAsignatura, d.id;
 DECLARE @idPeriodo UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_periodo_academico ORDER BY anio DESC);
-DECLARE @idDocente UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_docente);
-DECLARE @idUsuarioCoordinador UNIQUEIDENTIFIER = (SELECT TOP 1 idUsuario FROM dbo.uv_coordinador_identidad WHERE estaActivoUsuario = 1);
 DECLARE @capacidadDefecto INT = dbo.ufn_obtener_parametro_int(NULL, 'GRUPO', 'CAPACIDAD_MAXIMA_DEFECTO');
 
 IF @idAsig IS NULL THROW 51200, 'TEST FAILED: no existe fixture uv_asignatura.', 1;

@@ -19,6 +19,8 @@ PRINT 'TEST START: test_ata_p2_solicitudes_calendario';
 BEGIN TRANSACTION;
 BEGIN TRY
 :r /tmp/test/fixtures/culm001_b2nm_asignatura_compartida.sql
+    -- DEC-077: el programa responsable del grupo mixto es A: su coordinador (CA) aprueba y rechaza las solicitudes.
+    UPDATE dbo.Grupo SET programaResponsable = @progA WHERE id = @grupoG;
     DECLARE @c UNIQUEIDENTIFIER = NEWID();
     DECLARE @tz NVARCHAR(128) = CONVERT(NVARCHAR(128), dbo.ufn_obtener_parametro('TIEMPO', 'ZONA_HORARIA_SQLSERVER'));
 
@@ -77,10 +79,10 @@ BEGIN TRY
     TRUNCATE TABLE #ata_sol;
     PRINT 'TEST_PASS:ATA_P2_01_DOCENTE_VE_SUS_PENDIENTES';
 
-    -- ATA_P2_02: aprobar (CA) y rechazar (CB); soloPendientes = 0, @idGrupo y paginacion
+    -- ATA_P2_02: aprobar y rechazar (CA, coordinador responsable; DEC-077); soloPendientes = 0, @idGrupo y paginacion
     INSERT #ata_apr EXEC dbo.usp_aprobar_solicitud_sesion @idSesion = @sApr, @observacion = NULL, @idCorrelacion = @c, @idUsuarioEjecutor = @uCA;
     DECLARE @motivo NVARCHAR(50) = (SELECT TOP 1 codigo FROM dbo.uv_motivo_cancelacion_sesion WHERE estaActivo = 1 ORDER BY orden);
-    INSERT #ata_can EXEC dbo.usp_rechazar_solicitud_sesion @idSesion = @sRec, @codigoMotivo = @motivo, @observacion = NULL, @idCorrelacion = @c, @idUsuarioEjecutor = @uCB;
+    INSERT #ata_can EXEC dbo.usp_rechazar_solicitud_sesion @idSesion = @sRec, @codigoMotivo = @motivo, @observacion = NULL, @idCorrelacion = @c, @idUsuarioEjecutor = @uCA;
     IF NOT EXISTS (SELECT 1 FROM #ata_apr WHERE estadoResultado = 1) OR NOT EXISTS (SELECT 1 FROM #ata_can WHERE estadoResultado = 1)
         THROW 59313, 'TEST FAILED ATA_P2_02: la aprobacion y el rechazo de la prueba debieron ejecutarse.', 1;
     INSERT #ata_sol EXEC dbo.usp_consultar_solicitudes_sesion_docente_paginado @idUsuario = @uT, @idCorrelacion = @c;

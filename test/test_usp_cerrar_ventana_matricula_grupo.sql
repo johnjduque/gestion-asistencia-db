@@ -40,7 +40,8 @@ BEGIN TRY
     );
     CREATE TABLE #val (
         idGrupo UNIQUEIDENTIFIER NULL, nombreAsignatura NVARCHAR(200) NULL, nombreGrupo NVARCHAR(200) NULL,
-        nombreDocente NVARCHAR(300) NULL, fechaExpiracionUtc DATETIME2(0) NULL, cupoDisponible INT NULL
+        nombreDocente NVARCHAR(300) NULL, fechaExpiracionUtc DATETIME2(0) NULL, cupoDisponible INT NULL,
+        programasElegibles NVARCHAR(MAX) NULL   -- DEC-078
     );
 
     DECLARE @estadoActiva  NVARCHAR(10) = dbo.ufn_obtener_parametro('MATRICULA_QR', 'ESTADO_ACTIVA');

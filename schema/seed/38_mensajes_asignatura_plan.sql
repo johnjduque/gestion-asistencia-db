@@ -16,7 +16,7 @@ USING (VALUES
     ('ASI_007', 'BUSINESS_ERROR', 'MEDIO', N'El carácter de la asignatura no es válido.'),
     ('EST_005', 'BUSINESS_ERROR', 'MEDIO', N'El grupo pertenece a varios programas: indica el programa.'),
     ('EST_006', 'BUSINESS_ERROR', 'MEDIO', N'El programa indicado no corresponde a los programas del grupo.'),
-    ('MQR_008', 'BUSINESS_ERROR', 'MEDIO', N'No se pudo determinar tu programa en este grupo. Pide a tu docente que te matricule.'),
+    ('MQR_008', 'BUSINESS_ERROR', 'MEDIO', N'Este grupo lo comparten varios programas: elige el programa al que perteneces para matricularte.'),
     ('COO_002', 'BUSINESS_ERROR', 'MEDIO', N'Coordinas varios programas: selecciona el programa que quieres consultar.'),
     ('COO_003', 'BUSINESS_ERROR', 'ALTO',  N'El programa indicado no pertenece a tu coordinación.')
 ) AS Source (codigo, tipoMensaje, severidad, contenido)
@@ -38,7 +38,7 @@ USING (VALUES
     ('ASI_007', 'BUSINESS_ERROR', 'MEDIO', N'Validacion: codigoCaracter no existe en CaracterAsignaturaPlan o esta inactivo.'),
     ('EST_005', 'BUSINESS_ERROR', 'MEDIO', N'Regla R7/S3: el grupo tiene varios programas y no se envio idPrograma.'),
     ('EST_006', 'BUSINESS_ERROR', 'MEDIO', N'Regla R7/S3: idPrograma no esta entre los programas del grupo.'),
-    ('MQR_008', 'BUSINESS_ERROR', 'MEDIO', N'Regla S3: el token no tiene programaPorDefecto y el grupo tiene varios programas.'),
+    ('MQR_008', 'BUSINESS_ERROR', 'MEDIO', N'Regla S3/DEC-078: el grupo tiene varios programas, la ventana no fija programa, el estudiante no eligio uno (@idPrograma) y no pertenece a ninguno del grupo.'),
     ('COO_002', 'BUSINESS_ERROR', 'MEDIO', N'Regla S4: el coordinador tiene varios programas y no envio idPrograma.'),
     ('COO_003', 'BUSINESS_ERROR', 'ALTO',  N'Regla de ambito: idPrograma no esta entre los programas del coordinador.')
 ) AS Source (codigo, tipoMensaje, severidad, contenido)
