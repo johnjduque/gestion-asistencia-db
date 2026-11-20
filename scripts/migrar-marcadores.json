@@ -424,6 +424,13 @@
       { "objeto": "dbo.usp_validar_asignatura_activa_interno" },
       { "objeto": "dbo.usp_toggle_estado_asignatura", "contiene": "SET @codigoResultado = 'ASI_009';" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ASI_012'" }
+    ],
+    "59_perf_estudiante_mis_materias": [
+      { "objeto": "dbo.ufn_calcular_fecha_limite_justificacion_conjunto" },
+      { "objeto": "dbo.usp_consultar_sesiones_materia_estudiante", "contiene": "ufn_calcular_fecha_limite_justificacion_conjunto(pag.fechaHoraFin)" }
+    ],
+    "60_componente_electiva": [
+      { "tabla": "dbo.Componente", "donde": "codigo = 'ELE'" }
     ]
   }
 }

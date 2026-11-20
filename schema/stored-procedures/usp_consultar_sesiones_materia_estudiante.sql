@@ -81,27 +81,39 @@ BEGIN
         THROW 51000, @mensajeTecnicoResultado, 1;
 
     SET @offset = (@numeroPagina - 1) * @tamanoPagina;
+    -- PERF-EST-MM: primero se filtran las matriculas inscritas del ejecutor en la materia (y el grupo opcional), se cuentan y se
+    -- toma la pagina con las columnas baratas; la fecha limite (ufn_calcular_fecha_limite_justificacion_conjunto, la misma regla
+    -- de la vista) se calcula solo para las filas de la pagina. Mismas columnas, mismo orden, mismo total y mismo plazo que
+    -- cuando se leian fechaLimiteJustificacionUtc / plazoJustificacionVigente de uv_sesion_estudiante_reclamo.
     SELECT
-        id                          = r.idSesion,
-        nombre                      = r.nombre,
-        numero                      = r.numero,
-        codigo                      = r.codigo,
-        numeroSemana                = r.numeroSemana,
-        idGrupo                     = r.idGrupo,
-        codigoGrupo                 = r.codigoGrupo,
-        nombreGrupo                 = r.nombreGrupo,
-        fechaHoraInicio             = r.fechaHoraInicio,
-        fechaHoraFin                = r.fechaHoraFin,
-        fechaLimiteJustificacionUtc = r.fechaLimiteJustificacionUtc,
-        plazoJustificacionVigente   = r.plazoJustificacionVigente,
-        totalRegistros              = COUNT(1) OVER()
-    FROM dbo.uv_sesion_estudiante_reclamo r
-    INNER JOIN dbo.Estudiante e ON e.id = r.idEstudiante
-    WHERE e.usuario = @idUsuarioDefecto
-      AND r.idAsignatura = @idMateria
-      AND r.codigoEstadoEstudiante = @codigoInscrita
-      AND (@idGrupo IS NULL OR r.idGrupo = @idGrupo)
-    ORDER BY r.fechaHoraInicio ASC, r.numero ASC, r.idSesion ASC
-    OFFSET @offset ROWS FETCH NEXT @tamanoPagina ROWS ONLY;
+        id                          = pag.idSesion,
+        nombre                      = pag.nombre,
+        numero                      = pag.numero,
+        codigo                      = pag.codigo,
+        numeroSemana                = pag.numeroSemana,
+        idGrupo                     = pag.idGrupo,
+        codigoGrupo                 = pag.codigoGrupo,
+        nombreGrupo                 = pag.nombreGrupo,
+        fechaHoraInicio             = pag.fechaHoraInicio,
+        fechaHoraFin                = pag.fechaHoraFin,
+        fechaLimiteJustificacionUtc = lim.fechaLimiteUtc,
+        plazoJustificacionVigente   = CAST(IIF(pag.estaCancelada = 0 AND lim.fechaLimiteUtc IS NOT NULL
+                                               AND SYSUTCDATETIME() < lim.fechaLimiteUtc, 1, 0) AS BIT),
+        totalRegistros              = pag.totalRegistros
+    FROM (
+        SELECT  r.idSesion, r.nombre, r.numero, r.codigo, r.numeroSemana, r.idGrupo, r.codigoGrupo, r.nombreGrupo,
+                r.fechaHoraInicio, r.fechaHoraFin, r.estaCancelada,
+                totalRegistros = COUNT(1) OVER()
+        FROM dbo.uv_sesion_estudiante_reclamo r
+        INNER JOIN dbo.Estudiante e ON e.id = r.idEstudiante
+        WHERE e.usuario = @idUsuarioDefecto
+          AND r.idAsignatura = @idMateria
+          AND r.codigoEstadoEstudiante = @codigoInscrita
+          AND (@idGrupo IS NULL OR r.idGrupo = @idGrupo)
+        ORDER BY r.fechaHoraInicio ASC, r.numero ASC, r.idSesion ASC
+        OFFSET @offset ROWS FETCH NEXT @tamanoPagina ROWS ONLY
+    ) pag
+    CROSS APPLY dbo.ufn_calcular_fecha_limite_justificacion_conjunto(pag.fechaHoraFin) lim
+    ORDER BY pag.fechaHoraInicio ASC, pag.numero ASC, pag.idSesion ASC;
 END;
 GO

@@ -216,6 +216,10 @@ PRINT '======================================================================';
 :r /tmp/test/test_ata_d10_faltas_reclamables.sql
 -- ATA D11 (migracion 55): la oferta de grupos del estudiante (HU008) y su parametro ya no existen tras el despliegue
 :r /tmp/test/test_ata_k_retiro_oferta_estudiante.sql
+-- PERF-EST-MM (migracion 59): rendimiento de Mis materias del estudiante; mismos resultados que la regla escalar
+:r /tmp/test/test_perf_estudiante_mis_materias.sql
+-- COMP-ELE (migracion 60): componente de formacion electivas (ELE)
+:r /tmp/test/test_componente_electiva.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN

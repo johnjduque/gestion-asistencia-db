@@ -33,7 +33,7 @@ SELECT  idAsistencia = a.id,
         esReclamable = CAST(IIF(rc.codigo = N'SJC'
                                 AND sol.idSolicitud IS NULL
                                 AND pc.estaSesionCancelada = 0
-                                AND SYSUTCDATETIME() < dbo.ufn_calcular_fecha_limite_justificacion(pc.fechaHoraFinSesion), 1, 0) AS BIT),
+                                AND SYSUTCDATETIME() < lim.fechaLimiteUtc, 1, 0) AS BIT),
         idEstudiante = eg.estudiante,
         codigoEstadoTomaEstudiante = CAST(CASE rc.codigo WHEN N'AN' THEN N'PRESENTE'
                                                          WHEN N'SJC' THEN N'AUSENTE'
@@ -48,13 +48,21 @@ LEFT JOIN dbo.DetalleAsistencia d
 ON      d.asistencia = a.id AND d.toma = pc.idToma
 LEFT JOIN dbo.RazonCausa rc
 ON      rc.id = d.razonCausa
+-- PERF-EST-MM: el limite (ufn_calcular_fecha_limite_justificacion_conjunto, misma regla que la escalar) y el codigo RECLAMO/ESTADO_RETIRADO
+-- (misma lectura que ufn_obtener_parametro: valor, si no valorDefecto, si no '') se resuelven como conjunto, no por fila.
+CROSS APPLY dbo.ufn_calcular_fecha_limite_justificacion_conjunto(pc.fechaHoraFinSesion) lim
+CROSS JOIN (
+        SELECT  codigoRetirado = CAST(ISNULL((SELECT TOP (1) ISNULL(p.valor, ISNULL(p.valorDefecto, N''))
+                                              FROM dbo.uv_parametro p
+                                              WHERE p.grupo = 'RECLAMO' AND p.clave = 'ESTADO_RETIRADO'), N'') AS NVARCHAR(5))
+) ret
 OUTER APPLY (
         SELECT  TOP 1 idSolicitud = sra.id, codigoEstado = e.codigo, codigoResultado = rcr.codigo
         FROM    dbo.SolicitudRevisionAsistencia sra
         INNER JOIN dbo.Estado e ON e.id = sra.estado
         LEFT JOIN dbo.RazonCausa rcr ON rcr.id = sra.razonCausaResolucion
         WHERE   sra.asistencia = a.id AND sra.toma = pc.idToma
-          AND   e.codigo <> CAST(dbo.ufn_obtener_parametro('RECLAMO', 'ESTADO_RETIRADO') AS NVARCHAR(5))
+          AND   e.codigo <> ret.codigoRetirado
         ORDER BY sra.fecha DESC, sra.id DESC
 ) sol;
 GO

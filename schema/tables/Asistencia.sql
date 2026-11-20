@@ -45,3 +45,9 @@ IF NOT EXISTS (
     CREATE UNIQUE INDEX UX_Asistencia_EstudianteGrupo_Sesion
     ON dbo.Asistencia(estudianteGrupo, sesion);
 GO
+
+-- PERF-EST-MM: uv_toma_punto_control, uv_asistencia_tramo y uv_asistencia_toma_estudiante unen las cabeceras por sesion;
+-- UX_Asistencia_EstudianteGrupo_Sesion empieza por estudianteGrupo y no sirve para buscar por sesion.
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Asistencia') AND name = 'IX_Asistencia_Sesion')
+    CREATE NONCLUSTERED INDEX IX_Asistencia_Sesion ON dbo.Asistencia (sesion) INCLUDE (estudianteGrupo);
+GO
