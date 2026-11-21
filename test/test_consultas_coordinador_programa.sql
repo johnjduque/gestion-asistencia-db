@@ -29,7 +29,7 @@ IF @idGrupo IS NULL OR @uCoordTitular IS NULL OR @idSesion IS NULL OR @tipoCC IS
 CREATE TABLE #grupos (
     id UNIQUEIDENTIFIER, codigo INT, nombre NVARCHAR(100), idAsignatura UNIQUEIDENTIFIER, nombreAsignatura NVARCHAR(100),
     idDocente UNIQUEIDENTIFIER, capacidadMaximaPermitida INT, estudiantesActivos INT, cuposDisponibles INT,
-    grupoEstaHablitado BIT, fechaInicioPeriodoAcademico DATETIME2, fechaFinPeriodoAcademico DATETIME2, totalRegistros INT);
+    grupoEstaHablitado BIT, fechaInicioPeriodoAcademico DATETIME2, fechaFinPeriodoAcademico DATETIME2, totalRegistros INT, idProgramaResponsable UNIQUEIDENTIFIER, nombreProgramaResponsable NVARCHAR(50), esResponsable BIT);
 CREATE TABLE #sesiones (
     id UNIQUEIDENTIFIER, idGrupo UNIQUEIDENTIFIER, codigoGrupo INT, nombreGrupo NVARCHAR(100), nombre NVARCHAR(100),
     numero INT, codigo NVARCHAR(50), numeroSemana INT, fechaHoraInicio DATETIME2, fechaHoraFin DATETIME2, totalRegistros INT,
@@ -66,6 +66,30 @@ BEGIN TRY
         @idUsuarioEjecutor = @uOtro, @idCorrelacion = @corr, @numeroPagina = 1, @tamanoPagina = 100;
     IF EXISTS (SELECT 1 FROM #grupos) THROW 52912, 'T-064-01 FAILED: un coordinador sin grupos ve grupos ajenos.', 1;
     PRINT 'TEST_PASS:T-064-01';
+
+    -- T-064-02 (DEC-077): cada fila trae el programa responsable (ufn_programas_grupo_responsable) y esResponsable = 1 solo si el
+    -- ejecutor coordina ese programa; un ejecutor que no es coordinador (el docente titular) recibe esResponsable = 0.
+    TRUNCATE TABLE #grupos;
+    INSERT INTO #grupos EXEC dbo.usp_consultar_grupos_paginado
+        @idUsuarioEjecutor = @uCoordTitular, @idCorrelacion = @corr, @numeroPagina = 1, @tamanoPagina = 100;
+    IF EXISTS (SELECT 1 FROM #grupos g
+               WHERE g.idProgramaResponsable IS NULL
+                  OR g.idProgramaResponsable <> (SELECT r.idPrograma FROM dbo.ufn_programas_grupo_responsable(g.id) r)
+                  OR g.nombreProgramaResponsable <> (SELECT p.nombre FROM dbo.Programa p WHERE p.id = g.idProgramaResponsable))
+        THROW 52913, 'T-064-02 FAILED: idProgramaResponsable/nombreProgramaResponsable no coinciden con el programa responsable.', 1;
+    IF EXISTS (SELECT 1 FROM #grupos g
+               WHERE g.esResponsable <> IIF(EXISTS (SELECT 1 FROM dbo.ufn_programas_coordinador(@uCoordTitular) cp WHERE cp.idPrograma = g.idProgramaResponsable), 1, 0))
+        THROW 52914, 'T-064-02 FAILED: esResponsable no refleja si el ejecutor coordina el programa responsable.', 1;
+    DECLARE @idDocenteGrupo UNIQUEIDENTIFIER = (SELECT d.usuario FROM dbo.Docente d INNER JOIN #grupos g ON g.idDocente = d.id WHERE g.id = @idGrupo);
+    IF @idDocenteGrupo IS NOT NULL
+    BEGIN
+        TRUNCATE TABLE #grupos;
+        INSERT INTO #grupos EXEC dbo.usp_consultar_grupos_paginado
+            @idUsuarioEjecutor = @idDocenteGrupo, @idCorrelacion = @corr, @numeroPagina = 1, @tamanoPagina = 100;
+        IF EXISTS (SELECT 1 FROM #grupos WHERE esResponsable <> 0)
+            THROW 52915, 'T-064-02 FAILED: un ejecutor que no coordina el programa recibio esResponsable = 1.', 1;
+    END
+    PRINT 'TEST_PASS:T-064-02';
 
     -- T-060-01: sesiones (registros de asistencia) del grupo, solo para el titular
     INSERT INTO #sesiones EXEC dbo.usp_consultar_sesiones_grupo_paginado

@@ -643,7 +643,7 @@ BEGIN TRY
     -- Columnas de usp_consultar_grupos_paginado (las mismas de test_usp_consultar_grupos_paginado.sql).
     CREATE TABLE #g (id UNIQUEIDENTIFIER, codigo INT, nombre NVARCHAR(100), idAsignatura UNIQUEIDENTIFIER, nombreAsignatura NVARCHAR(100),
         idDocente UNIQUEIDENTIFIER, capacidadMaximaPermitida INT, estudiantesActivos INT, cuposDisponibles INT, grupoEstaHablitado BIT,
-        fechaInicioPeriodoAcademico DATETIME2, fechaFinPeriodoAcademico DATETIME2, totalRegistros INT);
+        fechaInicioPeriodoAcademico DATETIME2, fechaFinPeriodoAcademico DATETIME2, totalRegistros INT, idProgramaResponsable UNIQUEIDENTIFIER, nombreProgramaResponsable NVARCHAR(50), esResponsable BIT);
     INSERT INTO #g EXEC dbo.usp_consultar_grupos_paginado @idUsuarioEjecutor = @uDocT, @idCorrelacion = @c, @tamanoPagina = NULL;
     SET @n = (SELECT COUNT(*) FROM #g);
     DELETE FROM #g;

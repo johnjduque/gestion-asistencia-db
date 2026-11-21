@@ -20,6 +20,11 @@ GO
 -- excluido de esa regla en test/test_contract_closure.sql. Las fallas se propagan
 -- con THROW (VAL_001 para usuario ejecutor invalido).
 --
+-- DEC-077 (cambio aditivo): tres columnas AL FINAL del resultset, despues de totalRegistros (no mueven las previas):
+-- idProgramaResponsable / nombreProgramaResponsable (programa responsable del grupo, ufn_programas_grupo_responsable; NULL si el
+-- grupo no tiene programas vigentes) y esResponsable (BIT: el ejecutor coordina ese programa, ufn_programas_coordinador; 0 para
+-- cualquier ejecutor que no sea su coordinador, p. ej. docente, decano o administrador).
+--
 -- SESSION_CONTEXT es estado de la conexion fisica: este SP captura el contexto
 -- previo, aplica el del usuario ejecutor solo durante la consulta y SIEMPRE
 -- restaura el previo (en exito y ante excepcion).
@@ -104,8 +109,16 @@ BEGIN
             g.grupoEstaHablitado,
             g.fechaInicioPeriodoAcademico,
             g.fechaFinPeriodoAcademico,
-            COUNT(*) OVER() AS totalRegistros
+            COUNT(*) OVER() AS totalRegistros,
+            pr.idPrograma AS idProgramaResponsable,
+            pr.nombre AS nombreProgramaResponsable,
+            CAST(IIF(pr.idPrograma IS NOT NULL
+                     AND EXISTS (SELECT 1 FROM dbo.ufn_programas_coordinador(@idUsuarioDefecto) cp WHERE cp.idPrograma = pr.idPrograma),
+                     1, 0) AS BIT) AS esResponsable
         FROM dbo.uv_auth_grupo g
+        OUTER APPLY (SELECT TOP (1) r.idPrograma, p.nombre
+                     FROM dbo.ufn_programas_grupo_responsable(g.id) r
+                     INNER JOIN dbo.Programa p ON p.id = r.idPrograma) pr
         WHERE
             (@idPeriodoAcademico IS NULL OR g.idPeriodoAcademico = @idPeriodoAcademico)
             AND (@idAsignatura IS NULL OR g.idAsignatura = @idAsignatura)
