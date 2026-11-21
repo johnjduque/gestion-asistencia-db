@@ -46,6 +46,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_err_bd_no_disponible.sql
 -- VAL oleada 3: PRU-14 (bordes del umbral de horas) y OBS-03 (procedimientos sin @idCorrelacion)
 :r /tmp/test/test_val_umbral_horas_bordes.sql
+-- VAL PRU-13 / decision 3A: borde del 20 % y del 15 % en la vista de resumen y el motor de alertas
+:r /tmp/test/test_val_umbral_borde_alertas.sql
 :r /tmp/test/test_val_obs03_id_correlacion.sql
 :r /tmp/test/test_usp_registrar_o_actualizar_plan_estudio.sql
 :r /tmp/test/test_usp_plan_estudio_estado_semestres.sql
