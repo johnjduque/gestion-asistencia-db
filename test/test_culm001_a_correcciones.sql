@@ -705,6 +705,8 @@ GO
 
 DROP PROCEDURE IF EXISTS #a2_expect;
 DROP PROCEDURE IF EXISTS #a2_fixture;
+-- #r se crea fuera de la transaccion de la prueba: se retira al terminar para no chocar con archivos posteriores de la suite.
+DROP TABLE IF EXISTS #r;
 IF @@TRANCOUNT <> 0 THROW 58196, 'TEST FAILED: test_culm001_a_correcciones dejo transacciones abiertas.', 1;
 PRINT 'TEST END: test_culm001_a_correcciones';
 GO

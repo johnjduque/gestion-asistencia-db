@@ -63,6 +63,7 @@ DECLARE @finMal DATE = DATEADD(DAY, 30, @fin);
 DECLARE @h1 NVARCHAR(MAX) = N'[{"codigoDia":"LU","horaInicio":"08:00","horaFin":"12:00"}]';
 DECLARE @h2 NVARCHAR(MAX) = N'[{"codigoDia":"LU","horaInicio":"08:00","horaFin":"10:00"},{"codigoDia":"MI","horaInicio":"08:00","horaFin":"10:00"}]';
 
+DROP TABLE IF EXISTS #r;
 CREATE TABLE #r (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT, idPeriodo UNIQUEIDENTIFIER NULL);
 CREATE TABLE #r4 (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT);
 CREATE TABLE #pv (tipoFila VARCHAR(12), orden INT, id1 UNIQUEIDENTIFIER, id2 UNIQUEIDENTIFIER, id3 UNIQUEIDENTIFIER,
