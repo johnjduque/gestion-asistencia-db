@@ -457,6 +457,13 @@
       { "restriccion": "DF_CategoriaJustificacion_estaActivo" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'CTG_008'" },
       { "tabla": "dbo.CatalogoMensajeTecnico", "donde": "codigo = 'CTG_008'" }
+    ],
+    "66_catalogos_nombres_capitalizados": [
+      { "tabla": "dbo.TipoPrograma", "donde": "codigo = 'PRE' AND nombre COLLATE Latin1_General_CS_AS = 'Pregrado'" },
+      { "tabla": "dbo.TipoPrograma", "donde": "codigo = 'POS' AND nombre COLLATE Latin1_General_CS_AS = 'Posgrado'" },
+      { "tabla": "dbo.Estado", "donde": "codigo = 'A' AND nombre COLLATE Latin1_General_CS_AS = 'Aceptada'" },
+      { "tabla": "dbo.EstadoEstudianteGrupo", "donde": "codigo = 'A' AND nombre COLLATE Latin1_General_CS_AS = 'Activo'" },
+      { "tabla": "dbo.RazonCausa", "donde": "codigo = 'AN' AND nombre COLLATE Latin1_General_CS_AS = 'Asistencia normal'" }
     ]
   }
 }

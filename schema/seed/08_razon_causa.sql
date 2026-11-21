@@ -8,11 +8,11 @@ GO
 -- Sembrado Idempotente: RazonCausa
 MERGE INTO [dbo].[RazonCausa] AS Target
 USING (VALUES
-    ('00000000-0000-0000-0000-000000000001', 'asistencia normal', 'AN'),
-    ('00000000-0000-0000-0000-000000000002', 'sin justa causa', 'SJC'),
-    ('00000000-0000-0000-0000-000000000003', 'excusa', 'EX'),
-    ('00000000-0000-0000-0000-000000000004', 'cancelado por voluntad propia', 'CPVP'),
-    ('00000000-0000-0000-0000-000000000005', 'cancelado por inasistencia', 'CPI')
+    ('00000000-0000-0000-0000-000000000001', 'Asistencia normal', 'AN'),
+    ('00000000-0000-0000-0000-000000000002', 'Sin justa causa', 'SJC'),
+    ('00000000-0000-0000-0000-000000000003', 'Excusa', 'EX'),
+    ('00000000-0000-0000-0000-000000000004', 'Cancelado por voluntad propia', 'CPVP'),
+    ('00000000-0000-0000-0000-000000000005', 'Cancelado por inasistencia', 'CPI')
 ) AS Source (id, nombre, codigo)
 ON (Target.id = TRY_CAST(Source.id AS UNIQUEIDENTIFIER) OR Target.codigo = Source.codigo)
 WHEN MATCHED THEN
