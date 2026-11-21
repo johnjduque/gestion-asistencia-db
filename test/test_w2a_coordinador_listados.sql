@@ -20,7 +20,9 @@ BEGIN TRY
     DECLARE @a TABLE (idAsignatura UNIQUEIDENTIFIER, codigo NVARCHAR(50), nombre NVARCHAR(200), credito INT, idArea UNIQUEIDENTIFIER, nombreArea NVARCHAR(200),
         idComponente UNIQUEIDENTIFIER, nombreComponente NVARCHAR(200), idPlanEstudio UNIQUEIDENTIFIER, inpPlanEstudio INT, idPrograma UNIQUEIDENTIFIER,
         nombrePrograma NVARCHAR(200), idSemestrePlanEstudio UNIQUEIDENTIFIER, numeroSemestre INT, codigoSemestre NVARCHAR(10), codigoCaracter NVARCHAR(3),
-        nombreCaracter NVARCHAR(100), estaActivoVinculo BIT, estaActivaAsignatura BIT, compartida BIT, totalRegistros INT);
+        nombreCaracter NVARCHAR(100), estaActivoVinculo BIT, estaActivaAsignatura BIT, compartida BIT,
+        horasSemanales INT NULL,   -- SES-GEN-01: columna agregada al resultset antes de totalRegistros
+        totalRegistros INT);
     DECLARE @totalTodos INT, @totalOpt INT, @totalObl INT;
 
     -- Un coordinador de dos programas ve ambos; el filtro por caracter se aplica en la base
