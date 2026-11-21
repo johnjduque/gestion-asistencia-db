@@ -13,6 +13,9 @@ GO
 -- mismo orden que usp_consultar_solicitudes_sesion_coordinador_paginado (incluido idPrograma/nombrePrograma: el programa
 -- alfabeticamente primero del grupo, una fila por sesion), fechaSolicitudUtc DESC. @soloPendientes = 1 (por defecto) deja las
 -- solicitudes en espera de aval que no fueron canceladas; 0 incluye aprobadas, rechazadas y canceladas. @idGrupo ajeno: sin filas.
+-- C6 (DEC-077): al final del resultado (despues de totalRegistros, solo en este SP) se agregan nombreProgramaResponsable (programa
+-- responsable del grupo, el mismo idPrograma/nombrePrograma de la fila) y nombreCoordinadorResolutor (nombre completo del coordinador
+-- de ese programa, NULL si no tiene), para que el docente sepa quien resuelve cada solicitud.
 -- Validacion compartida (correlacion, ejecutor, RBAC DOCENTE, PAG_001) en usp_validar_consulta_paginada_interno; THROW 51000 si falla.
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_solicitudes_sesion_docente_paginado]
@@ -44,8 +47,12 @@ BEGIN
     IF @estadoResultado = 0
         THROW 51000, @mensajeTecnicoResultado, 1;
 
-    SELECT  v.*, totalRegistros = COUNT(*) OVER()
+    SELECT  v.*, totalRegistros = COUNT(*) OVER(),
+            nombreProgramaResponsable = CAST(v.nombrePrograma AS NVARCHAR(200)),
+            nombreCoordinadorResolutor = CAST(ci.nombreCompleto AS NVARCHAR(400))
     FROM    dbo.uv_solicitud_sesion v
+    LEFT JOIN dbo.Programa pr ON pr.id = v.idPrograma
+    LEFT JOIN dbo.uv_coordinador_identidad ci ON ci.id = pr.coordinador
     WHERE   v.idDocente IN (SELECT d.id FROM dbo.Docente d WHERE d.usuario = @idUsuarioValidado)
       AND   (@idGrupo IS NULL OR v.idGrupo = @idGrupo)
       AND   (ISNULL(@soloPendientes, 1) = 0 OR v.pendienteAprobacion = 1)

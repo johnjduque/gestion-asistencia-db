@@ -48,7 +48,8 @@ BEGIN TRY
     CREATE TABLE #ata_sol (idSesion UNIQUEIDENTIFIER, nombreSesion NVARCHAR(200), codigoSesion NVARCHAR(50), idGrupo UNIQUEIDENTIFIER, nombreGrupo NVARCHAR(200), nombreAsignatura NVARCHAR(200),
         idPrograma UNIQUEIDENTIFIER, nombrePrograma NVARCHAR(200), idDocente UNIQUEIDENTIFIER, nombreDocente NVARCHAR(400), fechaHoraInicio DATETIME2, fechaHoraFin DATETIME2,
         estadoSolicitud NVARCHAR(30), nombreEstadoSolicitud NVARCHAR(100), fechaSolicitudUtc DATETIME2, fechaResolucionUtc DATETIME2 NULL, observacion NVARCHAR(500) NULL,
-        usuarioSolicitante UNIQUEIDENTIFIER, pendienteAprobacion BIT, estaCancelada BIT, totalRegistros INT);
+        usuarioSolicitante UNIQUEIDENTIFIER, pendienteAprobacion BIT, estaCancelada BIT, totalRegistros INT,
+        nombreProgramaResponsable NVARCHAR(200) NULL, nombreCoordinadorResolutor NVARCHAR(400) NULL);
     CREATE TABLE #ata_cal (idSesion UNIQUEIDENTIFIER, idGrupo UNIQUEIDENTIFIER, codigoGrupo INT, nombreGrupo NVARCHAR(200), idAsignatura UNIQUEIDENTIFIER, codigoAsignatura NVARCHAR(50),
         nombreAsignatura NVARCHAR(200), idDocente UNIQUEIDENTIFIER, nombreDocente NVARCHAR(400), fechaHoraInicioUtc DATETIME2, fechaHoraFinUtc DATETIME2, esExtraordinaria BIT,
         estaCancelada BIT, motivoCancelacion NVARCHAR(500) NULL, esCancelacionAutomatica BIT NULL, nombreDiaFestivo NVARCHAR(200) NULL);
@@ -76,6 +77,11 @@ BEGIN TRY
         THROW 59311, 'TEST FAILED ATA_P2_01: el docente debe ver sus 3 solicitudes pendientes, una fila por sesion y con un programa del grupo.', 1;
     IF EXISTS (SELECT 1 FROM (SELECT fechaSolicitudUtc, prev = LAG(fechaSolicitudUtc) OVER (ORDER BY (SELECT NULL)) FROM #ata_sol) x WHERE prev < fechaSolicitudUtc)
         THROW 59312, 'TEST FAILED ATA_P2_01: el orden debe ser fechaSolicitudUtc DESC.', 1;
+    -- C6 (DEC-077): cada solicitud nombra al programa responsable (A) y a su coordinador resolutor (CA).
+    IF EXISTS (SELECT 1 FROM #ata_sol WHERE idPrograma <> @progA OR nombreProgramaResponsable IS NULL OR nombreProgramaResponsable <> nombrePrograma
+                                          OR nombreCoordinadorResolutor IS NULL
+                                          OR nombreCoordinadorResolutor <> (SELECT TOP 1 ci.nombreCompleto FROM dbo.uv_coordinador_identidad ci WHERE ci.idUsuario = @uCA))
+        THROW 59399, 'TEST FAILED ATA_P2_01: nombreProgramaResponsable y nombreCoordinadorResolutor deben ser los del programa responsable (A) y su coordinador.', 1;
     TRUNCATE TABLE #ata_sol;
     PRINT 'TEST_PASS:ATA_P2_01_DOCENTE_VE_SUS_PENDIENTES';
 
