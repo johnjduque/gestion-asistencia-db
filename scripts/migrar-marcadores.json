@@ -461,6 +461,10 @@
     ],
     "66_seg11_retiro_password_usuario": [
       { "columna": "dbo.Usuario.password", "existe": false }
+    ],
+    "67_err_bd_no_disponible": [
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ERR_BD_NO_DISPONIBLE'" },
+      { "tabla": "dbo.CatalogoMensajeTecnico", "donde": "codigo = 'ERR_BD_NO_DISPONIBLE'" }
     ]
   }
 }

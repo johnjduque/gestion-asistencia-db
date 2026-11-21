@@ -42,6 +42,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_val_mensajes_err_pendientes.sql
 -- REA-02 (VAL-oleada9, migracion 47): mensaje del almacenamiento no disponible
 :r /tmp/test/test_val_oleada9_mensaje_almacenamiento.sql
+-- Mensaje ERR_BD_NO_DISPONIBLE (migracion 67)
+:r /tmp/test/test_err_bd_no_disponible.sql
 -- VAL oleada 3: PRU-14 (bordes del umbral de horas) y OBS-03 (procedimientos sin @idCorrelacion)
 :r /tmp/test/test_val_umbral_horas_bordes.sql
 :r /tmp/test/test_val_obs03_id_correlacion.sql

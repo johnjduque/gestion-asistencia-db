@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **509**.
+Total de códigos: **510**.
 
 ## ACC
 
@@ -194,6 +194,7 @@ Total de códigos: **509**.
 | `ERR_ANTIVIRUS_NO_DISPONIBLE` | TECHNICAL_ERROR | ALTO | El antivirus no está disponible; el archivo no se guardó. Intente de nuevo en unos minutos. | Backend (SERVICE_UNAVAILABLE, ArchivoErrorCode): ClamAV no respondio (caido, timeout, respuesta fuera del protocolo o circuit breaker malwareScan abierto); subida rechazada fail-closed con 503, sin almacenar bytes ni metadata. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_APROBACION_PRESENTE_SIN_TOMA` | BUSINESS_ERROR | MEDIO | La aprobación como presente solo aplica a reclamos de una toma. | Backend (CONFLICT, AsistenciaErrorCode): La aprobacion como presente solo aplica a reclamos de una toma. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_ASISTENCIA_REQUERIDA` | VALIDATION_ERROR | BAJO | La asistencia es obligatoria. | Backend (VALIDATION_ERROR, AsistenciaErrorCode): La asistencia es obligatoria. | `63_val_mensajes_err_pendientes.sql` |
+| `ERR_BD_NO_DISPONIBLE` | TECHNICAL_ERROR | ALTO | El servicio no está disponible en este momento. Intenta de nuevo en unos minutos. | La base de datos no respondió (conexión o tiempo de espera). | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_BUSQUEDA_CANDIDATOS_CORTA` | VALIDATION_ERROR | BAJO | La búsqueda de candidatos requiere al menos 3 caracteres. | Backend (VALIDATION_ERROR, DocenteErrorCode): La busqueda de candidatos requiere al menos 3 caracteres. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_CAPACIDAD_GRUPO_INVALIDA` | SYSTEM_ERROR | CRITICO | No fue posible determinar una capacidad máxima válida para el grupo. | El parametro GRUPO/CAPACIDAD_MAXIMA_DEFECTO es nulo, cero o negativo: {}. | `04_mensaje.sql` |
 | `ERR_CATEGORIA_JUSTIFICACION_INVALIDA` | VALIDATION_ERROR | BAJO | La categoría de justificación no es válida. | Backend (VALIDATION_ERROR, AsistenciaErrorCode): La categoria de justificacion no es valida. | `63_val_mensajes_err_pendientes.sql` |

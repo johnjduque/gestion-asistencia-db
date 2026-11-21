@@ -9,7 +9,8 @@ GO
 -- *ErrorCode de Application) y que no tenian fila en el catalogo; hasta ahora salian del texto de respaldo del enum. El codigo es
 -- el mismo codigo publico de la respuesta, salvo ERR_CORREO_REQUERIDO_MATRICULA (la respuesta conserva FIELD_REQUIRED y el texto se
 -- busca por este codigo). Incluye ERR_ANTIVIRUS_NO_DISPONIBLE (VAL H3: 503 cuando el antivirus no responde) y
--- ERR_ALMACENAMIENTO_NO_DISPONIBLE (REA-02, VAL-oleada9, migracion 47: 503 cuando MinIO no responde).
+-- ERR_ALMACENAMIENTO_NO_DISPONIBLE (REA-02, VAL-oleada9, migracion 47: 503 cuando MinIO no responde) y
+-- ERR_BD_NO_DISPONIBLE (migracion 67: 503 cuando la base de datos no responde, por conexion o tiempo de espera).
 -- Tipos: VALIDATION_ERROR (400), BUSINESS_ERROR (404/409), SECURITY_ERROR (403), TECHNICAL_ERROR (500/503).
 -- Idempotente (MERGE por codigo). Migracion: 42_val_mensajes_err_pendientes_up.sql.
 MERGE INTO [dbo].[CatalogoMensajeUsuario] AS Target
@@ -107,7 +108,8 @@ USING (VALUES
     ('ERR_USUARIO_REQUERIDO', 'VALIDATION_ERROR', 'BAJO', N'El usuario es obligatorio.'),
     ('ERR_CORREO_REQUERIDO_MATRICULA', 'VALIDATION_ERROR', 'BAJO', N'El correo es obligatorio: no hay un estudiante registrado que se pueda matricular con ese documento.'),
     ('ERR_ANTIVIRUS_NO_DISPONIBLE', 'TECHNICAL_ERROR', 'ALTO', N'El antivirus no está disponible; el archivo no se guardó. Intente de nuevo en unos minutos.'),
-    ('ERR_ALMACENAMIENTO_NO_DISPONIBLE', 'TECHNICAL_ERROR', 'ALTO', N'El almacenamiento de soportes no está disponible en este momento. Intente de nuevo en unos minutos.')
+    ('ERR_ALMACENAMIENTO_NO_DISPONIBLE', 'TECHNICAL_ERROR', 'ALTO', N'El almacenamiento de soportes no está disponible en este momento. Intente de nuevo en unos minutos.'),
+    ('ERR_BD_NO_DISPONIBLE', 'TECHNICAL_ERROR', 'ALTO', N'El servicio no está disponible en este momento. Intenta de nuevo en unos minutos.')
 ) AS Source (codigo, tipoMensaje, severidad, contenido)
 ON (Target.codigo = Source.codigo)
 WHEN MATCHED THEN
@@ -212,7 +214,8 @@ USING (VALUES
     ('ERR_USUARIO_REQUERIDO', 'VALIDATION_ERROR', 'BAJO', N'Backend (VALIDATION_ERROR, UsuarioErrorCode): El usuario es obligatorio.'),
     ('ERR_CORREO_REQUERIDO_MATRICULA', 'VALIDATION_ERROR', 'BAJO', N'Backend (VALIDATION_ERROR, GrupoErrorCode): Codigo publico FIELD_REQUIRED (campo correo); el documento no resuelve a un estudiante matriculable.'),
     ('ERR_ANTIVIRUS_NO_DISPONIBLE', 'TECHNICAL_ERROR', 'ALTO', N'Backend (SERVICE_UNAVAILABLE, ArchivoErrorCode): ClamAV no respondio (caido, timeout, respuesta fuera del protocolo o circuit breaker malwareScan abierto); subida rechazada fail-closed con 503, sin almacenar bytes ni metadata.'),
-    ('ERR_ALMACENAMIENTO_NO_DISPONIBLE', 'TECHNICAL_ERROR', 'ALTO', N'Backend (SERVICE_UNAVAILABLE, ArchivoErrorCode): MinIO no respondio o el circuit breaker fileStorage esta abierto al subir o descargar un soporte; 503 sin registrar metadata (REA-02).')
+    ('ERR_ALMACENAMIENTO_NO_DISPONIBLE', 'TECHNICAL_ERROR', 'ALTO', N'Backend (SERVICE_UNAVAILABLE, ArchivoErrorCode): MinIO no respondio o el circuit breaker fileStorage esta abierto al subir o descargar un soporte; 503 sin registrar metadata (REA-02).'),
+    ('ERR_BD_NO_DISPONIBLE', 'TECHNICAL_ERROR', 'ALTO', N'La base de datos no respondió (conexión o tiempo de espera).')
 ) AS Source (codigo, tipoMensaje, severidad, contenido)
 ON (Target.codigo = Source.codigo)
 WHEN MATCHED THEN
