@@ -452,13 +452,7 @@
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ASI_013'" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ASI_014'" }
     ],
-    "65_admin_catalogos_justificacion_cancelacion": [
-      { "columna": "dbo.CategoriaJustificacion.estaActivo" },
-      { "restriccion": "DF_CategoriaJustificacion_estaActivo" },
-      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'CTG_008'" },
-      { "tabla": "dbo.CatalogoMensajeTecnico", "donde": "codigo = 'CTG_008'" }
-    ],
-    "66_catalogos_nombres_capitalizados": [
+    "65_catalogos_nombres_capitalizados": [
       { "tabla": "dbo.TipoPrograma", "donde": "codigo = 'PRE' AND nombre COLLATE Latin1_General_CS_AS = 'Pregrado'" },
       { "tabla": "dbo.TipoPrograma", "donde": "codigo = 'POS' AND nombre COLLATE Latin1_General_CS_AS = 'Posgrado'" },
       { "tabla": "dbo.Estado", "donde": "codigo = 'A' AND nombre COLLATE Latin1_General_CS_AS = 'Aceptada'" },

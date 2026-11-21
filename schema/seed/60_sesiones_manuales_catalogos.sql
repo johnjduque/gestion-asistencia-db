@@ -6,8 +6,8 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 -- CULM-001 / DEC-064: catalogo de motivos con los que el coordinador cancela una sesion creada manualmente por el docente, y el
--- limite parametrizado de su observacion libre (SES_021). Idempotente: el catalogo solo inserta por id (migracion 65: lo administra el ADMINISTRADOR y el sembrado no pisa sus
--- cambios); el parametro no pisa el valor administrado (WHEN MATCHED solo actualiza tipoDato y valorDefecto).
+-- limite parametrizado de su observacion libre (SES_021). Idempotente: el catalogo se actualiza por id; el parametro no pisa el
+-- valor administrado (WHEN MATCHED solo actualiza tipoDato y valorDefecto).
 MERGE INTO [dbo].[MotivoCancelacionSesion] AS Target
 USING (VALUES
     (CAST('7C1E0B10-5E51-4C0A-9B01-000000000001' AS UNIQUEIDENTIFIER), N'SESION_NO_AUTORIZADA',     N'Sesión no autorizada por la coordinación', 1),
@@ -17,6 +17,8 @@ USING (VALUES
     (CAST('7C1E0B10-5E51-4C0A-9B01-000000000005' AS UNIQUEIDENTIFIER), N'OTRO',                     N'Otro motivo', 5)
 ) AS Source (id, codigo, nombre, orden)
 ON (Target.id = Source.id)
+WHEN MATCHED THEN
+    UPDATE SET Target.codigo = Source.codigo, Target.nombre = Source.nombre, Target.orden = Source.orden
 WHEN NOT MATCHED THEN
     INSERT (id, codigo, nombre, orden, estaActivo)
     VALUES (Source.id, Source.codigo, Source.nombre, Source.orden, 1);
@@ -36,7 +38,7 @@ GO
 
 -- CULM-001 / DEC-065 (2): estados de la solicitud de una sesion extraordinaria (aval previo del coordinador) y el prefijo del motivo con el que
 -- se registra la cancelacion al rechazarla. Los SP resuelven los estados por bandera: esFinal = 0 (en espera), esFinal = 1 y esAprobada = 1
--- (aprobada), esFinal = 1 y esAprobada = 0 (rechazada). Idempotente: el catalogo solo inserta por id (migracion 65: lo administra el ADMINISTRADOR y el sembrado no pisa sus cambios); el parametro no pisa el valor administrado.
+-- (aprobada), esFinal = 1 y esAprobada = 0 (rechazada). Idempotente: el catalogo se actualiza por id; el parametro no pisa el valor administrado.
 MERGE INTO [dbo].[EstadoSolicitudSesion] AS Target
 USING (VALUES
     (CAST('7C1E0B10-5E51-4C0A-9B02-000000000001' AS UNIQUEIDENTIFIER), N'PENDIENTE', N'Pendiente de aprobación', 1, CAST(0 AS BIT), CAST(0 AS BIT)),

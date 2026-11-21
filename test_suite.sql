@@ -225,8 +225,6 @@ PRINT '======================================================================';
 :r /tmp/test/test_perf_estudiante_mis_materias.sql
 -- COMP-ELE (migracion 60): componente de formacion electivas (ELE)
 :r /tmp/test/test_componente_electiva.sql
--- ADMIN-CAT (migracion 65): administracion de categorias de justificacion y motivos de cancelacion de sesion
-:r /tmp/test/test_admin_catalogos_justificacion_cancelacion.sql
 
 IF @@TRANCOUNT <> 0
 BEGIN
