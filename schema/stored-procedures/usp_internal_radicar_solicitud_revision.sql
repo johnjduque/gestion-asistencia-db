@@ -322,12 +322,13 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
-        -- PASO 12: Categoria por codigo o por nombre (el codigo gana si ambos coinciden con filas distintas)
+        -- PASO 12: Categoria ACTIVA por codigo o por nombre (el codigo gana si ambos coinciden con filas distintas). Migracion 65: una
+        -- categoria que el administrador desactivo ya no se acepta en reclamos nuevos (REV_021); los existentes la conservan.
         IF @estadoResultado = 1 AND @esReintento = 0
         BEGIN
             SELECT TOP 1 @idCategoria = c.id, @nombreCategoria = c.nombre, @requiereSoporte = c.requiereSoporte
             FROM dbo.CategoriaJustificacion c
-            WHERE c.codigo = @categoriaDefecto OR c.nombre = @categoriaDefecto
+            WHERE c.estaActivo = 1 AND (c.codigo = @categoriaDefecto OR c.nombre = @categoriaDefecto)
             ORDER BY IIF(c.codigo = @categoriaDefecto, 0, 1), c.id;
             IF @idCategoria IS NULL
             BEGIN

@@ -451,6 +451,12 @@
       { "columna": "dbo.Asignatura.horasSemanales" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ASI_013'" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ASI_014'" }
+    ],
+    "65_admin_catalogos_justificacion_cancelacion": [
+      { "columna": "dbo.CategoriaJustificacion.estaActivo" },
+      { "restriccion": "DF_CategoriaJustificacion_estaActivo" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'CTG_008'" },
+      { "tabla": "dbo.CatalogoMensajeTecnico", "donde": "codigo = 'CTG_008'" }
     ]
   }
 }

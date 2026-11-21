@@ -28,3 +28,10 @@ IF COL_LENGTH('dbo.CategoriaJustificacion', 'requiereSoporte') IS NULL
     ALTER TABLE dbo.CategoriaJustificacion ADD [requiereSoporte] bit NOT NULL
         CONSTRAINT DF_CategoriaJustificacion_requiereSoporte DEFAULT 0;
 GO
+
+-- Migracion 65: el administrador activa o desactiva categorias (sin borrado fisico: SolicitudRevisionAsistencia las referencia). Una
+-- categoria inactiva no se ofrece (uv_categoria_justificacion) ni se acepta al radicar un reclamo nuevo.
+IF COL_LENGTH('dbo.CategoriaJustificacion', 'estaActivo') IS NULL
+    ALTER TABLE dbo.CategoriaJustificacion ADD [estaActivo] bit NOT NULL
+        CONSTRAINT DF_CategoriaJustificacion_estaActivo DEFAULT 1;
+GO

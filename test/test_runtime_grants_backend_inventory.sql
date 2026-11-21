@@ -37,7 +37,9 @@ INSERT INTO @requeridos (nombre) VALUES
  -- ATA D10: faltas por reclamar del estudiante
  (N'usp_consultar_faltas_reclamables_estudiante'),
  -- Migracion 63: semestre actual del estudiante en el programa (coordinador)
- (N'usp_actualizar_semestre_estudiante_programa');
+ (N'usp_actualizar_semestre_estudiante_programa'),
+ -- Migracion 65: administracion de categorias de justificacion y motivos de cancelacion (ADMINISTRADOR)
+ (N'usp_crear_categoria_justificacion'), (N'usp_actualizar_categoria_justificacion'), (N'usp_cambiar_estado_categoria_justificacion'), (N'usp_crear_motivo_cancelacion_sesion'), (N'usp_actualizar_motivo_cancelacion_sesion'), (N'usp_cambiar_estado_motivo_cancelacion_sesion');
 
 DECLARE @sinConcesion NVARCHAR(MAX) = (
     SELECT STRING_AGG(r.nombre, ', ')

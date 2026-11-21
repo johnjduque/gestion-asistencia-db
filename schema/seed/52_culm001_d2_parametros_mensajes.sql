@@ -26,15 +26,8 @@ WHEN NOT MATCHED THEN
     VALUES (Source.grupo, Source.clave, Source.valor, Source.tipoDato, Source.valorDefecto, 1, SYSUTCDATETIME(), SYSUTCDATETIME());
 GO
 
--- HU014/HU015: soporte obligatorio por categoria (MED, ACA y LAB). La columna requiereSoporte la crea CategoriaJustificacion.sql.
-IF COL_LENGTH('dbo.CategoriaJustificacion', 'requiereSoporte') IS NOT NULL
-    EXEC sys.sp_executesql N'
-        MERGE INTO [dbo].[CategoriaJustificacion] AS Target
-        USING (VALUES (N''MED'', 1), (N''CAL'', 0), (N''ACA'', 1), (N''FMA'', 0), (N''LAB'', 1), (N''OTR'', 0)) AS Source (codigo, requiereSoporte)
-        ON (Target.codigo = Source.codigo)
-        WHEN MATCHED AND Target.requiereSoporte <> Source.requiereSoporte THEN
-            UPDATE SET Target.requiereSoporte = Source.requiereSoporte;';
-GO
+-- HU014/HU015: soporte obligatorio por categoria (MED, ACA y LAB). Desde la migracion 65 el valor nace con la fila en
+-- 30_categoria_justificacion.sql y lo administra el ADMINISTRADOR; este seed ya no lo reescribe en cada despliegue.
 
 -- Mensajes REV_021..REV_024 (radicacion con categoria y soportes multiples). Idempotente (MERGE por codigo).
 MERGE INTO [dbo].[CatalogoMensajeUsuario] AS Target

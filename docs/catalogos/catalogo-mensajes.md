@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **509**.
+Total de códigos: **517**.
 
 ## ACC
 
@@ -155,6 +155,19 @@ Total de códigos: **509**.
 | Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
 |---|---|---|---|---|---|
 | `CORR_001` | BUSINESS_ERROR | ALTO | El identificador de correlación no está presente o está vacío. | Validación fallida: idCorrelacion no está presente o no es un UUID válido. Transacción no procesable. | `04_mensaje.sql` |
+
+## CTG
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `CTG_001` | VALIDATION_ERROR | BAJO | El campo {} es obligatorio, admite hasta {} caracteres y solo letras, números, espacios y los signos . , - _ ( ) / # :. | Regla ADM-CAT: el campo [{}] llegó vacío, supera {} caracteres o trae caracteres fuera de letras, números, espacio y . , - _ ( ) / # :. | `72_admin_catalogos_mensajes.sql` |
+| `CTG_002` | VALIDATION_ERROR | BAJO | El código es obligatorio, admite hasta {} caracteres y solo letras mayúsculas, números y guion bajo (_). | Regla ADM-CAT: @codigo vacío, mayor de {} caracteres o con caracteres fuera de [A-Z0-9_]. | `72_admin_catalogos_mensajes.sql` |
+| `CTG_003` | BUSINESS_ERROR | MEDIO | No se puede desactivar el último registro activo del catálogo de {}: debe quedar al menos uno disponible. | Regla ADM-CAT: se intentó desactivar el último registro activo del catálogo [{}]. | `72_admin_catalogos_mensajes.sql` |
+| `CTG_004` | VALIDATION_ERROR | BAJO | La descripción admite hasta {} caracteres y no puede contener los símbolos < ni >. | Regla ADM-CAT: @descripcion supera {} caracteres o contiene < o >. | `72_admin_catalogos_mensajes.sql` |
+| `CTG_005` | BUSINESS_ERROR | MEDIO | El registro indicado del catálogo de {} no existe. | Regla ADM-CAT: no existe el registro solicitado en el catálogo [{}]. | `72_admin_catalogos_mensajes.sql` |
+| `CTG_006` | BUSINESS_ERROR | MEDIO | Ya existe un registro del catálogo de {} con el mismo {}. | Regla ADM-CAT: duplicado de [{}] en el catálogo [{}] (índice único). | `72_admin_catalogos_mensajes.sql` |
+| `CTG_007` | SUCCESS | BAJO | El registro del catálogo de {} quedó guardado. | Catálogo [{}]: registro creado o actualizado por el ADMINISTRADOR. | `72_admin_catalogos_mensajes.sql` |
+| `CTG_008` | SUCCESS | BAJO | El registro del catálogo de {} quedó {}. | Catálogo [{}]: estaActivo cambiado por el ADMINISTRADOR (sin borrado físico). | `72_admin_catalogos_mensajes.sql` |
 
 ## DEC
 
