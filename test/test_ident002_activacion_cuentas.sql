@@ -57,9 +57,9 @@ BEGIN TRY
 
     DECLARE @pendiente UNIQUEIDENTIFIER = NEWID();
     DECLARE @numero INT = 1990000000 + ABS(CHECKSUM(NEWID())) % 9000000;
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
     VALUES (@pendiente, @tipoCC, @numero, N'ACTIVACION', N'PRUEBA', N'IDENT', N'DOS',
-            LOWER(CONCAT(N'ident002.', REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), N'@uco.edu.co')), 0, 1, N'HashBackend_Ident002_1234567890');
+            LOWER(CONCAT(N'ident002.', REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), N'@uco.edu.co')), 0, 1);
 
     -- =========================================================================
     -- ACT-R01: el administrador obtiene el usuario de una cuenta pendiente

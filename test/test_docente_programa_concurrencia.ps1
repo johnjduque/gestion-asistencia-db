@@ -20,9 +20,9 @@ DECLARE @tipo UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_tipo_identificacio
 DECLARE @fac UNIQUEIDENTIFIER = (SELECT TOP 1 idFacultad FROM dbo.uv_programa);
 DECLARE @tp UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.TipoPrograma);
 DECLARE @uC UNIQUEIDENTIFIER = NEWID(), @cC UNIQUEIDENTIFIER = NEWID(), @uD UNIQUEIDENTIFIER = NEWID(), @dD UNIQUEIDENTIFIER = NEWID(), @p UNIQUEIDENTIFIER = NEWID();
-INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password) VALUES
- (@uC, @tipo, 960000001, N'Conc', N'Qa', N'Coord', N'Qa', N'qa.conc.coord@uco.edu.co', 1, 1, N'HashBackend_C1'),
- (@uD, @tipo, 960000002, N'Conc', N'Qa', N'Docente', N'Qa', N'qa.conc.doc@uco.edu.co', 1, 1, N'HashBackend_C2');
+INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado) VALUES
+ (@uC, @tipo, 960000001, N'Conc', N'Qa', N'Coord', N'Qa', N'qa.conc.coord@uco.edu.co', 1, 1),
+ (@uD, @tipo, 960000002, N'Conc', N'Qa', N'Docente', N'Qa', N'qa.conc.doc@uco.edu.co', 1, 1);
 INSERT INTO dbo.Coordinador (id, usuario) VALUES (@cC, @uC);
 INSERT INTO dbo.Docente (id, usuario) VALUES (@dD, @uD);
 INSERT INTO dbo.Programa (id, facultad, tipoDePrograma, nombre, coordinador, estado) VALUES (@p, @fac, @tp, N'QA-CONC Programa', @cC, 1);

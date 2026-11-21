@@ -59,11 +59,11 @@ BEGIN TRY
 
         INSERT INTO dbo.Usuario (
             id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido,
-            primerNombre, segundoNombre, correo, correoConfirmado, estado, password
+            primerNombre, segundoNombre, correo, correoConfirmado, estado
         )
         VALUES (
             @usuarioDocenteTemporal, @tipoIdDocenteTemporal, 914000001, N'Docente', N'NoOwner',
-            N'Attendance', N'QA', N'attendance.noowner.qa@test.local', 1, 1, N'HashBackend_QaAttendance1234567890'
+            N'Attendance', N'QA', N'attendance.noowner.qa@test.local', 1, 1
         );
 
         INSERT INTO dbo.Docente (id, usuario)

@@ -92,8 +92,8 @@ BEGIN TRY
         (N'dG', 1, NEWID(), NEWID()), (N'dO', 2, NEWID(), NEWID()), (N'dA', 3, NEWID(), NEWID()), (N'dB', 4, NEWID(), NEWID()), (N'dC', 5, NEWID(), NEWID()),
         (N'dZ', 6, NEWID(), NEWID()), (N'cX', 7, NEWID(), NEWID()), (N'cI', 8, NEWID(), NEWID()), (N'c2', 9, NEWID(), NEWID()), (N'dec2', 10, NEWID(), NEWID()),
         (N'dec3', 11, NEWID(), NEWID()), (N's1', 12, NEWID(), NEWID()), (N's2', 13, NEWID(), NEWID()), (N's3', 14, NEWID(), NEWID()), (N'sZ', 15, NEWID(), NEWID());
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    SELECT p.idUsuario, @tipoCC, @doc + p.n, CONCAT(N'W3i', p.k), N'Ind', N'Per', N'W3i', CONCAT(N'w3i.', p.k, N'.', @tag, N'@test.local'), 1, 1, N'HashBackend_W3I'
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    SELECT p.idUsuario, @tipoCC, @doc + p.n, CONCAT(N'W3i', p.k), N'Ind', N'Per', N'W3i', CONCAT(N'w3i.', p.k, N'.', @tag, N'@test.local'), 1, 1
     FROM #w3iP p;
     INSERT INTO dbo.Docente (id, usuario) SELECT id, idUsuario FROM #w3iP WHERE k IN (N'dG', N'dO', N'dA', N'dB', N'dC', N'dZ');
     INSERT INTO dbo.Estudiante (id, usuario) SELECT id, idUsuario FROM #w3iP WHERE k IN (N's1', N's2', N's3', N'sZ');
@@ -122,8 +122,8 @@ BEGIN TRY
     CREATE TABLE #w3iBulk (n INT PRIMARY KEY, idUsuario UNIQUEIDENTIFIER, id UNIQUEIDENTIFIER);
     INSERT INTO #w3iBulk (n, idUsuario, id)
     SELECT TOP (120) ROW_NUMBER() OVER (ORDER BY (SELECT NULL)), NEWID(), NEWID() FROM sys.all_objects a CROSS JOIN (SELECT TOP 2 1 x FROM sys.all_objects) b;
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    SELECT b.idUsuario, @tipoCC, @doc + 1000 + b.n, CONCAT(N'W3iBulk', b.n), N'Ind', N'Doc', N'W3i', CONCAT(N'w3i.bulk', b.n, N'.', @tag, N'@test.local'), 1, 1, N'HashBackend_W3I'
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    SELECT b.idUsuario, @tipoCC, @doc + 1000 + b.n, CONCAT(N'W3iBulk', b.n), N'Ind', N'Doc', N'W3i', CONCAT(N'w3i.bulk', b.n, N'.', @tag, N'@test.local'), 1, 1
     FROM #w3iBulk b;
     INSERT INTO dbo.Docente (id, usuario) SELECT id, idUsuario FROM #w3iBulk;
     INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)

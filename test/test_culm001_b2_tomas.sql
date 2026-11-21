@@ -156,12 +156,12 @@ BEGIN TRY
     DECLARE @tag NVARCHAR(12) = LEFT(REPLACE(CONVERT(NVARCHAR(36), NEWID()), N'-', N''), 12);
     CREATE TABLE #b2tE (n INT, idUsuario UNIQUEIDENTIFIER, idEstudiante UNIQUEIDENTIFIER, idEG UNIQUEIDENTIFIER);
     INSERT INTO #b2tE (n, idUsuario, idEstudiante, idEG) SELECT v.n, NEWID(), NEWID(), NEWID() FROM (VALUES (1),(2),(3),(4),(5),(6)) v(n);
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uD1, @tipoCC, 971000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Titular', N'CulmB', N'Tomas', N'B2', CONCAT(N'culmb2.d1.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULMB2'),
-           (@uD2, @tipoCC, 972000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Ajeno', N'CulmB', N'Teo', N'B2', CONCAT(N'culmb2.d2.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULMB2');
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uD1, @tipoCC, 971000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Titular', N'CulmB', N'Tomas', N'B2', CONCAT(N'culmb2.d1.', @tag, N'@test.local'), 1, 1),
+           (@uD2, @tipoCC, 972000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Ajeno', N'CulmB', N'Teo', N'B2', CONCAT(N'culmb2.d2.', @tag, N'@test.local'), 1, 1);
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
     SELECT e.idUsuario, @tipoCC, 973000000 + e.n * 10000 + ABS(CHECKSUM(NEWID()) % 9999), CONCAT(N'Estudiante', e.n), N'CulmB', N'Est', N'B2',
-           CONCAT(N'culmb2.e', e.n, N'.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULMB2'
+           CONCAT(N'culmb2.e', e.n, N'.', @tag, N'@test.local'), 1, 1
     FROM #b2tE e;
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d1, @uD1), (@d2, @uD2);
     INSERT INTO dbo.Estudiante (id, usuario) SELECT idEstudiante, idUsuario FROM #b2tE;

@@ -42,9 +42,9 @@ BEGIN TRY
     -- HU076 (contrato formal): el alta exige un coordinador libre (1 a 1). Se aprovisiona uno propio dentro de la transaccion.
     SET @coordinator = NEWID();
     SET @coordinatorUser = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
     VALUES (@coordinatorUser, (SELECT TOP 1 id FROM dbo.TipoIdentificacion), 500000000 + ABS(CHECKSUM(NEWID()) % 99999999), N'QA', N'Reactivo', N'Coord', N'X',
-            CONCAT(CONVERT(NVARCHAR(36), @coordinatorUser), N'@qa.test'), 1, 1, N'x');
+            CONCAT(CONVERT(NVARCHAR(36), @coordinatorUser), N'@qa.test'), 1, 1);
     INSERT INTO dbo.Coordinador (id, usuario, facultad) VALUES (@coordinator, @coordinatorUser, @faculty);   -- HU121/HU122: el coordinador libre pertenece a la facultad del decano
     SET @corr = NEWID();
     EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_004', @p_param1 = 'Programa Academico',

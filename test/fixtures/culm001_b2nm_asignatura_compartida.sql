@@ -26,12 +26,12 @@ DECLARE @codGrupo INT = (SELECT ISNULL(MAX(codigo), 0) + 1000 FROM dbo.Grupo);
 IF @uCA IS NULL OR @uDec IS NULL OR @uAdm IS NULL OR @semB IS NULL OR @caracterOPT IS NULL OR @estA IS NULL
     THROW 53850, 'TEST FAILED: B2NM fixture: semilla (coordinador, decano, administrador, semestre 7, caracter OPT) ausente; aplique la migracion 17.', 1;
 
-INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-VALUES (@uCB, @tipoCC, 1950000001, N'B2NM', N'', N'CoordB', N'', N'b2nm.coordb@fixture.invalid', 1, 1, N'FIXTURE_DISABLED_ACCOUNT'),
-       (@uT,  @tipoCC, 1950000002, N'B2NM', N'', N'DocT', N'', N'b2nm.doct@fixture.invalid', 1, 1, N'FIXTURE_DISABLED_ACCOUNT'),
-       (@uEA, @tipoCC, 1950000003, N'B2NM', N'', N'EstA', N'', N'b2nm.esta@fixture.invalid', 1, 1, N'FIXTURE_DISABLED_ACCOUNT'),
-       (@uEB, @tipoCC, 1950000004, N'B2NM', N'', N'EstB', N'', N'b2nm.estb@fixture.invalid', 1, 1, N'FIXTURE_DISABLED_ACCOUNT'),
-       (@uE0, @tipoCC, 1950000005, N'B2NM', N'', N'Est0', N'', N'b2nm.est0@fixture.invalid', 1, 1, N'FIXTURE_DISABLED_ACCOUNT');
+INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+VALUES (@uCB, @tipoCC, 1950000001, N'B2NM', N'', N'CoordB', N'', N'b2nm.coordb@fixture.invalid', 1, 1),
+       (@uT,  @tipoCC, 1950000002, N'B2NM', N'', N'DocT', N'', N'b2nm.doct@fixture.invalid', 1, 1),
+       (@uEA, @tipoCC, 1950000003, N'B2NM', N'', N'EstA', N'', N'b2nm.esta@fixture.invalid', 1, 1),
+       (@uEB, @tipoCC, 1950000004, N'B2NM', N'', N'EstB', N'', N'b2nm.estb@fixture.invalid', 1, 1),
+       (@uE0, @tipoCC, 1950000005, N'B2NM', N'', N'Est0', N'', N'b2nm.est0@fixture.invalid', 1, 1);
 INSERT INTO dbo.Coordinador (id, usuario, estado, facultad) VALUES (@coordB, @uCB, 1, @fac);
 INSERT INTO dbo.Docente (id, usuario) VALUES (@docT, @uT);
 INSERT INTO dbo.Estudiante (id, usuario) VALUES (@eA, @uEA), (@eB, @uEB), (@e0, @uE0);

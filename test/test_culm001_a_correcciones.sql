@@ -58,8 +58,8 @@ BEGIN
     INSERT INTO dbo.Institucion (id, nombre, estado) VALUES (CAST(@p + '01' AS UNIQUEIDENTIFIER), N'QA CULM001A2 Inst Z', 1);
 
     -- Usuarios (11..1C roles, 21..28 estudiantes)
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    SELECT CAST(@p + v.k AS UNIQUEIDENTIFIER), @tipoCC, 1987000000 + v.n, v.ape, N'Qa', v.nom, v.nom2, CONCAT(N'culm001a2.', LOWER(v.k), N'@test.local'), 1, 1, N'HashBackend_A2'
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    SELECT CAST(@p + v.k AS UNIQUEIDENTIFIER), @tipoCC, 1987000000 + v.n, v.ape, N'Qa', v.nom, v.nom2, CONCAT(N'culm001a2.', LOWER(v.k), N'@test.local'), 1, 1
     FROM (VALUES
         ('11', 11, N'Admin', N'Uno', N'A'), ('12', 12, N'Admin', N'Dos', N'A'), ('13', 13, N'Coord', N'A', N'A'), ('14', 14, N'Coord', N'B', N'A'),
         ('15', 15, N'Coord', N'Z', N'A'), ('16', 16, N'Docente', N'Titular', N'A'), ('17', 17, N'Docente', N'Otro', N'A'),
@@ -621,8 +621,8 @@ BEGIN TRY
     FROM (SELECT TOP 101 ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n FROM sys.all_objects) x;
     CREATE TABLE #m (n INT, u UNIQUEIDENTIFIER, e UNIQUEIDENTIFIER);
     INSERT INTO #m (n, u, e) SELECT TOP 101 ROW_NUMBER() OVER (ORDER BY (SELECT NULL)), NEWID(), NEWID() FROM sys.all_objects;
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    SELECT m.u, @tipoCC, 1986000000 + m.n, N'Masivo', N'Qa', N'Est', N'A', CONCAT(N'culm001a2.masivo.', m.n, N'@test.local'), 1, 1, N'HashBackend_A2' FROM #m m;
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    SELECT m.u, @tipoCC, 1986000000 + m.n, N'Masivo', N'Qa', N'Est', N'A', CONCAT(N'culm001a2.masivo.', m.n, N'@test.local'), 1, 1 FROM #m m;
     INSERT INTO dbo.Estudiante (id, usuario) SELECT m.e, m.u FROM #m m;
     INSERT INTO dbo.EstudianteGrupo (id, estado, estudiante, grupo) SELECT NEWID(), @estA, m.e, @G4 FROM #m m;
     TRUNCATE TABLE #eg;

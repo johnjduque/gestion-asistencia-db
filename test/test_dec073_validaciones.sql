@@ -102,8 +102,8 @@ BEGIN TRY
 
     -- 5. Codigo del grupo: 0 no se acepta (antes se guardaba)
     DECLARE @uD UNIQUEIDENTIFIER = NEWID(), @d UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uD, @tipoCC, 973000001, N'Dec', N'Setenta', N'Docente', N'Qa', N'qa.dec073.d1@test.local', 1, 1, N'HashBackend_D73');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uD, @tipoCC, 973000001, N'Dec', N'Setenta', N'Docente', N'Qa', N'qa.dec073.d1@test.local', 1, 1);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d, @uD);
     INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
     VALUES (NEWID(), @d, @idProg, 1, SYSUTCDATETIME());

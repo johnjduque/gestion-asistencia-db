@@ -69,10 +69,10 @@ BEGIN TRY
     CREATE TABLE #w3mE (n INT PRIMARY KEY, idUsuario UNIQUEIDENTIFIER, idEstudiante UNIQUEIDENTIFIER, idEG UNIQUEIDENTIFIER, doc BIGINT);
     INSERT INTO #w3mE (n, idUsuario, idEstudiante, idEG, doc)
     SELECT v.n, NEWID(), NEWID(), NEWID(), 961000000 + v.n * 10000 + ABS(CHECKSUM(NEWID()) % 9999) FROM (VALUES (1),(2),(3),(4),(5)) v(n);
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uD, @tipoCC, 960000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Matriz', N'W3m', N'Doc', N'W3m', CONCAT(N'w3m.d.', @tag, N'@test.local'), 1, 1, N'HashBackend_W3M');
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    SELECT e.idUsuario, @tipoCC, e.doc, CONCAT(N'W3m', @tag, e.n), N'Mx', N'Est', N'W3m', CONCAT(N'w3m.e', e.n, N'.', @tag, N'@test.local'), 1, 1, N'HashBackend_W3M'
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uD, @tipoCC, 960000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Matriz', N'W3m', N'Doc', N'W3m', CONCAT(N'w3m.d.', @tag, N'@test.local'), 1, 1);
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    SELECT e.idUsuario, @tipoCC, e.doc, CONCAT(N'W3m', @tag, e.n), N'Mx', N'Est', N'W3m', CONCAT(N'w3m.e', e.n, N'.', @tag, N'@test.local'), 1, 1
     FROM #w3mE e;
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d, @uD);
     INSERT INTO dbo.Estudiante (id, usuario) SELECT idEstudiante, idUsuario FROM #w3mE;

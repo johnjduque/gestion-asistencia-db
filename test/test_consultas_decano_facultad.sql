@@ -51,17 +51,17 @@ BEGIN TRY
     BEGIN
         DECLARE @decTitular UNIQUEIDENTIFIER = NEWID();
         SET @uDecTitular = NEWID();
-        INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-        VALUES (@uDecTitular, @tipoId, 600000000 + ABS(CHECKSUM(NEWID()) % 99999999), N'QA', N'Decano', N'Titular', N'X', CONCAT(CONVERT(NVARCHAR(36), @uDecTitular), N'@qa.test'), 1, 1, N'x');
+        INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+        VALUES (@uDecTitular, @tipoId, 600000000 + ABS(CHECKSUM(NEWID()) % 99999999), N'QA', N'Decano', N'Titular', N'X', CONCAT(CONVERT(NVARCHAR(36), @uDecTitular), N'@qa.test'), 1, 1);
         INSERT INTO dbo.Decano (id, usuario) VALUES (@decTitular, @uDecTitular);
         UPDATE dbo.Facultad SET decano = @decTitular WHERE id = @idFacultad;
     END
 
     -- Decano ajeno con una facultad propia sin programas, y un usuario sin ambito.
     DECLARE @uDecAjeno UNIQUEIDENTIFIER = NEWID(), @decAjeno UNIQUEIDENTIFIER = NEWID(), @uPlano UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uDecAjeno, @tipoId, 600000000 + ABS(CHECKSUM(NEWID()) % 99999999), N'QA', N'Decano', N'Ajeno', N'X', CONCAT(CONVERT(NVARCHAR(36), @uDecAjeno), N'@qa.test'), 1, 1, N'x'),
-           (@uPlano, @tipoId, 600000000 + ABS(CHECKSUM(NEWID()) % 99999999), N'QA', N'Sin', N'Ambito', N'X', CONCAT(CONVERT(NVARCHAR(36), @uPlano), N'@qa.test'), 1, 1, N'x');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uDecAjeno, @tipoId, 600000000 + ABS(CHECKSUM(NEWID()) % 99999999), N'QA', N'Decano', N'Ajeno', N'X', CONCAT(CONVERT(NVARCHAR(36), @uDecAjeno), N'@qa.test'), 1, 1),
+           (@uPlano, @tipoId, 600000000 + ABS(CHECKSUM(NEWID()) % 99999999), N'QA', N'Sin', N'Ambito', N'X', CONCAT(CONVERT(NVARCHAR(36), @uPlano), N'@qa.test'), 1, 1);
     INSERT INTO dbo.Decano (id, usuario) VALUES (@decAjeno, @uDecAjeno);
     DECLARE @fAjena UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.Facultad (id, nombre, institucion, decano, estado)

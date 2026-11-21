@@ -192,8 +192,8 @@ BEGIN TRY
     DECLARE @correoExistente NVARCHAR(255) = CONCAT(N'ident001.existente.', REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), N'@gmail.com');
     DECLARE @numeroExistente INT = @numero + 10;
     DECLARE @idUsuarioExistente UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@idUsuarioExistente, @tipoCC, @numeroExistente, N'EXISTENTE', N'PRUEBA', N'IDENT', N'CERO', LOWER(@correoExistente), 1, 1, N'HashBackend_Ident001_1234567890');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@idUsuarioExistente, @tipoCC, @numeroExistente, N'EXISTENTE', N'PRUEBA', N'IDENT', N'CERO', LOWER(@correoExistente), 1, 1);
     DELETE FROM #r;
     INSERT INTO #r
     EXEC dbo.usp_registrar_estudiante_en_grupo
@@ -267,8 +267,8 @@ BEGIN TRY
     DECLARE @hInexistente VARBINARY(32) = HASHBYTES('SHA2_256', CONVERT(VARBINARY(MAX), N'ident001-no-existe'));
     DECLARE @hInactivo VARBINARY(32) = HASHBYTES('SHA2_256', CONVERT(VARBINARY(MAX), N'ident001-inactivo'));
     DECLARE @idUsuarioInactivo UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@idUsuarioInactivo, @tipoCC, @numero + 20, N'INACTIVO', N'PRUEBA', N'IDENT', N'CERO', LOWER(CONCAT(N'ident001.inactivo.', REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), @dominio)), 0, 0, N'HashBackend_Ident001_1234567890');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@idUsuarioInactivo, @tipoCC, @numero + 20, N'INACTIVO', N'PRUEBA', N'IDENT', N'CERO', LOWER(CONCAT(N'ident001.inactivo.', REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), @dominio)), 0, 0);
     INSERT INTO dbo.TokenVerificacionCorreo (id, usuario, tokenHash, fechaEmisionUtc, fechaExpiracionUtc, fechaUsoUtc, fechaRevocacionUtc)
     VALUES (NEWID(), @usuarioNuevo, @hVencido, DATEADD(HOUR, -30, SYSUTCDATETIME()), DATEADD(HOUR, -6, SYSUTCDATETIME()), NULL, SYSUTCDATETIME()),
            (NEWID(), @usuarioNuevo, @hUsado, DATEADD(HOUR, -3, SYSUTCDATETIME()), DATEADD(HOUR, 21, SYSUTCDATETIME()), SYSUTCDATETIME(), NULL),

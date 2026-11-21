@@ -26,9 +26,9 @@ BEGIN TRY
     WHILE @i <= 17
     BEGIN
         DECLARE @uid UNIQUEIDENTIFIER = NEWID();
-        INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
+        INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
         VALUES (@uid, @tipoId, 300000000 + ABS(CHECKSUM(NEWID()) % 99999999), CONCAT(N'Apellido', CHAR(64 + @i)), N'QA', CONCAT(N'Nombre', CHAR(64 + @i)), N'X',
-                CONCAT(CONVERT(NVARCHAR(36), @uid), N'@qa.test'), 1, 1, N'x');
+                CONCAT(CONVERT(NVARCHAR(36), @uid), N'@qa.test'), 1, 1);
         INSERT INTO #u (id) VALUES (@uid);
         SET @i += 1;
     END

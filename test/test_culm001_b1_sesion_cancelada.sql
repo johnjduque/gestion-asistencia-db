@@ -87,12 +87,12 @@ BEGIN TRY
     DECLARE @uD1 UNIQUEIDENTIFIER = NEWID(), @uD2 UNIQUEIDENTIFIER = NEWID(), @uE1 UNIQUEIDENTIFIER = NEWID(), @uE2 UNIQUEIDENTIFIER = NEWID(), @uE3 UNIQUEIDENTIFIER = NEWID();
     DECLARE @d1 UNIQUEIDENTIFIER = NEWID(), @d2 UNIQUEIDENTIFIER = NEWID(), @e1 UNIQUEIDENTIFIER = NEWID(), @e2 UNIQUEIDENTIFIER = NEWID(), @e3 UNIQUEIDENTIFIER = NEWID();
     DECLARE @tag NVARCHAR(12) = LEFT(REPLACE(CONVERT(NVARCHAR(36), NEWID()), N'-', N''), 12);
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uD1, @tipoCC, 981000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Titular', N'Culm', N'Diana', N'B1', CONCAT(N'culm1.d1.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULM1'),
-           (@uD2, @tipoCC, 982000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Ajeno', N'Culm', N'Dario', N'B1', CONCAT(N'culm1.d2.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULM1'),
-           (@uE1, @tipoCC, 983000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Uno', N'Culm', N'Elena', N'B1', CONCAT(N'culm1.e1.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULM1'),
-           (@uE2, @tipoCC, 984000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Dos', N'Culm', N'Ernesto', N'B1', CONCAT(N'culm1.e2.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULM1'),
-           (@uE3, @tipoCC, 985000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Tres', N'Culm', N'Eva', N'B1', CONCAT(N'culm1.e3.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULM1');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uD1, @tipoCC, 981000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Titular', N'Culm', N'Diana', N'B1', CONCAT(N'culm1.d1.', @tag, N'@test.local'), 1, 1),
+           (@uD2, @tipoCC, 982000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Ajeno', N'Culm', N'Dario', N'B1', CONCAT(N'culm1.d2.', @tag, N'@test.local'), 1, 1),
+           (@uE1, @tipoCC, 983000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Uno', N'Culm', N'Elena', N'B1', CONCAT(N'culm1.e1.', @tag, N'@test.local'), 1, 1),
+           (@uE2, @tipoCC, 984000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Dos', N'Culm', N'Ernesto', N'B1', CONCAT(N'culm1.e2.', @tag, N'@test.local'), 1, 1),
+           (@uE3, @tipoCC, 985000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Tres', N'Culm', N'Eva', N'B1', CONCAT(N'culm1.e3.', @tag, N'@test.local'), 1, 1);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d1, @uD1), (@d2, @uD2);
     INSERT INTO dbo.Estudiante (id, usuario) VALUES (@e1, @uE1), (@e2, @uE2), (@e3, @uE3);
 

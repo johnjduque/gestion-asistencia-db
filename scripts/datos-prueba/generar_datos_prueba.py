@@ -20,7 +20,6 @@ from datetime import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 NS = uuid.UUID("6f1c2a7e-3b4d-4c5e-9f60-a1b2c3d4e5f6")
 INSTITUCION = "B1C2D3E4-0000-0000-0000-000000000001"
-PASSWORD_PLACEHOLDER = "HashBackend_AbCdEf1234567890"  # igual que las semillas: la autenticacion vive en Keycloak
 
 
 def gid(kind, key):
@@ -424,16 +423,16 @@ def main():
       "  AND NOT EXISTS (SELECT 1 FROM dbo.Administrador WHERE usuario = 'E1F2A3B4-0000-0000-0000-000000000006');\n\n")
 
     # Usuarios
-    w("-- Usuarios (73). La contrasena real vive en Keycloak; la columna guarda el mismo marcador que las semillas.\n")
+    w("-- Usuarios (73). La contrasena vive en Keycloak; la tabla no guarda credenciales.\n")
     for p in unicos:
         if p["clave"] in CANON:
             w(f"UPDATE dbo.Usuario SET primerNombre = {q(p['n1'])}, segundoNombre = {q(p['n2'])}, primerApellido = {q(p['a1'])}, "
               f"segundoApellido = {q(p['a2'])}, correoConfirmado = {p['confirmado']}, estado = 1 WHERE id = '{p['uid']}';\n")
     rows = [[g(p["uid"]), "@tiCC", str(p["numero"]), q(p["a1"]), q(p["a2"]), q(p["n1"]), q(p["n2"]), q(p["correo"]),
-             str(p["confirmado"]), "1" if p["activo"] else "0", q(PASSWORD_PLACEHOLDER)]
+             str(p["confirmado"]), "1" if p["activo"] else "0"]
             for p in unicos if p["clave"] not in CANON]
     w("\n" + insert("Usuario", ["id", "tipoIdIdentificacion", "numeroIdentificacion", "primerApellido", "segundoApellido",
-                               "primerNombre", "segundoNombre", "correo", "correoConfirmado", "estado", "password"], rows))
+                               "primerNombre", "segundoNombre", "correo", "correoConfirmado", "estado"], rows))
 
     # Areas, facultades, decanos
     w(insert("Area", ["id", "nombre", "codigo", "estado"], [[g(area_id[c]), q(n), q(c), "1"] for c, n, _ in AREAS]))

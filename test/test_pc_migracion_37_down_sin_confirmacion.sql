@@ -18,9 +18,9 @@ DECLARE @cerrada UNIQUEIDENTIFIER = (SELECT id FROM dbo.EstadoTomaAsistencia WHE
 DECLARE @uD UNIQUEIDENTIFIER = NEWID(), @uE UNIQUEIDENTIFIER = NEWID(), @d UNIQUEIDENTIFIER = NEWID(), @e UNIQUEIDENTIFIER = NEWID();
 DECLARE @g UNIQUEIDENTIFIER = NEWID(), @eg UNIQUEIDENTIFIER = NEWID(), @s UNIQUEIDENTIFIER = NEWID(), @t UNIQUEIDENTIFIER = NEWID(), @a UNIQUEIDENTIFIER = NEWID();
 DECLARE @tag NVARCHAR(12) = LEFT(REPLACE(CONVERT(NVARCHAR(36), NEWID()), N'-', N''), 12);
-INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-VALUES (@uD, @tipoCC, 981000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Mig', N'PC', N'Doc', N'PC', CONCAT(N'pcmig.d.', @tag, N'@test.local'), 1, 1, N'HashBackend_PC'),
-       (@uE, @tipoCC, 982000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Mig', N'PC', N'Est', N'PC', CONCAT(N'pcmig.e.', @tag, N'@test.local'), 1, 1, N'HashBackend_PC');
+INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+VALUES (@uD, @tipoCC, 981000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Mig', N'PC', N'Doc', N'PC', CONCAT(N'pcmig.d.', @tag, N'@test.local'), 1, 1),
+       (@uE, @tipoCC, 982000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Mig', N'PC', N'Est', N'PC', CONCAT(N'pcmig.e.', @tag, N'@test.local'), 1, 1);
 INSERT INTO dbo.Docente (id, usuario) VALUES (@d, @uD);
 INSERT INTO dbo.Estudiante (id, usuario) VALUES (@e, @uE);
 INSERT INTO dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron,

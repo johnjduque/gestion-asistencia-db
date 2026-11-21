@@ -65,10 +65,10 @@ CREATE TABLE #w1aE (id UNIQUEIDENTIFIER, idEstudiante UNIQUEIDENTIFIER, document
 BEGIN TRANSACTION;
 BEGIN TRY
     -- Tres estudiantes nuevos del grupo, con nombres y documentos propios (no chocan con el seed)
-    INSERT dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uA, @tipoCC, 1979000001, N'Padronw1a', N'Qa', N'Alfaw1a', N'X', N'w1a.alfa@test.local', 1, 1, N'HashBackend_W1A'),
-           (@uB, @tipoCC, 1979000002, N'Padronw1a', N'Qa', N'Betaw1a', N'X', N'w1a.beta@test.local', 1, 1, N'HashBackend_W1A'),
-           (@uC, @tipoCC, 1979000003, N'Padronw1a', N'Qa', N'Gammaw1a', N'X', N'w1a.gamma@test.local', 1, 1, N'HashBackend_W1A');
+    INSERT dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uA, @tipoCC, 1979000001, N'Padronw1a', N'Qa', N'Alfaw1a', N'X', N'w1a.alfa@test.local', 1, 1),
+           (@uB, @tipoCC, 1979000002, N'Padronw1a', N'Qa', N'Betaw1a', N'X', N'w1a.beta@test.local', 1, 1),
+           (@uC, @tipoCC, 1979000003, N'Padronw1a', N'Qa', N'Gammaw1a', N'X', N'w1a.gamma@test.local', 1, 1);
     INSERT dbo.Estudiante (id, usuario) VALUES (@eA, @uA), (@eB, @uB), (@eC, @uC);
     INSERT dbo.EstudianteGrupo (id, estado, estudiante, grupo) VALUES (@egA, @estA, @eA, @group), (@egB, @estA, @eB, @group), (@egC, @estA, @eC, @group);
 

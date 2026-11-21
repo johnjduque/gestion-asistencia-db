@@ -104,8 +104,8 @@ BEGIN TRY
 
     -- coordinador sin programas del grupo (CX)
     DECLARE @uCX UNIQUEIDENTIFIER = NEWID(), @coordCX UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uCX, @tipoCC, 1950000099, N'SMN', N'', N'CoordX', N'', N'smn.coordx@fixture.invalid', 1, 1, N'FIXTURE_DISABLED_ACCOUNT');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uCX, @tipoCC, 1950000099, N'SMN', N'', N'CoordX', N'', N'smn.coordx@fixture.invalid', 1, 1);
     INSERT INTO dbo.Coordinador (id, usuario, estado, facultad) VALUES (@coordCX, @uCX, 1, @fac);
 
     INSERT #can EXEC dbo.usp_cancelar_sesion_coordinador @idSesion = @sMan, @codigoMotivo = @motivo, @observacion = NULL, @idCorrelacion = @c, @idUsuarioEjecutor = @uCX;

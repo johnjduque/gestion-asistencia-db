@@ -61,12 +61,12 @@ INSERT INTO @g SELECT v.n, NEWID(), NEWID(), NEWID() FROM (SELECT TOP ($Grupos) 
 DECLARE @e TABLE (g INT, n INT, u UNIQUEIDENTIFIER, e UNIQUEIDENTIFIER);
 INSERT INTO @e SELECT g.n, v.n, NEWID(), NEWID() FROM @g g CROSS JOIN (SELECT TOP ($EstudiantesPorGrupo) n = ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) FROM sys.all_objects) v;
 BEGIN TRANSACTION;
-INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-VALUES (@uD, @tipoCC, 960000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Carga', N'CulmB', N'Doc', N'B2', N'$fixtureTag.d@test.local', 1, 1, N'HashBackend_CULMB2');
+INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+VALUES (@uD, @tipoCC, 960000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Carga', N'CulmB', N'Doc', N'B2', N'$fixtureTag.d@test.local', 1, 1);
 INSERT INTO dbo.Docente (id, usuario) VALUES (@d, @uD);
-INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
+INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
 SELECT u, @tipoCC, 961000000 + g * 100000 + n * 100 + ABS(CHECKSUM(NEWID()) % 99), CONCAT(N'Carga', g, N'-', n), N'CulmB', N'Est', N'B2',
-       CONCAT(N'$fixtureTag.g', g, N'e', n, N'@test.local'), 1, 1, N'HashBackend_CULMB2' FROM @e;
+       CONCAT(N'$fixtureTag.g', g, N'e', n, N'@test.local'), 1, 1 FROM @e;
 INSERT INTO dbo.Estudiante (id, usuario) SELECT e, u FROM @e;
 INSERT INTO dbo.PeriodoAcademico (id, institucion, nombre, codigo, fechaInicio, fechaFin, anio)
 VALUES (@per, @idInst, N'$fixtureTag', 3600000 + ABS(CHECKSUM(NEWID()) % 300000), DATEADD(DAY, -30, @hoy), DATEADD(DAY, 30, @hoy), YEAR(@hoy));

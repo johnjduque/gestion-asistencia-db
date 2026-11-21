@@ -105,10 +105,10 @@ BEGIN TRY
     DECLARE @tag NVARCHAR(12) = LEFT(REPLACE(CONVERT(NVARCHAR(36), NEWID()), N'-', N''), 12);
     DECLARE @uD1 UNIQUEIDENTIFIER = NEWID(), @d1 UNIQUEIDENTIFIER = NEWID(), @uE1 UNIQUEIDENTIFIER = NEWID(), @e1 UNIQUEIDENTIFIER = NEWID();
     DECLARE @uAdminOtro UNIQUEIDENTIFIER = NEWID(), @instOtra UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uD1, @tipoCC, 986000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Festivo', N'Culm', N'Fabio', N'B1', CONCAT(N'culm1.fd1.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULM1'),
-           (@uE1, @tipoCC, 987000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Festivo', N'Culm', N'Flor', N'B1', CONCAT(N'culm1.fe1.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULM1'),
-           (@uAdminOtro, @tipoCC, 988000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Admin', N'Otra', N'Olga', N'B1', CONCAT(N'culm1.adm.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULM1');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uD1, @tipoCC, 986000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Festivo', N'Culm', N'Fabio', N'B1', CONCAT(N'culm1.fd1.', @tag, N'@test.local'), 1, 1),
+           (@uE1, @tipoCC, 987000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Festivo', N'Culm', N'Flor', N'B1', CONCAT(N'culm1.fe1.', @tag, N'@test.local'), 1, 1),
+           (@uAdminOtro, @tipoCC, 988000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Admin', N'Otra', N'Olga', N'B1', CONCAT(N'culm1.adm.', @tag, N'@test.local'), 1, 1);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d1, @uD1);
     INSERT INTO dbo.Estudiante (id, usuario) VALUES (@e1, @uE1);
     INSERT INTO dbo.Institucion (id, nombre, estado) VALUES (@instOtra, CONCAT(N'CULM1 Institucion ', @tag), 1);

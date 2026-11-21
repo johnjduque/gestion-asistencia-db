@@ -27,12 +27,12 @@ BEGIN TRY
     DECLARE @cC1 UNIQUEIDENTIFIER = NEWID(), @dDec UNIQUEIDENTIFIER = NEWID(), @dDoc UNIQUEIDENTIFIER = NEWID();
     DECLARE @p1 UNIQUEIDENTIFIER = NEWID(), @fDec UNIQUEIDENTIFIER = NEWID(), @instInactiva UNIQUEIDENTIFIER = NEWID();
     DECLARE @per1 UNIQUEIDENTIFIER = NEWID(), @per2 UNIQUEIDENTIFIER = NEWID(), @per3 UNIQUEIDENTIFIER = NEWID(), @corr UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uAdm,         @tipoCC, 970000960, N'Admin', N'Uno', N'Adela', N'Qa', N'qa.adm.hu096@test.local', 1, 1, N'HashBackend_Q0'),
-           (@uAdmInactiva, @tipoCC, 970000965, N'Admin', N'Dos', N'Abel',  N'Qa', N'qa.adm2.hu096@test.local', 1, 1, N'HashBackend_Q5'),
-           (@uC1,          @tipoCC, 970000961, N'Coord', N'Uno', N'Camila', N'Qa', N'qa.c1.hu096@test.local', 1, 1, N'HashBackend_Q1'),
-           (@uDec,         @tipoCC, 970000963, N'Decano', N'Uno', N'Dora', N'Qa', N'qa.dec.hu096@test.local', 1, 1, N'HashBackend_Q3'),
-           (@uDoc,         @tipoCC, 970000964, N'Docente', N'Uno', N'Dario', N'Qa', N'qa.doc.hu096@test.local', 1, 1, N'HashBackend_Q4');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uAdm,         @tipoCC, 970000960, N'Admin', N'Uno', N'Adela', N'Qa', N'qa.adm.hu096@test.local', 1, 1),
+           (@uAdmInactiva, @tipoCC, 970000965, N'Admin', N'Dos', N'Abel',  N'Qa', N'qa.adm2.hu096@test.local', 1, 1),
+           (@uC1,          @tipoCC, 970000961, N'Coord', N'Uno', N'Camila', N'Qa', N'qa.c1.hu096@test.local', 1, 1),
+           (@uDec,         @tipoCC, 970000963, N'Decano', N'Uno', N'Dora', N'Qa', N'qa.dec.hu096@test.local', 1, 1),
+           (@uDoc,         @tipoCC, 970000964, N'Docente', N'Uno', N'Dario', N'Qa', N'qa.doc.hu096@test.local', 1, 1);
     INSERT INTO dbo.Institucion (id, nombre, estado) VALUES (@instInactiva, N'Institucion QA inactiva HU096', 0);
     INSERT INTO dbo.Administrador (id, usuario, institucion) VALUES (NEWID(), @uAdm, @idInstitucion), (NEWID(), @uAdmInactiva, @instInactiva);
     INSERT INTO dbo.Coordinador (id, usuario) VALUES (@cC1, @uC1);

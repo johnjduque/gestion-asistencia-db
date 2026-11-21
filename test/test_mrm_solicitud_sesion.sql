@@ -145,8 +145,8 @@ BEGIN TRY
 
     -- MRM_05: aprobar
     DECLARE @uCX UNIQUEIDENTIFIER = NEWID(), @coordCX UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uCX, @tipoCC, 1950000098, N'MRM', N'', N'CoordX', N'', N'mrm.coordx@fixture.invalid', 1, 1, N'FIXTURE_DISABLED_ACCOUNT');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uCX, @tipoCC, 1950000098, N'MRM', N'', N'CoordX', N'', N'mrm.coordx@fixture.invalid', 1, 1);
     INSERT INTO dbo.Coordinador (id, usuario, estado, facultad) VALUES (@coordCX, @uCX, 1, @fac);
 
     INSERT #mrm_apr EXEC dbo.usp_aprobar_solicitud_sesion @idSesion = @sV2, @observacion = NULL, @idCorrelacion = @c, @idUsuarioEjecutor = @uT;
@@ -404,8 +404,8 @@ BEGIN TRY
 :r /tmp/test/fixtures/culm001_b2nm_asignatura_compartida.sql
     DECLARE @c2 UNIQUEIDENTIFIER = NEWID(), @s2 UNIQUEIDENTIFIER = NEWID(), @err2 NVARCHAR(4000) = NULL;
     DECLARE @uCX2 UNIQUEIDENTIFIER = NEWID(), @coordCX2 UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uCX2, @tipoCC, 1950000097, N'MRM', N'', N'CoordX2', N'', N'mrm.coordx2@fixture.invalid', 1, 1, N'FIXTURE_DISABLED_ACCOUNT');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uCX2, @tipoCC, 1950000097, N'MRM', N'', N'CoordX2', N'', N'mrm.coordx2@fixture.invalid', 1, 1);
     INSERT INTO dbo.Coordinador (id, usuario, estado, facultad) VALUES (@coordCX2, @uCX2, 1, @fac);
     INSERT dbo.Sesion (id, nombre, numero, codigo, numeroSemana, grupo, fechaHoraInicio, fechaHoraFin, procedenciaTemporal)
     VALUES (@s2, N'MRM thr', 951, N'MRM951', 1, @grupoG, DATEADD(DAY, 3, SYSUTCDATETIME()), DATEADD(MINUTE, 3 * 1440 + 120, SYSUTCDATETIME()), N'UTC_V2');

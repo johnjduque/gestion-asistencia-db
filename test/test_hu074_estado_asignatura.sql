@@ -63,10 +63,10 @@ BEGIN TRY
     DECLARE @codGrupoNuevo INT = @codGrupo + 9;
     DECLARE @codGrupoActiva INT = @codGrupo + 10;
 
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uC,  @tipoCC, 974070001, N'Coord', N'Uno', N'Hugo', N'Qa', N'qa.c1.hu074@test.local', 1, 1, N'FIXTURE_DISABLED_ACCOUNT'),
-           (@uC2, @tipoCC, 974070002, N'Coord', N'Dos', N'Hilda', N'Qa', N'qa.c2.hu074@test.local', 1, 1, N'FIXTURE_DISABLED_ACCOUNT'),
-           (@uD,  @tipoCC, 974070003, N'Docente', N'Uno', N'Hector', N'Qa', N'qa.doc.hu074@test.local', 1, 1, N'FIXTURE_DISABLED_ACCOUNT');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uC,  @tipoCC, 974070001, N'Coord', N'Uno', N'Hugo', N'Qa', N'qa.c1.hu074@test.local', 1, 1),
+           (@uC2, @tipoCC, 974070002, N'Coord', N'Dos', N'Hilda', N'Qa', N'qa.c2.hu074@test.local', 1, 1),
+           (@uD,  @tipoCC, 974070003, N'Docente', N'Uno', N'Hector', N'Qa', N'qa.doc.hu074@test.local', 1, 1);
     INSERT INTO dbo.Coordinador (id, usuario) VALUES (@cC, @uC), (@cC2, @uC2);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@dD, @uD);
     INSERT INTO dbo.Programa (id, facultad, tipoDePrograma, nombre, coordinador, estado)

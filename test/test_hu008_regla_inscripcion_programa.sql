@@ -55,13 +55,13 @@ BEGIN TRY
     UPDATE dbo.Grupo SET cantidadEstudiantes = (SELECT COUNT(*) FROM dbo.uv_estudiante_grupo
         WHERE idGrupo = @group AND codigoEstadoEstudiante = 'A') + 10 WHERE id = @group;
 
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@u1, @tipoCC, 970008001, N'Uno', N'Qa', N'Est', N'Hu008', N'qa.hu008.1@test.local', 1, 1, N'HashBackend_R1'),
-           (@u2, @tipoCC, 970008002, N'Dos', N'Qa', N'Est', N'Hu008', N'qa.hu008.2@test.local', 1, 1, N'HashBackend_R1'),
-           (@u3, @tipoCC, 970008003, N'Tres', N'Qa', N'Est', N'Hu008', N'qa.hu008.3@test.local', 1, 1, N'HashBackend_R1'),
-           (@u4, @tipoCC, 970008004, N'Cuatro', N'Qa', N'Est', N'Hu008', N'qa.hu008.4@test.local', 1, 1, N'HashBackend_R1'),
-           (@u5, @tipoCC, 970008005, N'Cinco', N'Qa', N'Est', N'Hu008', N'qa.hu008.5@test.local', 1, 1, N'HashBackend_R1'),
-           (@u6, @tipoCC, 970008006, N'Seis', N'Qa', N'Est', N'Hu008', N'qa.hu008.6@test.local', 1, 1, N'HashBackend_R1');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@u1, @tipoCC, 970008001, N'Uno', N'Qa', N'Est', N'Hu008', N'qa.hu008.1@test.local', 1, 1),
+           (@u2, @tipoCC, 970008002, N'Dos', N'Qa', N'Est', N'Hu008', N'qa.hu008.2@test.local', 1, 1),
+           (@u3, @tipoCC, 970008003, N'Tres', N'Qa', N'Est', N'Hu008', N'qa.hu008.3@test.local', 1, 1),
+           (@u4, @tipoCC, 970008004, N'Cuatro', N'Qa', N'Est', N'Hu008', N'qa.hu008.4@test.local', 1, 1),
+           (@u5, @tipoCC, 970008005, N'Cinco', N'Qa', N'Est', N'Hu008', N'qa.hu008.5@test.local', 1, 1),
+           (@u6, @tipoCC, 970008006, N'Seis', N'Qa', N'Est', N'Hu008', N'qa.hu008.6@test.local', 1, 1);
     INSERT INTO dbo.Estudiante (id, usuario) VALUES (@e1, @u1), (@e2, @u2), (@e3, @u3), (@e4, @u4), (@e5, @u5), (@e6, @u6);
 
     -- RI-01: asignatura ESPECIFICA => matricula activa e inscripcion en el programa.

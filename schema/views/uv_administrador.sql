@@ -23,7 +23,6 @@ SELECT		a.id,
 			correoConfirmadoTextoUsuario = u.correoConfirmadoTexto,
 			estaActivoUsuario = u.estaActivoUsuario,
 			estaActivoTextoUsuario = u.estaActivoTextoUsuario,
-			passwordUsuario = u.password,
 
 			idInstitucion = i.id,
 			nombreInstitucion = i.nombre,

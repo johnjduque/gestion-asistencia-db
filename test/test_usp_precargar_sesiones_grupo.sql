@@ -39,13 +39,13 @@ BEGIN TRY
     DECLARE @uD1 UNIQUEIDENTIFIER = NEWID(), @uD2 UNIQUEIDENTIFIER = NEWID(), @uE UNIQUEIDENTIFIER = NEWID(), @uCoordOtro UNIQUEIDENTIFIER = NEWID();
     DECLARE @d1 UNIQUEIDENTIFIER = NEWID(), @d2 UNIQUEIDENTIFIER = NEWID(), @e UNIQUEIDENTIFIER = NEWID();
     DECLARE @cOtro UNIQUEIDENTIFIER = NEWID(), @pOtro UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uD1, @tipoCC, 973000001, N'Precarga', N'Uno', N'Pablo', N'Qa', N'qa.precarga.d1@test.local', 1, 1, N'HashBackend_P1'),
-           (@uD2, @tipoCC, 973000002, N'Precarga', N'Dos', N'Marina', N'Qa', N'qa.precarga.d2@test.local', 1, 1, N'HashBackend_P2'),
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uD1, @tipoCC, 973000001, N'Precarga', N'Uno', N'Pablo', N'Qa', N'qa.precarga.d1@test.local', 1, 1),
+           (@uD2, @tipoCC, 973000002, N'Precarga', N'Dos', N'Marina', N'Qa', N'qa.precarga.d2@test.local', 1, 1),
            (@uE, @tipoCC, 974000000 + ABS(CHECKSUM(NEWID()) % 99999999), N'Precarga', N'Estudiante', N'Sara', N'Qa',
-            CONCAT(N'qa.precarga.estudiante.', REPLACE(CONVERT(NVARCHAR(36), @uE), N'-', N''), N'@test.local'), 1, 1, N'HashBackend_PE'),
+            CONCAT(N'qa.precarga.estudiante.', REPLACE(CONVERT(NVARCHAR(36), @uE), N'-', N''), N'@test.local'), 1, 1),
            (@uCoordOtro, @tipoCC, 975000000 + ABS(CHECKSUM(NEWID()) % 99999999), N'Precarga', N'Coordinador', N'Oscar', N'Qa',
-            CONCAT(N'qa.precarga.coordinador.', REPLACE(CONVERT(NVARCHAR(36), @uCoordOtro), N'-', N''), N'@test.local'), 1, 1, N'HashBackend_PC');
+            CONCAT(N'qa.precarga.coordinador.', REPLACE(CONVERT(NVARCHAR(36), @uCoordOtro), N'-', N''), N'@test.local'), 1, 1);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d1, @uD1), (@d2, @uD2);
     INSERT INTO dbo.Estudiante (id, usuario) VALUES (@e, @uE);
     INSERT INTO dbo.Coordinador (id, usuario) VALUES (@cOtro, @uCoordOtro);

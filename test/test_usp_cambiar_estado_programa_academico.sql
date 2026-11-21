@@ -36,8 +36,8 @@ BEGIN TRY
     WHILE @i <= 8
     BEGIN
         DECLARE @uid UNIQUEIDENTIFIER = NEWID();
-        INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-        VALUES (@uid, @tipoId, 800000000 + ABS(CHECKSUM(NEWID()) % 99999999), N'QA', N'Programa', CONCAT(N'U', @i), N'X', CONCAT(CONVERT(NVARCHAR(36), @uid), N'@qa.test'), 1, 1, N'x');
+        INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+        VALUES (@uid, @tipoId, 800000000 + ABS(CHECKSUM(NEWID()) % 99999999), N'QA', N'Programa', CONCAT(N'U', @i), N'X', CONCAT(CONVERT(NVARCHAR(36), @uid), N'@qa.test'), 1, 1);
         INSERT INTO #u (id) VALUES (@uid);
         SET @i += 1;
     END

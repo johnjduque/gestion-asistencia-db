@@ -233,8 +233,8 @@ BEGIN TRY
     -- 08: un docente inactivo no se avisa y NO se marca (si se reactiva dentro del atraso, se avisa)
     -- --------------------------------------------------------------------------------------------------------
     DECLARE @uDI UNIQUEIDENTIFIER = NEWID(), @docI UNIQUEIDENTIFIER = NEWID(), @gDocI UNIQUEIDENTIFIER = NEWID(), @sDocI UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uDI, @tipoCC, 989000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Inactivo', N'Notoma', N'Doc', N'I', CONCAT(N'notoma.di.', LEFT(CONVERT(NVARCHAR(36), @uDI), 8), N'@test.local'), 1, 0, N'FIXTURE_DISABLED_ACCOUNT');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uDI, @tipoCC, 989000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Inactivo', N'Notoma', N'Doc', N'I', CONCAT(N'notoma.di.', LEFT(CONVERT(NVARCHAR(36), @uDI), 8), N'@test.local'), 1, 0);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@docI, @uDI);
     INSERT INTO dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron,
         cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)

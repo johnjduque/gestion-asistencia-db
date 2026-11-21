@@ -21,8 +21,7 @@ SELECT		u.id,
 			correoConfirmado,
 			correoConfirmadoTexto = IIF(correoConfirmado = 1, 'SI', 'NO'),
 			estaActivoUsuario = estado,
-			estaActivoTextoUsuario = IIF(estado = 1, 'SI', 'NO'),
-			password = '*****'
+			estaActivoTextoUsuario = IIF(estado = 1, 'SI', 'NO')
 
 FROM		Usuario u
 INNER JOIN	uv_tipo_identificacion ti

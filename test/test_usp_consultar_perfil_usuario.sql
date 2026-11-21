@@ -18,10 +18,10 @@ BEGIN TRANSACTION;
 BEGIN TRY
     DECLARE @u1 UNIQUEIDENTIFIER = NEWID(), @u2 UNIQUEIDENTIFIER = NEWID(), @u3 UNIQUEIDENTIFIER = NEWID();
     DECLARE @sufijo NVARCHAR(8) = SUBSTRING(CONVERT(NVARCHAR(36), NEWID()), 1, 8);
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@u1, @tipoId, 340000001, N'Perez', N'Gomez', N'Ana', N'Maria', CONCAT(N'qa.hu006.1.', @sufijo, N'@test.local'), 1, 1, N'HashBackend_Secreto'),
-           (@u2, @tipoId, 340000002, N'Sin', N'', N'Vinculos', N'', CONCAT(N'qa.hu006.2.', @sufijo, N'@test.local'), 0, 1, N'HashBackend_Secreto'),
-           (@u3, @tipoId, 340000003, N'Otro', N'', N'Decano', N'', CONCAT(N'qa.hu006.3.', @sufijo, N'@test.local'), 1, 1, N'HashBackend_Secreto');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@u1, @tipoId, 340000001, N'Perez', N'Gomez', N'Ana', N'Maria', CONCAT(N'qa.hu006.1.', @sufijo, N'@test.local'), 1, 1),
+           (@u2, @tipoId, 340000002, N'Sin', N'', N'Vinculos', N'', CONCAT(N'qa.hu006.2.', @sufijo, N'@test.local'), 0, 1),
+           (@u3, @tipoId, 340000003, N'Otro', N'', N'Decano', N'', CONCAT(N'qa.hu006.3.', @sufijo, N'@test.local'), 1, 1);
 
     -- U1 tiene todos los roles: estudiante en P1, docente en P1 (activo) y P2 (inactivo), coordinador de P2,
     -- decano de F y administrador de la institucion. U2 no tiene vinculos.

@@ -57,11 +57,11 @@ BEGIN TRY
     DECLARE @tag NVARCHAR(12) = LEFT(REPLACE(CONVERT(NVARCHAR(36), NEWID()), N'-', N''), 12);
     CREATE TABLE #d10E (n INT, idUsuario UNIQUEIDENTIFIER, idEstudiante UNIQUEIDENTIFIER, idEG UNIQUEIDENTIFIER);
     INSERT INTO #d10E (n, idUsuario, idEstudiante, idEG) SELECT v.n, NEWID(), NEWID(), NEWID() FROM (VALUES (1),(2),(3),(4)) v(n);
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uD, @tipoCC, 979000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Titular', N'D10', N'Doc', N'D10', CONCAT(N'ata.d10.d.', @tag, N'@test.local'), 1, 1, N'HashBackend_ATA');
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uD, @tipoCC, 979000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Titular', N'D10', N'Doc', N'D10', CONCAT(N'ata.d10.d.', @tag, N'@test.local'), 1, 1);
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
     SELECT e.idUsuario, @tipoCC, 980000000 + e.n * 10000 + ABS(CHECKSUM(NEWID()) % 9999), CONCAT(N'Reclamable', e.n), N'Falta', N'Est', N'D10',
-           CONCAT(N'ata.d10.e', e.n, N'.', @tag, N'@test.local'), 1, 1, N'HashBackend_ATA'
+           CONCAT(N'ata.d10.e', e.n, N'.', @tag, N'@test.local'), 1, 1
     FROM #d10E e;
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d, @uD);
     INSERT INTO dbo.Estudiante (id, usuario) SELECT idEstudiante, idUsuario FROM #d10E;

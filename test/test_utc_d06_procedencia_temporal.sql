@@ -186,8 +186,8 @@ BEGIN TRY
     -- HTTP-03: docente no titular rechazado (SEC_002) sin mutacion.
     DECLARE @usuarioIntruso UNIQUEIDENTIFIER = 'D06D06D0-0000-0000-0000-000000000001';
     INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido,
-        primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@usuarioIntruso, @tipoId, 906000001, N'Docente', N'Ajeno', N'Utc', N'Qa', N'd06.intruso@test.local', 1, 1, N'HashBackend_QaD06_1234567890');
+        primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@usuarioIntruso, @tipoId, 906000001, N'Docente', N'Ajeno', N'Utc', N'Qa', N'd06.intruso@test.local', 1, 1);
     INSERT INTO dbo.Docente (id, usuario) VALUES ('D06D06D0-0000-0000-0000-000000000002', @usuarioIntruso);
     TRUNCATE TABLE #r;
     SET @corr = NEWID();
@@ -319,8 +319,8 @@ BEGIN TRY
     -- D06-07: clasificacion administrativa por ID y ambiente, con manifiesto y aprobador distinto.
     DECLARE @usuarioAprobador UNIQUEIDENTIFIER = 'D06D06D0-0000-0000-0000-000000000003';
     INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido,
-        primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@usuarioAprobador, @tipoId, 906000003, N'Aprobador', N'Owner', N'Utc', N'Qa', N'd06.aprobador@test.local', 1, 1, N'HashBackend_QaD06_1234567890');
+        primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@usuarioAprobador, @tipoId, 906000003, N'Aprobador', N'Owner', N'Utc', N'Qa', N'd06.aprobador@test.local', 1, 1);
     INSERT INTO dbo.Administrador (id, usuario, institucion) VALUES ('D06D06D0-0000-0000-0000-000000000004', @usuarioAprobador, @institucion);
     IF EXISTS (SELECT 1 FROM dbo.CatalogoParametro WHERE grupo = 'OPERACION' AND clave = 'AMBIENTE')
         UPDATE dbo.CatalogoParametro SET valor = N'QA-D06', estaActivo = 1 WHERE grupo = 'OPERACION' AND clave = 'AMBIENTE';

@@ -458,6 +458,9 @@
       { "tabla": "dbo.Estado", "donde": "codigo = 'A' AND nombre COLLATE Latin1_General_CS_AS = 'Aceptada'" },
       { "tabla": "dbo.EstadoEstudianteGrupo", "donde": "codigo = 'A' AND nombre COLLATE Latin1_General_CS_AS = 'Activo'" },
       { "tabla": "dbo.RazonCausa", "donde": "codigo = 'AN' AND nombre COLLATE Latin1_General_CS_AS = 'Asistencia normal'" }
+    ],
+    "66_seg11_retiro_password_usuario": [
+      { "columna": "dbo.Usuario.password", "existe": false }
     ]
   }
 }

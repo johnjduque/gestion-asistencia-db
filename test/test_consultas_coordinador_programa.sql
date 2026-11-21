@@ -49,8 +49,8 @@ BEGIN TRANSACTION;
 BEGIN TRY
     -- Coordinador de OTRO programa (sin grupos)
     DECLARE @uOtro UNIQUEIDENTIFIER = NEWID(), @cOtro UNIQUEIDENTIFIER = NEWID(), @pOtro UNIQUEIDENTIFIER = NEWID(), @corr UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uOtro, @tipoCC, 970000641, N'Coord', N'Otro', N'Olga', N'Qa', N'qa.c.hu064@test.local', 1, 1, N'HashBackend_R1');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uOtro, @tipoCC, 970000641, N'Coord', N'Otro', N'Olga', N'Qa', N'qa.c.hu064@test.local', 1, 1);
     INSERT INTO dbo.Coordinador (id, usuario) VALUES (@cOtro, @uOtro);
     INSERT INTO dbo.Programa (id, facultad, tipoDePrograma, nombre, coordinador, estado)
     VALUES (@pOtro, @idFacultad, @idTipoProg, N'Programa QA 064', @cOtro, 1);

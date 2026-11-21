@@ -69,9 +69,9 @@ BEGIN TRY
     -- ===== Fixtures (se revierten): segundo programa con coordinador distinto, y coordinador inactivo =====
     DECLARE @user2 UNIQUEIDENTIFIER = NEWID(), @coordRole2 UNIQUEIDENTIFIER = NEWID(), @prog2 UNIQUEIDENTIFIER = NEWID();
     DECLARE @userInactivo UNIQUEIDENTIFIER = NEWID(), @coordRoleInactivo UNIQUEIDENTIFIER = NEWID();
-    INSERT dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@user2, @tipo, 1500000001, N'COORD', N'DOS', N'QA', N'PLAN', CONCAT(N'qa.cc003g01.coord2.', @sufijo, N'@test.local'), 0, 1, N'HashBackend_CC003G01_FIXTURE'),
-           (@userInactivo, @tipo, 1500000002, N'COORD', N'INACTIVO', N'QA', N'PLAN', CONCAT(N'qa.cc003g01.coordx.', @sufijo, N'@test.local'), 0, 0, N'HashBackend_CC003G01_FIXTURE');
+    INSERT dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@user2, @tipo, 1500000001, N'COORD', N'DOS', N'QA', N'PLAN', CONCAT(N'qa.cc003g01.coord2.', @sufijo, N'@test.local'), 0, 1),
+           (@userInactivo, @tipo, 1500000002, N'COORD', N'INACTIVO', N'QA', N'PLAN', CONCAT(N'qa.cc003g01.coordx.', @sufijo, N'@test.local'), 0, 0);
     INSERT dbo.Coordinador (id, usuario) VALUES (@coordRole2, @user2), (@coordRoleInactivo, @userInactivo);
     INSERT dbo.Programa (id, facultad, tipoDePrograma, nombre, coordinador, estado)
     SELECT @prog2, facultad, tipoDePrograma, N'QA CC003G01 Programa 2', @coordRole2, 1 FROM dbo.Programa WHERE id = @prog1;

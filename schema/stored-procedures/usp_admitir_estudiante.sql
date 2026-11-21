@@ -11,13 +11,13 @@ GO
 -- El ADMINISTRADOR crea (o reutiliza) un estudiante y lo vincula a un programa de SU institucion, sin matricularlo en grupos.
 -- Orden: correlacion -> ejecutor (GEN_002) -> RBAC ADMINISTRADOR -> programa activo de su institucion (ADS_003) -> lectura bloqueada
 -- (UPDLOCK, HOLDLOCK) de Usuario por documento y por correo -> documento y correo de personas distintas (ADS_004) -> en alta nueva:
--- correo institucional (ADS_005) y contrasena inicial (ADS_006) -> ya admitido en el programa (ADS_002) -> escrituras: Usuario
+-- correo institucional (ADS_005) -> ya admitido en el programa (ADS_002) -> escrituras: Usuario
 -- (usp_sincronizar_usuario_interno, solo si no existe), Estudiante (usp_sincronizar_estudiante_interno, solo si no existe) y
 -- EstudiantePrograma. Todos los rechazos de negocio ocurren ANTES de escribir; un error del motor revierte lo escrito (transaccion
 -- propia o savepoint). Persona existente (mismo documento y correo): no se revalida el dominio ni se pide contrasena (D5).
 -- El vinculo se inserta aqui y no con usp_registrar_estudiante_en_programa_interno: ese nucleo resuelve la institucion del
 -- estudiante desde uv_estudiante, que exige un programa, asi que fallaria para un estudiante sin programa.
--- @password es el HASH que arma el backend (nunca texto plano); no se escribe en ningun mensaje.
+-- @password es un parametro obsoleto que se ignora (SEG-11): la clave la gestiona la identidad externa y Usuario ya no la guarda.
 -- Resultset: MUTATION_COMMAND_RESULTSET (4 columnas canonicas) + idUsuario, idEstudiante, esUsuarioNuevo, esEstudianteNuevo
 -- (nulos si falla, salvo ADS_002 que devuelve la persona ya admitida para que el backend repare su cuenta de identidad).
 -- ============================================================================
@@ -40,7 +40,6 @@ AS
     DECLARE @idUsuarioEjecutorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idProgramaDefecto        UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idPrograma, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @correoNormalizado        NVARCHAR(255) = LOWER(TRIM(@correo));
-    DECLARE @passwordNormalizado      NVARCHAR(500) = NULLIF(TRIM(@password), N'');
 
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -157,7 +156,7 @@ BEGIN
                 SET @idUsuarioResultado = @idUsuarioPorDocumento;
             END
 
-            -- Alta nueva: correo institucional (ADS_005) y contrasena inicial (ADS_006)
+            -- Alta nueva: correo institucional (ADS_005); la clave la gestiona la identidad externa (SEG-11)
             IF @estadoResultado = 1 AND @idUsuarioResultado IS NULL
             BEGIN
                 SET @dominioInstitucional = dbo.ufn_obtener_parametro('REGISTRO', 'DOMINIO_CORREO_ESTUDIANTE');
@@ -165,15 +164,6 @@ BEGIN
                 BEGIN
                     EXEC dbo.usp_obtener_mensaje_catalogo
                         @p_codigo = 'ADS_005', @p_param1 = @dominioInstitucional,
-                        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-                    SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-                    SET @estadoResultado = 0;
-                END
-                ELSE IF @passwordNormalizado IS NULL
-                BEGIN
-                    EXEC dbo.usp_obtener_mensaje_catalogo
-                        @p_codigo = 'ADS_006',
                         @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                         @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
                     SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
@@ -211,7 +201,7 @@ BEGIN
                     @primerNombre = @primerNombre,
                     @segundoNombre = @segundoNombre,
                     @correo = @correoNormalizado,
-                    @password = @passwordNormalizado,
+                    @password = @password,
                     @idCorrelacion = @idCorrelacionDefecto,
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,

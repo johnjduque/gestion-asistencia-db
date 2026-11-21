@@ -101,8 +101,8 @@ USING (SELECT id, 1970000000 + n AS numero, apellido, nombre, correo FROM #u) AS
 ON t.id = s.id
 WHEN MATCHED THEN UPDATE SET t.primerNombre = s.nombre, t.primerApellido = s.apellido, t.correo = s.correo
 WHEN NOT MATCHED THEN
-    INSERT (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (s.id, @tipoCC, s.numero, s.apellido, N'', s.nombre, N'', s.correo, 1, 1, N'HashRelleno_QA_SinCuenta');
+    INSERT (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (s.id, @tipoCC, s.numero, s.apellido, N'', s.nombre, N'', s.correo, 1, 1);
 
 MERGE INTO dbo.Decano AS t
 USING (SELECT CAST(CONCAT(@A, '0002', @B, RIGHT(CONCAT('000000000000', n), 12)) AS UNIQUEIDENTIFIER) AS id, id AS usuario FROM #u WHERE n BETWEEN 1 AND 2) AS s

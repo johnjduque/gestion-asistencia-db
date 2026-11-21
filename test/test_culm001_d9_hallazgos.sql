@@ -74,8 +74,8 @@ CREATE TABLE #pl (id UNIQUEIDENTIFIER, idInstitucion UNIQUEIDENTIFIER, nombreIns
 BEGIN TRANSACTION;
 BEGIN TRY
     -- Facultad ajena: decano nuevo de una facultad sin grupos (para los casos fuera de ambito)
-    INSERT dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uAjeno, @tipoCC, 916900001, N'Ajeno', N'Qa', N'Decano', N'D9', N'decano.ajeno.qa.d9@uco.edu.co', 1, 1, @hash);
+    INSERT dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uAjeno, @tipoCC, 916900001, N'Ajeno', N'Qa', N'Decano', N'D9', N'decano.ajeno.qa.d9@uco.edu.co', 1, 1);
     INSERT dbo.Decano (id, usuario) VALUES (@decAjeno, @uAjeno);
     INSERT dbo.Facultad (id, nombre, institucion, decano, estado) VALUES (@facAjena, N'QA D9 Facultad ajena', @inst, @decAjeno, 1);
 

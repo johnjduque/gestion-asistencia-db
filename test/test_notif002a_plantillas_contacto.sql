@@ -172,11 +172,11 @@ BEGIN TRY
     DECLARE @uInactivo UNIQUEIDENTIFIER = NEWID();
     DECLARE @uInexistente UNIQUEIDENTIFIER = NEWID();
 
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, [password])
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
     VALUES
-        (@uActivo1, @idTipoDoc, 189000001, N'ApellidoUno', N'SegUno', N'NombreUno', N'', N'activo1.notif002a@uco.edu.co', 1, 1, N'HashTest'),
-        (@uActivo2, @idTipoDoc, 189000002, N'ApellidoDos', N'SegDos', N'NombreDos', N'', N'activo2.notif002a@uco.edu.co', 0, 1, N'HashTest'),
-        (@uInactivo, @idTipoDoc, 189000003, N'ApellidoTres', N'SegTres', N'NombreTres', N'', N'inactivo.notif002a@uco.edu.co', 1, 0, N'HashTest');
+        (@uActivo1, @idTipoDoc, 189000001, N'ApellidoUno', N'SegUno', N'NombreUno', N'', N'activo1.notif002a@uco.edu.co', 1, 1),
+        (@uActivo2, @idTipoDoc, 189000002, N'ApellidoDos', N'SegDos', N'NombreDos', N'', N'activo2.notif002a@uco.edu.co', 0, 1),
+        (@uInactivo, @idTipoDoc, 189000003, N'ApellidoTres', N'SegTres', N'NombreTres', N'', N'inactivo.notif002a@uco.edu.co', 1, 0);
 
     DECLARE @jsonContactos NVARCHAR(MAX) = CONCAT(
         N'["', CONVERT(NVARCHAR(36), @uActivo1),

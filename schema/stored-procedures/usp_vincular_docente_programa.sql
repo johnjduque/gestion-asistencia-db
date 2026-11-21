@@ -9,7 +9,7 @@ GO
 --   (a) @idDocente        docente existente (p. ej. de otro programa de la misma institucion)
 --   (b) @idUsuario        usuario existente que aun no es docente
 --   (c) datos de persona  alta nueva (usuario + docente + vinculo); documento/correo existentes => DOC_003
--- RBAC COORDINADOR + titularidad PROGRAMA se validan DENTRO del SP. @password es el HASH (nunca texto plano).
+-- RBAC COORDINADOR + titularidad PROGRAMA se validan DENTRO del SP. @password es un parametro obsoleto que se ignora (SEG-11).
 -- Una sola transaccion con ownership (transaccion propia o savepoint si el llamador ya tiene una).
 -- MEJORAS-SERGIO-2026-11-18 (migracion 56): sin tipo de vinculacion (el sistema ya no lo administra; se retiro DOC_004).
 CREATE OR ALTER PROCEDURE [dbo].[usp_vincular_docente_programa]
@@ -40,7 +40,7 @@ AS
     DECLARE @modoDocente BIT = IIF(@idDocente IS NULL, 0, 1);
     DECLARE @modoUsuario BIT = IIF(@idUsuario IS NULL, 0, 1);
     DECLARE @modoNuevo   BIT = IIF(@numeroIdentificacion IS NULL AND @correo IS NULL AND @idTipoIdentificacion IS NULL
-                                   AND @primerNombre IS NULL AND @primerApellido IS NULL AND @password IS NULL, 0, 1);
+                                   AND @primerNombre IS NULL AND @primerApellido IS NULL, 0, 1);
     DECLARE @idUsuarioResuelto  UNIQUEIDENTIFIER;
     DECLARE @idDocenteResuelto  UNIQUEIDENTIFIER;
     DECLARE @idInstitucion      UNIQUEIDENTIFIER;

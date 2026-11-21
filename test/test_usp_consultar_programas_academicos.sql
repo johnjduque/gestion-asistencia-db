@@ -36,8 +36,8 @@ BEGIN TRY
     WHILE @i <= 8
     BEGIN
         DECLARE @uid UNIQUEIDENTIFIER = NEWID();
-        INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-        VALUES (@uid, @tipoId, 800000000 + ABS(CHECKSUM(NEWID()) % 99999999), N'QA', N'Programa', CONCAT(N'U', @i), N'X', CONCAT(CONVERT(NVARCHAR(36), @uid), N'@qa.test'), 1, 1, N'x');
+        INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+        VALUES (@uid, @tipoId, 800000000 + ABS(CHECKSUM(NEWID()) % 99999999), N'QA', N'Programa', CONCAT(N'U', @i), N'X', CONCAT(CONVERT(NVARCHAR(36), @uid), N'@qa.test'), 1, 1);
         INSERT INTO #u (id) VALUES (@uid);
         SET @i += 1;
     END
@@ -79,8 +79,8 @@ BEGIN TRY
     WHILE @k <= 11
     BEGIN
         DECLARE @uk UNIQUEIDENTIFIER = NEWID(), @ck UNIQUEIDENTIFIER = NEWID();
-        INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-        VALUES (@uk, @tipoId, 700000000 + ABS(CHECKSUM(NEWID()) % 99999999), N'QA', N'Prog', CONCAT(N'K', @k), N'X', CONCAT(CONVERT(NVARCHAR(36), @uk), N'@qa.test'), 1, 1, N'x');
+        INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+        VALUES (@uk, @tipoId, 700000000 + ABS(CHECKSUM(NEWID()) % 99999999), N'QA', N'Prog', CONCAT(N'K', @k), N'X', CONCAT(CONVERT(NVARCHAR(36), @uk), N'@qa.test'), 1, 1);
         INSERT INTO dbo.Coordinador (id, usuario) VALUES (@ck, @uk);
         INSERT INTO dbo.Programa (id, facultad, tipoDePrograma, nombre, coordinador, estado)
         VALUES (NEWID(), @f1, IIF(@k % 2 = 0, @tipoPre, @tipoPos), CONCAT(N'Prog ', RIGHT(CONCAT(N'0', @k), 2), N' ', @sufijo), @ck, IIF(@k % 3 = 0, 0, 1));

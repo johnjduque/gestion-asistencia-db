@@ -21,8 +21,8 @@ BEGIN TRY
     DECLARE @esCoord BIT, @docTitular UNIQUEIDENTIFIER, @mu NVARCHAR(4000), @mt NVARCHAR(4000), @ok BIT, @grupoSesion UNIQUEIDENTIFIER;
     -- Coordinador ajeno: coordina un programa propio que no tiene la asignatura (la semilla limpia no trae otro coordinador).
     DECLARE @uC0 UNIQUEIDENTIFIER = NEWID(), @coordC0 UNIQUEIDENTIFIER = NEWID(), @progC0 UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uC0, @tipoCC, 1950000077, N'DEC077', N'', N'Coord0', N'', N'dec077.coord0@fixture.invalid', 1, 1, N'FIXTURE_DISABLED_ACCOUNT');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uC0, @tipoCC, 1950000077, N'DEC077', N'', N'Coord0', N'', N'dec077.coord0@fixture.invalid', 1, 1);
     INSERT INTO dbo.Coordinador (id, usuario, estado, facultad) VALUES (@coordC0, @uC0, 1, @fac);
     INSERT INTO dbo.Programa (id, facultad, tipoDePrograma, nombre, coordinador, estado) VALUES (@progC0, @fac, @tipoProg, N'DEC077-Programa C0', @coordC0, 1);
 

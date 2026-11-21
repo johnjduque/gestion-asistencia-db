@@ -125,7 +125,7 @@ BEGIN
         BEGIN
             -- Modo publico: datos obligatorios
             IF @idTipoIdentificacion IS NULL OR @numeroIdentificacion IS NULL OR @primerNombre IS NULL
-               OR @primerApellido IS NULL OR @correoNormalizado IS NULL OR @correoNormalizado = N'' OR @password IS NULL
+               OR @primerApellido IS NULL OR @correoNormalizado IS NULL OR @correoNormalizado = N''
             BEGIN
                 SET @codigoRechazo = 'GEN_002';
                 SET @parametroRechazo = N'datos de registro';

@@ -67,9 +67,9 @@ BEGIN TRANSACTION;
 BEGIN TRY
     DECLARE @uD UNIQUEIDENTIFIER = NEWID(), @d UNIQUEIDENTIFIER = NEWID(), @uE UNIQUEIDENTIFIER = NEWID(), @e UNIQUEIDENTIFIER = NEWID();
     DECLARE @tag NVARCHAR(12) = LEFT(REPLACE(CONVERT(NVARCHAR(36), NEWID()), N'-', N''), 12);
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uD, @tipoCC, 981000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Titular', N'CulmD', N'Docente', N'D7', CONCAT(N'culmd7.d.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULMD7'),
-           (@uE, @tipoCC, 982000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Alumno', N'CulmD', N'Estudiante', N'D7', CONCAT(N'culmd7.e.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULMD7');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uD, @tipoCC, 981000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Titular', N'CulmD', N'Docente', N'D7', CONCAT(N'culmd7.d.', @tag, N'@test.local'), 1, 1),
+           (@uE, @tipoCC, 982000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Alumno', N'CulmD', N'Estudiante', N'D7', CONCAT(N'culmd7.e.', @tag, N'@test.local'), 1, 1);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d, @uD);
     INSERT INTO dbo.Estudiante (id, usuario) VALUES (@e, @uE);
     DECLARE @per UNIQUEIDENTIFIER = NEWID(), @g UNIQUEIDENTIFIER = NEWID(), @eg UNIQUEIDENTIFIER = NEWID(), @s UNIQUEIDENTIFIER = NEWID();

@@ -102,15 +102,15 @@ BEGIN TRY
     INSERT INTO dbo.AsignaturaPlanEstudio (id, asignatura, semestrePlanEstudio, caracter, estaActivo, fechaVinculacionUtc)
     VALUES (NEWID(), @asigOPT, @speA, @caracterOPT, 1, '2020-01-01'), (NEWID(), @asigOPT, @speB, @caracterOPT, 1, '2020-01-01');
 
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uD, @tipoCC, 986000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Horas', N'CulmD8', N'Doc', N'D8', CONCAT(N'culmd8.d.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULMD8');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uD, @tipoCC, 986000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Horas', N'CulmD8', N'Doc', N'D8', CONCAT(N'culmd8.d.', @tag, N'@test.local'), 1, 1);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d, @uD);
     INSERT INTO #d8E (k, idUsuario, idEstudiante, n)
     SELECT v.k, NEWID(), NEWID(), ROW_NUMBER() OVER (ORDER BY v.k) FROM (VALUES (N'eA1'),(N'eA2'),(N'eAB'),(N'eB1'),(N'e0'),
         (N'f1'),(N'f2'),(N'f3'),(N'f4'),(N'f5'),(N'f6'),(N'f7'),(N'f8'),(N'f9'),(N'f10')) v(k);
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
     SELECT e.idUsuario, @tipoCC, 987000000 + e.n * 10000 + ABS(CHECKSUM(NEWID()) % 9999), CONCAT(N'D8', e.k), N'CulmD8', N'Est', N'D8',
-           CONCAT(N'culmd8.', e.k, N'.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULMD8'
+           CONCAT(N'culmd8.', e.k, N'.', @tag, N'@test.local'), 1, 1
     FROM #d8E e;
     INSERT INTO dbo.Estudiante (id, usuario) SELECT idEstudiante, idUsuario FROM #d8E;
     INSERT INTO dbo.EstudiantePrograma (id, estudiante, programa)

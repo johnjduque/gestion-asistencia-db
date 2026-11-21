@@ -9,7 +9,6 @@ CREATE OR ALTER  VIEW [dbo].[uv_usuario_autenticacion]
 AS
 SELECT		idUsuario = u.id,
 			correo = u.correo,
-			password = u.password,
 			correoConfirmado = u.correoConfirmado,
 			estaActivoUsuario = u.estado
 

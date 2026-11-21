@@ -27,10 +27,10 @@ BEGIN TRY
     DECLARE @cC1 UNIQUEIDENTIFIER = NEWID(), @cC2 UNIQUEIDENTIFIER = NEWID(), @dD UNIQUEIDENTIFIER = NEWID();
     DECLARE @p1 UNIQUEIDENTIFIER = NEWID(), @p2 UNIQUEIDENTIFIER = NEWID(), @pl1 UNIQUEIDENTIFIER = NEWID();
     DECLARE @spe1 UNIQUEIDENTIFIER = NEWID(), @a1 UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uC1, @tipoCC, 970010001, N'Coord', N'Uno', N'Rita', N'Qa', N'qa.c1.rec2@test.local', 1, 1, N'HashBackend_R2'),
-           (@uC2, @tipoCC, 970010002, N'Coord', N'Dos', N'Raul', N'Qa', N'qa.c2.rec2@test.local', 1, 1, N'HashBackend_R2'),
-           (@uD,  @tipoCC, 970010003, N'Docente', N'Uno', N'Rosa', N'Qa', N'qa.doc.rec2@test.local', 1, 1, N'HashBackend_R2');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uC1, @tipoCC, 970010001, N'Coord', N'Uno', N'Rita', N'Qa', N'qa.c1.rec2@test.local', 1, 1),
+           (@uC2, @tipoCC, 970010002, N'Coord', N'Dos', N'Raul', N'Qa', N'qa.c2.rec2@test.local', 1, 1),
+           (@uD,  @tipoCC, 970010003, N'Docente', N'Uno', N'Rosa', N'Qa', N'qa.doc.rec2@test.local', 1, 1);
     INSERT INTO dbo.Coordinador (id, usuario) VALUES (@cC1, @uC1), (@cC2, @uC2);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@dD, @uD);
     INSERT INTO dbo.Programa (id, facultad, tipoDePrograma, nombre, coordinador, estado)

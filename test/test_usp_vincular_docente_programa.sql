@@ -28,14 +28,14 @@ BEGIN TRY
     DECLARE @dD1 UNIQUEIDENTIFIER = NEWID(), @dD3 UNIQUEIDENTIFIER = NEWID();
     DECLARE @p1 UNIQUEIDENTIFIER = NEWID(), @p2 UNIQUEIDENTIFIER = NEWID(), @p3 UNIQUEIDENTIFIER = NEWID();
 
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
     VALUES
-      (@uC1,    @tipoCC, 920000001, N'Coord', N'Uno',  N'Carlos', N'Qa', N'qa.coord1.hu091@uco.edu.co',  1, 1, N'HashBackend_Fixture1'),
-      (@uC2,    @tipoCC, 920000002, N'Coord', N'Dos',  N'Diana',  N'Qa', N'qa.coord2.hu091@uco.edu.co',  1, 1, N'HashBackend_Fixture2'),
-      (@uC3,    @tipoCC, 920000003, N'Coord', N'Tres', N'Tomas',  N'Qa', N'qa.coord3.hu091@uco.edu.co',  1, 1, N'HashBackend_Fixture3'),
-      (@uD1,    @tipoCC, 920000011, N'Docente', N'Uno', N'Daniel', N'Qa', N'qa.docente1.hu091@uco.edu.co', 1, 1, N'HashBackend_Fixture4'),
-      (@uD3,    @tipoCC, 920000013, N'Docente', N'Tres', N'Dora',  N'Qa', N'qa.docente3.hu091@uco.edu.co', 1, 1, N'HashBackend_Fixture5'),
-      (@uSinRol,@tipoCC, 920000019, N'Sin', N'Rol',    N'Sara',   N'Qa', N'qa.sinrol.hu091@uco.edu.co',   1, 1, N'HashBackend_Fixture6');
+      (@uC1,    @tipoCC, 920000001, N'Coord', N'Uno',  N'Carlos', N'Qa', N'qa.coord1.hu091@uco.edu.co',  1, 1),
+      (@uC2,    @tipoCC, 920000002, N'Coord', N'Dos',  N'Diana',  N'Qa', N'qa.coord2.hu091@uco.edu.co',  1, 1),
+      (@uC3,    @tipoCC, 920000003, N'Coord', N'Tres', N'Tomas',  N'Qa', N'qa.coord3.hu091@uco.edu.co',  1, 1),
+      (@uD1,    @tipoCC, 920000011, N'Docente', N'Uno', N'Daniel', N'Qa', N'qa.docente1.hu091@uco.edu.co', 1, 1),
+      (@uD3,    @tipoCC, 920000013, N'Docente', N'Tres', N'Dora',  N'Qa', N'qa.docente3.hu091@uco.edu.co', 1, 1),
+      (@uSinRol,@tipoCC, 920000019, N'Sin', N'Rol',    N'Sara',   N'Qa', N'qa.sinrol.hu091@uco.edu.co',   1, 1);
     INSERT INTO dbo.Coordinador (id, usuario) VALUES (@cC1, @uC1), (@cC2, @uC2), (@cC3, @uC3);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@dD1, @uD1), (@dD3, @uD3);
 
@@ -67,8 +67,8 @@ BEGIN TRY
         @idPrograma = @p1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 1)
         THROW 52010, 'T-091-01 FAILED: alta nueva no retorno exito.', 1;
-    IF NOT EXISTS (SELECT 1 FROM dbo.Usuario WHERE correo = @correoNuevo AND estado = 1 AND password = N'HashBackend_NuevoDocente01')
-        THROW 52011, 'T-091-01 FAILED: no se creo el usuario activo con el hash recibido.', 1;
+    IF NOT EXISTS (SELECT 1 FROM dbo.Usuario WHERE correo = @correoNuevo AND estado = 1)
+        THROW 52011, 'T-091-01 FAILED: no se creo el usuario activo.', 1;
     DECLARE @uNuevo UNIQUEIDENTIFIER = (SELECT id FROM dbo.Usuario WHERE correo = @correoNuevo);
     DECLARE @dNuevo UNIQUEIDENTIFIER = (SELECT id FROM dbo.Docente WHERE usuario = @uNuevo);
     IF @dNuevo IS NULL THROW 52012, 'T-091-01 FAILED: no se creo el rol Docente.', 1;
