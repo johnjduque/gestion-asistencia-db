@@ -20,6 +20,7 @@ DECLARE @idNoAdmin UNIQUEIDENTIFIER = (
 IF @idAdmin IS NULL THROW 55101, 'TEST FAILED: falta un administrador activo.', 1;
 IF @idNoAdmin IS NULL THROW 55102, 'TEST FAILED: falta un usuario no administrador.', 1;
 
+IF OBJECT_ID('tempdb..#r') IS NOT NULL DROP TABLE #r;
 BEGIN TRANSACTION;
 BEGIN TRY
     CREATE TABLE #r (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT);
@@ -194,4 +195,5 @@ END CATCH;
 IF @@TRANCOUNT <> 0
     THROW 55199, 'TEST FAILED: test_admin_catalogos_justificacion_cancelacion dejo transacciones abiertas.', 1;
 PRINT 'TEST PASS: test_admin_catalogos_justificacion_cancelacion';
+IF OBJECT_ID('tempdb..#r') IS NOT NULL DROP TABLE #r;
 GO

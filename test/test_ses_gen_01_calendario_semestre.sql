@@ -142,6 +142,7 @@ BEGIN TRY
     SET estaActivo = 1, fechaDesvinculacionUtc = NULL
     WHERE id IN (SELECT id FROM @vinculosActivos);
     EXEC #ses_expect 'SES_08_B1_SIN_VINCULO_ASI_014', @ok;
+    PRINT 'TEST_PASS:SES_GEN_01_B1_SIN_VINCULO_ASI_014';
 
     -- ---------------------------------------------------------------- SES_08 B2: periodo terminado -> PER_010 (sin sustitucion silenciosa)
     DELETE #r4;
