@@ -51,5 +51,13 @@ JOIN (VALUES
 ) AS v (codigo, nombre) ON t.codigo = v.codigo
 WHERE t.nombre COLLATE Latin1_General_CS_AS <> v.nombre COLLATE Latin1_General_CS_AS;
 GO
+UPDATE t SET t.nombre = v.nombre
+FROM [dbo].[TipoIdentificacion] t
+JOIN (VALUES
+    (N'CC', N'Cedula de ciudadania'),
+    (N'CE', N'Cedula de extranjeria')
+) AS v (codigo, nombre) ON t.tipoIdentificacion = v.codigo
+WHERE t.nombre COLLATE Latin1_General_CS_AS <> v.nombre COLLATE Latin1_General_CS_AS;
+GO
 PRINT 'MIGRACION 66 DOWN OK';
 GO

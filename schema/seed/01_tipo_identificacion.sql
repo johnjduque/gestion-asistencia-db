@@ -8,10 +8,10 @@ GO
 -- Sembrado Idempotente: Tipos de Identificación
 MERGE INTO [dbo].[TipoIdentificacion] AS Target
 USING (VALUES
-    ('A1B2C3D4-0000-0000-0000-000000000001', 'CC', 'Cedula de ciudadania'),
+    ('A1B2C3D4-0000-0000-0000-000000000001', 'CC', N'Cédula de ciudadanía'),
     ('A1B2C3D4-0000-0000-0000-000000000002', 'TI', 'Tarjeta de identidad'),
     ('A1B2C3D4-0000-0000-0000-000000000003', 'PA', 'Pasaporte'),
-    ('A1B2C3D4-0000-0000-0000-000000000004', 'CE', 'Cedula de extranjeria'),
+    ('A1B2C3D4-0000-0000-0000-000000000004', 'CE', N'Cédula de extranjería'),
     ('A1B2C3D4-0000-0000-0000-000000000005', 'PEP', 'Permiso especial de permanencia')
 ) AS Source (id, tipoIdentificacion, nombre)
 ON (Target.tipoIdentificacion = Source.tipoIdentificacion)
