@@ -111,6 +111,12 @@ DECLARE @tag NVARCHAR(12) = LEFT(REPLACE(CONVERT(NVARCHAR(36), NEWID()), N'-', N
 DECLARE @uEst UNIQUEIDENTIFIER = NEWID(), @est UNIQUEIDENTIFIER = NEWID(), @eg UNIQUEIDENTIFIER = NEWID();
 DECLARE @uAdminOtro UNIQUEIDENTIFIER = NEWID(), @instOtra UNIQUEIDENTIFIER = NEWID(), @idAjeno UNIQUEIDENTIFIER = NEWID();
 
+IF OBJECT_ID('tempdb..#rc') IS NOT NULL DROP TABLE #rc;
+IF OBJECT_ID('tempdb..#r4') IS NOT NULL DROP TABLE #r4;
+IF OBJECT_ID('tempdb..#rp') IS NOT NULL DROP TABLE #rp;
+IF OBJECT_ID('tempdb..#pv') IS NOT NULL DROP TABLE #pv;
+IF OBJECT_ID('tempdb..#lista') IS NOT NULL DROP TABLE #lista;
+IF OBJECT_ID('tempdb..#dest') IS NOT NULL DROP TABLE #dest;
 CREATE TABLE #rc (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT,
     idReceso UNIQUEIDENTIFIER NULL, sesionesCanceladas INT NULL, sesionesConAsistencia INT NULL);
 CREATE TABLE #r4 (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT);
@@ -503,4 +509,10 @@ GO
 IF @@TRANCOUNT <> 0
     THROW 59798, 'TEST FAILED REC_TRANCOUNT: transaccion abierta.', 1;
 PRINT 'TEST_PASS:REC_TRANCOUNT_ZERO';
+IF OBJECT_ID('tempdb..#rc') IS NOT NULL DROP TABLE #rc;
+IF OBJECT_ID('tempdb..#r4') IS NOT NULL DROP TABLE #r4;
+IF OBJECT_ID('tempdb..#rp') IS NOT NULL DROP TABLE #rp;
+IF OBJECT_ID('tempdb..#pv') IS NOT NULL DROP TABLE #pv;
+IF OBJECT_ID('tempdb..#lista') IS NOT NULL DROP TABLE #lista;
+IF OBJECT_ID('tempdb..#dest') IS NOT NULL DROP TABLE #dest;
 GO
