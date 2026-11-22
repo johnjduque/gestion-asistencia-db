@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **510**.
+Total de códigos: **521**.
 
 ## ACC
 
@@ -547,6 +547,22 @@ Total de códigos: **510**.
 | `RCN_014` | BUSINESS_ERROR | MEDIO | No puedes resolver una propuesta de cancelación que hiciste como docente. | Ejecutor [{}] = proponente de [{}]. | `40_culm001_c_mensajes.sql` |
 | `RCN_015` | SUCCESS | BAJO | Mensaje en desuso (DEC-065): la propuesta ya no se envía a la decanatura; la decisión final es del coordinador. | En desuso (DEC-065): ya no se escala la revisión [{}] a DECANO. | `40_culm001_c_mensajes.sql` |
 | `RCN_016` | BUSINESS_ERROR | MEDIO | La resolución de la revisión corresponde al coordinador del programa. | Regla DEC-065: el ejecutor [{}] es decano y no resuelve la revisión [{}]; solo el coordinador del programa; sin escrituras. | `40_culm001_c_mensajes.sql` |
+
+## REC
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `REC_001` | SUCCESS | BAJO | Se registró el receso académico del {}; se cancelaron {} clases. | Receso academico [{}] creado. Sesiones canceladas: {}. Sesiones con asistencia que no se tocaron: {}. | `72_receso_academico_mensajes.sql` |
+| `REC_002` | SUCCESS | BAJO | Se retiró el receso académico del {}. | Receso academico [{}] retirado (estaActivo = 0); no habia cancelado ninguna sesion. | `72_receso_academico_mensajes.sql` |
+| `REC_003` | VALIDATION_ERROR | BAJO | La fecha del receso debe estar dentro del período académico, del {} al {}. | Fecha del receso fuera de PeriodoAcademico.fechaInicio..fechaFin ({}..{}). | `72_receso_academico_mensajes.sql` |
+| `REC_004` | VALIDATION_ERROR | BAJO | La fecha del receso debe ser posterior a hoy; elige una fecha desde mañana. | Fecha del receso [{}] no es posterior a la fecha local institucional de hoy [{}] (TIEMPO/ZONA_HORARIA_SQLSERVER). | `72_receso_academico_mensajes.sql` |
+| `REC_005` | BUSINESS_ERROR | MEDIO | Ese día ya es festivo ({}); no necesita receso académico. | Regla: la fecha coincide con un DiaFestivo activo ({}); un receso en un festivo es redundante. | `72_receso_academico_mensajes.sql` |
+| `REC_006` | BUSINESS_ERROR | MEDIO | Ya hay un receso académico registrado para esa fecha en este período. | Unicidad: ya existe un PeriodoRecesoAcademico activo para el periodo y la fecha [{}]. | `72_receso_academico_mensajes.sql` |
+| `REC_007` | BUSINESS_ERROR | MEDIO | El período académico {} está cerrado; no se pueden registrar ni retirar días de receso. | Regla: PeriodoAcademico.fechaCierreUtc no es nula (periodo [{}] cerrado). | `72_receso_academico_mensajes.sql` |
+| `REC_008` | VALIDATION_ERROR | BAJO | El motivo del receso es obligatorio y puede tener hasta {} caracteres. | Validacion: motivo vacio o mayor que RECESO/MOTIVO_LONGITUD_MAXIMA ({}). | `72_receso_academico_mensajes.sql` |
+| `REC_009` | BUSINESS_ERROR | MEDIO | El día de receso académico no existe o ya fue retirado. | Existencia: no hay PeriodoRecesoAcademico activo con el id [{}] en la institucion del ejecutor. | `72_receso_academico_mensajes.sql` |
+| `REC_010` | BUSINESS_ERROR | MEDIO | Este día de receso ya canceló {} clases y no se puede retirar ni cambiar. | Regla: el receso tiene {} SesionCancelacion enlazadas; el retiro se rechaza sin escrituras. | `72_receso_academico_mensajes.sql` |
+| `REC_011` | INFORMATIVO | BAJO | {} h caen en días de receso académico ({} sesión(es)); esas sesiones quedan canceladas. | Horas perdidas por receso academico: {} h en {} sesion(es). | `72_receso_academico_mensajes.sql` |
 
 ## RET
 

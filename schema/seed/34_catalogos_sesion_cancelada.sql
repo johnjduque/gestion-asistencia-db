@@ -6,11 +6,13 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 -- CULM-001 B.1 (CONTRACT §2.1): catalogo TipoCancelacionSesion con ids fijos (patron 08_razon_causa.sql). Idempotente.
--- Los SP lo resuelven por la bandera esAutomatica, nunca por el codigo.
+-- El manual se resuelve por la bandera esAutomatica = 0; los automaticos (FESTIVO, RECESO) por su codigo, que viene de los parametros
+-- SESION/CODIGO_TIPO_CANCELACION_FESTIVO y RECESO/CODIGO_TIPO_CANCELACION (DEC-081, migracion 68).
 MERGE INTO [dbo].[TipoCancelacionSesion] AS Target
 USING (VALUES
     (CAST('7C1E0B10-5E51-4C0A-9A01-000000000001' AS UNIQUEIDENTIFIER), N'DOCENTE', N'Cancelada por el docente', CAST(0 AS BIT)),
-    (CAST('7C1E0B10-5E51-4C0A-9A01-000000000002' AS UNIQUEIDENTIFIER), N'FESTIVO', N'Día festivo',              CAST(1 AS BIT))
+    (CAST('7C1E0B10-5E51-4C0A-9A01-000000000002' AS UNIQUEIDENTIFIER), N'FESTIVO', N'Día festivo',              CAST(1 AS BIT)),
+    (CAST('7C1E0B10-5E51-4C0A-9A01-000000000003' AS UNIQUEIDENTIFIER), N'RECESO',  N'Receso académico',        CAST(1 AS BIT))
 ) AS Source (id, codigo, nombre, esAutomatica)
 ON (Target.id = Source.id)
 WHEN MATCHED THEN

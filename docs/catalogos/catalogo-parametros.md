@@ -44,3 +44,15 @@ El rango 1..366 vive en `CatalogoParametroEdicion` (fila con `esEditable = 0`) y
 | HORARIO | VENTANA_FIN | 22:00 | STRING | Hora local institucional más tardía en que puede terminar una franja (`HOR_008`). |
 
 Ninguno es editable desde la pantalla de parámetros (sin fila en `CatalogoParametroEdicion`).
+
+### DEC-081: receso académico del período (`migrations/68_receso_academico_up.sql`)
+
+| Grupo | Clave | Valor | Tipo | Descripción |
+| --- | --- | --- | --- | --- |
+| RECESO | PREFIJO_MOTIVO_CANCELACION | Receso académico:  | STRING | Prefijo del motivo de la cancelación automática por un día de receso (motivo final = prefijo + motivo del día). |
+| RECESO | CODIGO_TIPO_CANCELACION | RECESO | STRING | Código del `TipoCancelacionSesion` con que se cancelan las sesiones de un receso. |
+| RECESO | MOTIVO_LONGITUD_MAXIMA | 200 | INT | Largo máximo del motivo (`REC_008`); `PeriodoRecesoAcademico.motivo` es `NVARCHAR(200)`. |
+| SESION | CODIGO_TIPO_CANCELACION_FESTIVO | FESTIVO | STRING | Código del `TipoCancelacionSesion` de la cancelación por festivo (antes se hallaba con `esAutomatica = 1`, hoy hay dos tipos automáticos). |
+
+Ninguno es editable desde la pantalla de parámetros (sin fila en `CatalogoParametroEdicion`).
+
