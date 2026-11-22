@@ -203,7 +203,7 @@ BEGIN
         END
     END
 
-    -- PASO 3: asignatura activa (VAL_002 / ASI_010); B1 (ASI_014: vinculo activo a plan activo y todos sus programas en custodia)
+    -- PASO 3: asignatura activa (VAL_002 / ASI_010); B1 (ASI_014: vinculo activo a plan activo); DEC-077 (SEC_002: coordina algun programa)
     IF @estadoResultado = 1 AND @codigoRechazo IS NULL
     BEGIN
         SELECT @codigoAsignatura = a.codigo, @nombreAsignatura = a.nombre, @horasSemanalesMateria = a.horasSemanales
@@ -215,10 +215,13 @@ BEGIN
             SET @codigoRechazo = 'ASI_010';
         ELSE IF NOT EXISTS (SELECT 1 FROM dbo.uv_asignatura_plan_estudio v
                             WHERE v.idAsignatura = @idAsignaturaRes AND v.estaActivoVinculo = 1 AND v.estaActivoPlan = 1 AND v.estaActivaAsignatura = 1)
-             OR EXISTS (SELECT 1 FROM dbo.uv_asignatura_plan_estudio v
-                        WHERE v.idAsignatura = @idAsignaturaRes AND v.estaActivoVinculo = 1 AND v.estaActivoPlan = 1
-                          AND NOT EXISTS (SELECT 1 FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutorDefecto) cp WHERE cp.idPrograma = v.idPrograma))
             SET @codigoRechazo = 'ASI_014';
+        -- DEC-077 (BD-1): una asignatura compartida basta con que el ejecutor coordine ALGUN programa de la asignatura (igual que
+        -- usp_crear_grupo, PASO 2D); si no coordina ninguno: SEC_002. Ya no se exige custodiar todos sus programas.
+        ELSE IF NOT EXISTS (SELECT 1 FROM dbo.uv_asignatura_plan_estudio v
+                            INNER JOIN dbo.ufn_programas_coordinador(@idUsuarioEjecutorDefecto) cp ON cp.idPrograma = v.idPrograma
+                            WHERE v.idAsignatura = @idAsignaturaRes AND v.estaActivoVinculo = 1)
+            SET @codigoRechazo = 'SEC_002';
     END
 
     -- PASO 4: periodo (VAL_002) de la institucion del coordinador, no terminado ni cerrado (PER_010)
