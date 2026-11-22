@@ -465,6 +465,13 @@
     "67_err_bd_no_disponible": [
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ERR_BD_NO_DISPONIBLE'" },
       { "tabla": "dbo.CatalogoMensajeTecnico", "donde": "codigo = 'ERR_BD_NO_DISPONIBLE'" }
+    ],
+    "68_receso_academico": [
+      { "tabla": "dbo.PeriodoRecesoAcademico" },
+      { "columna": "dbo.SesionCancelacion.recesoAcademico" },
+      { "tabla": "dbo.TipoCancelacionSesion", "donde": "codigo = 'RECESO'" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'REC_001'" },
+      { "tabla": "dbo.PlantillaNotificacion", "donde": "tipo = 'RECESO_CLASES_CANCELADAS_ESTUDIANTE'" }
     ]
   }
 }
