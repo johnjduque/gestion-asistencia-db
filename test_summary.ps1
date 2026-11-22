@@ -756,6 +756,16 @@ try {
 catch {
     $resultFailures += "HU074_MIG_RUNNER $($_.Exception.Message)"
 }
+# AUDBD: migracion 70 (up/down/up) en test/test_auditoria_bd_migracion_70.ps1.
+try {
+    $audbdMigOutput = @(& (Join-Path $PSScriptRoot 'test/test_auditoria_bd_migracion_70.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $audbdMigOutput) { Write-Host $line }
+    if ($audbdMigOutput -contains 'TEST_PASS:AUDBD_MIG70_UP_DOWN_UP') { $clientPassed += 'AUDBD_MIG70_UP_DOWN_UP' }
+    else { $resultFailures += 'AUDBD_MIG70_UP_DOWN_UP not reported by test_auditoria_bd_migracion_70.ps1' }
+}
+catch {
+    $resultFailures += "AUDBD_MIG70_RUNNER $($_.Exception.Message)"
+}
 # SES-GEN-01: migracion 64 (up/down/up) en test/test_ses_gen_01_migracion.ps1.
 try {
     $sesGenMigOutput = @(& (Join-Path $PSScriptRoot 'test/test_ses_gen_01_migracion.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
@@ -1230,7 +1240,12 @@ $criticalIds = @(
     'HU074_09_OFERTA_EXCLUYE_INACTIVA', 'HU074_10_ASOCIABLES_EXCLUYE_INACTIVA', 'HU074_11_MALLA_MUESTRA_INACTIVA',
     'HU074_12_DESEADA_INACTIVA_YA_INACTIVA', 'HU074_13_DESEADA_ACTIVA_YA_ACTIVA', 'HU074_14_DESEADA_ACTIVA_DESDE_INACTIVA',
     'HU074_15_COMPARTIDA_PROPIA_CON_GRUPO', 'HU074_16_BORDE_FIN_HOY', 'HU074_17_BORDE_INICIO_MANANA', 'HU074_18_CREAR_GRUPO_ACTIVA', 'HU074_TRANCOUNT_ZERO',
-    'HU074_MIG_UP_DOWN_UP'
+    'HU074_MIG_UP_DOWN_UP',
+    # Auditoria de BD 2026-11-22 (test/test_auditoria_bd_2026_11_22.sql, migracion 70 en test/test_auditoria_bd_migracion_70.ps1)
+    'AUDBD_A2_01_CUPO_INFERIOR_RECHAZADO', 'AUDBD_A2_02_ACTUALIZA_Y_BLOQUEA_CUPO', 'AUDBD_A1_01_DECANO_SOLO_SU_FACULTAD',
+    'AUDBD_A1_02_COORDINADOR_SOLO_SU_PROGRAMA', 'AUDBD_A1_03_ADMINISTRADOR_TODA_CUENTA', 'AUDBD_M1_01_INDICES_FK', 'AUDBD_M3_01_SIN_GUID_VACIO_LITERAL',
+    'AUDBD_M6_01_XACT_ABORT_ESCRITURA', 'AUDBD_M7_01_FUNCION_RETIRADA', 'AUDBD_M11_01_MENSAJES_CON_TILDES', 'AUDBD_TRANCOUNT_ZERO',
+    'AUDBD_MIG70_UP_DOWN_UP'
 )
 if ($Concurrencia) { $criticalIds += 'CULM001_B2_CON_01_5X40' }
 $sqlPasses = @([regex]::Matches($outputStr, '(?m)^TEST_PASS:([A-Z0-9_]+)\s*$') | ForEach-Object { $_.Groups[1].Value })
