@@ -24,6 +24,8 @@ GO
 -- idProgramaResponsable / nombreProgramaResponsable (programa responsable del grupo, ufn_programas_grupo_responsable; NULL si el
 -- grupo no tiene programas vigentes) y esResponsable (BIT: el ejecutor coordina ese programa, ufn_programas_coordinador; 0 para
 -- cualquier ejecutor que no sea su coordinador, p. ej. docente, decano o administrador).
+-- BD-9 (2026-11-22, cambio aditivo): nombreDocente AL FINAL = nombre completo del titular del grupo (uv_docente_identidad), para que el
+-- coordinador de OTRO programa de un grupo compartido vea al titular aunque este no este vinculado a su programa (NULL si no hay titular).
 --
 -- SESSION_CONTEXT es estado de la conexion fisica: este SP captura el contexto
 -- previo, aplica el del usuario ejecutor solo durante la consulta y SIEMPRE
@@ -114,8 +116,10 @@ BEGIN
             pr.nombre AS nombreProgramaResponsable,
             CAST(IIF(pr.idPrograma IS NOT NULL
                      AND EXISTS (SELECT 1 FROM dbo.ufn_programas_coordinador(@idUsuarioDefecto) cp WHERE cp.idPrograma = pr.idPrograma),
-                     1, 0) AS BIT) AS esResponsable
+                     1, 0) AS BIT) AS esResponsable,
+            di.nombreCompleto AS nombreDocente
         FROM dbo.uv_auth_grupo g
+        LEFT JOIN dbo.uv_docente_identidad di ON di.id = g.idDocente
         OUTER APPLY (SELECT TOP (1) r.idPrograma, p.nombre
                      FROM dbo.ufn_programas_grupo_responsable(g.id) r
                      INNER JOIN dbo.Programa p ON p.id = r.idPrograma) pr
