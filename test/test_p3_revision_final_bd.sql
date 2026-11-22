@@ -14,6 +14,7 @@ GO
 --   P3_BD_07 (BD-7)  KPIs y comparativa del decano exponen horasPeriodo (base del % de ausentismo)
 --   P3_BD_08 (BD-8)  consolidado: las horas futuras van en porcentajePorDictar y no en porcentajeSinRegistro
 --   P3_BD_09 (BD-9)  el listado de grupos del coordinador de otro programa trae el nombre del titular
+--   P3_BD_11         el consolidado del coordinador solo trae filas de los programas que coordina (grupo compartido sin duplicar)
 --   P3_BD_10 (BD-10) editar un grupo responde GEN_005 (actualizado), no GEN_004; mensajes nuevos sembrados
 SET NOCOUNT ON;
 SET XACT_ABORT OFF;
@@ -296,6 +297,19 @@ BEGIN TRY
                                        AND porcentajeAsistencia + porcentajeInasistencia + porcentajeExcusa + porcentajeSinRegistro + porcentajePorDictar <> 0)
         THROW 55081, 'TEST FAILED: P3_BD_08 sin horas dictadas el consolidado debe dar 0 % sin registro y 100 % por dictar (las cinco columnas suman 100).', 1;
     PRINT 'TEST_PASS:P3_BD_08_CONSOLIDADO_SIN_REGISTRO_SOLO_DICTADAS';
+
+    -- P3_BD_11: el consolidado del coordinador trae SOLO las filas de los programas que el coordina (un grupo compartido ya no se duplica con el programa ajeno)
+    TRUNCATE TABLE #co;
+    INSERT #co EXEC dbo.usp_consultar_consolidado_asistencia_grupos_paginado @idUsuarioEjecutor = @uCA, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 50,
+        @idPeriodoAcademico = @perAct;
+    IF (SELECT COUNT(*) FROM #co WHERE idGrupo = @grupoG) <> 1 OR NOT EXISTS (SELECT 1 FROM #co WHERE idGrupo = @grupoG AND idPrograma = @progA)
+        THROW 55111, 'TEST FAILED: P3_BD_11 el coordinador del programa A debe ver una sola fila del grupo compartido (la de su programa), no la del programa B.', 1;
+    TRUNCATE TABLE #co;
+    INSERT #co EXEC dbo.usp_consultar_consolidado_asistencia_grupos_paginado @idUsuarioEjecutor = @uCB, @idCorrelacion = @c, @numeroPagina = 1, @tamanoPagina = 50,
+        @idPeriodoAcademico = @perAct;
+    IF (SELECT COUNT(*) FROM #co WHERE idGrupo = @grupoG) <> 1 OR NOT EXISTS (SELECT 1 FROM #co WHERE idGrupo = @grupoG AND idPrograma = @progB)
+        THROW 55112, 'TEST FAILED: P3_BD_11 el coordinador del programa B debe ver una sola fila del grupo compartido (la de su programa).', 1;
+    PRINT 'TEST_PASS:P3_BD_11_CONSOLIDADO_SOLO_PROGRAMAS_DEL_AMBITO';
 
     -- P3_BD_09: el coordinador del programa B (no responsable) ve al titular aunque no este vinculado a su programa
     DELETE FROM dbo.DocentePrograma WHERE docente = @docT AND programa = @progB;

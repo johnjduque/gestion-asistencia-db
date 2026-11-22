@@ -27,6 +27,7 @@ GO
 -- de los comandos. Las fallas de validacion se propagan con THROW (VAL_001 / SEC_001 / PAG_001).
 -- Ambito: perfiles COORDINADOR, DECANO o ADMINISTRADOR; los grupos salen de uv_auth_grupo (fail-closed): el
 -- coordinador ve su programa, el decano su facultad y el administrador su institucion.
+-- Revision final P3: solo se devuelven las filas (grupo, programa) de los programas del ambito del ejecutor.
 -- SESSION_CONTEXT: se captura el previo y SIEMPRE se restaura (exito y error).
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_consolidado_asistencia_grupos_paginado]
@@ -81,6 +82,9 @@ BEGIN
                     gp.idPrograma
             FROM    dbo.uv_auth_grupo g
             INNER JOIN dbo.uv_grupo_programa gp ON gp.idGrupo = g.id
+            -- Revision final P3: un grupo compartido ya no trae filas de programas FUERA del ambito del ejecutor (uv_auth_programa: coordinador -> los
+            -- suyos, decano -> su facultad, administrador -> su institucion); antes salia una fila por cada programa del grupo.
+            INNER JOIN dbo.uv_auth_programa ap ON ap.id = gp.idPrograma
             WHERE   (@idPeriodoAcademico IS NULL OR g.idPeriodoAcademico = @idPeriodoAcademico)
                AND  (@idPrograma IS NULL OR gp.idPrograma = @idPrograma)
                AND  (@idAsignatura IS NULL OR g.idAsignatura = @idAsignatura)
