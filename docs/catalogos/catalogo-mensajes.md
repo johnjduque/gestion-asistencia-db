@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **521**.
+Total de códigos: **524**.
 
 ## ACC
 
@@ -322,6 +322,8 @@ Total de códigos: **521**.
 | `EST_007` | SUCCESS | BAJO | El semestre del estudiante quedó actualizado. | EstudiantePrograma.semestreActual actualizado por el coordinador del programa (NULL lo limpia). | `71_estudiante_semestre_mensajes.sql` |
 | `EST_008` | BUSINESS_ERROR | MEDIO | El estudiante no está vinculado a este programa académico. | Regla: no existe dbo.EstudiantePrograma para el estudiante y el programa indicados. | `71_estudiante_semestre_mensajes.sql` |
 | `EST_009` | VALIDATION_ERROR | BAJO | El semestre debe estar entre {} y {}. | Regla: @semestreActual fuera del rango [MIN(Semestre.numero), MAX(Semestre.numero)] del catalogo dbo.Semestre. | `71_estudiante_semestre_mensajes.sql` |
+| `EST_010` | BUSINESS_ERROR | MEDIO | El estudiante no pertenece a ningún programa de este grupo; solo puedes matricular estudiantes de los programas del grupo. | Regla BD-4: el estudiante tiene dbo.EstudiantePrograma pero ninguno es programa del grupo (ufn_programas_grupo); sin escrituras. | `73_p3_revision_final_mensajes.sql` |
+| `EST_011` | BUSINESS_ERROR | MEDIO | El programa indicado no es uno de los programas del estudiante; elige uno de sus programas del grupo. | Regla BD-4: idPrograma esta en el grupo pero no figura en dbo.EstudiantePrograma del estudiante; sin escrituras. | `73_p3_revision_final_mensajes.sql` |
 
 ## FAC
 
@@ -480,6 +482,7 @@ Total de códigos: **521**.
 | `PER_009` | BUSINESS_ERROR | MEDIO | El período académico ya fue cerrado el {}; el cierre masivo no se puede repetir. | Regla: PeriodoAcademico.fechaCierreUtc ya registrada (cierre del {}, fecha local institucional); usp_ejecutar_cierre_masivo_periodo no repite el cierre ni audita nada. | `17_mensajes_periodo_academico.sql` |
 | `PER_010` | BUSINESS_ERROR | ALTO | El período académico {} no está vigente: ya terminó, está cerrado o no es de tu institución. | Periodo {} inexistente, de otra institucion, cerrado o terminado. | `04_mensaje.sql` |
 | `PER_011` | BUSINESS_ERROR | MEDIO | El período debe durar {} semanas: la fecha de fin debe ser {}. | Duracion de periodo invalida: se exigen {} semanas; fecha de fin calculada {}. | `04_mensaje.sql` |
+| `PER_012` | BUSINESS_ERROR | MEDIO | Las fechas del período se cruzan con el período {}; los períodos de la institución no pueden solaparse. | Regla: las fechas se solapan con dbo.PeriodoAcademico [{}] de la misma institucion (inicio <= fin existente y fin >= inicio existente); sin escrituras. | `73_p3_revision_final_mensajes.sql` |
 
 ## PLA
 

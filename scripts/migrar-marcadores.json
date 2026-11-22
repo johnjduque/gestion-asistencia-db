@@ -472,6 +472,12 @@
       { "tabla": "dbo.TipoCancelacionSesion", "donde": "codigo = 'RECESO'" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'REC_001'" },
       { "tabla": "dbo.PlantillaNotificacion", "donde": "tipo = 'RECESO_CLASES_CANCELADAS_ESTUDIANTE'" }
+    ],
+    "69_p3_revision_final": [
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'PER_012'" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'EST_010'" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'EST_011'" },
+      { "tabla": "dbo.CatalogoMensajeTecnico", "donde": "codigo = 'PER_012'" }
     ]
   }
 }
