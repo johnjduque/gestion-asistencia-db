@@ -119,8 +119,10 @@ BEGIN TRY
 
     -- Periodos propios P1..P4 (cada KPI se pide con @idPeriodoAcademico explicito)
     INSERT INTO #d8P (k, id) VALUES (N'P1', NEWID()), (N'P2', NEWID()), (N'P3', NEWID()), (N'P4', NEWID());
+    -- fechaFin un anio despues de hoy (hora local institucional): el periodo sigue ACTIVO (uv_periodo_academico) sin importar el dia en que corra la prueba.
     INSERT INTO dbo.PeriodoAcademico (id, institucion, nombre, codigo, fechaInicio, fechaFin, anio)
-    SELECT p.id, @inst, CONCAT(N'CULMD8 ', p.k), 3500000 + ABS(CHECKSUM(NEWID()) % 400000), '2024-01-01', '2026-12-31', 2026 FROM #d8P p;
+    SELECT p.id, @inst, CONCAT(N'CULMD8 ', p.k), 3500000 + ABS(CHECKSUM(NEWID()) % 400000), '2024-01-01',
+           DATEADD(YEAR, 1, CAST(SYSUTCDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE dbo.ufn_obtener_parametro('TIEMPO', 'ZONA_HORARIA_SQLSERVER') AS DATE)), 2026 FROM #d8P p;
 
     INSERT INTO #d8G (k, id, asignatura, periodo) VALUES (N'G1', NEWID(), @asigOPT, N'P1'), (N'G2', NEWID(), @asigSeed, N'P2'),
         (N'G3', NEWID(), @asigSeed, N'P3'), (N'G4', NEWID(), @asigSeed, N'P4'), (N'G5', NEWID(), @asigSeed, N'P4');
