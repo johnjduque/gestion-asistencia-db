@@ -15,11 +15,12 @@ GO
 --   P3_BD_08 (BD-8)  consolidado: las horas futuras van en porcentajePorDictar y no en porcentajeSinRegistro
 --   P3_BD_09 (BD-9)  el listado de grupos del coordinador de otro programa trae el nombre del titular
 --   P3_BD_11         el consolidado del coordinador solo trae filas de los programas que coordina (grupo compartido sin duplicar)
+--   P3_BD_12         matricula por QR/PIN de un estudiante existente: programa comun con el grupo (EST_010/EST_011/MQR_008, automatica con uno solo)
 --   P3_BD_10 (BD-10) editar un grupo responde GEN_005 (actualizado), no GEN_004; mensajes nuevos sembrados
 SET NOCOUNT ON;
 SET XACT_ABORT OFF;
 PRINT 'TEST START: test_p3_revision_final_bd';
-DROP TABLE IF EXISTS #apr; DROP TABLE IF EXISTS #can; DROP TABLE IF EXISTS #co; DROP TABLE IF EXISTS #cp; DROP TABLE IF EXISTS #g; DROP TABLE IF EXISTS #kd; DROP TABLE IF EXISTS #pv; DROP TABLE IF EXISTS #r; DROP TABLE IF EXISTS #res; DROP TABLE IF EXISTS #rp; DROP TABLE IF EXISTS #sg; DROP TABLE IF EXISTS #sol; 
+DROP TABLE IF EXISTS #apr; DROP TABLE IF EXISTS #can; DROP TABLE IF EXISTS #co; DROP TABLE IF EXISTS #cp; DROP TABLE IF EXISTS #g; DROP TABLE IF EXISTS #kd; DROP TABLE IF EXISTS #va; DROP TABLE IF EXISTS #mq; DROP TABLE IF EXISTS #vq; DROP TABLE IF EXISTS #pv; DROP TABLE IF EXISTS #r; DROP TABLE IF EXISTS #res; DROP TABLE IF EXISTS #rp; DROP TABLE IF EXISTS #sg; DROP TABLE IF EXISTS #sol; 
 BEGIN TRANSACTION;
 BEGIN TRY
 :r /tmp/test/fixtures/culm001_b2nm_asignatura_compartida.sql
@@ -310,6 +311,78 @@ BEGIN TRY
     IF (SELECT COUNT(*) FROM #co WHERE idGrupo = @grupoG) <> 1 OR NOT EXISTS (SELECT 1 FROM #co WHERE idGrupo = @grupoG AND idPrograma = @progB)
         THROW 55112, 'TEST FAILED: P3_BD_11 el coordinador del programa B debe ver una sola fila del grupo compartido (la de su programa).', 1;
     PRINT 'TEST_PASS:P3_BD_11_CONSOLIDADO_SOLO_PROGRAMAS_DEL_AMBITO';
+
+    -- P3_BD_12: la matricula por QR/PIN de un estudiante EXISTENTE exige un programa comun con el grupo (igual que la manual, BD-4)
+    CREATE TABLE #va (idCorrelacion UNIQUEIDENTIFIER NULL, mensajeUsuarioResultado NVARCHAR(MAX) NULL, mensajeTecnicoResultado NVARCHAR(MAX) NULL,
+        estadoResultado BIT NOT NULL, idVentana UNIQUEIDENTIFIER NULL, fechaExpiracionUtc DATETIME2(0) NULL);
+    CREATE TABLE #mq (idCorrelacion UNIQUEIDENTIFIER NULL, mensajeUsuarioResultado NVARCHAR(MAX) NULL, mensajeTecnicoResultado NVARCHAR(MAX) NULL,
+        estadoResultado BIT NOT NULL, idEstudiante UNIQUEIDENTIFIER NULL, idUsuario UNIQUEIDENTIFIER NULL, idGrupo UNIQUEIDENTIFIER NULL);
+    CREATE TABLE #vq (idGrupo UNIQUEIDENTIFIER NULL, nombreAsignatura NVARCHAR(200) NULL, nombreGrupo NVARCHAR(200) NULL,
+        nombreDocente NVARCHAR(300) NULL, fechaExpiracionUtc DATETIME2(0) NULL, cupoDisponible INT NULL, programasElegibles NVARCHAR(MAX) NULL);
+    DECLARE @uQ1 UNIQUEIDENTIFIER = NEWID(), @eQ1 UNIQUEIDENTIFIER = NEWID(), @uQ2 UNIQUEIDENTIFIER = NEWID(), @eQ2 UNIQUEIDENTIFIER = NEWID(),
+            @uQ3 UNIQUEIDENTIFIER = NEWID(), @eQ3 UNIQUEIDENTIFIER = NEWID(), @uQ4 UNIQUEIDENTIFIER = NEWID(), @eQ4 UNIQUEIDENTIFIER = NEWID();
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uQ1, @tipoCC, 1950000101, N'P3', N'', N'QrAjeno', N'', N'p3.qr1@fixture.invalid', 1, 1),
+           (@uQ2, @tipoCC, 1950000102, N'P3', N'', N'QrUnico', N'', N'p3.qr2@fixture.invalid', 1, 1),
+           (@uQ3, @tipoCC, 1950000103, N'P3', N'', N'QrAmbos', N'', N'p3.qr3@fixture.invalid', 1, 1),
+           (@uQ4, @tipoCC, 1950000104, N'P3', N'', N'QrOtro', N'', N'p3.qr4@fixture.invalid', 1, 1);
+    INSERT INTO dbo.Estudiante (id, usuario) VALUES (@eQ1, @uQ1), (@eQ2, @uQ2), (@eQ3, @uQ3), (@eQ4, @uQ4);
+    INSERT INTO dbo.EstudiantePrograma (id, estudiante, programa) VALUES (NEWID(), @eQ1, @progC), (NEWID(), @eQ2, @progA),
+        (NEWID(), @eQ3, @progA), (NEWID(), @eQ3, @progB), (NEWID(), @eQ4, @progA);
+    DECLARE @activaQ NVARCHAR(10) = dbo.ufn_obtener_parametro('MATRICULA_QR', 'ESTADO_ACTIVA'), @cerradaQ NVARCHAR(10) = dbo.ufn_obtener_parametro('MATRICULA_QR', 'ESTADO_CERRADA');
+    UPDATE dbo.TokenMatriculaGrupo SET estado = @cerradaQ WHERE grupo = @grupoG AND estado = @activaQ;
+    DECLARE @hashQ VARBINARY(32) = HASHBYTES('SHA2_256', CONCAT(N'p3bd12-', REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', '')));
+    DECLARE @pinQ NCHAR(6) = RIGHT(CONCAT('000000', CAST(ABS(CHECKSUM(NEWID())) % 1000000 AS VARCHAR(6))), 6);
+    INSERT #va EXEC dbo.usp_abrir_ventana_matricula_grupo @idGrupo = @grupoG, @tokenHash = @hashQ, @pin = @pinQ, @idCorrelacion = @c, @idUsuarioEjecutor = @uT;
+    IF NOT EXISTS (SELECT 1 FROM #va WHERE estadoResultado = 1)
+        THROW 55120, 'TEST FAILED: P3_BD_12 fixture: el titular no pudo abrir la ventana de matricula.', 1;
+    -- Q1 (miguel-like): estudiante solo del programa C (ajeno al grupo), elige A: EST_010, sin matricula ni vinculo nuevo
+    INSERT #mq EXEC dbo.usp_matricular_estudiante_por_token @idCorrelacion = @c, @tokenHash = @hashQ, @pin = NULL, @idUsuarioEjecutor = @uQ1, @idPrograma = @progA;
+    IF NOT EXISTS (SELECT 1 FROM #mq WHERE estadoResultado = 0 AND mensajeTecnicoResultado LIKE N'%EST_010%')
+       OR EXISTS (SELECT 1 FROM dbo.EstudianteGrupo WHERE grupo = @grupoG AND estudiante = @eQ1)
+       OR (SELECT COUNT(*) FROM dbo.EstudiantePrograma WHERE estudiante = @eQ1) <> 1
+        THROW 55121, 'TEST FAILED: P3_BD_12 un estudiante sin programa comun con el grupo debe recibir EST_010 por QR/PIN, sin matricula ni vinculo nuevo.', 1;
+    -- Q2: estudiante del programa A que elige B (no es suyo): EST_011
+    DELETE FROM #mq;
+    INSERT #mq EXEC dbo.usp_matricular_estudiante_por_token @idCorrelacion = @c, @tokenHash = @hashQ, @pin = NULL, @idUsuarioEjecutor = @uQ4, @idPrograma = @progB;
+    IF NOT EXISTS (SELECT 1 FROM #mq WHERE estadoResultado = 0 AND mensajeTecnicoResultado LIKE N'%EST_011%')
+       OR EXISTS (SELECT 1 FROM dbo.EstudianteGrupo WHERE grupo = @grupoG AND estudiante = @eQ4)
+        THROW 55122, 'TEST FAILED: P3_BD_12 un programa fuera de los del estudiante debe recibir EST_011 por QR/PIN.', 1;
+    -- Q3: un unico programa comun y sin elegir: se matricula solo con ese, sin vinculos nuevos
+    DELETE FROM #mq;
+    INSERT #mq EXEC dbo.usp_matricular_estudiante_por_token @idCorrelacion = @c, @tokenHash = @hashQ, @pin = NULL, @idUsuarioEjecutor = @uQ2, @idPrograma = NULL;
+    IF NOT EXISTS (SELECT 1 FROM #mq WHERE estadoResultado = 1)
+       OR NOT EXISTS (SELECT 1 FROM dbo.EstudianteGrupo WHERE grupo = @grupoG AND estudiante = @eQ2)
+       OR (SELECT COUNT(*) FROM dbo.EstudiantePrograma WHERE estudiante = @eQ2) <> 1
+        THROW 55123, 'TEST FAILED: P3_BD_12 con un unico programa comun el estudiante debe matricularse solo (sin elegir y sin vinculos nuevos).', 1;
+    -- Q4: dos programas comunes y sin elegir: MQR_008; eligiendo uno de ellos se matricula, sin vinculos nuevos
+    DELETE FROM #mq;
+    INSERT #mq EXEC dbo.usp_matricular_estudiante_por_token @idCorrelacion = @c, @tokenHash = @hashQ, @pin = NULL, @idUsuarioEjecutor = @uQ3, @idPrograma = NULL;
+    IF NOT EXISTS (SELECT 1 FROM #mq WHERE estadoResultado = 0 AND mensajeTecnicoResultado LIKE N'%MQR_008%')
+       OR EXISTS (SELECT 1 FROM dbo.EstudianteGrupo WHERE grupo = @grupoG AND estudiante = @eQ3)
+        THROW 55124, 'TEST FAILED: P3_BD_12 con varios programas comunes y sin elegir debe responder MQR_008.', 1;
+    DELETE FROM #mq;
+    INSERT #mq EXEC dbo.usp_matricular_estudiante_por_token @idCorrelacion = @c, @tokenHash = @hashQ, @pin = NULL, @idUsuarioEjecutor = @uQ3, @idPrograma = @progB;
+    IF NOT EXISTS (SELECT 1 FROM #mq WHERE estadoResultado = 1)
+       OR (SELECT COUNT(*) FROM dbo.EstudiantePrograma WHERE estudiante = @eQ3) <> 2
+        THROW 55125, 'TEST FAILED: P3_BD_12 eligiendo uno de los programas comunes el estudiante debe matricularse sin vinculos nuevos.', 1;
+    -- Q5: la validacion que conoce al estudiante lista solo la interseccion (la anonima sigue listando los programas del grupo)
+    INSERT #vq EXEC dbo.usp_validar_token_matricula_publico @tokenHash = @hashQ, @pin = NULL, @idCorrelacion = @c, @idUsuarioEjecutor = @uQ4;
+    IF (SELECT programasElegibles FROM #vq) IS NOT NULL
+        THROW 55126, 'TEST FAILED: P3_BD_12 con un unico programa comun la validacion no debe pedir elegir programa (lista nula).', 1;
+    DELETE FROM #vq;
+    INSERT #vq EXEC dbo.usp_validar_token_matricula_publico @tokenHash = @hashQ, @pin = NULL, @idCorrelacion = @c, @idUsuarioEjecutor = @uQ1;
+    IF (SELECT programasElegibles FROM #vq) IS NOT NULL
+        THROW 55127, 'TEST FAILED: P3_BD_12 un estudiante sin programa comun no debe recibir programas elegibles.', 1;
+    DELETE FROM #vq;
+    INSERT #vq EXEC dbo.usp_validar_token_matricula_publico @tokenHash = @hashQ, @pin = NULL, @idCorrelacion = @c, @idUsuarioEjecutor = @uQ3;
+    IF (SELECT COUNT(*) FROM OPENJSON((SELECT programasElegibles FROM #vq)) WITH (idPrograma UNIQUEIDENTIFIER '$.idPrograma') WHERE idPrograma IN (@progA, @progB)) <> 2
+        THROW 55128, 'TEST FAILED: P3_BD_12 con dos programas comunes la validacion debe listar ambos.', 1;
+    DELETE FROM #vq;
+    INSERT #vq EXEC dbo.usp_validar_token_matricula_publico @tokenHash = @hashQ, @pin = NULL, @idCorrelacion = @c;
+    IF (SELECT COUNT(*) FROM OPENJSON((SELECT programasElegibles FROM #vq)) WITH (idPrograma UNIQUEIDENTIFIER '$.idPrograma') WHERE idPrograma IN (@progA, @progB)) <> 2
+        THROW 55129, 'TEST FAILED: P3_BD_12 la validacion anonima sin cambios debe listar los programas del grupo.', 1;
+    PRINT 'TEST_PASS:P3_BD_12_MATRICULA_QR_PROGRAMA_COMUN';
 
     -- P3_BD_09: el coordinador del programa B (no responsable) ve al titular aunque no este vinculado a su programa
     DELETE FROM dbo.DocentePrograma WHERE docente = @docT AND programa = @progB;

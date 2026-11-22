@@ -11,6 +11,7 @@ GO
 --   * @idUsuarioAutenticado NO NULL: modo autenticado: RBAC ESTUDIANTE; el estudiante es el de ese usuario.
 --   * @idUsuarioAutenticado NULL: modo publico: crea Usuario (ACTIVO, correoConfirmado = 0) y Estudiante; el correo debe ser
 --     institucional (IDENT-001: VCE_001). Documento o correo ya existentes: MQR_005 sin cambios.
+--   * Revision final P3: un estudiante existente con programas se matricula solo con un programa comun con el grupo (EST_010, EST_011, MQR_008).
 --   * Reglas de HU050 via usp_registrar_estudiante_en_grupo_interno (cupo, cruce, duplicado, programa). El estado de la
 --     matricula es el parametro MATRICULA_QR/ESTADO_MATRICULA (sin literal quemado), validado ANTES de escribir.
 --   * Atomico: la expiracion perezosa de la ventana persiste; el trabajo de negocio se revierte hasta su savepoint ante
@@ -162,6 +163,28 @@ BEGIN
         IF @estadoResultado = 1 AND @codigoRechazo IS NULL AND @programaVentana IS NOT NULL
            AND NOT EXISTS (SELECT 1 FROM dbo.ufn_programas_grupo(@idGrupo) pg WHERE pg.idPrograma = @programaVentana)
             SET @codigoRechazo = 'EST_006';
+        -- Revision final P3 (decision 2026-11-22, igual que la matricula manual BD-4): un estudiante EXISTENTE con vinculos en EstudiantePrograma solo se
+        -- matricula con un programa comun con el grupo. Ninguno comun: EST_010; programa de la ventana o elegido que no es suyo: EST_011; un unico programa
+        -- comun y ninguno fijado: se usa ese; varios y ninguno fijado: MQR_008. Nunca se crea un vinculo nuevo a quien ya tiene programas (usp_internal_asegurar_
+        -- estudiante_programa_grupo devuelve el existente). Estudiante nuevo o sin ningun vinculo: sin cambio (elige entre los programas del grupo).
+        IF @estadoResultado = 1 AND @codigoRechazo IS NULL AND @idEstudianteTarget IS NOT NULL
+           AND EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep WHERE ep.estudiante = @idEstudianteTarget)
+        BEGIN
+            DECLARE @programasComunes INT = (SELECT COUNT(*) FROM dbo.EstudiantePrograma ep
+                                             INNER JOIN dbo.ufn_programas_grupo(@idGrupo) pg ON pg.idPrograma = ep.programa
+                                             WHERE ep.estudiante = @idEstudianteTarget);
+            IF @programasComunes = 0
+                SET @codigoRechazo = 'EST_010';
+            ELSE IF @programaVentana IS NOT NULL
+                AND NOT EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep WHERE ep.estudiante = @idEstudianteTarget AND ep.programa = @programaVentana)
+                SET @codigoRechazo = 'EST_011';
+            ELSE IF @programaVentana IS NULL AND @programasComunes = 1
+                SELECT @programaVentana = ep.programa FROM dbo.EstudiantePrograma ep
+                INNER JOIN dbo.ufn_programas_grupo(@idGrupo) pg ON pg.idPrograma = ep.programa
+                WHERE ep.estudiante = @idEstudianteTarget;
+            ELSE IF @programaVentana IS NULL AND @programasComunes > 1
+                SET @codigoRechazo = 'MQR_008';
+        END
         -- CULM-001 B2NM (S3) / DEC-078: grupo multiprograma sin programa (ni de la ventana ni elegido) y sin vinculo previo ->
         -- MQR_008 (el estudiante debe elegir su programa), antes de crear usuario o matricula.
         IF @estadoResultado = 1 AND @codigoRechazo IS NULL
