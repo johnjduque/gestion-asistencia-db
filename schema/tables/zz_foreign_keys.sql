@@ -564,3 +564,19 @@ BEGIN
     ALTER TABLE [dbo].[Grupo] ADD CONSTRAINT [FK_Grupo_ProgramaResponsable] FOREIGN KEY ([programaResponsable]) REFERENCES [dbo].[Programa] ([id]);
 END
 GO
+-- DEC-081: receso academico del periodo y su enlace con las sesiones canceladas
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_PeriodoRecesoAcademico_PeriodoAcademico')
+BEGIN
+    ALTER TABLE [dbo].[PeriodoRecesoAcademico] ADD CONSTRAINT [FK_PeriodoRecesoAcademico_PeriodoAcademico] FOREIGN KEY ([periodoAcademico]) REFERENCES [dbo].[PeriodoAcademico] ([id]);
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_PeriodoRecesoAcademico_Usuario')
+BEGIN
+    ALTER TABLE [dbo].[PeriodoRecesoAcademico] ADD CONSTRAINT [FK_PeriodoRecesoAcademico_Usuario] FOREIGN KEY ([usuarioCreador]) REFERENCES [dbo].[Usuario] ([id]);
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_SesionCancelacion_PeriodoRecesoAcademico')
+BEGIN
+    ALTER TABLE [dbo].[SesionCancelacion] ADD CONSTRAINT [FK_SesionCancelacion_PeriodoRecesoAcademico] FOREIGN KEY ([recesoAcademico]) REFERENCES [dbo].[PeriodoRecesoAcademico] ([id]);
+END
+GO
