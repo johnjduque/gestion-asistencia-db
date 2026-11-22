@@ -15,7 +15,7 @@ GO
 --   AUDBD_A1_03_ADMINISTRADOR_TODA_CUENTA    administrador: cualquier cuenta; destino inexistente: VCE_007 (la validacion de existencia sigue en pie)
 --   AUDBD_M1_01_INDICES_FK                   28 indices IX_<Tabla>_<columna> existen con la columna lider esperada
 --   AUDBD_M3_01_SIN_GUID_VACIO_LITERAL       ufn_obtener_detalle_error y ufn_obtener_mensaje_desde_plantilla no llevan el GUID vacio literal y siguen resolviendo el defecto
---   AUDBD_M6_01_XACT_ABORT_ESCRITURA         los 8 SP de escritura declaran SET XACT_ABORT ON y conservan su manejo de XACT_STATE() = -1
+--   AUDBD_M6_01_XACT_ABORT_ESCRITURA         7 SP de escritura declaran SET XACT_ABORT ON y conservan su manejo de XACT_STATE() = -1; usp_registrar_o_actualizar_plan_estudio queda sin el (su contrato de savepoint en la transaccion del llamador, PLAN_PUBLIC_ROLLBACK_SAVEPOINT, lo exige)
 --   AUDBD_M7_01_FUNCION_RETIRADA             ufn_obtener_estado_estudiante_grupo ya no existe
 --   AUDBD_M11_01_MENSAJES_CON_TILDES         14 mensajes de usuario con tilde y sin la forma anterior; VAL_APP_068 tecnico tambien
 SET NOCOUNT ON;
@@ -183,11 +183,13 @@ BEGIN TRY
 
     -- ------------------------------------------------------------------ M-6
     IF EXISTS (
-        SELECT 1 FROM (VALUES (N'usp_abrir_ventana_matricula_grupo'), (N'usp_clasificar_procedencia_sesion'), (N'usp_confirmar_verificacion_correo'), (N'usp_emitir_token_verificacion_correo'), (N'usp_registrar_asistencias_sesion'), (N'usp_registrar_o_actualizar_plan_estudio'), (N'usp_internal_matricular_por_token'), (N'usp_internal_rotar_token_matricula')) s (nombre)
+        SELECT 1 FROM (VALUES (N'usp_abrir_ventana_matricula_grupo'), (N'usp_clasificar_procedencia_sesion'), (N'usp_confirmar_verificacion_correo'), (N'usp_emitir_token_verificacion_correo'), (N'usp_registrar_asistencias_sesion'), (N'usp_internal_matricular_por_token'), (N'usp_internal_rotar_token_matricula')) s (nombre)
         WHERE CHARINDEX(N'SET XACT_ABORT ON', OBJECT_DEFINITION(OBJECT_ID(N'dbo.' + s.nombre))) = 0
            OR CHARINDEX(N'XACT_STATE()', OBJECT_DEFINITION(OBJECT_ID(N'dbo.' + s.nombre))) = 0
            OR CHARINDEX(N'THROW;', OBJECT_DEFINITION(OBJECT_ID(N'dbo.' + s.nombre))) = 0)
         THROW 55561, 'TEST FAILED: AUDBD_M6_01 los SP de escritura deben declarar SET XACT_ABORT ON y conservar el manejo de XACT_STATE() = -1.', 1;
+    IF CHARINDEX(N'SET XACT_ABORT ON', OBJECT_DEFINITION(OBJECT_ID(N'dbo.usp_registrar_o_actualizar_plan_estudio'))) > 0
+        THROW 55562, 'TEST FAILED: AUDBD_M6_01 usp_registrar_o_actualizar_plan_estudio no debe declarar XACT_ABORT ON (rompe PLAN_PUBLIC_ROLLBACK_SAVEPOINT).', 1;
     PRINT 'TEST_PASS:AUDBD_M6_01_XACT_ABORT_ESCRITURA';
 
     -- ------------------------------------------------------------------ M-7

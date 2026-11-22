@@ -53,7 +53,9 @@ AS
     DECLARE @savepointCreado            BIT = 0;
 BEGIN
     SET NOCOUNT ON;
-    SET XACT_ABORT ON;   -- AUD-BD M-6: un error no capturado condena la transaccion; el CATCH ya maneja XACT_STATE() = -1 (THROW si no es propia)
+    -- AUD-BD M-6: SIN el ajuste XACT_ABORT en ON, a proposito. Su contrato (PLAN_PUBLIC_ROLLBACK_SAVEPOINT) es revertir solo su savepoint dentro de la
+    -- transaccion del llamador y responder SYS_001; con ese ajuste un error de ejecucion condena la transaccion externa (XACT_STATE() = -1)
+    -- y el CATCH debe relanzarlo, lo que rompe ese contrato.
     BEGIN TRY
         -- PASO 1: Validacion del identificador de correlacion obligatorio
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
