@@ -53,6 +53,7 @@ AS
     DECLARE @savepointCreado            BIT = 0;
 BEGIN
     SET NOCOUNT ON;
+    SET XACT_ABORT ON;   -- AUD-BD M-6: un error no capturado condena la transaccion; el CATCH ya maneja XACT_STATE() = -1 (THROW si no es propia)
     BEGIN TRY
         -- PASO 1: Validacion del identificador de correlacion obligatorio
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno

@@ -57,6 +57,7 @@ AS
 
 BEGIN
     SET NOCOUNT ON;
+    SET XACT_ABORT ON;   -- AUD-BD M-6: un error no capturado condena la transaccion; el CATCH ya maneja XACT_STATE() = -1 (THROW si no es propia)
     BEGIN TRY
 
         -- PASO 1: Validación del identificador de correlación obligatorio
