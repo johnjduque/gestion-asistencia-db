@@ -386,7 +386,11 @@ elseif ($Modo -eq 'Aplicar' -and @($pendientes | Where-Object { $_.Version -le $
         }
     }
     finally {
-        $null = & docker exec -u 0 $ContainerName rm -rf $remote 2>&1
+        # Limpieza de mejor esfuerzo: con $ErrorActionPreference = 'Stop', cualquier linea por stderr de docker (2>&1) lanza una excepcion
+        # terminante; si ocurriera aqui, las migraciones ya estarian aplicadas y registradas pero el script moriria sin MIGRAR_RESUMEN
+        # ni codigo de salida, y el llamador veria un fallo sin causa. Un tmp que no se pudo borrar no debe cambiar el resultado.
+        try { $null = & docker exec -u 0 $ContainerName rm -rf $remote 2>&1 }
+        catch { Write-Host "MIGRAR_AVISO no se pudo borrar $remote del contenedor: $($_.Exception.Message)" }
         if ($stage) { Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue }
     }
 }

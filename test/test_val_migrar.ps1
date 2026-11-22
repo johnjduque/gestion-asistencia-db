@@ -67,9 +67,10 @@ try {
     $filas = (Invoke-Db 'SELECT STRING_AGG(CONVERT(VARCHAR(10), n), '','') WITHIN GROUP (ORDER BY n) FROM dbo.QaUno;') -join ''
     $reg = (Invoke-Db "SELECT STRING_AGG(CONCAT(version, ':', nombre, ':', archivo, ':', modo, ':', checksumSha256), ',') WITHIN GROUP (ORDER BY version) FROM dbo.MigracionAplicada WHERE aplicadaEnUtc <= SYSUTCDATETIME() AND duracionMs IS NOT NULL;") -join ''
     $sha05 = (& { $b = [System.IO.File]::ReadAllBytes((Join-Path $dir '05_qa_uno_up.sql')); ([System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash($b)).Replace('-', '')).ToLowerInvariant() })
-    Assert-Case 'VAL_F1212_02_APLICA_Y_REGISTRA' ($r.Rc -eq 0 -and $filas -eq '1,2' -and
-        $reg -eq "5:05_qa_uno:05_qa_uno_up.sql:APLICADA:$sha05,6:06_qa_dos:06_qa_dos.sql:APLICADA:$((Invoke-Db "SELECT checksumSha256 FROM dbo.MigracionAplicada WHERE nombre = '06_qa_dos';") -join '')" -and
-        $r.Text -match 'aplicadas=2') "Aplicar no dejo las filas 1,2 y el registro esperado (filas=$filas)." $r
+    $sha06 = (Invoke-Db "SELECT checksumSha256 FROM dbo.MigracionAplicada WHERE nombre = '06_qa_dos';") -join ''
+    $regEsperado = "5:05_qa_uno:05_qa_uno_up.sql:APLICADA:$sha05,6:06_qa_dos:06_qa_dos.sql:APLICADA:$sha06"
+    Assert-Case 'VAL_F1212_02_APLICA_Y_REGISTRA' ($r.Rc -eq 0 -and $filas -eq '1,2' -and $reg -eq $regEsperado -and $r.Text -match 'aplicadas=2') `
+        "Aplicar no dejo las filas 1,2 y el registro esperado (Rc=$($r.Rc); filas=$filas; reg=[$reg]; esperado=[$regEsperado]; resumen=$(($r.Out | Where-Object { $_ -match 'MIGRAR_RESUMEN|MIGRAR_AVISO|MIGRAR_FALLO' }) -join ' / '))." $r
 
     # 03: una segunda corrida salta lo aplicado; una nueva se aplica sola
     $r1 = Invoke-Migrar 'Aplicar'
