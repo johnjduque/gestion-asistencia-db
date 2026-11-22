@@ -14,7 +14,8 @@ GO
 -- CULM-001 B.1 (CONTRACT §2.7.6): al final aplica los festivos (usp_internal_aplicar_festivos_grupo, @soloFuturas = 0)
 -- en la misma transaccion del llamador: toda sesion creada en un dia festivo nace cancelada. Una sesion futura que se
 -- borra porque ya no encaja en el horario pierde antes su SesionCancelacion. Las canceladas que siguen encajando no se
--- borran ni se recrean (idempotencia por grupo, inicio y fin). B.2 agrega la condicion NOT EXISTS TomaAsistencia.
+-- borran ni se recrean (idempotencia por grupo, inicio y fin).
+-- DEC-081: despues de los festivos aplica los dias de receso academico del periodo (usp_internal_cancelar_sesiones_receso). B.2 agrega la condicion NOT EXISTS TomaAsistencia.
 CREATE OR ALTER PROCEDURE [dbo].[usp_precargar_sesiones_grupo_interno]
 (
     @idGrupo                 UNIQUEIDENTIFIER,
@@ -39,6 +40,11 @@ AS
     DECLARE @fechaHoraLocalInexistente DATETIME2;
     DECLARE @sesionesCanceladasFestivo INT = 0;
     DECLARE @sesionesFestivoConAsistencia INT = 0;
+    DECLARE @sesionesCanceladasReceso INT = 0;
+    DECLARE @sesionesRecesoConAsistencia INT = 0;
+    DECLARE @mensajeUsuarioReceso NVARCHAR(4000);
+    DECLARE @mensajeTecnicoReceso NVARCHAR(4000);
+    DECLARE @estadoReceso BIT;
     DECLARE @sesionesEliminables TABLE (id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY);
 
     DECLARE @slots TABLE (
@@ -199,6 +205,25 @@ BEGIN
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
+
+            -- PASO 7 (DEC-081): dias de receso academico activos del periodo; un festivo ya aplicado gana. Si falla, informa su mensaje
+            IF @estadoResultado = 1
+            BEGIN
+                EXEC dbo.usp_internal_cancelar_sesiones_receso
+                    @idGrupo = @idGrupoDefecto,
+                    @idReceso = NULL,
+                    @soloFuturas = 0,
+                    @idCorrelacion = @idCorrelacionDefecto,
+                    @idUsuarioEjecutor = NULL,
+                    @sesionesCanceladas = @sesionesCanceladasReceso OUTPUT,
+                    @sesionesConAsistencia = @sesionesRecesoConAsistencia OUTPUT,
+                    @mensajeUsuarioResultado = @mensajeUsuarioReceso OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoReceso OUTPUT,
+                    @estadoResultado = @estadoReceso OUTPUT;
+
+                IF @estadoReceso = 0
+                    SELECT @mensajeUsuarioResultado = @mensajeUsuarioReceso, @mensajeTecnicoResultado = @mensajeTecnicoReceso, @estadoResultado = 0;
+            END
         END
     END TRY
     BEGIN CATCH

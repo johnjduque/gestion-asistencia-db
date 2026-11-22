@@ -17,7 +17,7 @@ GO
 --     usp_consultar_sesiones_festivo_con_asistencia_paginado. No se usa la tabla temporal opcional
 --     #sesionesFestivoConAsistencia del contrato: sus SP publicos (que tambien llaman a este nucleo) deben seguir siendo
 --     describibles por sp_describe_first_result_set (PUBLIC_CANONICAL_RESULTSET). B.2 agrega la condicion sobre TomaAsistencia.
---   * Tipo por bandera TipoCancelacionSesion.esAutomatica = 1; motivo = FESTIVOS/PREFIJO_MOTIVO_CANCELACION + nombre.
+--   * Tipo = TipoCancelacionSesion con codigo SESION/CODIGO_TIPO_CANCELACION_FESTIVO (DEC-081: ya no por esAutomatica = 1, hay dos tipos automaticos); motivo = FESTIVOS/PREFIJO_MOTIVO_CANCELACION + nombre.
 -- Bloqueo: dbo.Sesion WITH (UPDLOCK, HOLDLOCK) sobre las candidatas antes de escribir (mismo orden que la ventana).
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_internal_aplicar_festivos_grupo]
@@ -37,6 +37,7 @@ AS
     DECLARE @idGrupoDefecto       UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idGrupo, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @prefijoMotivo        NVARCHAR(200)    = dbo.ufn_obtener_parametro('FESTIVOS', 'PREFIJO_MOTIVO_CANCELACION');
     DECLARE @zonaHorariaSqlServer SYSNAME;
+    DECLARE @codigoTipoFestivo    NVARCHAR(20)     = CAST(dbo.ufn_obtener_parametro('SESION', 'CODIGO_TIPO_CANCELACION_FESTIVO') AS NVARCHAR(20));
     DECLARE @idTipoAutomatico     UNIQUEIDENTIFIER;
     DECLARE @ahoraUtc             DATETIME2 = SYSUTCDATETIME();
     DECLARE @p1 NVARCHAR(500), @p2 NVARCHAR(500);
@@ -85,15 +86,15 @@ BEGIN
             END
         END
 
-        -- PASO 3: tipo automatico por bandera de catalogo (GEN_001)
+        -- PASO 3: tipo FESTIVO por el codigo del parametro (GEN_001)
         IF @estadoResultado = 1
         BEGIN
-            SELECT @idTipoAutomatico = t.id FROM dbo.uv_tipo_cancelacion_sesion t WHERE t.esAutomatica = 1;
+            SELECT @idTipoAutomatico = t.id FROM dbo.uv_tipo_cancelacion_sesion t WHERE t.codigo = @codigoTipoFestivo;
 
             IF @idTipoAutomatico IS NULL
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
-                    @p_codigo = 'GEN_001', @p_param1 = 'TipoCancelacionSesion(esAutomatica = 1)',
+                    @p_codigo = 'GEN_001', @p_param1 = 'TipoCancelacionSesion(SESION/CODIGO_TIPO_CANCELACION_FESTIVO)',
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
                 SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);

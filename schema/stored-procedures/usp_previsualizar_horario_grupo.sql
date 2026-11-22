@@ -21,7 +21,7 @@ GO
 --
 -- UN SOLO conjunto de resultados (filas discriminadas por tipoFila; los totales de tiempo van en MINUTOS enteros; las columnas no usadas
 -- por un tipo van en NULL). Columnas fijas y en este orden:
---   tipoFila, orden, id1, id2, id3, texto1..texto5, fecha1, fecha2, instante1, instante2, entero1..entero18, bandera1, bandera2
+--   tipoFila, orden, id1, id2, id3, texto1..texto5, fecha1, fecha2, instante1, instante2, entero1..entero18, bandera1, bandera2, entero19, entero20
 -- RESUMEN (1 fila, orden 0):
 --   id1 idGrupo (NULL si nuevo), id2 idAsignatura, id3 idPeriodo, texto1 codigoAsignatura, texto2 nombreAsignatura, texto3 nombrePeriodo,
 --   texto4 estadoPeriodo (PLANEACION/ACTIVO/CERRADO), texto5 zonaHoraria IANA, fecha1 inicioPeriodo, fecha2 finPeriodo,
@@ -31,10 +31,14 @@ GO
 --   entero13 minutosEsperadosMateria (NULL si la materia no tiene horas), entero14 sesionesConservadas, entero15 minutosConservados,
 --   entero16 sesionesFuturasQueSeRetiran, entero17 sesionesFuturasQueSeCrean, entero18 sesionesFuturasQueSeConservan (grupo existente; NULL si nuevo),
 --   bandera1 puedeConfirmar (sin conflictos BLOQUEANTE), bandera2 esGrupoExistente.
+--   DEC-081 (agregadas AL FINAL, tras bandera2, para no mover las columnas existentes): entero19 sesionesEnReceso, entero20 minutosPerdidosReceso.
 -- FRANJA (orden = secuencia): texto1 codigoDia, texto2 nombreDia, texto3 horaInicio HH:mm, texto4 horaFin HH:mm, entero1 minutos.
 -- SESION (orden = numero): entero1 numero, entero2 numeroSemana, entero3 minutos, fecha1 fecha, texto3 horaInicio, texto4 horaFin,
---   instante1/instante2 inicio y fin UTC, texto1 estado (PROGRAMADA / CANCELADA_POR_FESTIVO / NO_PROGRAMABLE_POR_FECHA), texto2 nombreFestivo.
+--   instante1/instante2 inicio y fin UTC, texto1 estado (PROGRAMADA / CANCELADA_POR_FESTIVO / CANCELADA_POR_RECESO / NO_PROGRAMABLE_POR_FECHA),
+--   texto2 nombreFestivo o, en CANCELADA_POR_RECESO, el motivo completo con el prefijo (RECESO/PREFIJO_MOTIVO_CANCELACION + motivo, max. 200).
+--   Un festivo prima sobre un receso del mismo dia.
 -- FESTIVO: fecha1 fecha, texto1 nombre, entero1 sesionesAfectadas.
+-- RECESO (DEC-081): fecha1 fecha, texto1 motivo completo con prefijo, entero1 sesionesAfectadas (despues de FESTIVO y antes de CONFLICTO).
 -- CONFLICTO (orden = secuencia): texto1 codigo, texto2 severidad, texto3 mensaje de usuario (catalogo), texto4 franja (puede ser NULL).
 -- =============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_previsualizar_horario_grupo]
@@ -87,6 +91,9 @@ AS
     DECLARE @sesionesProgramadas     INT;
     DECLARE @sesionesEnFestivo       INT;
     DECLARE @sesionesNoProgramables  INT;
+    DECLARE @sesionesEnReceso        INT;
+    DECLARE @prefijoMotivoReceso     NVARCHAR(200) = dbo.ufn_obtener_parametro('RECESO', 'PREFIJO_MOTIVO_CANCELACION');
+    DECLARE @minutosPerdidosReceso   INT;
     DECLARE @minutosCalendario       INT;
     DECLARE @minutosProgramados      INT;
     DECLARE @minutosPerdidosFestivo  INT;
@@ -121,7 +128,7 @@ AS
         finUtc      DATETIME2 NULL,
         minutos     INT       NULL,
         estado      VARCHAR(30) NULL,
-        nombreFestivo NVARCHAR(120) NULL
+        nombreFestivo NVARCHAR(200) NULL
     );
     DECLARE @conflictos TABLE (
         secuencia INT IDENTITY(1, 1) PRIMARY KEY,
@@ -151,7 +158,7 @@ AS
         entero1 INT NULL, entero2 INT NULL, entero3 INT NULL, entero4 INT NULL, entero5 INT NULL, entero6 INT NULL,
         entero7 INT NULL, entero8 INT NULL, entero9 INT NULL, entero10 INT NULL, entero11 INT NULL, entero12 INT NULL,
         entero13 INT NULL, entero14 INT NULL, entero15 INT NULL, entero16 INT NULL, entero17 INT NULL, entero18 INT NULL,
-        bandera1 BIT NULL, bandera2 BIT NULL
+        bandera1 BIT NULL, bandera2 BIT NULL, entero19 INT NULL, entero20 INT NULL
     );
 BEGIN
     SET NOCOUNT ON;
@@ -341,10 +348,15 @@ BEGIN
         UPDATE s
         SET estado = CASE WHEN s.inicioUtc <= @ahoraUtc THEN 'NO_PROGRAMABLE_POR_FECHA'
                           WHEN df.id IS NOT NULL THEN 'CANCELADA_POR_FESTIVO'
+                          WHEN rc.id IS NOT NULL THEN 'CANCELADA_POR_RECESO'
                           ELSE 'PROGRAMADA' END,
-            nombreFestivo = IIF(s.inicioUtc <= @ahoraUtc, NULL, df.nombre)
+            nombreFestivo = CASE WHEN s.inicioUtc <= @ahoraUtc THEN NULL
+                                 WHEN df.id IS NOT NULL THEN df.nombre
+                                 WHEN rc.id IS NOT NULL THEN LEFT(CONCAT(@prefijoMotivoReceso, rc.motivo), 200)
+                                 ELSE NULL END
         FROM @slots s
-        LEFT JOIN dbo.uv_dia_festivo df ON df.estaActivo = 1 AND df.fecha = s.fecha;
+        LEFT JOIN dbo.uv_dia_festivo df ON df.estaActivo = 1 AND df.fecha = s.fecha
+        LEFT JOIN dbo.uv_periodo_receso_academico rc ON rc.idPeriodoAcademico = @idPeriodoRes AND rc.fecha = s.fecha;
     END
 
     -- PASO 9: totales
@@ -354,6 +366,8 @@ BEGIN
            @minutosProgramados = COALESCE(SUM(IIF(estado = 'PROGRAMADA', minutos, 0)), 0),
            @sesionesEnFestivo = COALESCE(SUM(IIF(estado = 'CANCELADA_POR_FESTIVO', 1, 0)), 0),
            @minutosPerdidosFestivo = COALESCE(SUM(IIF(estado = 'CANCELADA_POR_FESTIVO', minutos, 0)), 0),
+           @sesionesEnReceso = COALESCE(SUM(IIF(estado = 'CANCELADA_POR_RECESO', 1, 0)), 0),
+           @minutosPerdidosReceso = COALESCE(SUM(IIF(estado = 'CANCELADA_POR_RECESO', minutos, 0)), 0),
            @sesionesNoProgramables = COALESCE(SUM(IIF(estado = 'NO_PROGRAMABLE_POR_FECHA', 1, 0)), 0),
            @minutosNoProgramables = COALESCE(SUM(IIF(estado = 'NO_PROGRAMABLE_POR_FECHA', minutos, 0)), 0)
     FROM @slots;
@@ -380,7 +394,7 @@ BEGIN
         SELECT @sesionesQueSeConservan = COUNT(*) FROM @existentes WHERE esFutura = 1 AND encaja = 1;
         SELECT @sesionesQueSeCrean = COUNT(*)
         FROM @slots x
-        WHERE x.estado IN ('PROGRAMADA', 'CANCELADA_POR_FESTIVO')
+        WHERE x.estado IN ('PROGRAMADA', 'CANCELADA_POR_FESTIVO', 'CANCELADA_POR_RECESO')
           AND NOT EXISTS (SELECT 1 FROM @existentes e WHERE e.inicioUtc = x.inicioUtc AND e.finUtc = x.finUtc);
     END
 
@@ -463,6 +477,11 @@ BEGIN
         VALUES ('HOR_011', 'INFORMATIVO',
                 IIF(@minutosPerdidosFestivo % 60 = 0, CAST(@minutosPerdidosFestivo / 60 AS NVARCHAR(20)), CAST(CAST(@minutosPerdidosFestivo / 60.0 AS DECIMAL(10, 2)) AS NVARCHAR(20))),
                 CAST(@sesionesEnFestivo AS NVARCHAR(20)));
+    IF @sesionesEnReceso > 0
+        INSERT INTO @conflictos (codigo, severidad, param1, param2)
+        VALUES ('REC_011', 'INFORMATIVO',
+                IIF(@minutosPerdidosReceso % 60 = 0, CAST(@minutosPerdidosReceso / 60 AS NVARCHAR(20)), CAST(CAST(@minutosPerdidosReceso / 60.0 AS DECIMAL(10, 2)) AS NVARCHAR(20))),
+                CAST(@sesionesEnReceso AS NVARCHAR(20)));
     IF @sesionesNoProgramables > 0
         INSERT INTO @conflictos (codigo, severidad, param1, param2)
         VALUES ('HOR_012', 'INFORMATIVO',
@@ -493,14 +512,14 @@ BEGIN
     -- PASO 12: filas de salida
     INSERT INTO @salida (tipoFila, orden, id1, id2, id3, texto1, texto2, texto3, texto4, texto5, fecha1, fecha2,
                          entero1, entero2, entero3, entero4, entero5, entero6, entero7, entero8, entero9, entero10, entero11, entero12,
-                         entero13, entero14, entero15, entero16, entero17, entero18, bandera1, bandera2)
+                         entero13, entero14, entero15, entero16, entero17, entero18, bandera1, bandera2, entero19, entero20)
     VALUES ('RESUMEN', 0, @idGrupo, @idAsignaturaRes, @idPeriodoRes, @codigoAsignatura, @nombreAsignatura, @nombrePeriodo, @estadoPeriodo, @zonaIana,
             @fechaInicioPeriodo, @fechaFinPeriodo,
             @horasSemanalesMateria, @minutosSemanales, @franjasPorSemana, @diasPeriodo,
             @sesionesCalendario, @sesionesProgramadas, @sesionesEnFestivo, @sesionesNoProgramables,
             @minutosCalendario, @minutosProgramados, @minutosPerdidosFestivo, @minutosNoProgramables,
             @minutosEsperados, @sesionesConservadas, @minutosConservados, @sesionesQueSeRetiran, @sesionesQueSeCrean, @sesionesQueSeConservan,
-            @puedeConfirmar, CAST(IIF(@idGrupo IS NULL, 0, 1) AS BIT));
+            @puedeConfirmar, CAST(IIF(@idGrupo IS NULL, 0, 1) AS BIT), @sesionesEnReceso, @minutosPerdidosReceso);
 
     INSERT INTO @salida (tipoFila, orden, texto1, texto2, texto3, texto4, entero1)
     SELECT 'FRANJA', secuencia, codigoDia, nombreDia, CONVERT(CHAR(5), horaInicio, 108), CONVERT(CHAR(5), horaFin, 108), DATEDIFF(MINUTE, horaInicio, horaFin)
@@ -516,13 +535,17 @@ BEGIN
     SELECT 'FESTIVO', ROW_NUMBER() OVER (ORDER BY fecha), fecha, MIN(nombreFestivo), COUNT(*)
     FROM @slots WHERE estado = 'CANCELADA_POR_FESTIVO' GROUP BY fecha;
 
+    INSERT INTO @salida (tipoFila, orden, fecha1, texto1, entero1)
+    SELECT 'RECESO', ROW_NUMBER() OVER (ORDER BY fecha), fecha, MIN(nombreFestivo), COUNT(*)
+    FROM @slots WHERE estado = 'CANCELADA_POR_RECESO' GROUP BY fecha;
+
     INSERT INTO @salida (tipoFila, orden, texto1, texto2, texto3, texto4)
     SELECT 'CONFLICTO', secuencia, codigo, severidad, mensaje, franja FROM @conflictos;
 
     SELECT tipoFila, orden, id1, id2, id3, texto1, texto2, texto3, texto4, texto5, fecha1, fecha2, instante1, instante2,
            entero1, entero2, entero3, entero4, entero5, entero6, entero7, entero8, entero9, entero10, entero11, entero12,
-           entero13, entero14, entero15, entero16, entero17, entero18, bandera1, bandera2
+           entero13, entero14, entero15, entero16, entero17, entero18, bandera1, bandera2, entero19, entero20
     FROM @salida
-    ORDER BY CASE tipoFila WHEN 'RESUMEN' THEN 0 WHEN 'FRANJA' THEN 1 WHEN 'SESION' THEN 2 WHEN 'FESTIVO' THEN 3 ELSE 4 END, orden;
+    ORDER BY CASE tipoFila WHEN 'RESUMEN' THEN 0 WHEN 'FRANJA' THEN 1 WHEN 'SESION' THEN 2 WHEN 'FESTIVO' THEN 3 WHEN 'RECESO' THEN 4 ELSE 5 END, orden;
 END;
 GO
