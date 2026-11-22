@@ -32,10 +32,6 @@ IF EXISTS (SELECT 1 FROM (VALUES ('SES_010'), ('SES_011'), ('SES_012'), ('SES_01
               OR NOT EXISTS (SELECT 1 FROM dbo.uv_mensaje_tecnico t WHERE t.codigo = c.codigo))
    OR EXISTS (SELECT 1 FROM dbo.uv_mensaje_usuario WHERE codigo = 'SES_015')
     THROW 57103, 'TEST FAILED CULM001_B1_CAN_00: mensajes SES_010..SES_014/SES_016 ausentes o SES_015 (reservado) sembrado.', 1;
-IF NOT EXISTS (SELECT 1 FROM dbo.PlantillaNotificacion WHERE tipo = 'SESION_CANCELADA' AND activa = 1)
-   OR (SELECT COUNT(*) FROM dbo.PlantillaNotificacionMarcador WHERE tipo = 'SESION_CANCELADA'
-       AND marcador IN ('estudiante', 'asignatura', 'grupo', 'fecha', 'horaInicio', 'horaFin', 'motivo', 'docente')) <> 8
-    THROW 57104, 'TEST FAILED CULM001_B1_CAN_00: plantilla SESION_CANCELADA o sus 8 marcadores ausentes.', 1;
 -- Columnas de uv_sesion_estado (§2.5)
 IF (SELECT COUNT(*) FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.uv_sesion_estado') AND name IN (
         'idSesion', 'idGrupo', 'numero', 'nombre', 'fechaHoraInicio', 'fechaHoraFin', 'procedenciaTemporal', 'estaCancelada',

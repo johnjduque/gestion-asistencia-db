@@ -41,9 +41,6 @@ BEGIN TRY
     IF EXISTS (SELECT 1 FROM (VALUES ('SES_022'), ('SES_023'), ('SES_024'), ('SES_025'), ('SES_026'), ('SES_027')) m(codigo)
                WHERE NOT EXISTS (SELECT 1 FROM dbo.uv_mensaje_usuario u WHERE u.codigo = m.codigo) OR NOT EXISTS (SELECT 1 FROM dbo.uv_mensaje_tecnico t WHERE t.codigo = m.codigo))
         THROW 59003, 'TEST FAILED CULM001_MRM_00: mensajes SES_022..SES_027 ausentes.', 1;
-    IF (SELECT COUNT(*) FROM dbo.PlantillaNotificacion WHERE activa = 1 AND tipo IN ('SESION_SOLICITUD_CREADA_COORDINADOR', 'SESION_SOLICITUD_APROBADA_DOCENTE', 'SESION_SOLICITUD_RECHAZADA_DOCENTE')) <> 3
-       OR (SELECT COUNT(*) FROM dbo.PlantillaNotificacionMarcador WHERE tipo IN ('SESION_SOLICITUD_CREADA_COORDINADOR', 'SESION_SOLICITUD_APROBADA_DOCENTE', 'SESION_SOLICITUD_RECHAZADA_DOCENTE')) <> 23
-        THROW 59004, 'TEST FAILED CULM001_MRM_00: plantillas SESION_SOLICITUD_* (3) o sus 23 marcadores ausentes.', 1;
     PRINT 'TEST_PASS:CULM001_MRM_00_OBJETOS_Y_SEMILLAS';
 
     CREATE TABLE #mrm_r (idCorrelacion UNIQUEIDENTIFIER NULL, mensajeUsuarioResultado NVARCHAR(4000) NULL, mensajeTecnicoResultado NVARCHAR(4000) NULL, estadoResultado BIT NOT NULL);

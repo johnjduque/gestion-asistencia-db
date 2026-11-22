@@ -13,8 +13,6 @@ GO
 --   D9-DEC-02  usp_consultar_grupo_facultad_detalle: grupo de la facultad del decano -> 1 fila (F-DEC-003)
 --   D9-DEC-03  usp_consultar_grupo_facultad_detalle: grupo inexistente o ajeno -> THROW SEC_002 (403) (F-DEC-003)
 --   D9-DEC-04  usp_consultar_sesiones_facultad_paginado: @idGrupo filtra en el SP; grupo ajeno -> SEC_002 (F-DEC-014)
---   D9-NTF-01  usp_reintentar_notificacion_saliente: id inexistente -> NTF_020 (F-ADM-027)
---   D9-NTF-02  usp_consultar_plantilla_notificacion_activa con @validarExistencia = 1: tipo inexistente -> NTF_021 (F-ADM-027)
 --   D9-MSG-01  mensajes DEC_020, NTF_020 y NTF_021 sembrados (usuario y tecnico)
 --   D9-PER-01  usp_crear_periodo_academico devuelve idPeriodo (F-ADM-030)
 --   D9-PER-02  usp_consultar_periodos_academicos_paginado: ADMINISTRADOR, esVigente, SEC_001 y PAG_001 (F-ADM-030)
@@ -160,24 +158,6 @@ BEGIN TRY
     SET @ok = IIF(@err LIKE N'DBCODE=SEC_002|%', 1, 0);
     EXEC #d9_expect 'D9_DEC_04_GRUPO_AJENO', @ok;
     PRINT 'TEST_PASS:CULM001_D9_DEC_04';
-
-    -- ---------------------------------------------------------------- D9-NTF-01 reintento de una notificacion inexistente
-    SET @corr = NEWID();
-    DELETE FROM #c;
-    INSERT #c EXEC dbo.usp_reintentar_notificacion_saliente @id = @idAjeno, @idNotificacion = NULL, @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdmin;
-    SET @ok = IIF(EXISTS (SELECT 1 FROM #c WHERE estadoResultado = 0 AND mensajeTecnicoResultado LIKE N'DBCODE=NTF_020|%'), 1, 0);
-    EXEC #d9_expect 'D9_NTF_01_REINTENTO_INEXISTENTE', @ok;
-    PRINT 'TEST_PASS:CULM001_D9_NTF_01';
-
-    -- ---------------------------------------------------------------- D9-NTF-02 tipo de plantilla inexistente
-    SET @corr = NEWID();
-    DELETE FROM #c;
-    INSERT #c EXEC dbo.usp_consultar_plantilla_notificacion_activa @tipo = N'XX', @idioma = 'es', @idCorrelacion = @corr, @validarExistencia = 1;
-    SET @ok = IIF(EXISTS (SELECT 1 FROM #c WHERE estadoResultado = 0 AND mensajeTecnicoResultado LIKE N'DBCODE=NTF_021|%'), 1, 0);
-    EXEC #d9_expect 'D9_NTF_02_TIPO_INEXISTENTE', @ok;
-    -- (con un tipo existente el SP devuelve ademas los resultsets de plantilla y marcadores: no cabe en INSERT ... EXEC de 4 columnas;
-    -- ese camino lo cubre IT/AdministracionNotificacionJpaAdapter y la comprobacion manual del reporte.)
-    PRINT 'TEST_PASS:CULM001_D9_NTF_02';
 
     -- ---------------------------------------------------------------- D9-PER-01 crear periodo devuelve el id
     DECLARE @idPeriodo UNIQUEIDENTIFIER = NEWID();

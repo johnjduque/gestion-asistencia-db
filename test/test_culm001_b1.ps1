@@ -324,8 +324,9 @@ try {
     $migDir = Join-Path (Split-Path -Parent $PSScriptRoot) 'migrations'
     $up = Join-Path $migDir '15_culm001_b1_sesion_cancelada_festivos_up.sql'
     $down = Join-Path $migDir '15_culm001_b1_sesion_cancelada_festivos_down.sql'
-    if (-not (Test-Path $up) -or -not (Test-Path $down)) { throw 'migration 15 up/down files are missing.' }
-    foreach ($f in @($up, $down)) {
+    $down71 = Join-Path $migDir '71_p3_f5_notificaciones_servicio_down.sql'
+    if (-not (Test-Path $up) -or -not (Test-Path $down) -or -not (Test-Path $down71)) { throw 'migration 15 up/down or 71 down files are missing.' }
+    foreach ($f in @($up, $down, $down71)) {
         $null = & docker cp $f "${ContainerName}:$remoteDir/$(Split-Path -Leaf $f)" 2>&1
         if ($LASTEXITCODE -ne 0) { throw "could not copy $f" }
     }
@@ -346,6 +347,9 @@ SET NOCOUNT ON;
 SET XACT_ABORT OFF;
 GO
 BEGIN TRANSACTION;
+GO
+-- P3 F5: la migracion 71 retiro PlantillaNotificacion*, que el down de 15 aun usa; se baja primero (dentro de la transaccion revertida).
+:r $remoteDir/71_p3_f5_notificaciones_servicio_down.sql
 GO
 :r $remoteDir/15_culm001_b1_sesion_cancelada_festivos_up.sql
 GO

@@ -38,9 +38,6 @@ IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name LIKE N'FK[_]SolicitudIngres
 IF EXISTS (SELECT 1 FROM dbo.CatalogoMensajeUsuario WHERE codigo LIKE 'SIG[_]0%' OR codigo LIKE 'SIG[_]1%' OR codigo = 'ERR_SOLICITUD_MATRICULA_NO_IMPLEMENTADA')
    OR EXISTS (SELECT 1 FROM dbo.CatalogoMensajeTecnico WHERE codigo LIKE 'SIG[_]0%' OR codigo LIKE 'SIG[_]1%' OR codigo = 'ERR_SOLICITUD_MATRICULA_NO_IMPLEMENTADA')
     THROW 57102, 'TEST FAILED: T-01 no deben quedar mensajes SIG_* ni ERR_SOLICITUD_MATRICULA_NO_IMPLEMENTADA.', 1;
-IF EXISTS (SELECT 1 FROM dbo.PlantillaNotificacion WHERE tipo LIKE 'SOLICITUD[_]INGRESO[_]%')
-   OR EXISTS (SELECT 1 FROM dbo.PlantillaNotificacionMarcador WHERE tipo LIKE 'SOLICITUD[_]INGRESO[_]%')
-    THROW 57103, 'TEST FAILED: T-01 no deben quedar plantillas ni marcadores SOLICITUD_INGRESO_*.', 1;
 IF EXISTS (SELECT 1 FROM dbo.Estado WHERE codigo = 'E')
    OR NOT EXISTS (SELECT 1 FROM dbo.Estado WHERE codigo = 'X' AND id = 'D6E2F3A4-5B6C-4D7E-9F80-A12B3C4D5E6F')
     THROW 57104, 'TEST FAILED: T-01 el estado E (en espera) se retira y el estado X (retirada) se conserva.', 1;

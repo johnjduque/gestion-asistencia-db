@@ -12,6 +12,9 @@ SET QUOTED_IDENTIFIER ON;
 GO
 BEGIN TRANSACTION;
 GO
+-- P3 F5: la migracion 71 retiro PlantillaNotificacion*; se baja primero (dentro de la transaccion) para que las migraciones anteriores, que aun la usan, se prueben igual que antes.
+:r $(MIGDIR)/71_p3_f5_notificaciones_servicio_down.sql
+GO
 IF OBJECT_ID(N'dbo.AvisoSesionSinToma', N'U') IS NULL OR OBJECT_ID(N'dbo.usp_registrar_aviso_sesion_sin_toma', N'P') IS NULL
     THROW 59600, 'TEST FAILED: NOTOMA_MIG la base inicial no tiene la migracion 57 (desplegar schema/ primero).', 1;
 GO

@@ -26,9 +26,6 @@ BEGIN TRY
        OR OBJECT_ID(N'dbo.usp_consultar_motivos_cancelacion_sesion', N'P') IS NULL OR OBJECT_ID(N'dbo.uv_motivo_cancelacion_sesion', N'V') IS NULL
        OR OBJECT_ID(N'dbo.uv_sesion_manual', N'V') IS NULL OR OBJECT_ID(N'dbo.MotivoCancelacionSesion', N'U') IS NULL
         THROW 58001, 'TEST FAILED CULM001_SMN_00: faltan objetos de sesiones manuales (migracion 29).', 1;
-    IF (SELECT COUNT(*) FROM dbo.PlantillaNotificacion WHERE activa = 1 AND tipo IN ('SESION_MANUAL_CREADA_ESTUDIANTE', 'SESION_MANUAL_CREADA_COORDINADOR')) <> 2
-       OR (SELECT COUNT(*) FROM dbo.PlantillaNotificacionMarcador WHERE tipo IN ('SESION_MANUAL_CREADA_ESTUDIANTE', 'SESION_MANUAL_CREADA_COORDINADOR')) <> 14
-        THROW 58002, 'TEST FAILED CULM001_SMN_00: plantillas SESION_MANUAL_CREADA_* o sus 14 marcadores ausentes.', 1;
     IF EXISTS (SELECT 1 FROM (VALUES ('SES_018'), ('SES_019'), ('SES_020'), ('SES_021')) m(codigo)
                WHERE NOT EXISTS (SELECT 1 FROM dbo.uv_mensaje_usuario u WHERE u.codigo = m.codigo) OR NOT EXISTS (SELECT 1 FROM dbo.uv_mensaje_tecnico t WHERE t.codigo = m.codigo))
         THROW 58003, 'TEST FAILED CULM001_SMN_00: mensajes SES_018..SES_021 ausentes.', 1;

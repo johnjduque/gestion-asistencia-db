@@ -766,6 +766,16 @@ try {
 catch {
     $resultFailures += "AUDBD_MIG70_RUNNER $($_.Exception.Message)"
 }
+# P3 F5: migracion 71 (up/down/up) en test/test_p3_f5_notificaciones_migracion_71.ps1.
+try {
+    $p3f5MigOutput = @(& (Join-Path $PSScriptRoot 'test/test_p3_f5_notificaciones_migracion_71.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $p3f5MigOutput) { Write-Host $line }
+    if ($p3f5MigOutput -contains 'TEST_PASS:P3F5_MIG71_UP_DOWN_UP') { $clientPassed += 'P3F5_MIG71_UP_DOWN_UP' }
+    else { $resultFailures += 'P3F5_MIG71_UP_DOWN_UP not reported by test_p3_f5_notificaciones_migracion_71.ps1' }
+}
+catch {
+    $resultFailures += "P3F5_MIG71_RUNNER $($_.Exception.Message)"
+}
 # SES-GEN-01: migracion 64 (up/down/up) en test/test_ses_gen_01_migracion.ps1.
 try {
     $sesGenMigOutput = @(& (Join-Path $PSScriptRoot 'test/test_ses_gen_01_migracion.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
@@ -1156,7 +1166,7 @@ $criticalIds = @(
     # CULM-001 D.9-a: hallazgos medios y bajos (test/test_culm001_d9_hallazgos.sql) y migracion 28 (test/test_culm001_d9.ps1).
     # Estaban escritos desde 2026-11-08 pero ningun runner los ejecutaba (auditoria de pruebas 2026-11-15).
     'CULM001_D9_MSG_01', 'CULM001_D9_DEC_01', 'CULM001_D9_DEC_05', 'CULM001_D9_DEC_02', 'CULM001_D9_DEC_03', 'CULM001_D9_DEC_04',
-    'CULM001_D9_NTF_01', 'CULM001_D9_NTF_02', 'CULM001_D9_PER_01', 'CULM001_D9_PER_02', 'CULM001_D9_HOR_01', 'CULM001_D9_TRX_01',
+    'CULM001_D9_PER_01', 'CULM001_D9_PER_02', 'CULM001_D9_HOR_01', 'CULM001_D9_TRX_01',
     'CULM001_D9_CRU_01', 'CULM001_D9_TRX_02', 'CULM001_D9_TRX_03', 'CULM001_D9_MIG_UP_DOWN_UP',
     # DEC-081 (test/test_receso_academico.sql, migracion 68): receso academico del periodo
     'REC_01_OBJETOS_Y_SEMILLAS', 'REC_02_ADMIN_CREA_Y_CANCELA', 'REC_02_RECHAZO_POR_PERFIL', 'REC_03_RECHAZOS_DE_VALIDACION',
@@ -1246,6 +1256,8 @@ $criticalIds = @(
     'AUDBD_A1_02_COORDINADOR_SOLO_SU_PROGRAMA', 'AUDBD_A1_03_ADMINISTRADOR_TODA_CUENTA', 'AUDBD_M1_01_INDICES_FK', 'AUDBD_M3_01_SIN_GUID_VACIO_LITERAL',
     'AUDBD_M6_01_XACT_ABORT_ESCRITURA', 'AUDBD_M7_01_FUNCION_RETIRADA', 'AUDBD_M11_01_MENSAJES_CON_TILDES', 'AUDBD_TRANCOUNT_ZERO',
     'AUDBD_MIG70_UP_DOWN_UP',
+    # P3 fase F5 (migracion 71 en test/test_p3_f5_notificaciones_migracion_71.ps1)
+    'P3F5_MIG71_UP_DOWN_UP',
     # AUD-BD M-9: ids que las pruebas ya emitian y el resumen no exigia (todos pasan en una corrida completa del gate; scripts/check-test-summary-parity.ps1)
     'ATTENDANCE_SINGLE_INVALID', 'ATTENDANCE_SINGLE_SUCCESS', 'CANDIDATOS_AMBITO', 'CANDIDATOS_TOPE_PARAMETRO', 'COMP_ELE_01_FILA_ELE',
     'COMP_ELE_02_RESOLVER_ELE', 'COORDINATOR_CREATE_SETS_FACULTY', 'COORDINATOR_SCHEMA_COLUMNS', 'COORDINATOR_STATE_ACTIVE_PROGRAM_BLOCK',

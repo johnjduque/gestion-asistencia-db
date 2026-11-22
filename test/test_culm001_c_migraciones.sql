@@ -9,6 +9,9 @@ PRINT 'TEST START: test_culm001_c_migraciones';
 GO
 BEGIN TRANSACTION;
 GO
+-- P3 F5: la migracion 71 retiro PlantillaNotificacion*, que la 19 aun usa; se baja primero (dentro de la transaccion revertida).
+:r $(MIGDIR)/71_p3_f5_notificaciones_servicio_down.sql
+GO
 :r $(MIGDIR)/19_culm001_c_cancelacion_inasistencia_up.sql
 :r $(MIGDIR)/19_culm001_c_cancelacion_inasistencia_up.sql
 GO

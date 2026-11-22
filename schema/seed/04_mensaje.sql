@@ -123,10 +123,7 @@ USING (VALUES
     ('NTF_003', 'BUSINESS_ERROR', 'MEDIO', N'La notificación ya no está reservada por este proceso.'),
     ('NTF_004', 'BUSINESS_ERROR', 'MEDIO', N'La plantilla de notificación no contiene todos los marcadores obligatorios o incluye marcadores no permitidos para este tipo.'),
     ('NTF_005', 'BUSINESS_ERROR', 'MEDIO', N'No existe la versión de plantilla solicitada para el tipo e idioma indicados.'),
-    ('NTF_006', 'SUCCESS', 'BAJO', N'La plantilla de correo se actualizó y activó correctamente en una nueva versión.'),
-    ('NTF_007', 'SUCCESS', 'BAJO', N'La notificación fallida fue reencolada exitosamente para un nuevo intento de envío.'),
     ('NTF_008', 'BUSINESS_ERROR', 'MEDIO', N'Solo se pueden reencolar notificaciones en estado fallido definitivo o reintentable.'),
-    ('NTF_009', 'SUCCESS', 'BAJO', N'Correo de prueba encolado correctamente.'),
 
     -- Errores de Sistema
     ('SYS_001', 'SYSTEM_ERROR', 'CRITICO', N'Ocurrió un error inesperado al procesar la solicitud.'),
@@ -270,10 +267,7 @@ USING (VALUES
     ('NTF_003', 'BUSINESS_ERROR', 'MEDIO', N'La notificación no está reservada por la instancia o la reserva ya venció.'),
     ('NTF_004', 'BUSINESS_ERROR', 'MEDIO', N'Validación de plantilla fallida: marcadores obligatorios ausentes o marcadores no permitidos para el tipo.'),
     ('NTF_005', 'BUSINESS_ERROR', 'MEDIO', N'No existe la versión de plantilla solicitada para el tipo e idioma indicados.'),
-    ('NTF_006', 'SUCCESS', 'BAJO', N'La plantilla de correo se actualizó y activó correctamente en una nueva versión.'),
-    ('NTF_007', 'SUCCESS', 'BAJO', N'La notificación fallida fue reencolada exitosamente para un nuevo intento de envío.'),
     ('NTF_008', 'BUSINESS_ERROR', 'MEDIO', N'Solo se pueden reencolar notificaciones en estado fallido definitivo o reintentable.'),
-    ('NTF_009', 'SUCCESS', 'BAJO', N'Correo de prueba encolado correctamente.'),
 
     -- Errores de Sistema
     ('SYS_001', 'SYSTEM_ERROR', 'CRITICO', N'Excepción de sistema no controlada capturada en bloque CATCH: {}.'),

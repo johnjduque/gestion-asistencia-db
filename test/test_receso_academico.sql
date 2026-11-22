@@ -9,7 +9,7 @@ SET XACT_ABORT OFF;
 
 -- ============================================================================
 -- DEC-081: receso academico del periodo (migracion 68). Un dia completo sin clase para toda la institucion del periodo.
---   REC_01  objetos, tipo RECESO, parametros, mensajes y plantillas sembrados
+--   REC_01  objetos, tipo RECESO, parametros, y mensajes sembrados
 --   REC_02  el ADMINISTRADOR crea un dia: cancela las sesiones de ese dia en los grupos existentes (tipo RECESO, motivo, enlace) y la tupla
 --           trae idReceso y conteos; DECANO, COORDINADOR y DOCENTE se rechazan (SEC_001); otra institucion => PER_001
 --   REC_03  rechazos: fuera del periodo, hoy y pasado, festivo, repetido, periodo cerrado, motivo vacio o largo, fecha nula
@@ -58,13 +58,6 @@ IF EXISTS (SELECT 1 FROM (VALUES ('REC_001'), ('REC_002'), ('REC_003'), ('REC_00
            WHERE NOT EXISTS (SELECT 1 FROM dbo.uv_mensaje_usuario u WHERE u.codigo = c.codigo)
               OR NOT EXISTS (SELECT 1 FROM dbo.uv_mensaje_tecnico t WHERE t.codigo = c.codigo))
     THROW 59703, 'TEST FAILED REC_01: mensajes REC_001..REC_011 ausentes.', 1;
-IF (SELECT COUNT(*) FROM dbo.PlantillaNotificacion WHERE tipo IN (N'RECESO_CLASES_CANCELADAS_ESTUDIANTE', N'RECESO_CLASES_CANCELADAS_DOCENTE') AND activa = 1 AND idioma = 'es') <> 2
-   OR (SELECT COUNT(*) FROM dbo.PlantillaNotificacionMarcador WHERE tipo IN (N'RECESO_CLASES_CANCELADAS_ESTUDIANTE', N'RECESO_CLASES_CANCELADAS_DOCENTE')) <> 8
-   OR EXISTS (SELECT 1 FROM dbo.PlantillaNotificacion WHERE tipo = N'RECESO_CLASES_CANCELADAS_ESTUDIANTE'
-              AND (cuerpo NOT LIKE N'%{estudiante}%' OR cuerpo NOT LIKE N'%{motivo}%' OR cuerpo NOT LIKE N'%{fecha}%' OR cuerpo NOT LIKE N'%{clases}%'))
-   OR EXISTS (SELECT 1 FROM dbo.PlantillaNotificacion WHERE tipo = N'RECESO_CLASES_CANCELADAS_DOCENTE'
-              AND (cuerpo NOT LIKE N'%{docente}%' OR cuerpo NOT LIKE N'%{motivo}%' OR cuerpo NOT LIKE N'%{fecha}%' OR cuerpo NOT LIKE N'%{clases}%'))
-    THROW 59704, 'TEST FAILED REC_01: plantillas RECESO_CLASES_CANCELADAS_* ausentes o sin sus marcadores.', 1;
 PRINT 'TEST_PASS:REC_01_OBJETOS_Y_SEMILLAS';
 GO
 

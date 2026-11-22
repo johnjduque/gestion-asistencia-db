@@ -15,15 +15,10 @@ PRINT '==================================================';
 BEGIN TRANSACTION;
 BEGIN TRY
     -- =========================================================================
-    -- A00: objetos, plantilla y mensajes del contrato (falla en RED si faltan)
+    -- A00: objetos y mensajes del contrato (falla en RED si faltan)
     -- =========================================================================
     IF OBJECT_ID(N'dbo.usp_consultar_reenvio_activacion_cuenta', N'P') IS NULL
         THROW 56000, 'TEST FAILED ACT-A00: SP usp_consultar_reenvio_activacion_cuenta no existe.', 1;
-    IF NOT EXISTS (SELECT 1 FROM dbo.PlantillaNotificacion WHERE tipo = 'ACTIVACION_CUENTA' AND idioma = 'es' AND version = 1 AND activa = 1)
-        THROW 56001, 'TEST FAILED ACT-A00: falta la plantilla ACTIVACION_CUENTA v1 activa.', 1;
-    IF (SELECT COUNT(*) FROM dbo.PlantillaNotificacionMarcador
-        WHERE tipo = 'ACTIVACION_CUENTA' AND marcador IN ('nombre', 'enlace', 'rol') AND obligatorio = 1) <> 3
-        THROW 56002, 'TEST FAILED ACT-A00: marcadores obligatorios nombre, enlace y rol ausentes.', 1;
     IF (SELECT COUNT(*) FROM dbo.CatalogoMensajeUsuario WHERE codigo IN ('VCE_009', 'ACT_001', 'ACT_002') AND estaActivo = 1) <> 3
        OR (SELECT COUNT(*) FROM dbo.CatalogoMensajeTecnico WHERE codigo IN ('VCE_009', 'ACT_001', 'ACT_002') AND estaActivo = 1) <> 3
         THROW 56003, 'TEST FAILED ACT-A00: faltan mensajes VCE_009, ACT_001 o ACT_002 (usuario/tecnico).', 1;

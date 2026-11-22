@@ -433,17 +433,6 @@ BEGIN TRY
         THROW 55091, 'TEST FAILED DB-M01: faltan mensajes VCE_001..VCE_006 (usuario/tecnico).', 1;
     PRINT 'TEST_PASS:DB-M01';
 
-    -- =========================================================================
-    -- DB-L01: plantilla VERIFICACION_CORREO sembrada con marcadores obligatorios
-    -- =========================================================================
-    PRINT '-> DB-L01: plantilla VERIFICACION_CORREO v1';
-    IF NOT EXISTS (SELECT 1 FROM dbo.PlantillaNotificacion WHERE tipo = 'VERIFICACION_CORREO' AND idioma = 'es' AND version = 1 AND activa = 1)
-        THROW 55095, 'TEST FAILED DB-L01: falta la plantilla VERIFICACION_CORREO v1 activa.', 1;
-    IF (SELECT COUNT(*) FROM dbo.PlantillaNotificacionMarcador m
-        WHERE m.tipo = 'VERIFICACION_CORREO' AND m.marcador IN ('nombre','enlace') AND m.obligatorio = 1) <> 2
-        THROW 55096, 'TEST FAILED DB-L01: marcadores obligatorios nombre y enlace ausentes.', 1;
-    PRINT 'TEST_PASS:DB-L01';
-
     DROP TABLE #reenvio;
     DROP TABLE #tok;
     DROP TABLE #r;

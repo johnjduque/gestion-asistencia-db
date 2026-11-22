@@ -8,7 +8,7 @@ SET NOCOUNT ON;
 SET XACT_ABORT OFF;
 
 -- NOTOMA-001 (AsistenciasUCO-Infra/docs/work-items/NOTOMA-001-aviso-coordinador-sesion-sin-toma): aviso a la coordinacion cuando el docente no tomo asistencia.
---   NOTOMA_00_OBJETOS               tabla AvisoSesionSinToma, parametros AVISO_SESION_SIN_TOMA (no editables), plantilla con 8 marcadores y los 3 SP con EXECUTE para el rol runtime.
+--   NOTOMA_00_OBJETOS               tabla AvisoSesionSinToma, parametros AVISO_SESION_SIN_TOMA (no editables) y los 3 SP con EXECUTE para el rol runtime.
 --   NOTOMA_01_PENDIENTES            solo la sesion terminada sin tomas; no entran con tomas, canceladas, en curso, dentro del margen de cierre, mas antiguas que el atraso,
 --                                   ya avisadas ni con solicitud pendiente; el lote limita.
 --   NOTOMA_02_DESTINATARIOS         DEC-077: el coordinador del programa responsable del grupo compartido, una fila; sin inactivos ni sin correo; 0 filas si la sesion ya no aplica.
@@ -32,15 +32,11 @@ IF OBJECT_ID(N'dbo.AvisoSesionSinToma', N'U') IS NULL
    OR dbo.ufn_obtener_parametro_int(NULL, 'AVISO_SESION_SIN_TOMA', 'HORAS_MAXIMAS_ATRASO') <> 24
    OR LOWER(CAST(dbo.ufn_obtener_parametro('AVISO_SESION_SIN_TOMA', 'HABILITADO') AS NVARCHAR(10))) <> N'true'
    OR EXISTS (SELECT 1 FROM dbo.CatalogoParametroEdicion e INNER JOIN dbo.CatalogoParametro p ON p.id = e.parametro WHERE p.grupo = 'AVISO_SESION_SIN_TOMA' AND e.esEditable = 1)
-   OR NOT EXISTS (SELECT 1 FROM dbo.PlantillaNotificacion WHERE tipo = 'SESION_SIN_TOMA_COORDINADOR' AND idioma = 'es' AND version = 1 AND activa = 1
-                  AND asunto = N'Sesión sin toma de asistencia: {asignatura} ({fecha})' AND cuerpo LIKE N'%{docente}%{asignatura}%{grupo}%{enlaceSesiones}%')
-   OR (SELECT COUNT(*) FROM dbo.PlantillaNotificacionMarcador WHERE tipo = 'SESION_SIN_TOMA_COORDINADOR'
-       AND marcador IN ('coordinador', 'asignatura', 'grupo', 'fecha', 'horaInicio', 'horaFin', 'docente', 'enlaceSesiones')) <> 8
    OR EXISTS (SELECT 1 FROM (VALUES (N'usp_consultar_sesiones_pendientes_aviso_sin_toma'), (N'usp_consultar_destinatarios_aviso_sin_toma'), (N'usp_registrar_aviso_sesion_sin_toma')) s(nombre)
               WHERE NOT EXISTS (SELECT 1 FROM sys.database_permissions dp INNER JOIN sys.database_principals pr ON pr.principal_id = dp.grantee_principal_id
                                 WHERE dp.major_id = OBJECT_ID(N'dbo.' + s.nombre, N'P') AND dp.permission_name = N'EXECUTE' AND dp.state IN ('G', 'W')
                                   AND pr.name = N'rol_asistencias_runtime'))
-    THROW 59500, 'TEST FAILED NOTOMA_00_OBJETOS: faltan la tabla, los parametros (no editables), la plantilla con 8 marcadores o los permisos de los 3 SP del aviso de sesion sin toma.', 1;
+    THROW 59500, 'TEST FAILED NOTOMA_00_OBJETOS: faltan la tabla, los parametros (no editables) o los permisos de los 3 SP del aviso de sesion sin toma.', 1;
 PRINT 'TEST_PASS:NOTOMA_00_OBJETOS';
 GO
 

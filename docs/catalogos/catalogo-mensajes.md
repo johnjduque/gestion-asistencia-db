@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **524**.
+Total de códigos: **543**.
 
 ## ACC
 
@@ -250,6 +250,7 @@ Total de códigos: **524**.
 | `ERR_NOMBRE_PERSONA_LONGITUD_INVALIDA` | VALIDATION_ERROR | BAJO | Cada nombre o apellido puede tener máximo 50 caracteres. | Backend (VALIDATION_ERROR, UsuarioErrorCode): Cada nombre o apellido puede tener maximo 50 caracteres. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_NOMBRE_SESION_LONGITUD_INVALIDA` | VALIDATION_ERROR | BAJO | El nombre de la sesión debe tener entre 1 y 50 caracteres. | Backend (VALIDATION_ERROR, SesionErrorCode): El nombre de la sesion debe tener entre 1 y 50 caracteres. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_NOMBRE_SESION_REQUERIDO` | VALIDATION_ERROR | BAJO | El nombre de la sesión es obligatorio. | Backend (VALIDATION_ERROR, SesionErrorCode): El nombre de la sesion es obligatorio. | `63_val_mensajes_err_pendientes.sql` |
+| `ERR_NOTIFICACIONES_NO_DISPONIBLE` | TECHNICAL_ERROR | ALTO | El servicio de notificaciones no está disponible en este momento. Intenta de nuevo en unos minutos. | Backend (SERVICE_UNAVAILABLE, NotificacionesServiceErrores): el Servicio de Notificaciones no respondió, agotó el tiempo de espera, contestó 5xx, 408 o 429, rechazó la credencial de administración (401 o 403) o su circuit breaker está abierto; los avisos pendientes siguen en la outbox NotificacionSaliente y se reintentan solos. | `74_p3_f5_mensajes_notificaciones.sql` |
 | `ERR_NUMERO_IDENTIFICACION_DOCENTE_REQUERIDO` | VALIDATION_ERROR | BAJO | El número de identificación del docente es obligatorio. | Backend (VALIDATION_ERROR, DocenteErrorCode): El numero de identificacion del docente es obligatorio. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_NUMERO_IDENTIFICACION_INVALIDO` | VALIDATION_ERROR | BAJO | El número de identificación debe ser positivo y tener entre 6 y 10 dígitos. | Backend (VALIDATION_ERROR, UsuarioErrorCode): El numero de identificacion debe ser positivo y tener entre 6 y 10 digitos. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_NUMERO_IDENTIFICACION_REQUERIDO` | VALIDATION_ERROR | BAJO | El número de identificación es obligatorio. | Backend (VALIDATION_ERROR, UsuarioErrorCode): El numero de identificacion es obligatorio. | `63_val_mensajes_err_pendientes.sql` |
@@ -454,12 +455,21 @@ Total de códigos: **524**.
 | `NTF_003` | BUSINESS_ERROR | MEDIO | La notificación ya no está reservada por este proceso. | La notificación no está reservada por la instancia o la reserva ya venció. | `04_mensaje.sql` |
 | `NTF_004` | BUSINESS_ERROR | MEDIO | La plantilla de notificación no contiene todos los marcadores obligatorios o incluye marcadores no permitidos para este tipo. | Validación de plantilla fallida: marcadores obligatorios ausentes o marcadores no permitidos para el tipo. | `04_mensaje.sql` |
 | `NTF_005` | BUSINESS_ERROR | MEDIO | No existe la versión de plantilla solicitada para el tipo e idioma indicados. | No existe la versión de plantilla solicitada para el tipo e idioma indicados. | `04_mensaje.sql` |
-| `NTF_006` | SUCCESS | BAJO | La plantilla de correo se actualizó y activó correctamente en una nueva versión. | La plantilla de correo se actualizó y activó correctamente en una nueva versión. | `04_mensaje.sql` |
-| `NTF_007` | SUCCESS | BAJO | La notificación fallida fue reencolada exitosamente para un nuevo intento de envío. | La notificación fallida fue reencolada exitosamente para un nuevo intento de envío. | `04_mensaje.sql` |
 | `NTF_008` | BUSINESS_ERROR | MEDIO | Solo se pueden reencolar notificaciones en estado fallido definitivo o reintentable. | Solo se pueden reencolar notificaciones en estado fallido definitivo o reintentable. | `04_mensaje.sql` |
-| `NTF_009` | SUCCESS | BAJO | Correo de prueba encolado correctamente. | Correo de prueba encolado correctamente. | `04_mensaje.sql` |
 | `NTF_020` | BUSINESS_ERROR | MEDIO | La notificación no existe. | Ambito: NotificacionSaliente no tiene una fila con el identificador recibido; sin escrituras. | `59_culm001_d9_mensajes.sql` |
 | `NTF_021` | BUSINESS_ERROR | MEDIO | El tipo de plantilla no existe. | Regla: PlantillaNotificacion no tiene el tipo recibido; sin escrituras. | `59_culm001_d9_mensajes.sql` |
+
+## OK
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `OK_ADMIN_001` | SUCCESS | BAJO | Cierre masivo solicitado correctamente. | Backend (MensajesExitoHttp.CIERRE_MASIVO_SOLICITADO: confirmación del cierre masivo (el caso de uso es void).) | `74_p3_f5_mensajes_notificaciones.sql` |
+| `OK_ASISTENCIA_001` | SUCCESS | BAJO | Solicitud de revisión registrada correctamente. | Backend (MensajesExitoHttp.SOLICITUD_REVISION_REGISTRADA: confirmación de la radicación de la solicitud de revisión (el caso de uso es void).) | `74_p3_f5_mensajes_notificaciones.sql` |
+| `OK_ASISTENCIA_002` | SUCCESS | BAJO | Asistencias de la sesión registradas correctamente. | Backend (MensajesExitoHttp.ASISTENCIAS_SESION_REGISTRADAS: confirmación del registro de asistencias de una sesión (el caso de uso es void).) | `74_p3_f5_mensajes_notificaciones.sql` |
+| `OK_REALTIME_001` | SUCCESS | BAJO | Evento reactivo emitido a {0} suscriptores. | Backend (MensajesExitoHttp.EVENTO_EMITIDO: confirmación del evento de prueba SSE; {0} = número de suscriptores activos.) | `74_p3_f5_mensajes_notificaciones.sql` |
+| `OK_SESION_001` | SUCCESS | BAJO | Sesión cerrada correctamente. | Backend (MensajesExitoHttp.SESION_CERRADA: confirmación del cierre de la sesión (el caso de uso es void).) | `74_p3_f5_mensajes_notificaciones.sql` |
+| `OK_SESION_002` | SUCCESS | BAJO | Sesión creada correctamente. | Backend (MensajesExitoHttp.SESION_CREADA: respaldo cuando usp_crear_sesion no devuelve mensajeUsuario.) | `74_p3_f5_mensajes_notificaciones.sql` |
+| `OK_SESION_003` | SUCCESS | BAJO | Sesiones del grupo generadas correctamente. | Backend (MensajesExitoHttp.SESIONES_GRUPO_GENERADAS: confirmación de la generación de sesiones del grupo.) | `74_p3_f5_mensajes_notificaciones.sql` |
 
 ## PAG
 
@@ -599,6 +609,25 @@ Total de códigos: **524**.
 | `REV_027` | BUSINESS_ERROR | MEDIO | Ya existe un reclamo para esta toma. | Regla: la toma [{}] ya tiene la solicitud de revision no retirada [{}]; sin escrituras. | `61_puntos_control_mensajes.sql` |
 | `REV_028` | VALIDATION_ERROR | BAJO | El resultado de la aprobación debe ser PRESENTE o JUSTIFICADA. | Validacion: codigoResultadoAprobacion [{}] fuera de ASISTENCIA/CODIGO_RAZON_PRESENTE y ASISTENCIA/CODIGO_RAZON_EXCUSA; sin escrituras. | `61_puntos_control_mensajes.sql` |
 | `REV_029` | BUSINESS_ERROR | MEDIO | La aprobación como presente solo aplica a reclamos de una toma. | Regla: la solicitud de revision [{}] es de la sesion completa (sin toma) y solo admite el resultado EX; sin escrituras. | `61_puntos_control_mensajes.sql` |
+
+## RPT
+
+| Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
+|---|---|---|---|---|---|
+| `RPT_ASISTENCIA_CODIGO_GRUPO` | INFORMATIVO | BAJO | Código del grupo | Backend (PoiReporteExcelAdapter): rótulo de la columna «Código del grupo» del libro de Excel del reporte de asistencia. | `74_p3_f5_mensajes_notificaciones.sql` |
+| `RPT_ASISTENCIA_CORREO` | INFORMATIVO | BAJO | Correo | Backend (PoiReporteExcelAdapter): rótulo de la columna «Correo» del libro de Excel del reporte de asistencia. | `74_p3_f5_mensajes_notificaciones.sql` |
+| `RPT_ASISTENCIA_DOCUMENTO` | INFORMATIVO | BAJO | Documento | Backend (PoiReporteExcelAdapter): rótulo de la columna «Documento» del libro de Excel del reporte de asistencia. | `74_p3_f5_mensajes_notificaciones.sql` |
+| `RPT_ASISTENCIA_ESTADO` | INFORMATIVO | BAJO | Estado de asistencia | Backend (PoiReporteExcelAdapter): rótulo de la columna «Estado de asistencia» del libro de Excel del reporte de asistencia. | `74_p3_f5_mensajes_notificaciones.sql` |
+| `RPT_ASISTENCIA_ESTADO_ASISTIO` | INFORMATIVO | BAJO | ASISTIÓ | Backend (PoiReporteExcelAdapter): texto del estado «ASISTIÓ» en la columna Estado de asistencia del libro de Excel. | `74_p3_f5_mensajes_notificaciones.sql` |
+| `RPT_ASISTENCIA_ESTADO_NO_ASISTIO` | INFORMATIVO | BAJO | NO ASISTIÓ | Backend (PoiReporteExcelAdapter): texto del estado «NO ASISTIÓ» en la columna Estado de asistencia del libro de Excel. | `74_p3_f5_mensajes_notificaciones.sql` |
+| `RPT_ASISTENCIA_ESTADO_SIN_REGISTRO` | INFORMATIVO | BAJO | SIN REGISTRO | Backend (PoiReporteExcelAdapter): texto del estado «SIN REGISTRO» en la columna Estado de asistencia del libro de Excel. | `74_p3_f5_mensajes_notificaciones.sql` |
+| `RPT_ASISTENCIA_ESTUDIANTE` | INFORMATIVO | BAJO | Estudiante | Backend (PoiReporteExcelAdapter): rótulo de la columna «Estudiante» del libro de Excel del reporte de asistencia. | `74_p3_f5_mensajes_notificaciones.sql` |
+| `RPT_ASISTENCIA_FIN` | INFORMATIVO | BAJO | Fin | Backend (PoiReporteExcelAdapter): rótulo de la columna «Fin» del libro de Excel del reporte de asistencia. | `74_p3_f5_mensajes_notificaciones.sql` |
+| `RPT_ASISTENCIA_GRUPO` | INFORMATIVO | BAJO | Grupo | Backend (PoiReporteExcelAdapter): rótulo de la columna «Grupo» del libro de Excel del reporte de asistencia. | `74_p3_f5_mensajes_notificaciones.sql` |
+| `RPT_ASISTENCIA_INICIO` | INFORMATIVO | BAJO | Inicio | Backend (PoiReporteExcelAdapter): rótulo de la columna «Inicio» del libro de Excel del reporte de asistencia. | `74_p3_f5_mensajes_notificaciones.sql` |
+| `RPT_ASISTENCIA_NUMERO_SESION` | INFORMATIVO | BAJO | Número de sesión | Backend (PoiReporteExcelAdapter): rótulo de la columna «Número de sesión» del libro de Excel del reporte de asistencia. | `74_p3_f5_mensajes_notificaciones.sql` |
+| `RPT_ASISTENCIA_OBSERVACION` | INFORMATIVO | BAJO | Observación | Backend (PoiReporteExcelAdapter): rótulo de la columna «Observación» del libro de Excel del reporte de asistencia. | `74_p3_f5_mensajes_notificaciones.sql` |
+| `RPT_ASISTENCIA_SESION` | INFORMATIVO | BAJO | Sesión | Backend (PoiReporteExcelAdapter): rótulo de la columna «Sesión» del libro de Excel del reporte de asistencia. | `74_p3_f5_mensajes_notificaciones.sql` |
 
 ## SEC
 
