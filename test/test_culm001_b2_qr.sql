@@ -233,6 +233,10 @@ BEGIN TRY
        OR (SELECT COUNT(*) FROM #b2qR WHERE mt LIKE N'DBCODE=AQR[_]008|%' AND yaRegistrado = 1 AND idToma = @tA) <> 2
        OR (SELECT COUNT(*) FROM dbo.DetalleAsistencia da INNER JOIN dbo.Asistencia a ON a.id = da.asistencia INNER JOIN #b2qE e ON e.idEG = a.estudianteGrupo
            WHERE e.n = 3 AND a.sesion = @sA) <> 1
+       -- la fechaRegistroUtc de cada respuesta es la del detalle propio (lectura por PK, sin recorrer los detalles de la toma)
+       OR (SELECT COUNT(*) FROM #b2qR r WHERE r.fechaRegistroUtc = (SELECT da.fechaRegistroUtc FROM dbo.DetalleAsistencia da
+           INNER JOIN dbo.Asistencia a ON a.id = da.asistencia INNER JOIN #b2qE e ON e.idEG = a.estudianteGrupo
+           WHERE e.n = 3 AND a.sesion = @sA AND da.toma = @tA)) <> 3
         THROW 57440, 'TEST FAILED CULM001_B2_QR_04: tres registros del mismo estudiante deben dejar un solo detalle (AQR_009 + 2 x AQR_008).', 1;
     TRUNCATE TABLE #b2qR;
     SET @json = CONCAT(N'[{"idEstudiante":"', @e4, N'","estado":"EX"}]');
