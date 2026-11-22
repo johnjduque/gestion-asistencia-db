@@ -9,6 +9,7 @@ GO
 -- toda la institucion; DECANO y COORDINADOR solo lo consultan). Reglas:
 --   * nombre obligatorio y unico (sin distinguir mayusculas) dentro de la institucion (PER_003).
 --   * fechaInicio < fechaFin (PER_002).
+--   * BD-3: sin fechas solapadas con otro periodo de la institucion (PER_012).
 --   * codigo y anio se derivan de fechaInicio: anio = YEAR(fechaInicio); codigo = anio * 10 + (1 si inicia en
 --     enero-junio, 2 si inicia en julio-diciembre), igual que la semilla (2026-2 => 20262).
 -- Concurrencia: los periodos de la institucion se bloquean (UPDLOCK, HOLDLOCK) mientras se valida la unicidad.
@@ -143,6 +144,17 @@ BEGIN
                 SET @estadoResultado = 0;
             END
             ELSE
+            BEGIN
+                -- BD-3: las fechas no pueden solaparse con otro periodo de la institucion (PER_012); los periodos ya estan bloqueados.
+                EXEC dbo.usp_validar_solape_periodo_academico_interno
+                    @idInstitucion = @idInstitucion, @fechaInicio = @fechaInicio, @fechaFin = @fechaFin,
+                    @idPeriodoExcluir = NULL, @idCorrelacion = @idCorrelacionDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                    @estadoResultado = @estadoResultado OUTPUT;
+            END
+
+            IF @estadoResultado = 1
             BEGIN
                 INSERT INTO dbo.PeriodoAcademico (id, institucion, nombre, codigo, fechaInicio, fechaFin, anio)
                 VALUES (

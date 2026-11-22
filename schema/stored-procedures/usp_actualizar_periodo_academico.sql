@@ -7,7 +7,8 @@ GO
 
 -- HU097: modifica nombre y fechas de un periodo academico de la institucion del ejecutor (solo ADMINISTRADOR).
 -- Reglas: el periodo debe existir en la institucion del ejecutor (PER_001; uno de otra institucion responde igual
--- para no revelar su existencia), fechaInicio < fechaFin (PER_002) y nombre unico en la institucion (PER_003).
+-- para no revelar su existencia), fechaInicio < fechaFin (PER_002) y nombre unico en la institucion (PER_003). BD-3: las fechas
+-- nuevas no pueden solaparse con las de otro periodo de la institucion (PER_012, usp_validar_solape_periodo_academico_interno).
 -- codigo y anio se recalculan desde fechaInicio con la misma regla de usp_crear_periodo_academico.
 CREATE OR ALTER PROCEDURE [dbo].[usp_actualizar_periodo_academico]
 (
@@ -130,6 +131,21 @@ BEGIN
                         THEN 'PER_011'
                 END;
 
+            -- BD-3: las fechas nuevas no pueden solaparse con otro periodo de la institucion (PER_012). Solo se valida si cambian las
+            -- fechas: un periodo historico que solo cambia de nombre se conserva aunque ya se solapara.
+            IF @codigoRechazo IS NULL
+               AND EXISTS (SELECT 1 FROM dbo.PeriodoAcademico pa
+                           WHERE pa.id = @idPeriodoDefecto
+                             AND (pa.fechaInicio <> CAST(@fechaInicio AS DATE) OR pa.fechaFin <> CAST(@fechaFin AS DATE)))
+            BEGIN
+                EXEC dbo.usp_validar_solape_periodo_academico_interno
+                    @idInstitucion = @idInstitucion, @fechaInicio = @fechaInicio, @fechaFin = @fechaFin,
+                    @idPeriodoExcluir = @idPeriodoDefecto, @idCorrelacion = @idCorrelacionDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                    @estadoResultado = @estadoResultado OUTPUT;
+            END
+
             IF @codigoRechazo IS NOT NULL
             BEGIN
                 SET @parametroRechazo1 = IIF(@codigoRechazo = 'PER_011', CAST(@semanasDuracion AS NVARCHAR(10)), NULL);
@@ -143,7 +159,7 @@ BEGIN
                 SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
                 SET @estadoResultado = 0;
             END
-            ELSE
+            ELSE IF @estadoResultado = 1   -- (0 = rechazo por solape PER_012: mensajes ya resueltos por el validador)
             BEGIN
                 UPDATE dbo.PeriodoAcademico
                 SET nombre = @nombreDef,

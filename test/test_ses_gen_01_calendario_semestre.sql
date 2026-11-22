@@ -91,7 +91,10 @@ BEGIN TRY
                   AND NOT EXISTS (SELECT 1 FROM dbo.PeriodoAcademico WHERE id = @per2), 1, 0);
     EXEC #ses_expect 'SES_02_PER_RECHAZO', @ok;
     DELETE #r;
-    INSERT #r EXEC dbo.usp_crear_periodo_academico @idPeriodo = @per2, @nombre = N'SES-GEN-01 B', @fechaInicio = @inicio, @fechaFin = @fin,
+    -- BD-3 (cambio de regla): los periodos de una institucion no pueden solaparse; el periodo B va justo despues de A
+    DECLARE @inicioB DATE = DATEADD(DAY, 1, @fin);
+    DECLARE @finB DATE = DATEADD(DAY, 111, @inicioB);
+    INSERT #r EXEC dbo.usp_crear_periodo_academico @idPeriodo = @per2, @nombre = N'SES-GEN-01 B', @fechaInicio = @inicioB, @fechaFin = @finB,
         @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdmin;
     SET @ok = IIF(EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 1), 1, 0);
     EXEC #ses_expect 'SES_02_PER_FIN_CORRECTO', @ok;
