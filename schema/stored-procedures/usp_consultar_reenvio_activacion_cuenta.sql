@@ -8,9 +8,9 @@ GO
 -- IDENT-002: elegibilidad del reenvio del enlace de activacion de una cuenta registrada por otra persona (decano,
 -- coordinador, docente o estudiante). Valida RBAC (ADMINISTRADOR, DECANO o COORDINADOR), que el usuario destino exista,
 -- que su correo no este verificado (ACT_002: la cuenta ya esta activa) y la espera minima desde la ultima emision
--- (VCE_003, parametro VERIFICACION_CORREO/REENVIO_ESPERA_MINUTOS). El alcance jerarquico (decano: su facultad;
--- coordinador: su programa) lo resuelve la aplicacion con InstitutionalScopePort.canGestionarCuenta antes de invocarlo,
--- igual que el acceso a cuentas. Devuelve una fila con el usuario destino; el backend registra entonces el aviso.
+-- (VCE_003, parametro VERIFICACION_CORREO/REENVIO_ESPERA_MINUTOS). AUD-BD A-1: el alcance jerarquico (decano: su facultad;
+-- coordinador: su programa; administrador: toda la institucion) se fuerza DENTRO del SP (SEC_002, antes de revelar si el
+-- destino existe o esta activo), con las mismas reglas que InstitutionalScopePort.canGestionarCuenta de la aplicacion. Devuelve una fila con el usuario destino; el backend registra entonces el aviso.
 -- Los rechazos se propagan con THROW 51000 y mensaje "DBCODE=<codigo>|..." (como usp_consultar_reenvio_verificacion_correo).
 -- READ_QUERY_RESULTSET: NON_GOLDEN_PATH_EXTENSION (ver test/test_contract_closure.sql).
 -- ============================================================================
@@ -61,6 +61,38 @@ BEGIN
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
+    END
+
+    -- PASO 2B (AUD-BD A-1): alcance jerarquico del ejecutor sobre el usuario destino. El administrador gestiona cualquier cuenta; el
+    --          decano las de coordinadores, docentes y estudiantes de su facultad; el coordinador las de docentes y estudiantes de su
+    --          programa. Fuera del ambito el rechazo es SEC_002, igual para un destino inexistente (no revela existencia).
+    IF @estadoResultado = 1
+       AND NOT EXISTS (SELECT 1 FROM dbo.uv_administrador a WHERE a.idUsuario = @idUsuarioEjecutor AND a.estaActivoUsuario = 1)
+       AND NOT EXISTS (
+            SELECT 1 FROM dbo.uv_decano d
+            WHERE d.idUsuario = @idUsuarioEjecutor AND d.estaActivoDecano = 1 AND (
+                EXISTS (SELECT 1 FROM dbo.uv_coordinador c WHERE c.idUsuario = @idUsuario AND c.idFacultad = d.idFacultad)
+                OR EXISTS (SELECT 1 FROM dbo.uv_docente_programa dp WHERE dp.idUsuario = @idUsuario AND dp.idFacultad = d.idFacultad)
+                OR EXISTS (
+                    SELECT 1 FROM dbo.uv_estudiante_programa ep
+                    INNER JOIN dbo.uv_estudiante_identidad ei ON ei.id = ep.idEstudiante
+                    INNER JOIN dbo.uv_programa p ON p.id = ep.idPrograma
+                    WHERE ei.idUsuario = @idUsuario AND p.idFacultad = d.idFacultad)))
+       AND NOT EXISTS (
+            SELECT 1 FROM dbo.uv_coordinador cc
+            WHERE cc.idUsuario = @idUsuarioEjecutor AND cc.estaActivoCoordinador = 1 AND (
+                EXISTS (SELECT 1 FROM dbo.uv_docente_programa dp WHERE dp.idUsuario = @idUsuario AND dp.idPrograma = cc.idPrograma)
+                OR EXISTS (
+                    SELECT 1 FROM dbo.uv_estudiante_programa ep
+                    INNER JOIN dbo.uv_estudiante_identidad ei ON ei.id = ep.idEstudiante
+                    WHERE ei.idUsuario = @idUsuario AND ep.idPrograma = cc.idPrograma)))
+    BEGIN
+        EXEC dbo.usp_obtener_mensaje_catalogo
+            @p_codigo = 'SEC_002',
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+        SET @estadoResultado = 0;
     END
 
     -- PASO 3: usuario destino existente y activo (VCE_007)
