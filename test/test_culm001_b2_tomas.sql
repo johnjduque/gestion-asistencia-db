@@ -576,7 +576,7 @@ BEGIN TRY
     IF EXISTS (SELECT 1 FROM dbo.TomaAsistencia t INNER JOIN dbo.EstadoTomaAsistencia e ON e.id = t.estado
                WHERE (e.estaAbierta = 1 AND t.fechaCierreUtc IS NOT NULL) OR (e.estaAbierta = 0 AND t.fechaCierreUtc IS NULL))
        OR EXISTS (SELECT 1 FROM dbo.SesionCancelacion sc INNER JOIN dbo.TipoCancelacionSesion t ON t.id = sc.tipoCancelacion
-                  WHERE (t.esAutomatica = 1 AND sc.diaFestivo IS NULL) OR (t.esAutomatica = 0 AND sc.diaFestivo IS NOT NULL))
+                  WHERE (t.esAutomatica = 1 AND (sc.diaFestivo IS NULL AND sc.recesoAcademico IS NULL OR sc.diaFestivo IS NOT NULL AND sc.recesoAcademico IS NOT NULL)) OR (t.esAutomatica = 0 AND (sc.diaFestivo IS NOT NULL OR sc.recesoAcademico IS NOT NULL)))
        OR EXISTS (SELECT 1 FROM dbo.DetalleAsistencia da INNER JOIN dbo.TomaAsistencia t ON t.id = da.toma INNER JOIN dbo.Asistencia a ON a.id = da.asistencia
                   WHERE a.sesion <> t.sesion)
         THROW 57330, 'TEST FAILED CULM001_B2_TOM_11: invariantes de TomaAsistencia o de SesionCancelacion violados.', 1;

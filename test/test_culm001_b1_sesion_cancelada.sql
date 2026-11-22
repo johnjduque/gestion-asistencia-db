@@ -277,7 +277,7 @@ BEGIN TRY
 
     -- Invariante de coherencia tipo/diaFestivo en toda la tabla
     IF EXISTS (SELECT 1 FROM dbo.SesionCancelacion sc JOIN dbo.TipoCancelacionSesion t ON t.id = sc.tipoCancelacion
-               WHERE (t.esAutomatica = 1 AND sc.diaFestivo IS NULL) OR (t.esAutomatica = 0 AND (sc.diaFestivo IS NOT NULL OR sc.usuarioEjecutor IS NULL)))
+               WHERE (t.esAutomatica = 1 AND (sc.diaFestivo IS NULL AND sc.recesoAcademico IS NULL OR sc.diaFestivo IS NOT NULL AND sc.recesoAcademico IS NOT NULL)) OR (t.esAutomatica = 0 AND (sc.diaFestivo IS NOT NULL OR sc.recesoAcademico IS NOT NULL OR sc.usuarioEjecutor IS NULL)))
         THROW 57190, 'TEST FAILED INV_SESION_CANCELACION_COHERENTE: tipo automatico <=> diaFestivo NOT NULL.', 1;
     PRINT 'TEST_PASS:CULM001_B1_INV_SESION_CANCELACION_COHERENTE';
 END TRY

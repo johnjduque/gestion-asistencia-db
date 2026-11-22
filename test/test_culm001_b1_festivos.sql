@@ -461,7 +461,7 @@ BEGIN TRY
 
     -- Invariante: toda cancelacion automatica tiene festivo; ninguna sesion con asistencia quedo cancelada por festivo
     IF EXISTS (SELECT 1 FROM dbo.SesionCancelacion sc JOIN dbo.TipoCancelacionSesion t ON t.id = sc.tipoCancelacion
-               WHERE (t.esAutomatica = 1 AND sc.diaFestivo IS NULL) OR (t.esAutomatica = 0 AND sc.diaFestivo IS NOT NULL))
+               WHERE (t.esAutomatica = 1 AND (sc.diaFestivo IS NULL AND sc.recesoAcademico IS NULL OR sc.diaFestivo IS NOT NULL AND sc.recesoAcademico IS NOT NULL)) OR (t.esAutomatica = 0 AND (sc.diaFestivo IS NOT NULL OR sc.recesoAcademico IS NOT NULL)))
        OR EXISTS (SELECT 1 FROM dbo.SesionCancelacion sc JOIN dbo.TipoCancelacionSesion t ON t.id = sc.tipoCancelacion
                   WHERE t.esAutomatica = 1 AND EXISTS (SELECT 1 FROM dbo.Asistencia a WHERE a.sesion = sc.sesion)
                     AND sc.idCorrelacion IN (SELECT idCorrelacion FROM dbo.SesionCancelacion x JOIN dbo.Sesion s ON s.id = x.sesion WHERE s.grupo IN (@g1, @g3, @g4, @g5)))

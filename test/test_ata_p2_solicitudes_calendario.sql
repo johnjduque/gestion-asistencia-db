@@ -155,7 +155,7 @@ BEGIN TRY
     INSERT dbo.DiaFestivo (id, fecha, nombre, fuente, estaActivo, fechaCargaUtc, idCorrelacionCarga)
     VALUES (@idFestivo, DATEADD(DAY, 1, @base), N'Festivo ATA', N'PRUEBA', 1, SYSUTCDATETIME(), @c);
     INSERT dbo.SesionCancelacion (sesion, tipoCancelacion, motivo, diaFestivo, usuarioEjecutor, idCorrelacion)
-    SELECT @sF, t.id, N'Dia festivo', @idFestivo, NULL, @c FROM dbo.TipoCancelacionSesion t WHERE t.esAutomatica = 1;
+    SELECT @sF, t.id, N'Dia festivo', @idFestivo, NULL, @c FROM dbo.TipoCancelacionSesion t WHERE t.codigo = N'FESTIVO';
     INSERT dbo.SesionCancelacion (sesion, tipoCancelacion, motivo, diaFestivo, usuarioEjecutor, idCorrelacion)
     SELECT @sM, t.id, N'Calamidad del docente', NULL, @uT, @c FROM dbo.TipoCancelacionSesion t WHERE t.esAutomatica = 0;
 
