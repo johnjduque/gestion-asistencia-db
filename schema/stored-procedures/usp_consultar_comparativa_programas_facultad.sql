@@ -14,6 +14,8 @@ GO
 -- faltasSinJustaCausa siguen en sesiones. Columnas nuevas al final: horasDictadas y horasFalta (horas, 2 decimales).
 -- ATA D2 (ADDENDUM_ATA_ASISTENCIA_TOMAS_AVISOS B): el denominador del porcentaje pasa a horasPeriodo (horas de todas las sesiones del periodo:
 -- programadas, vencidas y futuras; sin canceladas ni solicitudes no aprobadas). horasDictadas se sigue mostrando como lo dictado hasta hoy.
+-- BD-7 (2026-11-22): columna AL FINAL horasPeriodo = la base real del porcentaje: porcentajeAusentismo = ROUND(100 x horasFalta / horasPeriodo, 2). La
+-- etiqueta de la interfaz debe decir 'X h de falta sobre Y h del periodo' con horasPeriodo (no horasDictadas, que es solo lo dictado hasta hoy).
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_comparativa_programas_facultad]
 (
@@ -76,7 +78,8 @@ BEGIN
             faltasSinJustaCausa = ISNULL(a.faltas, 0),
             porcentajeAusentismo = CAST(IIF(ISNULL(a.horasPeriodo, 0) = 0, NULL, ROUND(100.0 * a.horasFalta / a.horasPeriodo, 2)) AS DECIMAL(5,2)),
             horasDictadas = CAST(ISNULL(a.horasDictadas, 0) AS DECIMAL(12,2)),
-            horasFalta = CAST(ISNULL(a.horasFalta, 0) AS DECIMAL(12,2))
+            horasFalta = CAST(ISNULL(a.horasFalta, 0) AS DECIMAL(12,2)),
+            horasPeriodo = CAST(ISNULL(a.horasPeriodo, 0) AS DECIMAL(12,2))
         FROM dbo.uv_programa p
         LEFT JOIN conteo c ON c.idPrograma = p.id
         LEFT JOIN asistencia a ON a.idPrograma = p.id
@@ -84,7 +87,7 @@ BEGIN
     )
     -- PASO 4: Consulta y retorno de resultados
     SELECT idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida,
-           tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta
+           tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta, horasPeriodo
     FROM resultado
     ORDER BY IIF(porcentajeAusentismo IS NULL, 1, 0) ASC, porcentajeAusentismo DESC, nombrePrograma ASC, idPrograma ASC;
 END;
