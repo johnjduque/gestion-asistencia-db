@@ -2,8 +2,8 @@
 -- MIGRACION UP 70: correcciones de la auditoria de BD (2026-11-22), items M-11, M-1 y M-7.
 --   M-11: ortografia (tildes) de 14 mensajes de usuario del catalogo (CatalogoMensajeUsuario; VAL_APP_068 tambien en CatalogoMensajeTecnico).
 --   M-1:  indices de apoyo para las FK de ambito y filtro (IF NOT EXISTS; los mismos que declaran schema/tables/*.sql).
---   M-7:  retiro de tres objetos sin uso (ufn_obtener_estado_estudiante_grupo, usp_aplicar_festivos_grupo,
---         usp_consultar_oferta_creacion_grupo_docente).
+--   M-7:  retiro de ufn_obtener_estado_estudiante_grupo (sin ninguna referencia). usp_aplicar_festivos_grupo y
+--         usp_consultar_oferta_creacion_grupo_docente se conservan: las usan pruebas de comportamiento y GRANT vigentes.
 --   Los cuerpos de los SP y funciones cambiados por la auditoria (A-1, A-2, M-3, M-6) se despliegan con deploy_schema.ps1 (CREATE OR ALTER).
 -- Idempotente. Down: 70_auditoria_bd_2026_11_22_down.sql.
 -- ============================================================================
@@ -48,5 +48,10 @@ GO
 UPDATE [dbo].[CatalogoMensajeTecnico] SET contenido = N'Backend (respuesta ERR_CAMPO_OBLIGATORIO): El campo días es obligatorio cuando se envía el horario.', fechaModificacion = SYSUTCDATETIME() WHERE codigo = 'VAL_APP_068' AND contenido <> N'Backend (respuesta ERR_CAMPO_OBLIGATORIO): El campo días es obligatorio cuando se envía el horario.';
 GO
 -- [FIN M-11]
+-- [M-7] retiro de ufn_obtener_estado_estudiante_grupo (0 referencias en backend, frontend, SQL y pruebas; solo documentacion)
+IF OBJECT_ID(N'dbo.ufn_obtener_estado_estudiante_grupo', N'FN') IS NOT NULL
+    DROP FUNCTION [dbo].[ufn_obtener_estado_estudiante_grupo];
+GO
+-- [FIN M-7]
 PRINT 'MIGRACION 70 UP: completada';
 GO

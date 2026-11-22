@@ -1,6 +1,6 @@
 -- ============================================================================
 -- MIGRACION DOWN 70: revierte las correcciones de la auditoria de BD (2026-11-22): textos anteriores de los mensajes (M-11), retira los
--- indices (M-1) y recrea los tres objetos retirados (M-7). Los cuerpos de SP y funciones de A-1, A-2, M-3 y M-6 se revierten desplegando
+-- indices (M-1) y recrea la funcion retirada (M-7). Los cuerpos de SP y funciones de A-1, A-2, M-3 y M-6 se revierten desplegando
 -- la version anterior del esquema (git). Idempotente.
 -- ============================================================================
 :on error exit
@@ -44,5 +44,27 @@ GO
 UPDATE [dbo].[CatalogoMensajeTecnico] SET contenido = N'Backend (respuesta ERR_CAMPO_OBLIGATORIO): El campo dias es obligatorio cuando se envia el horario.', fechaModificacion = SYSUTCDATETIME() WHERE codigo = 'VAL_APP_068' AND contenido <> N'Backend (respuesta ERR_CAMPO_OBLIGATORIO): El campo dias es obligatorio cuando se envia el horario.';
 GO
 -- [FIN M-11]
+-- [M-7] recrea ufn_obtener_estado_estudiante_grupo (cuerpo identico al retirado)
+IF OBJECT_ID(N'dbo.ufn_obtener_estado_estudiante_grupo', N'FN') IS NULL
+    EXEC(N'CREATE FUNCTION [dbo].[ufn_obtener_estado_estudiante_grupo]
+(
+    @idEstudiante UNIQUEIDENTIFIER,
+    @idGrupo      UNIQUEIDENTIFIER
+)
+RETURNS NVARCHAR(100)
+AS
+BEGIN
+    DECLARE @nombreEstado NVARCHAR(100) = N''NO INSCRITO'';
+
+    SELECT TOP 1
+        @nombreEstado = eg.nombreEstadoEstudiante
+    FROM dbo.uv_estudiante_grupo eg
+    WHERE eg.idEstudiante = @idEstudiante
+      AND eg.idGrupo = @idGrupo;
+
+    RETURN ISNULL(@nombreEstado, N''NO INSCRITO'');
+END');
+GO
+-- [FIN M-7]
 PRINT 'MIGRACION 70 DOWN: completada';
 GO

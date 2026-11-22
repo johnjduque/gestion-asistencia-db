@@ -482,7 +482,8 @@
     "70_auditoria_bd_2026_11_22": [
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ERR_CORRELACION_REQUERIDA' AND contenido LIKE N'%c' + NCHAR(243) + N'digo%'" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ARC_003' AND contenido LIKE N'%v' + NCHAR(225) + N'lidos%'" },
-      { "tabla": "dbo.CatalogoMensajeTecnico", "donde": "codigo = 'VAL_APP_068' AND contenido LIKE N'%d' + NCHAR(237) + N'as%'" }
+      { "tabla": "dbo.CatalogoMensajeTecnico", "donde": "codigo = 'VAL_APP_068' AND contenido LIKE N'%d' + NCHAR(237) + N'as%'" },
+      { "objeto": "dbo.ufn_obtener_estado_estudiante_grupo", "existe": false }
     ]
   }
 }
