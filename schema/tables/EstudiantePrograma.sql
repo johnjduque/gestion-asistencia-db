@@ -29,3 +29,8 @@ BEGIN
     ALTER TABLE [dbo].[EstudiantePrograma] ADD [semestreActual] tinyint NULL;
 END
 GO
+
+-- AUD-BD M-1 (2026-11-22): indices de apoyo para las FK de ambito y filtro (las vistas uv_auth_* y los SP de ambito filtran por estas columnas).
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.EstudiantePrograma') AND name = 'IX_EstudiantePrograma_programa')
+    CREATE NONCLUSTERED INDEX IX_EstudiantePrograma_programa ON dbo.EstudiantePrograma (programa);
+GO

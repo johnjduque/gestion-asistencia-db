@@ -44,6 +44,92 @@ GO
 UPDATE [dbo].[CatalogoMensajeTecnico] SET contenido = N'Backend (respuesta ERR_CAMPO_OBLIGATORIO): El campo dias es obligatorio cuando se envia el horario.', fechaModificacion = SYSUTCDATETIME() WHERE codigo = 'VAL_APP_068' AND contenido <> N'Backend (respuesta ERR_CAMPO_OBLIGATORIO): El campo dias es obligatorio cuando se envia el horario.';
 GO
 -- [FIN M-11]
+-- [M-1] retira los indices de apoyo
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Grupo') AND name = 'IX_Grupo_docente')
+    DROP INDEX IX_Grupo_docente ON dbo.Grupo;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Grupo') AND name = 'IX_Grupo_periodoAcademico')
+    DROP INDEX IX_Grupo_periodoAcademico ON dbo.Grupo;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Grupo') AND name = 'IX_Grupo_programaResponsable')
+    DROP INDEX IX_Grupo_programaResponsable ON dbo.Grupo;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Horario') AND name = 'IX_Horario_grupo')
+    DROP INDEX IX_Horario_grupo ON dbo.Horario;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Horario') AND name = 'IX_Horario_dia')
+    DROP INDEX IX_Horario_dia ON dbo.Horario;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.DocentePrograma') AND name = 'IX_DocentePrograma_programa')
+    DROP INDEX IX_DocentePrograma_programa ON dbo.DocentePrograma;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.EstudiantePrograma') AND name = 'IX_EstudiantePrograma_programa')
+    DROP INDEX IX_EstudiantePrograma_programa ON dbo.EstudiantePrograma;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Programa') AND name = 'IX_Programa_facultad')
+    DROP INDEX IX_Programa_facultad ON dbo.Programa;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Programa') AND name = 'IX_Programa_coordinador')
+    DROP INDEX IX_Programa_coordinador ON dbo.Programa;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.PlanEstudio') AND name = 'IX_PlanEstudio_programa')
+    DROP INDEX IX_PlanEstudio_programa ON dbo.PlanEstudio;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.SemestrePlanEstudio') AND name = 'IX_SemestrePlanEstudio_planEstudio')
+    DROP INDEX IX_SemestrePlanEstudio_planEstudio ON dbo.SemestrePlanEstudio;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Coordinador') AND name = 'IX_Coordinador_facultad')
+    DROP INDEX IX_Coordinador_facultad ON dbo.Coordinador;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Coordinador') AND name = 'IX_Coordinador_usuario')
+    DROP INDEX IX_Coordinador_usuario ON dbo.Coordinador;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Docente') AND name = 'IX_Docente_usuario')
+    DROP INDEX IX_Docente_usuario ON dbo.Docente;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Estudiante') AND name = 'IX_Estudiante_usuario')
+    DROP INDEX IX_Estudiante_usuario ON dbo.Estudiante;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Administrador') AND name = 'IX_Administrador_usuario')
+    DROP INDEX IX_Administrador_usuario ON dbo.Administrador;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Decano') AND name = 'IX_Decano_usuario')
+    DROP INDEX IX_Decano_usuario ON dbo.Decano;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Facultad') AND name = 'IX_Facultad_decano')
+    DROP INDEX IX_Facultad_decano ON dbo.Facultad;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.EstudianteGrupo') AND name = 'IX_EstudianteGrupo_estado')
+    DROP INDEX IX_EstudianteGrupo_estado ON dbo.EstudianteGrupo;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.DetalleAsistencia') AND name = 'IX_DetalleAsistencia_razonCausa')
+    DROP INDEX IX_DetalleAsistencia_razonCausa ON dbo.DetalleAsistencia;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.SolicitudRevisionAsistencia') AND name = 'IX_SolicitudRevisionAsistencia_estado')
+    DROP INDEX IX_SolicitudRevisionAsistencia_estado ON dbo.SolicitudRevisionAsistencia;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.SolicitudRevisionAsistencia') AND name = 'IX_SolicitudRevisionAsistencia_toma')
+    DROP INDEX IX_SolicitudRevisionAsistencia_toma ON dbo.SolicitudRevisionAsistencia;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.TomaAsistencia') AND name = 'IX_TomaAsistencia_estado')
+    DROP INDEX IX_TomaAsistencia_estado ON dbo.TomaAsistencia;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.TomaAsistencia') AND name = 'IX_TomaAsistencia_docenteApertura')
+    DROP INDEX IX_TomaAsistencia_docenteApertura ON dbo.TomaAsistencia;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.RevisionCancelacion') AND name = 'IX_RevisionCancelacion_programaResolucion')
+    DROP INDEX IX_RevisionCancelacion_programaResolucion ON dbo.RevisionCancelacion;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.RevisionCancelacion') AND name = 'IX_RevisionCancelacion_usuarioResolucion')
+    DROP INDEX IX_RevisionCancelacion_usuarioResolucion ON dbo.RevisionCancelacion;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.SesionSolicitud') AND name = 'IX_SesionSolicitud_usuarioSolicitante')
+    DROP INDEX IX_SesionSolicitud_usuarioSolicitante ON dbo.SesionSolicitud;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.TokenMatriculaGrupo') AND name = 'IX_TokenMatriculaGrupo_docenteEmisor')
+    DROP INDEX IX_TokenMatriculaGrupo_docenteEmisor ON dbo.TokenMatriculaGrupo;
+GO
+-- [FIN M-1]
 -- [M-7] recrea ufn_obtener_estado_estudiante_grupo (cuerpo identico al retirado)
 IF OBJECT_ID(N'dbo.ufn_obtener_estado_estudiante_grupo', N'FN') IS NULL
     EXEC(N'CREATE FUNCTION [dbo].[ufn_obtener_estado_estudiante_grupo]
