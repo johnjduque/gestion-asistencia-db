@@ -8,6 +8,8 @@ GO
 -- HU098: elimina un periodo academico de la institucion del ejecutor (solo ADMINISTRADOR). Solo se elimina si
 -- el periodo no tiene grupos (y por tanto tampoco sesiones, que pertenecen a un grupo): PER_004. Un periodo de
 -- otra institucion o inexistente responde PER_001. No es el cierre masivo de periodo.
+-- BD-2 (2026-11-22): los dias de receso del periodo (dbo.PeriodoRecesoAcademico, activos o retirados) se borran con el periodo, en la misma
+-- transaccion, porque sin grupos ninguno pudo cancelar sesiones; si alguno aparece enlazado a una cancelacion se rechaza con PER_004.
 CREATE OR ALTER PROCEDURE [dbo].[usp_eliminar_periodo_academico]
 (
     @idPeriodo               UNIQUEIDENTIFIER,
@@ -89,6 +91,10 @@ BEGIN
                 CASE
                     WHEN @periodoBloqueado IS NULL THEN 'PER_001'
                     WHEN EXISTS (SELECT 1 FROM dbo.Grupo g WITH (UPDLOCK, HOLDLOCK) WHERE g.periodoAcademico = @idPeriodoDefecto) THEN 'PER_004'
+                    -- BD-2: un receso que ya cancelo sesiones nunca se borra (defensa; sin grupos no deberia existir ninguna)
+                    WHEN EXISTS (SELECT 1 FROM dbo.SesionCancelacion sc
+                                 INNER JOIN dbo.PeriodoRecesoAcademico r ON r.id = sc.recesoAcademico
+                                 WHERE r.periodoAcademico = @idPeriodoDefecto) THEN 'PER_004'
                 END;
 
             IF @codigoRechazo IS NOT NULL
@@ -102,6 +108,9 @@ BEGIN
             END
             ELSE
             BEGIN
+                -- BD-2: sin grupos ni sesiones ningun receso (activo o retirado) pudo cancelar clases; sus filas son solo
+                -- configuracion del periodo y se borran en la misma transaccion (la FK impedia el DELETE y daba 500).
+                DELETE FROM dbo.PeriodoRecesoAcademico WHERE periodoAcademico = @idPeriodoDefecto;
                 DELETE FROM dbo.PeriodoAcademico WHERE id = @idPeriodoDefecto;
 
                 EXEC dbo.usp_obtener_mensaje_catalogo
