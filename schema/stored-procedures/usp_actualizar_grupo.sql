@@ -221,7 +221,7 @@ BEGIN
             WHERE id = @idGrupoDefecto;
 
             EXEC dbo.usp_obtener_mensaje_catalogo
-                @p_codigo = 'GEN_004',
+                @p_codigo = 'GEN_005',   -- BD-10: actualizacion (antes GEN_004 'registrado(a)' al EDITAR un grupo)
                 @p_param1 = 'Grupo',
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;

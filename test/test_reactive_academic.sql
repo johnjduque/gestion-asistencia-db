@@ -121,7 +121,8 @@ BEGIN TRY
 
     TRUNCATE TABLE #academicResult;
     SET @corr = NEWID();
-    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_004', @p_param1 = 'Grupo',
+    -- BD-10 (cambio de regla): editar un grupo responde GEN_005 (actualizado) y no GEN_004 (registrado)
+    EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_005', @p_param1 = 'Grupo',
         @mensajeUsuarioResultado = @userMsg OUTPUT, @mensajeTecnicoResultado = @techMsg OUTPUT;
     INSERT INTO #academicResult
     EXEC dbo.usp_actualizar_grupo
