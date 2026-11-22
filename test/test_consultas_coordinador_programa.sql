@@ -29,7 +29,7 @@ IF @idGrupo IS NULL OR @uCoordTitular IS NULL OR @idSesion IS NULL OR @tipoCC IS
 CREATE TABLE #grupos (
     id UNIQUEIDENTIFIER, codigo INT, nombre NVARCHAR(100), idAsignatura UNIQUEIDENTIFIER, nombreAsignatura NVARCHAR(100),
     idDocente UNIQUEIDENTIFIER, capacidadMaximaPermitida INT, estudiantesActivos INT, cuposDisponibles INT,
-    grupoEstaHablitado BIT, fechaInicioPeriodoAcademico DATETIME2, fechaFinPeriodoAcademico DATETIME2, totalRegistros INT, idProgramaResponsable UNIQUEIDENTIFIER, nombreProgramaResponsable NVARCHAR(50), esResponsable BIT);
+    grupoEstaHablitado BIT, fechaInicioPeriodoAcademico DATETIME2, fechaFinPeriodoAcademico DATETIME2, totalRegistros INT, idProgramaResponsable UNIQUEIDENTIFIER, nombreProgramaResponsable NVARCHAR(50), esResponsable BIT, nombreDocente NVARCHAR(300));
 CREATE TABLE #sesiones (
     id UNIQUEIDENTIFIER, idGrupo UNIQUEIDENTIFIER, codigoGrupo INT, nombreGrupo NVARCHAR(100), nombre NVARCHAR(100),
     numero INT, codigo NVARCHAR(50), numeroSemana INT, fechaHoraInicio DATETIME2, fechaHoraFin DATETIME2, totalRegistros INT,

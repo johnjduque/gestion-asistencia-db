@@ -182,7 +182,7 @@ BEGIN TRY
         sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2), porcentajeAsistencia DECIMAL(5,2),
         gruposActivos INT, cupoTotal INT, matriculadosActivos INT, tasaAforo DECIMAL(7,2), umbralAdvertencia DECIMAL(5,2), umbralPerdida DECIMAL(5,2),
         -- CULM-001 B.2 (CONTRACT §2.9, NB-2): columnas nuevas al final del resultset (forma del contrato, sin cambio de asercion).
-        tomasDictadas INT, horasDictadas DECIMAL(12,6), horasFalta DECIMAL(12,6), totalCoordinadores INT, totalDocentes INT);
+        tomasDictadas INT, horasDictadas DECIMAL(12,6), horasFalta DECIMAL(12,6), totalCoordinadores INT, totalDocentes INT, horasPeriodo DECIMAL(12,6));
     -- T-DB-06: cifras exactas de F (periodo por defecto). ATA D2 (ADDENDUM_ATA_ASISTENCIA_TOMAS_AVISOS B): el denominador pasa a las horas del periodo (matriculas A: G1 24 h x 5 + G2 6 h + G3 4 h = 130 h; faltas 12 h => 9.23). E1 pasa a RIESGO (16.67) y E2 a REGULAR (8.33).
     INSERT INTO #k EXEC dbo.usp_consultar_kpis_decano @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @idPeriodoAcademico = NULL;
     IF NOT ((SELECT COUNT(*) FROM #k) = 1) THROW 53401, 'TEST FAILED: se esperaba exactamente 1 fila', 1;

@@ -71,7 +71,7 @@ CREATE TABLE #d8Co (idGrupo UNIQUEIDENTIFIER, codigoGrupo INT, nombreGrupo NVARC
     idAsignatura UNIQUEIDENTIFIER, nombreAsignatura NVARCHAR(100), idDocente UNIQUEIDENTIFIER, nombreDocente NVARCHAR(250),
     estudiantesActivos INT, sesionesEjecutadas INT, asistencias INT, faltasSinJustaCausa INT, excusas INT,
     porcentajeAsistencia DECIMAL(5,2), porcentajeInasistencia DECIMAL(5,2), estudiantesRiesgo INT, estudiantesPerdida INT, totalRegistros INT,
-    horasDictadas DECIMAL(12,2), porcentajeExcusa DECIMAL(5,2), porcentajeSinRegistro DECIMAL(5,2), codigoPermanencia NVARCHAR(10));
+    horasDictadas DECIMAL(12,2), porcentajeExcusa DECIMAL(5,2), porcentajeSinRegistro DECIMAL(5,2), codigoPermanencia NVARCHAR(10), porcentajePorDictar DECIMAL(5,2));
 CREATE TABLE #d8Te (inicioIntervalo DATE, finIntervalo DATE, sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2),
     horasDictadasEstudiante DECIMAL(14,2), horasFalta DECIMAL(14,2));
 CREATE TABLE #d8Cf (idFacultad UNIQUEIDENTIFIER, nombreFacultad NVARCHAR(50), estaActivaFacultad BIT, totalProgramas INT, totalEstudiantes INT,
@@ -79,7 +79,7 @@ CREATE TABLE #d8Cf (idFacultad UNIQUEIDENTIFIER, nombreFacultad NVARCHAR(50), es
     horasDictadas DECIMAL(12,2), horasFalta DECIMAL(12,2));
 CREATE TABLE #d8Cp (idPrograma UNIQUEIDENTIFIER, nombrePrograma NVARCHAR(50), estaActivoPrograma BIT, totalEstudiantes INT, estudiantesRiesgo INT, estudiantesPerdida INT,
     tasaRetencion DECIMAL(5,2), sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2),
-    horasDictadas DECIMAL(12,2), horasFalta DECIMAL(12,2));
+    horasDictadas DECIMAL(12,2), horasFalta DECIMAL(12,2), horasPeriodo DECIMAL(12,2));
 CREATE TABLE #d8S (k NVARCHAR(4) PRIMARY KEY, id UNIQUEIDENTIFIER, grupo NVARCHAR(2), inicio DATETIME2(0), horas INT, tomas INT, cancelada BIT);
 CREATE TABLE #d8D (k NVARCHAR(4), est NVARCHAR(4), tomaNum INT, codigo NVARCHAR(5));
 CREATE TABLE #d8E (k NVARCHAR(4) PRIMARY KEY, idUsuario UNIQUEIDENTIFIER, idEstudiante UNIQUEIDENTIFIER, n INT);
