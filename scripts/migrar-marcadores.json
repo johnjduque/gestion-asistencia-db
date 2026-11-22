@@ -478,6 +478,11 @@
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'EST_010'" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'EST_011'" },
       { "tabla": "dbo.CatalogoMensajeTecnico", "donde": "codigo = 'PER_012'" }
+    ],
+    "70_auditoria_bd_2026_11_22": [
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ERR_CORRELACION_REQUERIDA' AND contenido LIKE N'%c' + NCHAR(243) + N'digo%'" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ARC_003' AND contenido LIKE N'%v' + NCHAR(225) + N'lidos%'" },
+      { "tabla": "dbo.CatalogoMensajeTecnico", "donde": "codigo = 'VAL_APP_068' AND contenido LIKE N'%d' + NCHAR(237) + N'as%'" }
     ]
   }
 }

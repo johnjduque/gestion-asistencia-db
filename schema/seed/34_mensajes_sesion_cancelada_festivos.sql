@@ -21,8 +21,8 @@ USING (VALUES
     ('FES_003', 'VALIDATION_ERROR', 'MEDIO', N'El listado de festivos no tiene una cantidad válida de días.'),
     ('FES_004', 'VALIDATION_ERROR', 'MEDIO', N'La fuente de festivos no es válida.'),
     ('FES_005', 'SUCCESS',          'BAJO',  N'Se cargaron {} días festivos de {}.'),
-    ('FES_006', 'VALIDATION_ERROR', 'BAJO',  N'Indica el periodo académico o el año, no ambos.'),
-    ('FES_007', 'BUSINESS_ERROR',   'BAJO',  N'El periodo académico no existe.'),
+    ('FES_006', 'VALIDATION_ERROR', 'BAJO',  N'Indica el período académico o el año, no ambos.'),
+    ('FES_007', 'BUSINESS_ERROR',   'BAJO',  N'El período académico no existe.'),
     ('FES_008', 'SUCCESS',          'BAJO',  N'Se cancelaron {} sesiones por festivo; {} sesiones con asistencia quedaron sin cambios.'),
     ('FES_009', 'BUSINESS_ERROR',   'MEDIO', N'Algunos grupos no se pudieron actualizar con los festivos.'),
     ('FES_010', 'TECHNICAL_ERROR',  'ALTO',  N'No fue posible obtener los festivos del año; se usó el cálculo local.')

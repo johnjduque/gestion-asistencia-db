@@ -29,9 +29,9 @@ GO
 -- (no distingue casos para no revelar existencia).
 MERGE INTO [dbo].[CatalogoMensajeUsuario] AS Target
 USING (VALUES
-    ('ARC_001', 'BUSINESS_ERROR', 'ALTO', N'El soporte indicado no esta disponible para esta solicitud.'),
+    ('ARC_001', 'BUSINESS_ERROR', 'ALTO', N'El soporte indicado no está disponible para esta solicitud.'),
     ('ARC_002', 'BUSINESS_ERROR', 'ALTO', N'No fue posible registrar el soporte.'),
-    ('ARC_003', 'BUSINESS_ERROR', 'MEDIO', N'Los datos del soporte no son validos.'),
+    ('ARC_003', 'BUSINESS_ERROR', 'MEDIO', N'Los datos del soporte no son válidos.'),
     ('ARC_005', 'BUSINESS_ERROR', 'ALTO', N'El estudiante indicado no corresponde al usuario autenticado.')
 ) AS Source (codigo, tipoMensaje, severidad, contenido)
 ON (Target.codigo = Source.codigo)

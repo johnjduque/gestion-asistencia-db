@@ -90,9 +90,9 @@ Total de códigos: **524**.
 
 | Código | Tipo | Severidad | Mensaje usuario | Mensaje técnico | Seed |
 |---|---|---|---|---|---|
-| `ARC_001` | BUSINESS_ERROR | ALTO | El soporte indicado no esta disponible para esta solicitud. | Soporte no disponible para radicar: inexistente, de otro propietario, ya vinculado o no vigente. | `15_lb004d_archivo_soporte.sql` |
+| `ARC_001` | BUSINESS_ERROR | ALTO | El soporte indicado no está disponible para esta solicitud. | Soporte no disponible para radicar: inexistente, de otro propietario, ya vinculado o no vigente. | `15_lb004d_archivo_soporte.sql` |
 | `ARC_002` | BUSINESS_ERROR | ALTO | No fue posible registrar el soporte. | Registro de soporte rechazado: el identificador ya existe con otro propietario o con metadata distinta. | `15_lb004d_archivo_soporte.sql` |
-| `ARC_003` | BUSINESS_ERROR | MEDIO | Los datos del soporte no son validos. | Metadata de soporte invalida: identificador, nombre, tipo de contenido, tamano o checksum fuera de contrato. | `15_lb004d_archivo_soporte.sql` |
+| `ARC_003` | BUSINESS_ERROR | MEDIO | Los datos del soporte no son válidos. | Metadata de soporte invalida: identificador, nombre, tipo de contenido, tamano o checksum fuera de contrato. | `15_lb004d_archivo_soporte.sql` |
 | `ARC_005` | BUSINESS_ERROR | ALTO | El estudiante indicado no corresponde al usuario autenticado. | El idEstudiante no pertenece al idUsuarioEjecutor. | `15_lb004d_archivo_soporte.sql` |
 
 ## ARE
@@ -202,7 +202,7 @@ Total de códigos: **524**.
 | `ERR_CODIGO_GRUPO_INVALIDO` | BUSINESS_ERROR | MEDIO | El código del grupo debe ser un número entero mayor que cero. | Regla DEC-073: @codigo nulo, cero o negativo ({}). | `64_dec073_validaciones.sql` |
 | `ERR_CODIGO_VERIFICACION_REQUERIDO` | VALIDATION_ERROR | BAJO | El código de verificación es obligatorio. | Backend (VALIDATION_ERROR, AsistenciaErrorCode): El codigo de verificacion es obligatorio. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_CONFIGURACION_PLAZO_JUSTIFICACION` | TECHNICAL_ERROR | ALTO | No es posible validar el plazo de justificación en este momento. Intente más tarde. | Backend (TECHNICAL, AsistenciaErrorCode): Faltan ASISTENCIA/DIAS_LIMITE_JUSTIFICACION o TIEMPO/ZONA_HORARIA_SQLSERVER (REV_025). | `63_val_mensajes_err_pendientes.sql` |
-| `ERR_CORRELACION_REQUERIDA` | BUSINESS_ERROR | ALTO | El codigo de correlacion es requerido. | Error: idCorrelacion no esta presente o es invalido. | `04_mensaje.sql` |
+| `ERR_CORRELACION_REQUERIDA` | BUSINESS_ERROR | ALTO | El código de correlación es requerido. | Error: idCorrelacion no esta presente o es invalido. | `04_mensaje.sql` |
 | `ERR_CORREO_FORMATO_INVALIDO` | VALIDATION_ERROR | BAJO | Ingrese un correo válido, por ejemplo nombre@dominio.com. | Backend (VALIDATION_ERROR, UsuarioErrorCode): Ingrese un correo valido, por ejemplo nombre@dominio.com. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_CORREO_LONGITUD_INVALIDA` | VALIDATION_ERROR | BAJO | El correo puede tener máximo 100 caracteres. | Backend (VALIDATION_ERROR, UsuarioErrorCode): El correo puede tener maximo 100 caracteres. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_CORREO_REQUERIDO` | VALIDATION_ERROR | BAJO | El correo es obligatorio. | Backend (VALIDATION_ERROR, UsuarioErrorCode): El correo es obligatorio. | `63_val_mensajes_err_pendientes.sql` |
@@ -214,7 +214,7 @@ Total de códigos: **524**.
 | `ERR_DESCRIPCION_SESION_LONGITUD_INVALIDA` | VALIDATION_ERROR | BAJO | Cuando se indique una descripción, debe tener entre 10 y 250 caracteres. | Backend (VALIDATION_ERROR, SesionErrorCode): Cuando se indique una descripcion, debe tener entre 10 y 250 caracteres. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_DOCENTE_INACTIVO` | BUSINESS_ERROR | MEDIO | El docente se encuentra inactivo. | Backend (CONFLICT, DocenteErrorCode): El docente se encuentra inactivo. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_DOCENTE_INVALIDO` | VALIDATION_ERROR | BAJO | El identificador del docente no es válido. | Backend (VALIDATION_ERROR, DocenteErrorCode): El identificador del docente no es valido. | `63_val_mensajes_err_pendientes.sql` |
-| `ERR_DOCENTE_NO_EXISTE` | BUSINESS_ERROR | MEDIO | El docente especificado no existe o esta inactivo. | Error: No se encontro el ID de Docente especificado: {}. | `04_mensaje.sql` |
+| `ERR_DOCENTE_NO_EXISTE` | BUSINESS_ERROR | MEDIO | El docente especificado no existe o está inactivo. | Error: No se encontro el ID de Docente especificado: {}. | `04_mensaje.sql` |
 | `ERR_DOCENTE_NO_TITULAR_GRUPO` | BUSINESS_ERROR | ALTO | El docente indicado no es el titular del grupo seleccionado. | Docente {} no es titular del Grupo {} (uv_grupo.idDocente). | `04_mensaje.sql` |
 | `ERR_DOCENTE_NO_VINCULADO_PROGRAMA` | BUSINESS_ERROR | MEDIO | El docente no está vinculado a este programa. | Backend (RESOURCE_NOT_FOUND, DocenteErrorCode): El docente no esta vinculado a este programa. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_DOCENTE_REQUERIDO` | VALIDATION_ERROR | BAJO | El docente es obligatorio. | Backend (VALIDATION_ERROR, DocenteErrorCode): El docente es obligatorio. | `63_val_mensajes_err_pendientes.sql` |
@@ -228,11 +228,11 @@ Total de códigos: **524**.
 | `ERR_ESTUDIANTE_ID_REQUERIDO` | VALIDATION_ERROR | BAJO | El estudiante es obligatorio. | Backend (VALIDATION_ERROR, EstudianteErrorCode): El estudiante es obligatorio. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_ESTUDIANTE_INACTIVO` | BUSINESS_ERROR | MEDIO | El estudiante se encuentra inactivo. | Backend (CONFLICT, EstudianteErrorCode): El estudiante se encuentra inactivo. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_ESTUDIANTE_NO_EXISTE` | BUSINESS_ERROR | MEDIO | El estudiante especificado no existe. | Error: No se encontro el ID de Estudiante especificado: {}. | `04_mensaje.sql` |
-| `ERR_ESTUDIANTE_NO_PERTENECE_SESION` | BUSINESS_ERROR | ALTO | El estudiante no pertenece al grupo de la sesion seleccionada. | Validacion fallida: Estudiante no pertenece al grupo de la sesion: {}. | `04_mensaje.sql` |
+| `ERR_ESTUDIANTE_NO_PERTENECE_SESION` | BUSINESS_ERROR | ALTO | El estudiante no pertenece al grupo de la sesión seleccionada. | Validacion fallida: Estudiante no pertenece al grupo de la sesion: {}. | `04_mensaje.sql` |
 | `ERR_FACULTAD_INVALIDA` | VALIDATION_ERROR | BAJO | El identificador de la facultad no es válido. | Backend (VALIDATION_ERROR, UsuarioErrorCode): El identificador de la facultad no es valido. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_GRUPO_INVALIDO` | VALIDATION_ERROR | BAJO | El identificador del grupo no es válido. | Backend (VALIDATION_ERROR, GrupoErrorCode): El identificador del grupo no es valido. | `63_val_mensajes_err_pendientes.sql` |
-| `ERR_GRUPO_NO_EXISTE` | BUSINESS_ERROR | MEDIO | El grupo seleccionado no existe o no esta habilitado. | Error: No existe un grupo habilitado con el identificador: {}. | `04_mensaje.sql` |
-| `ERR_GRUPO_NO_HABILITADO` | BUSINESS_ERROR | MEDIO | El grupo seleccionado no se encuentra habilitado para matricula. | Grupo existente, pero fuera de ventana habilitada para matricula: {}. | `04_mensaje.sql` |
+| `ERR_GRUPO_NO_EXISTE` | BUSINESS_ERROR | MEDIO | El grupo seleccionado no existe o no está habilitado. | Error: No existe un grupo habilitado con el identificador: {}. | `04_mensaje.sql` |
+| `ERR_GRUPO_NO_HABILITADO` | BUSINESS_ERROR | MEDIO | El grupo seleccionado no se encuentra habilitado para matrícula. | Grupo existente, pero fuera de ventana habilitada para matricula: {}. | `04_mensaje.sql` |
 | `ERR_GRUPO_REQUERIDO` | VALIDATION_ERROR | BAJO | El grupo es obligatorio. | Backend (VALIDATION_ERROR, GrupoErrorCode): El grupo es obligatorio. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_IDENTIDAD_USUARIO_CONFLICTO` | BUSINESS_ERROR | MEDIO | El correo y el documento no corresponden al mismo usuario. | Backend (CONFLICT, UsuarioErrorCode): El correo y el documento no corresponden al mismo usuario. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_INESPERADO_REGISTRO_ASISTENCIA` | SYSTEM_ERROR | CRITICO | Hubo un error inesperado al registrar la asistencia del estudiante. | Error critico en orquestador [usp_registrar_asistencia_estudiante]: {}. | `04_mensaje.sql` |
@@ -283,7 +283,7 @@ Total de códigos: **524**.
 | `ERR_SESION_CANCELADA` | BUSINESS_ERROR | MEDIO | La sesión fue cancelada; no admite registro de asistencia. | Backend (CONFLICT, AsistenciaErrorCode): La sesion fue cancelada; no admite registro de asistencia. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_SESION_CERRADA` | BUSINESS_ERROR | MEDIO | La sesión ya finalizó; la asistencia solo puede modificarse mediante un reclamo. | Backend (CONFLICT, AsistenciaErrorCode): La sesion ya finalizo; la asistencia solo puede modificarse mediante un reclamo. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_SESION_HORARIO_INDETERMINADO` | BUSINESS_ERROR | MEDIO | El horario de la sesión no está confirmado; no es posible registrar asistencia. | Backend (CONFLICT, AsistenciaErrorCode): El horario de la sesion no esta confirmado; no es posible registrar asistencia. | `63_val_mensajes_err_pendientes.sql` |
-| `ERR_SESION_NO_EXISTE` | BUSINESS_ERROR | MEDIO | La sesion de clase no existe o no esta abierta. | Error: No se encontro una sesion activa para el ID especificado: {}. | `04_mensaje.sql` |
+| `ERR_SESION_NO_EXISTE` | BUSINESS_ERROR | MEDIO | La sesión de clase no existe o no está abierta. | Error: No se encontro una sesion activa para el ID especificado: {}. | `04_mensaje.sql` |
 | `ERR_SESION_NO_INICIADA` | BUSINESS_ERROR | MEDIO | La sesión aún no ha iniciado; la asistencia solo se registra durante la sesión. | Backend (CONFLICT, AsistenciaErrorCode): La sesion aun no ha iniciado; la asistencia solo se registra durante la sesion. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_SESION_REQUERIDA` | VALIDATION_ERROR | BAJO | La sesión es obligatoria. | Backend (VALIDATION_ERROR, SesionErrorCode): La sesion es obligatoria. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_SOLICITUD_REVISION_REQUERIDA` | VALIDATION_ERROR | BAJO | La solicitud de revisión es obligatoria. | Backend (VALIDATION_ERROR, AsistenciaErrorCode): La solicitud de revision es obligatoria. | `63_val_mensajes_err_pendientes.sql` |
@@ -297,10 +297,10 @@ Total de códigos: **524**.
 | `ERR_TIPO_IDENTIFICACION_NOMBRE_LONGITUD_INVALIDA` | VALIDATION_ERROR | BAJO | El nombre del tipo de identificación puede tener máximo 50 caracteres. | Backend (VALIDATION_ERROR, TipoIdentificacionErrorCode): El nombre del tipo de identificacion puede tener maximo 50 caracteres. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_TIPO_IDENTIFICACION_NOMBRE_REQUERIDO` | VALIDATION_ERROR | BAJO | El nombre del tipo de identificación es obligatorio. | Backend (VALIDATION_ERROR, TipoIdentificacionErrorCode): El nombre del tipo de identificacion es obligatorio. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_TIPO_IDENTIFICACION_REQUERIDA` | VALIDATION_ERROR | BAJO | El tipo de identificación es obligatorio. | Backend (VALIDATION_ERROR, TipoIdentificacionErrorCode): El tipo de identificacion es obligatorio. | `63_val_mensajes_err_pendientes.sql` |
-| `ERR_TOKEN_VERIFICACION_INVALIDO` | BUSINESS_ERROR | MEDIO | El codigo de verificacion de asistencia es incorrecto o ha expirado. | Fallo: Codigo de verificacion incorrecto o expirado para Sesion: {}. | `04_mensaje.sql` |
+| `ERR_TOKEN_VERIFICACION_INVALIDO` | BUSINESS_ERROR | MEDIO | El código de verificación de asistencia es incorrecto o ha expirado. | Fallo: Codigo de verificacion incorrecto o expirado para Sesion: {}. | `04_mensaje.sql` |
 | `ERR_TOMA_NO_RECLAMABLE` | BUSINESS_ERROR | MEDIO | Solo puedes reclamar una toma en la que quedaste ausente. | Backend (CONFLICT, AsistenciaErrorCode): Solo puedes reclamar una toma en la que quedaste ausente. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_UNICIDAD_CORREO` | BUSINESS_ERROR | ALTO | El correo electronico ya se encuentra registrado. | Fallo unicidad: El correo [{}] ya existe en uv_usuario. | `04_mensaje.sql` |
-| `ERR_UNICIDAD_DOCUMENTO` | BUSINESS_ERROR | ALTO | El numero de documento ya esta registrado para este tipo de identificacion. | Fallo unicidad: Duplicado en idTipoIdentificacion y numeroIdentificacion [{}]. | `04_mensaje.sql` |
+| `ERR_UNICIDAD_DOCUMENTO` | BUSINESS_ERROR | ALTO | El número de documento ya está registrado para este tipo de identificación. | Fallo unicidad: Duplicado en idTipoIdentificacion y numeroIdentificacion [{}]. | `04_mensaje.sql` |
 | `ERR_USUARIO_DOCENTE_INVALIDO` | VALIDATION_ERROR | BAJO | El identificador del usuario asociado al docente no es válido. | Backend (VALIDATION_ERROR, DocenteErrorCode): El identificador del usuario asociado al docente no es valido. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_USUARIO_DOCENTE_REQUERIDO` | VALIDATION_ERROR | BAJO | El usuario del docente es obligatorio. | Backend (VALIDATION_ERROR, DocenteErrorCode): El usuario del docente es obligatorio. | `63_val_mensajes_err_pendientes.sql` |
 | `ERR_USUARIO_EJECUTOR_ASISTENCIA_REQUERIDO` | VALIDATION_ERROR | BAJO | El usuario autenticado que registra las asistencias es obligatorio. | Backend (VALIDATION_ERROR, AsistenciaErrorCode): El usuario autenticado que registra las asistencias es obligatorio. | `63_val_mensajes_err_pendientes.sql` |
@@ -316,7 +316,7 @@ Total de códigos: **524**.
 | `EST_001` | BUSINESS_ERROR | MEDIO | El estudiante especificado no existe en el sistema. | Error de búsqueda: No se encontró el estudiante especificado en uv_estudiante: {}. | `04_mensaje.sql` |
 | `EST_002` | BUSINESS_ERROR | ALTO | El estudiante ya se encuentra matriculado o registrado en este grupo. | Registro duplicado: El estudiante {} ya se encuentra asociado al grupo {} en uv_estudiante_grupo. | `04_mensaje.sql` |
 | `EST_003` | BUSINESS_ERROR | ALTO | El estudiante ya pertenece a este programa académico. | Registro duplicado: El estudiante {} ya está asociado al programa en uv_estudiante_programa. | `04_mensaje.sql` |
-| `EST_004` | BUSINESS_ERROR | ALTO | El estudiante no pertenece al grupo de la sesion seleccionada. | Validación de pertenencia fallida: El estudiante {} no está inscrito en el grupo de la sesión {}. | `04_mensaje.sql` |
+| `EST_004` | BUSINESS_ERROR | ALTO | El estudiante no pertenece al grupo de la sesión seleccionada. | Validación de pertenencia fallida: El estudiante {} no está inscrito en el grupo de la sesión {}. | `04_mensaje.sql` |
 | `EST_005` | BUSINESS_ERROR | MEDIO | El grupo pertenece a varios programas: indica el programa. | Regla R7/S3: el grupo tiene varios programas y no se envio idPrograma. | `38_mensajes_asignatura_plan.sql` |
 | `EST_006` | BUSINESS_ERROR | MEDIO | El programa indicado no corresponde a los programas del grupo. | Regla R7/S3: idPrograma no esta entre los programas del grupo. | `38_mensajes_asignatura_plan.sql` |
 | `EST_007` | SUCCESS | BAJO | El semestre del estudiante quedó actualizado. | EstudiantePrograma.semestreActual actualizado por el coordinador del programa (NULL lo limpia). | `71_estudiante_semestre_mensajes.sql` |
@@ -341,8 +341,8 @@ Total de códigos: **524**.
 | `FES_003` | VALIDATION_ERROR | MEDIO | El listado de festivos no tiene una cantidad válida de días. | Total [{}] fuera de FESTIVOS/MINIMO_POR_ANIO..MAXIMO_POR_ANIO. | `34_mensajes_sesion_cancelada_festivos.sql` |
 | `FES_004` | VALIDATION_ERROR | MEDIO | La fuente de festivos no es válida. | @fuente [{}] no está en FESTIVOS/FUENTES_VALIDAS. | `34_mensajes_sesion_cancelada_festivos.sql` |
 | `FES_005` | SUCCESS | BAJO | Se cargaron {} días festivos de {}. | Carga [{}]: insertados {}, actualizados {}, desactivados {}. | `34_mensajes_sesion_cancelada_festivos.sql` |
-| `FES_006` | VALIDATION_ERROR | BAJO | Indica el periodo académico o el año, no ambos. | @idPeriodoAcademico y @anio: exactamente uno. | `34_mensajes_sesion_cancelada_festivos.sql` |
-| `FES_007` | BUSINESS_ERROR | BAJO | El periodo académico no existe. | Periodo [{}] inexistente. | `34_mensajes_sesion_cancelada_festivos.sql` |
+| `FES_006` | VALIDATION_ERROR | BAJO | Indica el período académico o el año, no ambos. | @idPeriodoAcademico y @anio: exactamente uno. | `34_mensajes_sesion_cancelada_festivos.sql` |
+| `FES_007` | BUSINESS_ERROR | BAJO | El período académico no existe. | Periodo [{}] inexistente. | `34_mensajes_sesion_cancelada_festivos.sql` |
 | `FES_008` | SUCCESS | BAJO | Se cancelaron {} sesiones por festivo; {} sesiones con asistencia quedaron sin cambios. | Aplicación de festivos grupo/periodo [{}]. | `34_mensajes_sesion_cancelada_festivos.sql` |
 | `FES_009` | BUSINESS_ERROR | MEDIO | Algunos grupos no se pudieron actualizar con los festivos. | {} grupos con error; ver log con la correlación. | `34_mensajes_sesion_cancelada_festivos.sql` |
 | `FES_010` | TECHNICAL_ERROR | ALTO | No fue posible obtener los festivos del año; se usó el cálculo local. | Proveedores [{}] fallaron; respaldo CALCULO_LOCAL. | `34_mensajes_sesion_cancelada_festivos.sql` |
@@ -759,7 +759,7 @@ Total de códigos: **524**.
 | `VAL_APP_065` | VALIDATION_ERROR | BAJO | El coordinador del programa es obligatorio. | Backend (VALIDATION_ERROR): El coordinador del programa es obligatorio. | `62_val_mensajes_aplicacion.sql` |
 | `VAL_APP_066` | VALIDATION_ERROR | BAJO | El estado deseado del programa es obligatorio. | Backend (VALIDATION_ERROR): El estado deseado del programa es obligatorio. | `62_val_mensajes_aplicacion.sql` |
 | `VAL_APP_067` | VALIDATION_ERROR | BAJO | Cada franja del horario es obligatoria. | Backend (respuesta ERR_CAMPO_OBLIGATORIO): Cada franja del horario es obligatoria. | `62_val_mensajes_aplicacion.sql` |
-| `VAL_APP_068` | VALIDATION_ERROR | BAJO | El campo dias es obligatorio cuando se envía el horario. | Backend (respuesta ERR_CAMPO_OBLIGATORIO): El campo dias es obligatorio cuando se envia el horario. | `62_val_mensajes_aplicacion.sql` |
+| `VAL_APP_068` | VALIDATION_ERROR | BAJO | El campo días es obligatorio cuando se envía el horario. | Backend (respuesta ERR_CAMPO_OBLIGATORIO): El campo días es obligatorio cuando se envía el horario. | `62_val_mensajes_aplicacion.sql` |
 | `VAL_APP_069` | VALIDATION_ERROR | BAJO | El campo {} es obligatorio. | Backend (respuesta ERR_CAMPO_OBLIGATORIO): El campo {} es obligatorio. | `62_val_mensajes_aplicacion.sql` |
 | `VAL_APP_070` | VALIDATION_ERROR | BAJO | El campo {} debe usar formato ISO local {}. | Backend (respuesta ERR_FECHA_HORA_INVALIDA): El campo {} debe usar formato ISO local {}. | `62_val_mensajes_aplicacion.sql` |
 | `VAL_APP_071` | VALIDATION_ERROR | BAJO | Los datos de la consulta no son válidos. | Backend (VALIDATION_ERROR): Los datos de la consulta no son validos. | `62_val_mensajes_aplicacion.sql` |
