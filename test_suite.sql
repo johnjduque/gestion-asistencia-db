@@ -191,6 +191,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_culm001_d9_hallazgos.sql
 -- SES-GEN-01 (calendario de sesiones del semestre, migracion 64): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_ses_gen_01_calendario_semestre.sql
+-- DEC-081 (receso academico del periodo, migracion 68): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_receso_academico.sql
 -- CULM-001 / DEC-064 (sesiones manuales: destinatarios y cancelacion por el coordinador, migracion 29): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_sesiones_manuales_notificacion.sql
 -- FIX-CIERRE-001 (cierre masivo sin caer al periodo mas reciente): registro por nombre exacto (DEC-028, sin comodin)

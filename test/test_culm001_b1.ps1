@@ -335,7 +335,7 @@ IF OBJECT_ID(N'dbo.SesionCancelacion', N'U') IS NULL OR OBJECT_ID(N'dbo.TipoCanc
    OR OBJECT_ID(N'dbo.DiaFestivo', N'U') IS NULL OR OBJECT_ID(N'dbo.CargaDiaFestivo', N'U') IS NULL
    OR OBJECT_ID(N'dbo.uv_sesion_estado', N'V') IS NULL OR OBJECT_ID(N'dbo.uv_dia_festivo', N'V') IS NULL
    OR OBJECT_ID(N'dbo.uv_carga_dia_festivo', N'V') IS NULL OR OBJECT_ID(N'dbo.uv_tipo_cancelacion_sesion', N'V') IS NULL
-   OR (SELECT COUNT(*) FROM dbo.TipoCancelacionSesion) <> 2
+   OR (SELECT COUNT(*) FROM dbo.TipoCancelacionSesion WHERE codigo IN (N'DOCENTE', N'FESTIVO')) <> 2
    OR OBJECT_ID(N'dbo.FK_SesionCancelacion_Sesion', N'F') IS NULL OR OBJECT_ID(N'dbo.FK_SesionCancelacion_DiaFestivo', N'F') IS NULL
    OR NOT EXISTS (SELECT 1 FROM sys.sql_modules WHERE object_id = OBJECT_ID(N'dbo.uv_cumplimiento_sesion_grupo') AND definition LIKE N'%SesionCancelacion%')
     THROW 57600, 'MIG_CHECK_UP_FAILED', 1;

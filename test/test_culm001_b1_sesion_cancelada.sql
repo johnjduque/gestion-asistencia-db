@@ -18,11 +18,12 @@ IF OBJECT_ID(N'dbo.SesionCancelacion', N'U') IS NULL OR OBJECT_ID(N'dbo.TipoCanc
    OR OBJECT_ID(N'dbo.uv_sesion_estado', N'V') IS NULL OR OBJECT_ID(N'dbo.uv_tipo_cancelacion_sesion', N'V') IS NULL
    OR OBJECT_ID(N'dbo.usp_cancelar_sesion', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_consultar_destinatarios_sesion_cancelada', N'P') IS NULL
     THROW 57100, 'TEST FAILED CULM001_B1_CAN_00: faltan objetos de B.1 (SesionCancelacion, TipoCancelacionSesion, uv_sesion_estado, uv_tipo_cancelacion_sesion, usp_cancelar_sesion, usp_consultar_destinatarios_sesion_cancelada).', 1;
--- Catalogo con exactamente un tipo por bandera (ids fijos de la semilla 34)
-IF (SELECT COUNT(*) FROM dbo.uv_tipo_cancelacion_sesion) <> 2
+-- Catalogo de la semilla 34 (ids fijos): un solo tipo manual (esAutomatica = 0) y los automaticos FESTIVO y, desde DEC-081 (migracion 68), RECESO
+IF (SELECT COUNT(*) FROM dbo.uv_tipo_cancelacion_sesion) <> 3 OR (SELECT COUNT(*) FROM dbo.uv_tipo_cancelacion_sesion WHERE esAutomatica = 0) <> 1
+   OR NOT EXISTS (SELECT 1 FROM dbo.uv_tipo_cancelacion_sesion WHERE id = '7C1E0B10-5E51-4C0A-9A01-000000000003' AND codigo = N'RECESO' AND esAutomatica = 1)
    OR NOT EXISTS (SELECT 1 FROM dbo.uv_tipo_cancelacion_sesion WHERE id = '7C1E0B10-5E51-4C0A-9A01-000000000001' AND codigo = N'DOCENTE' AND esAutomatica = 0)
    OR NOT EXISTS (SELECT 1 FROM dbo.uv_tipo_cancelacion_sesion WHERE id = '7C1E0B10-5E51-4C0A-9A01-000000000002' AND codigo = N'FESTIVO' AND esAutomatica = 1)
-    THROW 57101, 'TEST FAILED CULM001_B1_CAN_00: TipoCancelacionSesion no tiene las 2 filas de la semilla (DOCENTE/0, FESTIVO/1).', 1;
+    THROW 57101, 'TEST FAILED CULM001_B1_CAN_00: TipoCancelacionSesion no tiene las 3 filas de la semilla (DOCENTE/0, FESTIVO/1, RECESO/1).', 1;
 IF dbo.ufn_obtener_parametro_int(NULL, 'SESION', 'MOTIVO_CANCELACION_LONGITUD_MINIMA') <> 10
    OR dbo.ufn_obtener_parametro_int(NULL, 'SESION', 'MOTIVO_CANCELACION_LONGITUD_MAXIMA') <> 500
     THROW 57102, 'TEST FAILED CULM001_B1_CAN_00: parametros SESION/MOTIVO_CANCELACION_LONGITUD_* ausentes o distintos de 10/500.', 1;
