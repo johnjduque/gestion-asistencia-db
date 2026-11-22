@@ -15,7 +15,7 @@ GO
 -- con su estado temporal y sus conteos sobre las matriculas ACTIVAS, mas columnas del grupo repetidas en cada fila. Un grupo sin
 -- sesiones devuelve UNA fila con idSesion NULL (conserva las columnas del grupo). Sin paginacion: las sesiones de un grupo son
 -- acotadas (la lista de sesiones del grupo tampoco se pagina).
---   estadoSesion: CANCELADA (SesionCancelacion: incluye festivos y solicitudes rechazadas); si no, PROGRAMADA cuando el horario
+--   estadoSesion: CANCELADA (SesionCancelacion: incluye festivos; BD-6: las solicitudes de sesion RECHAZADAS se excluyen de filas y conteos); si no, PROGRAMADA cuando el horario
 --   no esta confirmado (procedenciaTemporal NULL) o aun no inicia, EN_CURSO si inicio <= ahora < fin, EJECUTADA si fin <= ahora.
 --   presentes / parciales / justificadas / ausentes: matriculas activas con codigoEstadoSesionEstudiante PRESENTE / PARCIAL /
 --   JUSTIFICADA / AUSENTE (uv_asistencia_sesion_horas); sinRegistro = totalEstudiantes menos esas cuatro (0 si esta cancelada).
@@ -77,7 +77,8 @@ BEGIN
         INNER JOIN dbo.uv_estudiante_grupo eg ON eg.id = h.idEstudianteGrupo AND eg.codigoEstadoEstudiante = @codigoInscrita
         WHERE h.idGrupo = @idGrupoDefecto AND h.idSesion = s.idSesion
     ) c
-    WHERE s.idGrupo = @idGrupoDefecto;
+    -- BD-6: una solicitud de sesion RECHAZADA nunca existio como clase: no aparece en el cronograma ni suma en sus conteos
+    WHERE s.idGrupo = @idGrupoDefecto AND s.solicitudRechazada = 0;
 
     SELECT
         idSesion            = s.idSesion,

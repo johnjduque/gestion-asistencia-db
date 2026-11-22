@@ -14,6 +14,8 @@ GO
 -- horasSesion = minutos de la sesion / 60 (0 si fin <= inicio).
 -- CULM-001 / DEC-065 (2): estadoSolicitud (codigo de EstadoSolicitudSesion; NULL si la sesion no tiene solicitud: generadas y manuales
 -- anteriores a DEC-065) y pendienteAprobacion (solicitud en espera): una sesion pendiente no tiene ventana abierta ni admite tomas.
+-- BD-6 (columna AL FINAL): solicitudRechazada = la solicitud de sesion extraordinaria fue RECHAZADA (estado final no aprobado): la sesion nunca
+-- existio como clase, por eso las consultas del cronograma la excluyen de listados y conteos (queda solo en las solicitudes de sesion).
 -- CULM-001 B.2 (CONTRACT §2.5): totalTomas (tomas de la sesion), tieneTomaAbierta e idTomaAbierta (la toma sin fechaCierreUtc).
 CREATE OR ALTER VIEW [dbo].[uv_sesion_estado]
 AS
@@ -47,7 +49,8 @@ SELECT  idSesion = s.id,
         tieneTomaAbierta = CAST(IIF(tm.idTomaAbierta IS NULL, 0, 1) AS BIT),
         idTomaAbierta = tm.idTomaAbierta,
         estadoSolicitud = esol.codigo,
-        pendienteAprobacion = CAST(IIF(esol.esFinal = 0, 1, 0) AS BIT)
+        pendienteAprobacion = CAST(IIF(esol.esFinal = 0, 1, 0) AS BIT),
+        solicitudRechazada = CAST(IIF(esol.esFinal = 1 AND esol.esAprobada = 0, 1, 0) AS BIT)
 FROM    dbo.uv_sesion_v2 s
 CROSS APPLY (
         SELECT  toleranciaMinutos = IIF(t.valor IS NULL OR t.valor < 0, 0, t.valor),
