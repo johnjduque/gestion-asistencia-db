@@ -467,3 +467,13 @@ Todos los procedimientos listados en esta documentación han sido compilados y p
 - **Invocado por**: `usp_crear_grupo` (PASO 2B, con `@bloquearFila = 1`, dentro de su transacción hasta el `INSERT`: se serializa con `usp_toggle_estado_asignatura`, que toma el mismo bloqueo) y `usp_asociar_asignatura_plan` (sin bloqueo). Sin `EXECUTE` para `rol_asistencias_runtime`.
 - **Códigos de Catálogo Consumidos**: `ASI_010`.
 - Work item: `docs/work-items/HU074-estado-asignatura/` (migración 58).
+
+---
+
+## Addendum DEC-081 deduplicacion (2026-11-23)
+
+### `dbo.usp_validar_ejecutor_administrador_periodo_interno`
+- **Propósito**: preámbulo común de los SP del receso académico, en este orden: correlación presente, ejecutor obligatorio (`GEN_002`, con el `@idUsuarioEjecutor` original) y ámbito `ADMINISTRADOR` de la institución (`usp_resolver_institucion_gestor_periodo_interno`), que deja la institución en `@idInstitucion`.
+- **Invocado por**: `usp_crear_receso_academico`, `usp_retirar_receso_academico`.
+- **Códigos de Catálogo Consumidos**: `GEN_002`, más los de `usp_validar_id_correlacion_esta_presente_interno` y `usp_resolver_institucion_gestor_periodo_interno` (`SEC_001`, `PER_005`).
+- Sin transacción propia ni `TRY/CATCH`; migración 75.

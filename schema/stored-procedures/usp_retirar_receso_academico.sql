@@ -22,7 +22,6 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_retirar_receso_academico]
 AS
     DECLARE @idCorrelacionDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idRecesoDefecto          UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idReceso, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @idUsuarioEjecutorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idInstitucion            UNIQUEIDENTIFIER;
     DECLARE @idRecesoEncontrado       UNIQUEIDENTIFIER;
     DECLARE @fechaReceso              DATE;
@@ -44,32 +43,13 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
     BEGIN TRY
-        -- PASO 1: correlacion
-        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
-            @idCorrelacion = @idCorrelacionDefecto,
+        -- PASOS 1 a 3: correlacion, ejecutor obligatorio (GEN_002) y ambito (ADMINISTRADOR de la institucion)
+        EXEC dbo.usp_validar_ejecutor_administrador_periodo_interno
+            @idCorrelacion = @idCorrelacionDefecto, @idUsuarioEjecutor = @idUsuarioEjecutor,
+            @idInstitucion = @idInstitucion OUTPUT,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
-
-        -- PASO 2: ejecutor obligatorio (GEN_002)
-        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
-        BEGIN
-            EXEC dbo.usp_obtener_mensaje_catalogo
-                @p_codigo = 'GEN_002', @p_param1 = 'idUsuarioEjecutor',
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-            SET @estadoResultado = 0;
-        END
-
-        -- PASO 3: ambito del ejecutor
-        IF @estadoResultado = 1
-            EXEC dbo.usp_resolver_institucion_gestor_periodo_interno
-                @idUsuario = @idUsuarioEjecutorDefecto, @idCorrelacion = @idCorrelacionDefecto,
-                @idInstitucion = @idInstitucion OUTPUT,
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-                @estadoResultado = @estadoResultado OUTPUT;
 
         -- PASO 4: transaccion, bloqueo del dia y reglas del retiro
         IF @estadoResultado = 1
