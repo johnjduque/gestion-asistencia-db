@@ -16,7 +16,7 @@ GO
 -- menos PARAMETROS/LONGITUD_MINIMA_MOTIVO caracteres tras recortar (PRM_009) -> fila de CatalogoParametro bloqueada
 -- (UPDLOCK, HOLDLOCK), activa (PRM_002) -> grupo fuera de PARAMETROS/GRUPOS_NO_EDITABLES y fila editable (PRM_003) ->
 -- fechaModificacion igual a la esperada, comparacion exacta en DATETIME (PRM_008) -> ufn_validar_valor_parametro
--- (PRM_004/005/006) -> reglas cruzadas estrictas en las dos direcciones (PRM_007) -> valor igual (PRM_011: exito sin
+-- (PRM_004/005/006) -> ufn_validar_formato_valor (PRM_017, formato declarado en CatalogoParametroEdicion.formato) -> reglas cruzadas estrictas en las dos direcciones (PRM_007) -> valor igual (PRM_011: exito sin
 -- escritura) -> UPDATE valor y fechaModificacion + INSERT CambioParametro en la misma transaccion.
 -- Transaccion propia o SAVE TRANSACTION. Las ramas de rechazo no escriben: solo confirman la transaccion propia (sin
 -- ROLLBACK, compatible con INSERT ... EXEC). Las filas relacionadas por la regla cruzada se bloquean tambien para que dos
@@ -56,6 +56,7 @@ AS
     DECLARE @valorMinimo      DECIMAL(19,4);
     DECLARE @valorMaximo      DECIMAL(19,4);
     DECLARE @permitidos       NVARCHAR(500);
+    DECLARE @formato          VARCHAR(20);
     DECLARE @idReferido       UNIQUEIDENTIFIER;
     DECLARE @claveReferida    VARCHAR(100);
     DECLARE @valorReferido    DECIMAL(19,4);
@@ -146,7 +147,7 @@ BEGIN
             IF @codigoRechazo IS NULL
             BEGIN
                 SELECT @esEditable = e.esEditable, @valorMinimo = e.valorMinimo, @valorMaximo = e.valorMaximo,
-                       @permitidos = e.valoresPermitidos, @idReferido = e.parametroDebeSerMenorQue
+                       @permitidos = e.valoresPermitidos, @idReferido = e.parametroDebeSerMenorQue, @formato = e.formato
                 FROM dbo.CatalogoParametroEdicion e
                 WHERE e.parametro = @idParametroDefecto;
 
@@ -170,6 +171,8 @@ BEGIN
                 END
                 ELSE IF @codigoRechazo = 'PRM_006'
                     SET @param1 = @permitidos;
+                ELSE IF @codigoRechazo IS NULL
+                    SET @codigoRechazo = dbo.ufn_validar_formato_valor(@formato, @valorLimpio);
             END
 
             -- Reglas cruzadas estrictas (PRM_007): este < referido y cada dependiente < este

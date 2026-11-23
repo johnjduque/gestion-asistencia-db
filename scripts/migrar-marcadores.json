@@ -522,6 +522,9 @@
     "73_int004_sincronizar_parametros": [
       { "tabla": "dbo.SincronizacionParametroExterno" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'PRM_013'" }
+    ],
+    "74_int004_formato_parametros": [
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'PRM_017'" }
     ]
   }
 }

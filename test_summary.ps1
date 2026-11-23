@@ -796,6 +796,16 @@ try {
 catch {
     $resultFailures += "INT004_MIG73_RUNNER $($_.Exception.Message)"
 }
+# INT-004: migracion 74 (up/down/up) en test/test_int004_migracion_74.ps1.
+try {
+    $int004Mig74Output = @(& (Join-Path $PSScriptRoot 'test/test_int004_migracion_74.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $int004Mig74Output) { Write-Host $line }
+    if ($int004Mig74Output -contains 'TEST_PASS:INT004_MIG74_UP_DOWN_UP') { $clientPassed += 'INT004_MIG74_UP_DOWN_UP' }
+    else { $resultFailures += 'INT004_MIG74_UP_DOWN_UP not reported by test_int004_migracion_74.ps1' }
+}
+catch {
+    $resultFailures += "INT004_MIG74_RUNNER $($_.Exception.Message)"
+}
 # SES-GEN-01: migracion 64 (up/down/up) en test/test_ses_gen_01_migracion.ps1.
 try {
     $sesGenMigOutput = @(& (Join-Path $PSScriptRoot 'test/test_ses_gen_01_migracion.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
@@ -1131,6 +1141,9 @@ $criticalIds = @(
     'INT004_01_APLICA_VALOR', 'INT004_02_MISMO_VALOR_SIN_ESCRITURA', 'INT004_03_EVENTO_DUPLICADO', 'INT004_04_ULTIMO_EVENTO_GANA',
     'INT004_05_CLAVE_DESCONOCIDA', 'INT004_06_VALIDA_TIPO_Y_RANGO', 'INT004_07_DELETE_VUELVE_A_DEFECTO', 'INT004_08_ENTRADAS_INVALIDAS',
     'INT004_09_RECONCILIACION_SIN_EVENTO', 'INT004_10_CLAVE_INACTIVA', 'INT004_TRANCOUNT_ZERO', 'INT004_MIG73_UP_DOWN_UP',
+    # INT-004 (test/test_int004_formato_cidr.sql): formato CIDR_LIST de parametros (migracion 74)
+    'INT004F_01_FORMATO_CIDR_LIST', 'INT004F_02_SEMILLA_FORMATO', 'INT004F_03_SINCRONIZACION_RECHAZA_CIDR_INVALIDO',
+    'INT004F_04_SIN_FORMATO_NO_AFECTA', 'INT004F_05_EDICION_LOCAL_MISMA_REGLA', 'INT004F_TRANCOUNT_ZERO', 'INT004_MIG74_UP_DOWN_UP',
     # IDENT-002 (test/test_ident002_activacion_cuentas.sql): usp_consultar_reenvio_activacion_cuenta (migracion 46)
     'IDENT002_ACT_A00', 'IDENT002_ACT_R01', 'IDENT002_ACT_R02', 'IDENT002_ACT_R03', 'IDENT002_ACT_R04', 'IDENT002_ACT_G01',
     'TEST_IDENT002_ACTIVACION_CUENTAS',

@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **548**.
+Total de códigos: **549**.
 
 ## ACC
 
@@ -524,6 +524,7 @@ Total de códigos: **548**.
 | `PRM_014` | SUCCESS | BAJO | El evento ya había sido procesado. | usp_sincronizar_parametro_catalogo_externo: el idEvento ya existe en SincronizacionParametroExterno; no se escribio nada. | `75_int004_mensajes_parametros_externos.sql` |
 | `PRM_015` | SUCCESS | BAJO | Se ignoró un evento más antiguo que el último aplicado. | usp_sincronizar_parametro_catalogo_externo: ocurridoEnUtc es menor que el ultimo valor aplicado del parametro; no se escribio el valor. | `75_int004_mensajes_parametros_externos.sql` |
 | `PRM_016` | SUCCESS | BAJO | El parámetro no existe en este sistema; se ignoró. | usp_sincronizar_parametro_catalogo_externo: no hay un CatalogoParametro activo con ese grupo y clave; no se crean filas. | `75_int004_mensajes_parametros_externos.sql` |
+| `PRM_017` | VALIDATION_ERROR | BAJO | El valor debe ser una lista de rangos de red válidos separados por comas (por ejemplo 10.0.0.0/8,192.168.0.0/16). | ufn_validar_formato_valor: el valor no cumple CatalogoParametroEdicion.formato = CIDR_LIST (cada elemento separado por comas debe ser IPv4 a.b.c.d/0-32 o IPv6 con prefijo 0-128). | `76_int004_formato_parametros.sql` |
 
 ## PROG
 

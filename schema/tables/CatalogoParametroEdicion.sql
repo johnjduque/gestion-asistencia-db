@@ -11,6 +11,8 @@ GO
 -- Los grupos de PARAMETROS/GRUPOS_NO_EDITABLES nunca se editan, aunque la fila diga esEditable = 1 (lo impone el SP).
 -- valoresPermitidos: lista separada por comas con pertenencia exacta. parametroDebeSerMenorQue: regla cruzada estricta
 -- (valor de este parametro < valor del referenciado). Las filas las siembra 53_culm001_d3_parametro_edicion.sql.
+-- formato (INT-004, migracion 74): formato declarativo del valor que valida ufn_validar_formato_valor (hoy CIDR_LIST); NULL = sin formato.
+-- Una fila con esEditable = 0 sirve solo para declarar rango o formato de un parametro que el administrador no edita (p. ej. RED/*).
 IF OBJECT_ID('dbo.[CatalogoParametroEdicion]', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.CatalogoParametroEdicion (
@@ -25,8 +27,10 @@ BEGIN
         unidad                    NVARCHAR(30)     NULL,
         categoriaVisual           NVARCHAR(60)     NOT NULL,
         orden                     SMALLINT         NOT NULL CONSTRAINT DF_CPE_orden DEFAULT 0,
+        formato                   VARCHAR(20)      NULL,
         CONSTRAINT CK_CPE_Rango CHECK (valorMinimo IS NULL OR valorMaximo IS NULL OR valorMinimo <= valorMaximo),
-        CONSTRAINT CK_CPE_NoAutoReferencia CHECK (parametroDebeSerMenorQue IS NULL OR parametroDebeSerMenorQue <> parametro)
+        CONSTRAINT CK_CPE_NoAutoReferencia CHECK (parametroDebeSerMenorQue IS NULL OR parametroDebeSerMenorQue <> parametro),
+        CONSTRAINT CK_CPE_Formato CHECK (formato IS NULL OR formato IN ('CIDR_LIST'))
     );
 END
 GO

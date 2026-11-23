@@ -189,6 +189,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_int003_sincronizar_mensaje.sql
 -- INT-004 (sincronizacion de parametros desde el Catalogo externo, migracion 73): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_int004_sincronizar_parametro.sql
+-- INT-004 (formato CIDR_LIST de parametros, migracion 74): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_int004_formato_cidr.sql
 -- CULM-001 D.9-a (hallazgos medios y bajos, migracion 28): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_culm001_d9_hallazgos.sql
 -- SES-GEN-01 (calendario de sesiones del semestre, migracion 64): registro por nombre exacto (DEC-028, sin comodin)
