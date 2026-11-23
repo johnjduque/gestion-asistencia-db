@@ -10,6 +10,7 @@ GO
 --   P3R_D1_02_ADMIN_SIN_VINCULO_SIN_PROGRAMAS    un estudiante matriculado en un grupo sin ningun EstudiantePrograma sigue en el listado, sin programas ni facultades
 --   P3R_D1_03_ADMIN_FILTRO_FACULTAD_VINCULADA    el filtro idFacultad usa la facultad de sus programas vinculados
 --   P3R_D1_04_DECANO_SOLO_VINCULADOS             el directorio del decano tampoco muestra programas ajenos (ya exigia el vinculo; la prueba lo fija)
+--   P3R_D2_01_MENSAJE_ESTADO_CANCELADA           RPT_ASISTENCIA_ESTADO_CANCELADA existe (usuario y tecnico) con el texto CANCELADA
 SET NOCOUNT ON;
 SET XACT_ABORT OFF;
 PRINT 'TEST START: test_p3_regresion_2026_11_22';
@@ -70,6 +71,12 @@ BEGIN TRY
     IF NOT EXISTS (SELECT 1 FROM #dec WHERE idEstudiante = @eA AND programas = @nomA)
         THROW 55131, 'TEST FAILED: P3R_D1_04 el decano debe ver al estudiante A solo con el programa A.', 1;
     PRINT 'TEST_PASS:P3R_D1_04_DECANO_SOLO_VINCULADOS';
+
+    -- ------------------------------------------------------------------ P3R_D2_01
+    IF (SELECT COUNT(*) FROM dbo.CatalogoMensajeUsuario WHERE codigo = 'RPT_ASISTENCIA_ESTADO_CANCELADA' AND contenido = N'CANCELADA') <> 1
+       OR (SELECT COUNT(*) FROM dbo.CatalogoMensajeTecnico WHERE codigo = 'RPT_ASISTENCIA_ESTADO_CANCELADA') <> 1
+        THROW 55141, 'TEST FAILED: P3R_D2_01 falta el mensaje RPT_ASISTENCIA_ESTADO_CANCELADA (usuario y tecnico).', 1;
+    PRINT 'TEST_PASS:P3R_D2_01_MENSAJE_ESTADO_CANCELADA';
 END TRY
 BEGIN CATCH
     IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;

@@ -514,6 +514,10 @@
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'NTF_006'", "existe": false },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ERR_NOTIFICACIONES_NO_DISPONIBLE'" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'RPT_ASISTENCIA_ESTADO_ASISTIO'" }
+    ],
+    "72_p3_regresion_estado_cancelada": [
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'RPT_ASISTENCIA_ESTADO_CANCELADA'" },
+      { "tabla": "dbo.CatalogoMensajeTecnico", "donde": "codigo = 'RPT_ASISTENCIA_ESTADO_CANCELADA'" }
     ]
   }
 }

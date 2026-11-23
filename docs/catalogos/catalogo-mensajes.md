@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **543**.
+Total de códigos: **544**.
 
 ## ACC
 
@@ -619,6 +619,7 @@ Total de códigos: **543**.
 | `RPT_ASISTENCIA_DOCUMENTO` | INFORMATIVO | BAJO | Documento | Backend (PoiReporteExcelAdapter): rótulo de la columna «Documento» del libro de Excel del reporte de asistencia. | `74_p3_f5_mensajes_notificaciones.sql` |
 | `RPT_ASISTENCIA_ESTADO` | INFORMATIVO | BAJO | Estado de asistencia | Backend (PoiReporteExcelAdapter): rótulo de la columna «Estado de asistencia» del libro de Excel del reporte de asistencia. | `74_p3_f5_mensajes_notificaciones.sql` |
 | `RPT_ASISTENCIA_ESTADO_ASISTIO` | INFORMATIVO | BAJO | ASISTIÓ | Backend (PoiReporteExcelAdapter): texto del estado «ASISTIÓ» en la columna Estado de asistencia del libro de Excel. | `74_p3_f5_mensajes_notificaciones.sql` |
+| `RPT_ASISTENCIA_ESTADO_CANCELADA` | INFORMATIVO | BAJO | CANCELADA | Backend (PoiReporteExcelAdapter): texto del estado «CANCELADA» (sesión cancelada) en la columna Estado de asistencia del libro de Excel. | `74_p3_f5_mensajes_notificaciones.sql` |
 | `RPT_ASISTENCIA_ESTADO_NO_ASISTIO` | INFORMATIVO | BAJO | NO ASISTIÓ | Backend (PoiReporteExcelAdapter): texto del estado «NO ASISTIÓ» en la columna Estado de asistencia del libro de Excel. | `74_p3_f5_mensajes_notificaciones.sql` |
 | `RPT_ASISTENCIA_ESTADO_SIN_REGISTRO` | INFORMATIVO | BAJO | SIN REGISTRO | Backend (PoiReporteExcelAdapter): texto del estado «SIN REGISTRO» en la columna Estado de asistencia del libro de Excel. | `74_p3_f5_mensajes_notificaciones.sql` |
 | `RPT_ASISTENCIA_ESTUDIANTE` | INFORMATIVO | BAJO | Estudiante | Backend (PoiReporteExcelAdapter): rótulo de la columna «Estudiante» del libro de Excel del reporte de asistencia. | `74_p3_f5_mensajes_notificaciones.sql` |

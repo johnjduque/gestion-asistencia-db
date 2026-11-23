@@ -32,7 +32,8 @@ USING (VALUES
     ('RPT_ASISTENCIA_OBSERVACION', 'INFORMATIVO', 'BAJO', N'Observación'),
     ('RPT_ASISTENCIA_ESTADO_SIN_REGISTRO', 'INFORMATIVO', 'BAJO', N'SIN REGISTRO'),
     ('RPT_ASISTENCIA_ESTADO_ASISTIO', 'INFORMATIVO', 'BAJO', N'ASISTIÓ'),
-    ('RPT_ASISTENCIA_ESTADO_NO_ASISTIO', 'INFORMATIVO', 'BAJO', N'NO ASISTIÓ')
+    ('RPT_ASISTENCIA_ESTADO_NO_ASISTIO', 'INFORMATIVO', 'BAJO', N'NO ASISTIÓ'),
+    ('RPT_ASISTENCIA_ESTADO_CANCELADA', 'INFORMATIVO', 'BAJO', N'CANCELADA')
 ) AS Source (codigo, tipoMensaje, severidad, contenido)
 ON (Target.codigo = Source.codigo)
 WHEN MATCHED THEN
@@ -64,7 +65,8 @@ USING (VALUES
     ('RPT_ASISTENCIA_OBSERVACION', 'INFORMATIVO', 'BAJO', N'Backend (PoiReporteExcelAdapter): rótulo de la columna «Observación» del libro de Excel del reporte de asistencia.'),
     ('RPT_ASISTENCIA_ESTADO_SIN_REGISTRO', 'INFORMATIVO', 'BAJO', N'Backend (PoiReporteExcelAdapter): texto del estado «SIN REGISTRO» en la columna Estado de asistencia del libro de Excel.'),
     ('RPT_ASISTENCIA_ESTADO_ASISTIO', 'INFORMATIVO', 'BAJO', N'Backend (PoiReporteExcelAdapter): texto del estado «ASISTIÓ» en la columna Estado de asistencia del libro de Excel.'),
-    ('RPT_ASISTENCIA_ESTADO_NO_ASISTIO', 'INFORMATIVO', 'BAJO', N'Backend (PoiReporteExcelAdapter): texto del estado «NO ASISTIÓ» en la columna Estado de asistencia del libro de Excel.')
+    ('RPT_ASISTENCIA_ESTADO_NO_ASISTIO', 'INFORMATIVO', 'BAJO', N'Backend (PoiReporteExcelAdapter): texto del estado «NO ASISTIÓ» en la columna Estado de asistencia del libro de Excel.'),
+    ('RPT_ASISTENCIA_ESTADO_CANCELADA', 'INFORMATIVO', 'BAJO', N'Backend (PoiReporteExcelAdapter): texto del estado «CANCELADA» (sesión cancelada) en la columna Estado de asistencia del libro de Excel.')
 ) AS Source (codigo, tipoMensaje, severidad, contenido)
 ON (Target.codigo = Source.codigo)
 WHEN MATCHED THEN
