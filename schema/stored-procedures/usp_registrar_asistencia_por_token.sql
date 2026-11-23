@@ -47,6 +47,7 @@ AS
     DECLARE @codigoActiva      NVARCHAR(10) = CAST(dbo.ufn_obtener_parametro('MATRICULA', 'ESTADO_INSCRITA') AS NVARCHAR(10));
     DECLARE @idEstudiante      UNIQUEIDENTIFIER;
     DECLARE @idEstudianteGrupo UNIQUEIDENTIFIER;
+    DECLARE @idAsistenciaPropia UNIQUEIDENTIFIER;
     DECLARE @idTokenAsistencia UNIQUEIDENTIFIER;
     DECLARE @idToma            UNIQUEIDENTIFIER;
     DECLARE @idSesion          UNIQUEIDENTIFIER;
@@ -167,10 +168,15 @@ BEGIN
                 IF @estadoResultado = 1
                 BEGIN
                     SET @yaRegistrado = IIF(@detalleCreado = 1, 0, 1);
-                    SELECT @fechaRegistro = da.fechaRegistroUtc
-                    FROM dbo.Asistencia a
-                    INNER JOIN dbo.DetalleAsistencia da ON da.asistencia = a.id AND da.toma = @idToma
+                    -- Dos busquedas forzadas por las claves unicas de la fila propia: un join por toma o un recorrido de la PK de
+                    -- DetalleAsistencia (plan que el optimizador elige con pocas filas) espera las filas aun sin confirmar de los
+                    -- demas estudiantes y encadena bloqueos con N registros concurrentes.
+                    SELECT @idAsistenciaPropia = a.id
+                    FROM dbo.Asistencia a WITH (FORCESEEK)
                     WHERE a.estudianteGrupo = @idEstudianteGrupo AND a.sesion = @idSesion;
+                    SELECT @fechaRegistro = da.fechaRegistroUtc
+                    FROM dbo.DetalleAsistencia da WITH (FORCESEEK)
+                    WHERE da.asistencia = @idAsistenciaPropia AND da.toma = @idToma;
                     SELECT @nombreAsignatura = g.nombreAsignatura, @nombreGrupo = g.nombre, @numeroSesion = s.numero
                     FROM dbo.Sesion s INNER JOIN dbo.uv_grupo g ON g.id = s.grupo
                     WHERE s.id = @idSesion;
