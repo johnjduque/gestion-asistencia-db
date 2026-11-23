@@ -806,6 +806,16 @@ try {
 catch {
     $resultFailures += "INT004_MIG74_RUNNER $($_.Exception.Message)"
 }
+# DEC-081: migracion 75 (up/down/up) en test/test_dec081_migracion_75.ps1.
+try {
+    $dec081Mig75Output = @(& (Join-Path $PSScriptRoot 'test/test_dec081_migracion_75.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $dec081Mig75Output) { Write-Host $line }
+    if ($dec081Mig75Output -contains 'TEST_PASS:DEC081_MIG75_UP_DOWN_UP') { $clientPassed += 'DEC081_MIG75_UP_DOWN_UP' }
+    else { $resultFailures += 'DEC081_MIG75_UP_DOWN_UP not reported by test_dec081_migracion_75.ps1' }
+}
+catch {
+    $resultFailures += "DEC081_MIG75_RUNNER $($_.Exception.Message)"
+}
 # SES-GEN-01: migracion 64 (up/down/up) en test/test_ses_gen_01_migracion.ps1.
 try {
     $sesGenMigOutput = @(& (Join-Path $PSScriptRoot 'test/test_ses_gen_01_migracion.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
@@ -1295,7 +1305,7 @@ $criticalIds = @(
     'AUDBD_MIG70_UP_DOWN_UP',
     # Regresion P3 2026-11-22 (test/test_p3_regresion_2026_11_22.sql)
     'P3R_D1_01_ADMIN_PROGRAMAS_SOLO_VINCULADOS', 'P3R_D1_02_ADMIN_SIN_VINCULO_SIN_PROGRAMAS', 'P3R_D1_03_ADMIN_FILTRO_FACULTAD_VINCULADA',
-    'P3R_D1_04_DECANO_SOLO_VINCULADOS', 'P3R_D2_01_MENSAJE_ESTADO_CANCELADA', 'P3R_TRANCOUNT_ZERO', 'P3R_MIG72_UP_DOWN_UP',
+    'P3R_D1_04_DECANO_SOLO_VINCULADOS', 'P3R_D2_01_MENSAJE_ESTADO_CANCELADA', 'P3R_TRANCOUNT_ZERO', 'P3R_MIG72_UP_DOWN_UP', 'DEC081_MIG75_UP_DOWN_UP',
     # P3 fase F5 (migracion 71 en test/test_p3_f5_notificaciones_migracion_71.ps1)
     'P3F5_MIG71_UP_DOWN_UP',
     # AUD-BD M-9: ids que las pruebas ya emitian y el resumen no exigia (todos pasan en una corrida completa del gate; scripts/check-test-summary-parity.ps1)
