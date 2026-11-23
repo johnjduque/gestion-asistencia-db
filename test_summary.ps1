@@ -786,6 +786,16 @@ try {
 catch {
     $resultFailures += "P3R_MIG72_RUNNER $($_.Exception.Message)"
 }
+# INT-004: migracion 73 (up/down/up) en test/test_int004_migracion_73.ps1.
+try {
+    $int004MigOutput = @(& (Join-Path $PSScriptRoot 'test/test_int004_migracion_73.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $int004MigOutput) { Write-Host $line }
+    if ($int004MigOutput -contains 'TEST_PASS:INT004_MIG73_UP_DOWN_UP') { $clientPassed += 'INT004_MIG73_UP_DOWN_UP' }
+    else { $resultFailures += 'INT004_MIG73_UP_DOWN_UP not reported by test_int004_migracion_73.ps1' }
+}
+catch {
+    $resultFailures += "INT004_MIG73_RUNNER $($_.Exception.Message)"
+}
 # SES-GEN-01: migracion 64 (up/down/up) en test/test_ses_gen_01_migracion.ps1.
 try {
     $sesGenMigOutput = @(& (Join-Path $PSScriptRoot 'test/test_ses_gen_01_migracion.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
@@ -1117,6 +1127,10 @@ $criticalIds = @(
     # INT-003 (test/test_int003_sincronizar_mensaje.sql): usp_sincronizar_mensaje_usuario (migracion 45)
     'INT003_01_ACTUALIZA_TEXTO', 'INT003_02_MISMO_TEXTO_SIN_ESCRITURA', 'INT003_03_CODIGO_INEXISTENTE',
     'INT003_04_CAMPOS_OBLIGATORIOS', 'INT003_05_CORRELACION_OBLIGATORIA', 'INT003_06_SOLO_TEXTO', 'INT003_TRANCOUNT_ZERO',
+    # INT-004 (test/test_int004_sincronizar_parametro.sql): usp_sincronizar_parametro_catalogo_externo (migracion 73)
+    'INT004_01_APLICA_VALOR', 'INT004_02_MISMO_VALOR_SIN_ESCRITURA', 'INT004_03_EVENTO_DUPLICADO', 'INT004_04_ULTIMO_EVENTO_GANA',
+    'INT004_05_CLAVE_DESCONOCIDA', 'INT004_06_VALIDA_TIPO_Y_RANGO', 'INT004_07_DELETE_VUELVE_A_DEFECTO', 'INT004_08_ENTRADAS_INVALIDAS',
+    'INT004_09_RECONCILIACION_SIN_EVENTO', 'INT004_10_CLAVE_INACTIVA', 'INT004_TRANCOUNT_ZERO', 'INT004_MIG73_UP_DOWN_UP',
     # IDENT-002 (test/test_ident002_activacion_cuentas.sql): usp_consultar_reenvio_activacion_cuenta (migracion 46)
     'IDENT002_ACT_A00', 'IDENT002_ACT_R01', 'IDENT002_ACT_R02', 'IDENT002_ACT_R03', 'IDENT002_ACT_R04', 'IDENT002_ACT_G01',
     'TEST_IDENT002_ACTIVACION_CUENTAS',
