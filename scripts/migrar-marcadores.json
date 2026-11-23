@@ -525,6 +525,11 @@
     ],
     "74_int004_formato_parametros": [
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'PRM_017'" }
+    ],
+    "75_dec081_dedup_preambulo_receso": [
+      { "objeto": "dbo.usp_validar_ejecutor_administrador_periodo_interno" },
+      { "objeto": "dbo.usp_crear_receso_academico", "contiene": "usp_validar_ejecutor_administrador_periodo_interno" },
+      { "objeto": "dbo.usp_retirar_receso_academico", "contiene": "usp_validar_ejecutor_administrador_periodo_interno" }
     ]
   }
 }
