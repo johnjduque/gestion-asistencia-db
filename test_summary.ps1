@@ -1256,6 +1256,9 @@ $criticalIds = @(
     'AUDBD_A1_02_COORDINADOR_SOLO_SU_PROGRAMA', 'AUDBD_A1_03_ADMINISTRADOR_TODA_CUENTA', 'AUDBD_M1_01_INDICES_FK', 'AUDBD_M3_01_SIN_GUID_VACIO_LITERAL',
     'AUDBD_M6_01_XACT_ABORT_ESCRITURA', 'AUDBD_M7_01_FUNCION_RETIRADA', 'AUDBD_M11_01_MENSAJES_CON_TILDES', 'AUDBD_TRANCOUNT_ZERO',
     'AUDBD_MIG70_UP_DOWN_UP',
+    # Regresion P3 2026-11-22 (test/test_p3_regresion_2026_11_22.sql)
+    'P3R_D1_01_ADMIN_PROGRAMAS_SOLO_VINCULADOS', 'P3R_D1_02_ADMIN_SIN_VINCULO_SIN_PROGRAMAS', 'P3R_D1_03_ADMIN_FILTRO_FACULTAD_VINCULADA',
+    'P3R_D1_04_DECANO_SOLO_VINCULADOS', 'P3R_TRANCOUNT_ZERO',
     # P3 fase F5 (migracion 71 en test/test_p3_f5_notificaciones_migracion_71.ps1)
     'P3F5_MIG71_UP_DOWN_UP',
     # AUD-BD M-9: ids que las pruebas ya emitian y el resumen no exigia (todos pasan en una corrida completa del gate; scripts/check-test-summary-parity.ps1)
