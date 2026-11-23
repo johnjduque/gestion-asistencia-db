@@ -57,7 +57,7 @@ function Assert-Case([string]$Id, [bool]$Ok, [string]$Why, $Run) {
 }
 function Deploy-Schema([string]$SchemaDir, [string]$Database) {
     # Mismo orden que deploy_schema.ps1 (tablas -> triggers -> funciones -> vistas -> SP -> seguridad -> semillas) sobre una base
-    # propia: copia de schema/ con [gestionasistenciadb] cambiado. Vistas, SP y seguridad en pasadas tolerantes (dependencias).
+    # propia: copia de schema/ con [gestionasistenciadb] cambiado. Funciones, vistas, SP y seguridad en pasadas tolerantes (dependencias).
     $null = Invoke-Sql "CREATE DATABASE [$Database];"
     $stage = Join-Path $tmp "stage_$Database"
     Copy-Item $SchemaDir $stage -Recurse
@@ -74,7 +74,7 @@ function Deploy-Schema([string]$SchemaDir, [string]$Database) {
     try {
         foreach ($dir in 'tables', 'triggers', 'functions', 'views', 'stored-procedures', 'security', 'seed') {
             if (-not (Test-Path (Join-Path $stage $dir))) { continue }
-            $tolerante = $dir -in 'views', 'stored-procedures', 'security'
+            $tolerante = $dir -in 'functions', 'views', 'stored-procedures', 'security'
             $pendientes = @(Get-ChildItem (Join-Path $stage $dir) -Filter '*.sql' -Recurse | Sort-Object Name)
             for ($pasada = 1; $pendientes.Count -gt 0 -and $pasada -le 15; $pasada++) {
                 $fallidos = @()

@@ -53,7 +53,7 @@ function Apply([string]$dir, [bool]$tolerant) {
 }
 Apply 'tables' $false
 if (Test-Path (Join-Path $stage 'triggers')) { Apply 'triggers' $false }
-Apply 'functions' $false
+Apply 'functions' $true
 Apply 'views' $true
 Apply 'stored-procedures' $true
 if (Test-Path (Join-Path $stage 'security')) { Apply 'security' $true }
