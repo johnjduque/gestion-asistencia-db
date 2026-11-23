@@ -12,7 +12,7 @@ generated-by: scripts/generar-catalogo-mensajes.ps1
 
 Uso en SP: `EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = '<CODIGO>', @p_param1 = ...`. Los marcadores `{}` / `{0}` se reemplazan con los parámetros. El mensaje técnico se entrega como `DBCODE=<CODIGO>|<texto>` (ver `docs/contracts/DB_BASELINE_CONTRACT.md`).
 
-Total de códigos: **544**.
+Total de códigos: **548**.
 
 ## ACC
 
@@ -520,6 +520,10 @@ Total de códigos: **544**.
 | `PRM_010` | BUSINESS_ERROR | MEDIO | La edición de parámetros no está disponible con el catálogo de configuración activo. | El catalogo de parametros activo del backend no es sqlserver: la edicion en BD no es la fuente de verdad. | `53_culm001_d3_mensajes.sql` |
 | `PRM_011` | SUCCESS | BAJO | El valor no cambió. | El valor propuesto es igual al almacenado; no se escribio nada. | `53_culm001_d3_mensajes.sql` |
 | `PRM_012` | BUSINESS_ERROR | MEDIO | La edición de parámetros requiere una sola institución activa. | [SUPUESTO-D-16] La instalacion no tiene exactamente una Institucion activa; los parametros no tienen ambito por institucion. | `53_culm001_d3_mensajes.sql` |
+| `PRM_013` | SUCCESS | BAJO | Parámetro sincronizado desde el catálogo externo. | usp_sincronizar_parametro_catalogo_externo: CatalogoParametro.valor actualizado (UPSERT) o devuelto a valorDefecto (DELETE) y registrado en SincronizacionParametroExterno. | `75_int004_mensajes_parametros_externos.sql` |
+| `PRM_014` | SUCCESS | BAJO | El evento ya había sido procesado. | usp_sincronizar_parametro_catalogo_externo: el idEvento ya existe en SincronizacionParametroExterno; no se escribio nada. | `75_int004_mensajes_parametros_externos.sql` |
+| `PRM_015` | SUCCESS | BAJO | Se ignoró un evento más antiguo que el último aplicado. | usp_sincronizar_parametro_catalogo_externo: ocurridoEnUtc es menor que el ultimo valor aplicado del parametro; no se escribio el valor. | `75_int004_mensajes_parametros_externos.sql` |
+| `PRM_016` | SUCCESS | BAJO | El parámetro no existe en este sistema; se ignoró. | usp_sincronizar_parametro_catalogo_externo: no hay un CatalogoParametro activo con ese grupo y clave; no se crean filas. | `75_int004_mensajes_parametros_externos.sql` |
 
 ## PROG
 

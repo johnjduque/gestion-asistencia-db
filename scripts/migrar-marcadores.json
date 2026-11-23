@@ -518,6 +518,10 @@
     "72_p3_regresion_estado_cancelada": [
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'RPT_ASISTENCIA_ESTADO_CANCELADA'" },
       { "tabla": "dbo.CatalogoMensajeTecnico", "donde": "codigo = 'RPT_ASISTENCIA_ESTADO_CANCELADA'" }
+    ],
+    "73_int004_sincronizar_parametros": [
+      { "tabla": "dbo.SincronizacionParametroExterno" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'PRM_013'" }
     ]
   }
 }

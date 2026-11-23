@@ -461,6 +461,13 @@ BEGIN
 END
 GO
 
+-- INT-004 (migracion 73): la bitacora de sincronizacion de parametros externos apunta al parametro afectado.
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_SincronizacionParametroExterno_CatalogoParametro')
+BEGIN
+    ALTER TABLE [dbo].[SincronizacionParametroExterno] ADD CONSTRAINT [FK_SincronizacionParametroExterno_CatalogoParametro] FOREIGN KEY ([parametro]) REFERENCES [dbo].[CatalogoParametro] ([id]);
+END
+GO
+
 -- CULM-001 C.1 (CONTRACT §2.2): claves foraneas de alertas y revisiones de cancelacion por inasistencia.
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_AlertaInasistencia_EstudianteGrupo')
     ALTER TABLE [dbo].[AlertaInasistencia] ADD CONSTRAINT [FK_AlertaInasistencia_EstudianteGrupo] FOREIGN KEY ([estudianteGrupo]) REFERENCES [dbo].[EstudianteGrupo] ([id]);
