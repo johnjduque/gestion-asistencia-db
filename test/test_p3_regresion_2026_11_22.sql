@@ -15,6 +15,7 @@ SET NOCOUNT ON;
 SET XACT_ABORT OFF;
 PRINT 'TEST START: test_p3_regresion_2026_11_22';
 DROP TABLE IF EXISTS #adm; DROP TABLE IF EXISTS #dec;
+GO
 BEGIN TRANSACTION;
 BEGIN TRY
 :r /tmp/test/fixtures/culm001_b2nm_asignatura_compartida.sql
