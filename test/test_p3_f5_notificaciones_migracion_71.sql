@@ -17,8 +17,8 @@ IF EXISTS (SELECT 1 FROM sys.objects WHERE name IN (N'PlantillaNotificacion', N'
         N'usp_activar_version_plantilla_notificacion', N'usp_activar_version_plantilla_notificacion_interno', N'usp_consultar_plantilla_notificacion_activa', N'usp_consultar_plantilla_notificacion_activa_interno',
         N'usp_consultar_notificaciones_salientes_admin', N'usp_consultar_notificaciones_salientes_admin_interno', N'usp_reintentar_notificacion_saliente', N'usp_reintentar_notificacion_saliente_interno'))
    OR EXISTS (SELECT 1 FROM dbo.CatalogoMensajeUsuario WHERE codigo IN ('NTF_006', 'NTF_007', 'NTF_009'))
-   OR (SELECT COUNT(*) FROM dbo.CatalogoMensajeUsuario WHERE codigo = 'ERR_NOTIFICACIONES_NO_DISPONIBLE' OR codigo LIKE 'OK[_]%' OR codigo LIKE 'RPT[_]ASISTENCIA[_]%') <> 22
-   OR (SELECT COUNT(*) FROM dbo.CatalogoMensajeTecnico WHERE codigo = 'ERR_NOTIFICACIONES_NO_DISPONIBLE' OR codigo LIKE 'OK[_]%' OR codigo LIKE 'RPT[_]ASISTENCIA[_]%') <> 22
+   OR (SELECT COUNT(*) FROM dbo.CatalogoMensajeUsuario WHERE codigo = 'ERR_NOTIFICACIONES_NO_DISPONIBLE' OR codigo LIKE 'OK[_]%' OR (codigo LIKE 'RPT[_]ASISTENCIA[_]%' AND codigo <> 'RPT_ASISTENCIA_ESTADO_CANCELADA')) <> 22
+   OR (SELECT COUNT(*) FROM dbo.CatalogoMensajeTecnico WHERE codigo = 'ERR_NOTIFICACIONES_NO_DISPONIBLE' OR codigo LIKE 'OK[_]%' OR (codigo LIKE 'RPT[_]ASISTENCIA[_]%' AND codigo <> 'RPT_ASISTENCIA_ESTADO_CANCELADA')) <> 22
     THROW 59710, 'TEST FAILED: P3F5_MIG71 la base inicial no tiene la 71 (desplegar schema/ de la rama primero).', 1;
 GO
 :r $(MIGDIR)/71_p3_f5_notificaciones_servicio_up.sql
@@ -31,7 +31,7 @@ IF EXISTS (SELECT 1 FROM sys.objects WHERE name IN (N'PlantillaNotificacion', N'
         N'usp_reservar_notificaciones_salientes', N'usp_marcar_notificacion_entregada', N'usp_registrar_fallo_notificacion', N'usp_depurar_notificaciones_salientes', N'usp_consultar_contacto_notificacion')) <> 9
    OR DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime') IS NULL
    OR NOT EXISTS (SELECT 1 FROM sys.database_permissions dp WHERE dp.major_id = OBJECT_ID(N'dbo.usp_consultar_contacto_notificacion') AND dp.permission_name = N'EXECUTE' AND dp.state IN ('G', 'W') AND dp.grantee_principal_id = DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime'))
-   OR (SELECT COUNT(*) FROM dbo.CatalogoMensajeUsuario WHERE codigo = 'ERR_NOTIFICACIONES_NO_DISPONIBLE' OR codigo LIKE 'OK[_]%' OR codigo LIKE 'RPT[_]ASISTENCIA[_]%') <> 22
+   OR (SELECT COUNT(*) FROM dbo.CatalogoMensajeUsuario WHERE codigo = 'ERR_NOTIFICACIONES_NO_DISPONIBLE' OR codigo LIKE 'OK[_]%' OR (codigo LIKE 'RPT[_]ASISTENCIA[_]%' AND codigo <> 'RPT_ASISTENCIA_ESTADO_CANCELADA')) <> 22
     THROW 59711, 'TEST FAILED: P3F5_MIG71 el up no es idempotente sobre la base desplegada.', 1;
 PRINT 'P3F5_MIG71_UP1_OK';
 GO
@@ -55,8 +55,8 @@ IF OBJECT_ID(N'dbo.PlantillaNotificacion', N'U') IS NULL OR OBJECT_ID(N'dbo.Plan
                         N'usp_consultar_notificaciones_salientes_admin', N'usp_reintentar_notificacion_saliente', N'uv_notificacion_saliente_admin')) <> 7
    OR (SELECT COUNT(*) FROM dbo.CatalogoMensajeUsuario WHERE codigo IN ('NTF_006', 'NTF_007', 'NTF_009')) <> 3
    OR (SELECT COUNT(*) FROM dbo.CatalogoMensajeTecnico WHERE codigo IN ('NTF_006', 'NTF_007', 'NTF_009')) <> 3
-   OR EXISTS (SELECT 1 FROM dbo.CatalogoMensajeUsuario WHERE codigo = 'ERR_NOTIFICACIONES_NO_DISPONIBLE' OR codigo LIKE 'OK[_]%' OR codigo LIKE 'RPT[_]ASISTENCIA[_]%')
-   OR EXISTS (SELECT 1 FROM dbo.CatalogoMensajeTecnico WHERE codigo = 'ERR_NOTIFICACIONES_NO_DISPONIBLE' OR codigo LIKE 'OK[_]%' OR codigo LIKE 'RPT[_]ASISTENCIA[_]%')
+   OR EXISTS (SELECT 1 FROM dbo.CatalogoMensajeUsuario WHERE codigo = 'ERR_NOTIFICACIONES_NO_DISPONIBLE' OR codigo LIKE 'OK[_]%' OR (codigo LIKE 'RPT[_]ASISTENCIA[_]%' AND codigo <> 'RPT_ASISTENCIA_ESTADO_CANCELADA'))
+   OR EXISTS (SELECT 1 FROM dbo.CatalogoMensajeTecnico WHERE codigo = 'ERR_NOTIFICACIONES_NO_DISPONIBLE' OR codigo LIKE 'OK[_]%' OR (codigo LIKE 'RPT[_]ASISTENCIA[_]%' AND codigo <> 'RPT_ASISTENCIA_ESTADO_CANCELADA'))
     THROW 59712, 'TEST FAILED: P3F5_MIG71 el down no recreo las tablas, la semilla, los SP, los permisos o los mensajes.', 1;
 PRINT 'P3F5_MIG71_DOWN_OK';
 GO
@@ -70,8 +70,8 @@ IF EXISTS (SELECT 1 FROM sys.objects WHERE name IN (N'PlantillaNotificacion', N'
         N'usp_consultar_notificaciones_salientes_admin', N'usp_consultar_notificaciones_salientes_admin_interno', N'usp_reintentar_notificacion_saliente', N'usp_reintentar_notificacion_saliente_interno'))
    OR EXISTS (SELECT 1 FROM dbo.CatalogoMensajeUsuario WHERE codigo IN ('NTF_006', 'NTF_007', 'NTF_009'))
    OR EXISTS (SELECT 1 FROM dbo.CatalogoMensajeTecnico WHERE codigo IN ('NTF_006', 'NTF_007', 'NTF_009'))
-   OR (SELECT COUNT(*) FROM dbo.CatalogoMensajeUsuario WHERE codigo = 'ERR_NOTIFICACIONES_NO_DISPONIBLE' OR codigo LIKE 'OK[_]%' OR codigo LIKE 'RPT[_]ASISTENCIA[_]%') <> 22
-   OR (SELECT COUNT(*) FROM dbo.CatalogoMensajeTecnico WHERE codigo = 'ERR_NOTIFICACIONES_NO_DISPONIBLE' OR codigo LIKE 'OK[_]%' OR codigo LIKE 'RPT[_]ASISTENCIA[_]%') <> 22
+   OR (SELECT COUNT(*) FROM dbo.CatalogoMensajeUsuario WHERE codigo = 'ERR_NOTIFICACIONES_NO_DISPONIBLE' OR codigo LIKE 'OK[_]%' OR (codigo LIKE 'RPT[_]ASISTENCIA[_]%' AND codigo <> 'RPT_ASISTENCIA_ESTADO_CANCELADA')) <> 22
+   OR (SELECT COUNT(*) FROM dbo.CatalogoMensajeTecnico WHERE codigo = 'ERR_NOTIFICACIONES_NO_DISPONIBLE' OR codigo LIKE 'OK[_]%' OR (codigo LIKE 'RPT[_]ASISTENCIA[_]%' AND codigo <> 'RPT_ASISTENCIA_ESTADO_CANCELADA')) <> 22
    OR NOT EXISTS (SELECT 1 FROM dbo.CatalogoMensajeUsuario WHERE codigo = 'ERR_NOTIFICACIONES_NO_DISPONIBLE' AND contenido = N'El servicio de notificaciones no está disponible en este momento. Intenta de nuevo en unos minutos.')
    OR NOT EXISTS (SELECT 1 FROM dbo.CatalogoMensajeUsuario WHERE codigo = 'RPT_ASISTENCIA_ESTADO_ASISTIO' AND contenido = N'ASISTIÓ')
    OR NOT EXISTS (SELECT 1 FROM dbo.CatalogoMensajeUsuario WHERE codigo = 'OK_REALTIME_001' AND contenido = N'Evento reactivo emitido a {0} suscriptores.')
