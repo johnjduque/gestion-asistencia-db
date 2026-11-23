@@ -78,7 +78,7 @@ CREATE TABLE #b2hKd (idFacultad UNIQUEIDENTIFIER, nombreFacultad NVARCHAR(50), i
     totalProgramas INT, totalEstudiantes INT, estudiantesRegulares INT, estudiantesRiesgo INT, estudiantesPerdida INT, tasaRetencion DECIMAL(5,2),
     sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2), porcentajeAsistencia DECIMAL(5,2),
     gruposActivos INT, cupoTotal INT, matriculadosActivos INT, tasaAforo DECIMAL(7,2), umbralAdvertencia DECIMAL(5,2), umbralPerdida DECIMAL(5,2),
-    tomasDictadas INT, horasDictadas DECIMAL(12,6), horasFalta DECIMAL(12,6), totalCoordinadores INT, totalDocentes INT);
+    tomasDictadas INT, horasDictadas DECIMAL(12,6), horasFalta DECIMAL(12,6), totalCoordinadores INT, totalDocentes INT, horasPeriodo DECIMAL(12,6));
 CREATE TABLE #b2hKi (idInstitucion UNIQUEIDENTIFIER, nombreInstitucion NVARCHAR(50), idPeriodoAcademico UNIQUEIDENTIFIER, nombrePeriodoAcademico NVARCHAR(50),
     totalFacultades INT, totalProgramas INT, totalEstudiantes INT, estudiantesRegulares INT, estudiantesRiesgo INT, estudiantesPerdida INT, tasaRetencion DECIMAL(5,2),
     sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2), porcentajeAsistencia DECIMAL(5,2),
@@ -90,13 +90,13 @@ CREATE TABLE #b2hCo (corrida INT, idGrupo UNIQUEIDENTIFIER, codigoGrupo INT, nom
     idAsignatura UNIQUEIDENTIFIER, nombreAsignatura NVARCHAR(100), idDocente UNIQUEIDENTIFIER, nombreDocente NVARCHAR(250),
     estudiantesActivos INT, sesionesEjecutadas INT, asistencias INT, faltasSinJustaCausa INT, excusas INT,
     porcentajeAsistencia DECIMAL(5,2), porcentajeInasistencia DECIMAL(5,2), estudiantesRiesgo INT, estudiantesPerdida INT, totalRegistros INT,
-    horasDictadas DECIMAL(12,2), porcentajeExcusa DECIMAL(5,2), porcentajeSinRegistro DECIMAL(5,2), codigoPermanencia NVARCHAR(10));
+    horasDictadas DECIMAL(12,2), porcentajeExcusa DECIMAL(5,2), porcentajeSinRegistro DECIMAL(5,2), codigoPermanencia NVARCHAR(10), porcentajePorDictar DECIMAL(5,2));
 CREATE TABLE #b2hCoX (idGrupo UNIQUEIDENTIFIER, codigoGrupo INT, nombreGrupo NVARCHAR(100), idPeriodoAcademico UNIQUEIDENTIFIER,
     nombrePeriodoAcademico NVARCHAR(100), idPrograma UNIQUEIDENTIFIER, nombrePrograma NVARCHAR(100),
     idAsignatura UNIQUEIDENTIFIER, nombreAsignatura NVARCHAR(100), idDocente UNIQUEIDENTIFIER, nombreDocente NVARCHAR(250),
     estudiantesActivos INT, sesionesEjecutadas INT, asistencias INT, faltasSinJustaCausa INT, excusas INT,
     porcentajeAsistencia DECIMAL(5,2), porcentajeInasistencia DECIMAL(5,2), estudiantesRiesgo INT, estudiantesPerdida INT, totalRegistros INT,
-    horasDictadas DECIMAL(12,2), porcentajeExcusa DECIMAL(5,2), porcentajeSinRegistro DECIMAL(5,2), codigoPermanencia NVARCHAR(10));
+    horasDictadas DECIMAL(12,2), porcentajeExcusa DECIMAL(5,2), porcentajeSinRegistro DECIMAL(5,2), codigoPermanencia NVARCHAR(10), porcentajePorDictar DECIMAL(5,2));
 CREATE TABLE #b2hTe (corrida INT, inicioIntervalo DATE, finIntervalo DATE, sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2),
     horasDictadasEstudiante DECIMAL(14,2), horasFalta DECIMAL(14,2));
 CREATE TABLE #b2hTeX (inicioIntervalo DATE, finIntervalo DATE, sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2),
@@ -109,10 +109,10 @@ CREATE TABLE #b2hCfX (idFacultad UNIQUEIDENTIFIER, nombreFacultad NVARCHAR(50), 
     horasDictadas DECIMAL(12,2), horasFalta DECIMAL(12,2));
 CREATE TABLE #b2hCp (corrida INT, idPrograma UNIQUEIDENTIFIER, nombrePrograma NVARCHAR(50), estaActivoPrograma BIT, totalEstudiantes INT, estudiantesRiesgo INT, estudiantesPerdida INT,
     tasaRetencion DECIMAL(5,2), sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2),
-    horasDictadas DECIMAL(12,2), horasFalta DECIMAL(12,2));
+    horasDictadas DECIMAL(12,2), horasFalta DECIMAL(12,2), horasPeriodo DECIMAL(12,2));
 CREATE TABLE #b2hCpX (idPrograma UNIQUEIDENTIFIER, nombrePrograma NVARCHAR(50), estaActivoPrograma BIT, totalEstudiantes INT, estudiantesRiesgo INT, estudiantesPerdida INT,
     tasaRetencion DECIMAL(5,2), sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2),
-    horasDictadas DECIMAL(12,2), horasFalta DECIMAL(12,2));
+    horasDictadas DECIMAL(12,2), horasFalta DECIMAL(12,2), horasPeriodo DECIMAL(12,2));
 CREATE TABLE #b2hR (idSolicitudRevisionAsistencia UNIQUEIDENTIFIER, nombreSolicitud NVARCHAR(50), fechaSolicitud DATE,
     codigoEstado NVARCHAR(5), nombreEstado NVARCHAR(100), justificacionSolicitud NVARCHAR(MAX), justificacionRespuesta NVARCHAR(MAX),
     idEstudiante UNIQUEIDENTIFIER, nombreEstudiante NVARCHAR(400), idSesion UNIQUEIDENTIFIER, numeroSesion INT,
@@ -133,11 +133,11 @@ BEGIN TRY
     DECLARE @tag NVARCHAR(12) = LEFT(REPLACE(CONVERT(NVARCHAR(36), NEWID()), N'-', N''), 12);
     CREATE TABLE #b2hE (n INT PRIMARY KEY, idUsuario UNIQUEIDENTIFIER, idEstudiante UNIQUEIDENTIFIER);
     INSERT INTO #b2hE (n, idUsuario, idEstudiante) SELECT v.n, NEWID(), NEWID() FROM (VALUES (1),(2),(3),(4)) v(n);
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uD, @tipoCC, 977000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Horas', N'CulmB', N'Hugo', N'B2', CONCAT(N'culmb2h.d.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULMB2');
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uD, @tipoCC, 977000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Horas', N'CulmB', N'Hugo', N'B2', CONCAT(N'culmb2h.d.', @tag, N'@test.local'), 1, 1);
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
     SELECT e.idUsuario, @tipoCC, 978000000 + e.n * 10000 + ABS(CHECKSUM(NEWID()) % 9999), CONCAT(N'Horas', e.n), N'CulmB', N'Est', N'B2',
-           CONCAT(N'culmb2h.e', e.n, N'.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULMB2'
+           CONCAT(N'culmb2h.e', e.n, N'.', @tag, N'@test.local'), 1, 1
     FROM #b2hE e;
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d, @uD);
     INSERT INTO dbo.Estudiante (id, usuario) SELECT idEstudiante, idUsuario FROM #b2hE;

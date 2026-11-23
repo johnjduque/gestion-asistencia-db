@@ -17,6 +17,8 @@ GO
 -- Ambito: perfil ADMINISTRADOR; filas de uv_auth_estudiante (fail-closed) restringidas a la institucion que
 -- administra (uv_administrador). El decano usa su propio directorio (/decano/estudiantes).
 -- SESSION_CONTEXT: se captura el previo y SIEMPRE se restaura (exito y error).
+-- P3 regresion 2026-11-22 (D1): facultades y programas salen solo de los EstudiantePrograma del estudiante (tieneVinculoPrograma = 1);
+-- uv_estudiante expande cada grupo a TODOS los programas de su asignatura compartida y inflaba la lista. totalGrupos sigue contando sus grupos.
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_buscar_estudiantes_institucion_paginado]
 (
@@ -61,7 +63,7 @@ BEGIN
         -- PASO 2: Consulta y retorno de resultados
         WITH matriculas AS (
             SELECT  e.id, e.idUsuario, e.numeroIdentificacion, e.nombreCompleto, e.estaActivoUsuario,
-                    e.idFacultad, e.nombreFacultad, e.nombrePrograma, e.idGrupo
+                    e.idFacultad, e.nombreFacultad, e.nombrePrograma, e.idGrupo, e.tieneVinculoPrograma
             FROM    dbo.uv_auth_estudiante e
             WHERE   e.idInstitucion IN (SELECT a.idInstitucion FROM dbo.uv_administrador a WHERE a.idUsuario = @idUsuario)
         ),
@@ -69,7 +71,7 @@ BEGIN
             SELECT  m.id, m.idUsuario, m.numeroIdentificacion, m.nombreCompleto, m.estaActivoUsuario,
                     totalGrupos = COUNT(DISTINCT m.idGrupo)
             FROM    matriculas m
-            WHERE   (@idFacultad IS NULL OR EXISTS (SELECT 1 FROM matriculas mf WHERE mf.id = m.id AND mf.idFacultad = @idFacultad))
+            WHERE   (@idFacultad IS NULL OR EXISTS (SELECT 1 FROM matriculas mf WHERE mf.id = m.id AND mf.idFacultad = @idFacultad AND mf.tieneVinculoPrograma = 1))
             GROUP BY m.id, m.idUsuario, m.numeroIdentificacion, m.nombreCompleto, m.estaActivoUsuario
         )
         SELECT
@@ -80,9 +82,9 @@ BEGIN
             correo                = u.correo,
             estaActivoUsuario     = c.estaActivoUsuario,
             facultades            = (SELECT STRING_AGG(CONVERT(NVARCHAR(MAX), x.nombreFacultad), N', ') WITHIN GROUP (ORDER BY x.nombreFacultad)
-                                     FROM (SELECT DISTINCT nombreFacultad FROM matriculas WHERE id = c.id) x),
+                                     FROM (SELECT DISTINCT nombreFacultad FROM matriculas WHERE id = c.id AND tieneVinculoPrograma = 1) x),
             programas             = (SELECT STRING_AGG(CONVERT(NVARCHAR(MAX), x.nombrePrograma), N', ') WITHIN GROUP (ORDER BY x.nombrePrograma)
-                                     FROM (SELECT DISTINCT nombrePrograma FROM matriculas WHERE id = c.id) x),
+                                     FROM (SELECT DISTINCT nombrePrograma FROM matriculas WHERE id = c.id AND tieneVinculoPrograma = 1) x),
             totalGrupos           = c.totalGrupos,
             totalRegistros        = COUNT(*) OVER(),
             -- CIERRE-W1B (punto 4): nombres separados, al final para no mover las columnas previas

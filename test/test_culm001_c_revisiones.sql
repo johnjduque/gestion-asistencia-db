@@ -85,8 +85,8 @@ BEGIN TRY
 
     -- C-DB-23: otro docente y revision inexistente -> RCN_001
     DECLARE @uT2 UNIQUEIDENTIFIER = NEWID(), @docT2 UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uT2, @tipoCC, 1950000011, N'CULMC', N'', N'DocT2', N'', N'culmc.doct2@fixture.invalid', 1, 1, N'FIXTURE_DISABLED_ACCOUNT');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uT2, @tipoCC, 1950000011, N'CULMC', N'', N'DocT2', N'', N'culmc.doct2@fixture.invalid', 1, 1);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@docT2, @uT2);
     EXEC #c1_decidir @revEA, N'MANTENER', @mot, @uT2, @c;
     IF (SELECT mensajeTecnicoResultado FROM #c1d) NOT LIKE N'%RCN_001%' THROW 58124, 'TEST FAILED: C-DB-23 docente ajeno -> RCN_001.', 1;

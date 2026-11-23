@@ -8,10 +8,10 @@ SET NOCOUNT ON;
 SET XACT_ABORT OFF;
 
 -- NOTOMA-001 (AsistenciasUCO-Infra/docs/work-items/NOTOMA-001-aviso-coordinador-sesion-sin-toma): aviso a la coordinacion cuando el docente no tomo asistencia.
---   NOTOMA_00_OBJETOS               tabla AvisoSesionSinToma, parametros AVISO_SESION_SIN_TOMA (no editables), plantilla con 8 marcadores y los 3 SP con EXECUTE para el rol runtime.
+--   NOTOMA_00_OBJETOS               tabla AvisoSesionSinToma, parametros AVISO_SESION_SIN_TOMA (no editables) y los 3 SP con EXECUTE para el rol runtime.
 --   NOTOMA_01_PENDIENTES            solo la sesion terminada sin tomas; no entran con tomas, canceladas, en curso, dentro del margen de cierre, mas antiguas que el atraso,
 --                                   ya avisadas ni con solicitud pendiente; el lote limita.
---   NOTOMA_02_DESTINATARIOS         coordinadores de cada programa del grupo compartido, una fila por persona; sin inactivos ni sin correo; 0 filas si la sesion ya no aplica.
+--   NOTOMA_02_DESTINATARIOS         DEC-077: el coordinador del programa responsable del grupo compartido, una fila; sin inactivos ni sin correo; 0 filas si la sesion ya no aplica.
 --   NOTOMA_03_REGISTRAR_IDEMPOTENTE la marca se escribe una vez; la segunda llamada es exito sin escritura; la sesion sale de las pendientes.
 --   NOTOMA_04_SESION_INEXISTENTE    registrar una sesion inexistente responde SES_001 y un total negativo GEN_002, sin escribir.
 --   NOTOMA_05_HABILITADO_FALSE      con HABILITADO = false no hay sesiones pendientes.
@@ -32,15 +32,11 @@ IF OBJECT_ID(N'dbo.AvisoSesionSinToma', N'U') IS NULL
    OR dbo.ufn_obtener_parametro_int(NULL, 'AVISO_SESION_SIN_TOMA', 'HORAS_MAXIMAS_ATRASO') <> 24
    OR LOWER(CAST(dbo.ufn_obtener_parametro('AVISO_SESION_SIN_TOMA', 'HABILITADO') AS NVARCHAR(10))) <> N'true'
    OR EXISTS (SELECT 1 FROM dbo.CatalogoParametroEdicion e INNER JOIN dbo.CatalogoParametro p ON p.id = e.parametro WHERE p.grupo = 'AVISO_SESION_SIN_TOMA' AND e.esEditable = 1)
-   OR NOT EXISTS (SELECT 1 FROM dbo.PlantillaNotificacion WHERE tipo = 'SESION_SIN_TOMA_COORDINADOR' AND idioma = 'es' AND version = 1 AND activa = 1
-                  AND asunto = N'Sesión sin toma de asistencia: {asignatura} ({fecha})' AND cuerpo LIKE N'%{docente}%{asignatura}%{grupo}%{enlaceSesiones}%')
-   OR (SELECT COUNT(*) FROM dbo.PlantillaNotificacionMarcador WHERE tipo = 'SESION_SIN_TOMA_COORDINADOR'
-       AND marcador IN ('coordinador', 'asignatura', 'grupo', 'fecha', 'horaInicio', 'horaFin', 'docente', 'enlaceSesiones')) <> 8
    OR EXISTS (SELECT 1 FROM (VALUES (N'usp_consultar_sesiones_pendientes_aviso_sin_toma'), (N'usp_consultar_destinatarios_aviso_sin_toma'), (N'usp_registrar_aviso_sesion_sin_toma')) s(nombre)
               WHERE NOT EXISTS (SELECT 1 FROM sys.database_permissions dp INNER JOIN sys.database_principals pr ON pr.principal_id = dp.grantee_principal_id
                                 WHERE dp.major_id = OBJECT_ID(N'dbo.' + s.nombre, N'P') AND dp.permission_name = N'EXECUTE' AND dp.state IN ('G', 'W')
                                   AND pr.name = N'rol_asistencias_runtime'))
-    THROW 59500, 'TEST FAILED NOTOMA_00_OBJETOS: faltan la tabla, los parametros (no editables), la plantilla con 8 marcadores o los permisos de los 3 SP del aviso de sesion sin toma.', 1;
+    THROW 59500, 'TEST FAILED NOTOMA_00_OBJETOS: faltan la tabla, los parametros (no editables) o los permisos de los 3 SP del aviso de sesion sin toma.', 1;
 PRINT 'TEST_PASS:NOTOMA_00_OBJETOS';
 GO
 
@@ -62,6 +58,8 @@ DECLARE @corr UNIQUEIDENTIFIER = NEWID();
 BEGIN TRANSACTION;
 BEGIN TRY
 :r /tmp/test/fixtures/culm001_b2nm_asignatura_compartida.sql
+    -- DEC-077: el aviso va solo al coordinador del programa responsable del grupo (aqui B, para probar inactivo y sin correo).
+    UPDATE dbo.Grupo SET programaResponsable = @progB WHERE id = @grupoG;
     -- Grupo mixto @grupoG (programas A y B, coordinadores @uCA y @uCB, titular @uT). Sesiones UTC_V2:
     --   S1 terminada hace 30 min sin tomas (pendiente); S2 terminada con una toma cerrada; S3 terminada hace 30 h; S4 cancelada; S5 en curso;
     --   S6 ya avisada; S7 con solicitud pendiente; S8 terminada hace 10 min (entra con margen 0; sale con margen 30)
@@ -114,15 +112,15 @@ BEGIN TRY
     PRINT 'TEST_PASS:NOTOMA_01_PENDIENTES';
 
     -- --------------------------------------------------------------------------------------------------------
-    -- 02: destinatarios de S1 (coordinadores de A y de B)
+    -- 02: destinatarios de S1 (DEC-077: solo el coordinador de B, programa responsable)
     -- --------------------------------------------------------------------------------------------------------
     INSERT INTO #ntD EXEC dbo.usp_consultar_destinatarios_aviso_sin_toma @idSesion = @s1, @idCorrelacion = @corr;
-    IF (SELECT COUNT(*) FROM #ntD) <> 2
-       OR NOT EXISTS (SELECT 1 FROM #ntD WHERE idUsuarioCoordinador = @uCA) OR NOT EXISTS (SELECT 1 FROM #ntD WHERE idUsuarioCoordinador = @uCB)
+    IF (SELECT COUNT(*) FROM #ntD) <> 1
+       OR EXISTS (SELECT 1 FROM #ntD WHERE idUsuarioCoordinador = @uCA) OR NOT EXISTS (SELECT 1 FROM #ntD WHERE idUsuarioCoordinador = @uCB)
        OR EXISTS (SELECT 1 FROM #ntD WHERE idSesion <> @s1 OR idGrupo <> @grupoG OR correoCoordinador IS NULL OR nombreCoordinador IS NULL OR nombreAsignatura IS NULL
                   OR nombreGrupo IS NULL OR nombreDocente IS NULL OR idAsignatura <> @asigOPT
                   OR fechaHoraFinUtc <> (SELECT fin FROM @s WHERE n = 1) OR fechaHoraInicioUtc <> (SELECT inicio FROM @s WHERE n = 1))
-        THROW 59520, 'TEST FAILED NOTOMA_02_DESTINATARIOS: el grupo compartido avisa a los coordinadores de A y de B con los datos de la sesion.', 1;
+        THROW 59520, 'TEST FAILED NOTOMA_02_DESTINATARIOS: el grupo compartido avisa solo al coordinador responsable (B) con los datos de la sesion.', 1;
     TRUNCATE TABLE #ntD;
     -- un coordinador de los dos programas es UNA fila
     DECLARE @coordCA UNIQUEIDENTIFIER = (SELECT id FROM dbo.Coordinador WHERE usuario = @uCA);
@@ -136,13 +134,13 @@ BEGIN TRY
     UPDATE dbo.Programa SET coordinador = @coordCB WHERE id = @progB;
     UPDATE dbo.Coordinador SET estado = 0 WHERE id = @coordCB;
     INSERT INTO #ntD EXEC dbo.usp_consultar_destinatarios_aviso_sin_toma @idSesion = @s1, @idCorrelacion = @corr;
-    IF (SELECT COUNT(*) FROM #ntD) <> 1 OR EXISTS (SELECT 1 FROM #ntD WHERE idUsuarioCoordinador = @uCB)
+    IF (SELECT COUNT(*) FROM #ntD) <> 0
         THROW 59522, 'TEST FAILED NOTOMA_02_DESTINATARIOS: un coordinador inactivo no es destinatario.', 1;
     TRUNCATE TABLE #ntD;
     UPDATE dbo.Coordinador SET estado = 1 WHERE id = @coordCB;
     UPDATE dbo.Usuario SET correo = N'' WHERE id = @uCB;
     INSERT INTO #ntD EXEC dbo.usp_consultar_destinatarios_aviso_sin_toma @idSesion = @s1, @idCorrelacion = @corr;
-    IF (SELECT COUNT(*) FROM #ntD) <> 1 OR EXISTS (SELECT 1 FROM #ntD WHERE idUsuarioCoordinador = @uCB)
+    IF (SELECT COUNT(*) FROM #ntD) <> 0
         THROW 59523, 'TEST FAILED NOTOMA_02_DESTINATARIOS: un coordinador con correo vacio no es destinatario.', 1;
     TRUNCATE TABLE #ntD;
     -- la sesion con toma, la cancelada y una inexistente no tienen destinatarios
@@ -231,8 +229,8 @@ BEGIN TRY
     -- 08: un docente inactivo no se avisa y NO se marca (si se reactiva dentro del atraso, se avisa)
     -- --------------------------------------------------------------------------------------------------------
     DECLARE @uDI UNIQUEIDENTIFIER = NEWID(), @docI UNIQUEIDENTIFIER = NEWID(), @gDocI UNIQUEIDENTIFIER = NEWID(), @sDocI UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uDI, @tipoCC, 989000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Inactivo', N'Notoma', N'Doc', N'I', CONCAT(N'notoma.di.', LEFT(CONVERT(NVARCHAR(36), @uDI), 8), N'@test.local'), 1, 0, N'FIXTURE_DISABLED_ACCOUNT');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uDI, @tipoCC, 989000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Inactivo', N'Notoma', N'Doc', N'I', CONCAT(N'notoma.di.', LEFT(CONVERT(NVARCHAR(36), @uDI), 8), N'@test.local'), 1, 0);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@docI, @uDI);
     INSERT INTO dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron,
         cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)

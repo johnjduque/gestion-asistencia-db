@@ -78,7 +78,7 @@ DECLARE @pfx CHAR(8);
 BEGIN TRANSACTION;
 
 -- 1) Usuarios y estudiantes (1..maxN)
-INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
+INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
 SELECT
     CONVERT(UNIQUEIDENTIFIER, CONCAT('DE000001-0000-4000-8000-', RIGHT(CONCAT('000000000000', CONVERT(VARCHAR(8), CONVERT(VARBINARY(4), e.i), 2)), 12))),
     @tipoCC,
@@ -88,8 +88,7 @@ SELECT
     CASE WHEN e.nameKey % 3 = 0 THEN n2.nombre ELSE N'' END,
     CONCAT(N'dev.est.', RIGHT(CONCAT(N'00000', e.i), 5), N'@fixture.invalid'),
     1,
-    CASE WHEN e.i % 97 = 0 THEN 0 ELSE 1 END,
-    N'FIXTURE_DISABLED_ACCOUNT'
+    CASE WHEN e.i % 97 = 0 THEN 0 ELSE 1 END
 FROM #est e
 JOIN #nom n1 ON n1.k = e.nameKey % 30
 JOIN #nom n2 ON n2.k = (e.nameKey / 3) % 30
@@ -108,10 +107,10 @@ SELECT CONVERT(UNIQUEIDENTIFIER, CONCAT('DE00000A-0000-4000-8000-', RIGHT(CONCAT
 FROM #est e;
 
 -- 2) Docente fixture por escenario
-INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
+INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
 SELECT CONVERT(UNIQUEIDENTIFIER, CONCAT('DE000003-0000-4000-8000-', RIGHT(CONCAT('000000000000', CONVERT(VARCHAR(8), CONVERT(VARBINARY(4), c.code), 2)), 12))),
        @tipoCC, 870000000 + c.code, N'Docente', N'Fixture', CONCAT(N'Paginacion', c.size), N'',
-       CONCAT(N'dev.docente.', c.size, N'@fixture.invalid'), 1, 1, N'FIXTURE_DISABLED_ACCOUNT'
+       CONCAT(N'dev.docente.', c.size, N'@fixture.invalid'), 1, 1
 FROM #esc c;
 
 INSERT INTO dbo.Docente (id, usuario)

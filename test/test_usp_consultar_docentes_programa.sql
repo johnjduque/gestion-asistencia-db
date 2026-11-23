@@ -19,9 +19,9 @@ BEGIN TRY
     DECLARE @cC1 UNIQUEIDENTIFIER = NEWID(), @cC2 UNIQUEIDENTIFIER = NEWID();
     DECLARE @p1 UNIQUEIDENTIFIER = NEWID(), @p2 UNIQUEIDENTIFIER = NEWID();
     DECLARE @corr UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uC1, @tipoCC, 930000001, N'Coord', N'Uno', N'Carlos', N'Qa', N'qa.c1.hu062@test.local', 1, 1, N'HashBackend_F1'),
-           (@uC2, @tipoCC, 930000002, N'Coord', N'Dos', N'Diana',  N'Qa', N'qa.c2.hu062@test.local', 1, 1, N'HashBackend_F2');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uC1, @tipoCC, 930000001, N'Coord', N'Uno', N'Carlos', N'Qa', N'qa.c1.hu062@test.local', 1, 1),
+           (@uC2, @tipoCC, 930000002, N'Coord', N'Dos', N'Diana',  N'Qa', N'qa.c2.hu062@test.local', 1, 1);
     INSERT INTO dbo.Coordinador (id, usuario) VALUES (@cC1, @uC1), (@cC2, @uC2);
     INSERT INTO dbo.Programa (id, facultad, tipoDePrograma, nombre, coordinador, estado)
     VALUES (@p1, @idFacultad, @idTipoProg, N'Programa QA 062-1', @cC1, 1), (@p2, @idFacultad, @idTipoProg, N'Programa QA 062-2', @cC2, 1);
@@ -31,8 +31,8 @@ BEGIN TRY
     WHILE @i <= 12
     BEGIN
         SET @u = NEWID(); SET @d = NEWID();
-        INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-        VALUES (@u, @tipoCC, 930001000 + @i, N'Rostagno', CONCAT(N'N', RIGHT(CONCAT('0', @i), 2)), N'Maria', N'Qa', CONCAT(N'qa.doc', @i, N'.hu062@test.local'), 1, 1, N'HashBackend_F3');
+        INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+        VALUES (@u, @tipoCC, 930001000 + @i, N'Rostagno', CONCAT(N'N', RIGHT(CONCAT('0', @i), 2)), N'Maria', N'Qa', CONCAT(N'qa.doc', @i, N'.hu062@test.local'), 1, 1);
         INSERT INTO dbo.Docente (id, usuario) VALUES (@d, @u);
         INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
         VALUES (NEWID(), @d, @p1, IIF(@i = 7, 0, 1), SYSUTCDATETIME());
@@ -40,8 +40,8 @@ BEGIN TRY
     END
     -- Un docente solo de P2 (C1 no debe verlo).
     DECLARE @uP2 UNIQUEIDENTIFIER = NEWID(), @dP2 UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uP2, @tipoCC, 930002001, N'Zuluaga', N'Qa', N'Pedro', N'Qa', N'qa.p2.hu062@test.local', 1, 1, N'HashBackend_F4');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uP2, @tipoCC, 930002001, N'Zuluaga', N'Qa', N'Pedro', N'Qa', N'qa.p2.hu062@test.local', 1, 1);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@dP2, @uP2);
     INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc) VALUES (NEWID(), @dP2, @p2, 1, SYSUTCDATETIME());
 

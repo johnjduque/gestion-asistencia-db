@@ -119,8 +119,11 @@ BEGIN TRY
     -- ------------------------------------------------------------------------------------------------------------
     -- D3-02 / D3-03: grupos protegidos y parametros sin fila editable => PRM_003, aun forzando esEditable = 1
     -- ------------------------------------------------------------------------------------------------------------
-    INSERT INTO dbo.CatalogoParametroEdicion (parametro, esEditable, etiqueta, descripcion, categoriaVisual)
-    VALUES (@pRed, 1, N'Forzado', N'Forzado por la prueba', N'Red');
+    -- INT-004 (migracion 74): RED/CIDRS_CAMPUS ya tiene una fila no editable que declara su formato; se fuerza esEditable = 1 sobre ella
+    IF NOT EXISTS (SELECT 1 FROM dbo.CatalogoParametroEdicion WHERE parametro = @pRed)
+        INSERT INTO dbo.CatalogoParametroEdicion (parametro, esEditable, etiqueta, descripcion, categoriaVisual)
+        VALUES (@pRed, 1, N'Forzado', N'Forzado por la prueba', N'Red');
+    ELSE UPDATE dbo.CatalogoParametroEdicion SET esEditable = 1 WHERE parametro = @pRed;
     SELECT @f2 = fechaModificacion FROM dbo.CatalogoParametro WHERE id = @pRed;
     SET @corr = NEWID();
     INSERT INTO #d3r EXEC dbo.usp_actualizar_parametro @idParametro = @pRed, @valor = N'10.0.0.0/8', @fechaModificacionEsperada = @f2,

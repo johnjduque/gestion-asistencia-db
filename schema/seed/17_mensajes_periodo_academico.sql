@@ -5,7 +5,7 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
--- HU096/HU097/HU098, FIX-CIERRE-002 (PER_007) y VAL-pendientes-john PRU-15 (PER_008, PER_009): mensajes de catalogo de la gestion de periodos academicos (usuario).
+-- HU096/HU097/HU098, FIX-CIERRE-002 (PER_007), VAL-pendientes-john PRU-15 (PER_008, PER_009): mensajes de catalogo de la gestion de periodos academicos (usuario).
 MERGE INTO [dbo].[CatalogoMensajeUsuario] AS Target
 USING (VALUES
     ('PER_001', 'BUSINESS_ERROR', 'MEDIO', N'El período académico indicado no existe.'),

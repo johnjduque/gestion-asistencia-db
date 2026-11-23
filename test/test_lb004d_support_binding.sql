@@ -121,6 +121,9 @@ BEGIN TRY
         AND NOT EXISTS (SELECT 1 FROM sys.tables WHERE name LIKE 'ArchivoSoporte%' AND name <> 'ArchivoSoporte'), 1, 0);
     EXEC #lb4d_expect 'SCHEMA_SHAPE', @ok;
 
+    -- Las cotas @t0/@t1 admiten +-2 s: el reloj UTC del contenedor puede dar saltos pequenos (resincronizacion de WSL2/Docker) entre
+    -- la lectura del test y la del procedimiento, y una cota exacta fallaba de forma intermitente; el chequeo sigue probando que la fecha
+    -- la fija el servidor en el momento de la llamada (no un valor por defecto, NULL ni una fecha vieja).
     -- ---------------------------------------------------------------- W1 registrar (valido, UTC)
     SET @corr = NEWID();
     SET @t0 = SYSUTCDATETIME();
@@ -136,7 +139,8 @@ BEGIN TRY
     SET @ok = IIF(EXISTS (SELECT 1 FROM dbo.ArchivoSoporte WHERE id = @file1 AND usuarioPropietario = @userA AND estado = 'DRAFT'
         AND solicitudRevisionAsistencia IS NULL AND fechaAdjuncionUtc IS NULL AND idCorrelacionAdjuncion IS NULL
         AND idCorrelacionRegistro = @corr AND tipoContenido = 'application/pdf' AND tamanioBytes = 1234 AND checksumSha256 = @sha1
-        AND fechaRegistroUtc BETWEEN @t0 AND @t1 AND fechaCambioEstadoUtc BETWEEN @t0 AND @t1), 1, 0);
+        AND fechaRegistroUtc BETWEEN DATEADD(SECOND, -2, @t0) AND DATEADD(SECOND, 2, @t1)
+        AND fechaCambioEstadoUtc BETWEEN DATEADD(SECOND, -2, @t0) AND DATEADD(SECOND, 2, @t1)), 1, 0);
     EXEC #lb4d_expect 'W1_VALID_ROW_UTC', @ok;
 
     -- ---------------------------------------------------------------- W1 idempotencia y conflictos (ARC_002)
@@ -283,8 +287,12 @@ BEGIN TRY
     SELECT @req2 = id FROM dbo.SolicitudRevisionAsistencia WHERE justificacionSolicitud = N'Con soporte QA';
     SET @ok = IIF(@req2 IS NOT NULL AND EXISTS (SELECT 1 FROM dbo.ArchivoSoporte WHERE id = @file1 AND estado = 'ATTACHED'
         AND solicitudRevisionAsistencia = @req2 AND idCorrelacionAdjuncion = @corrAttach
-        AND fechaAdjuncionUtc BETWEEN @t0 AND @t1 AND fechaCambioEstadoUtc BETWEEN @t0 AND @t1
+        AND fechaAdjuncionUtc BETWEEN DATEADD(SECOND, -2, @t0) AND DATEADD(SECOND, 2, @t1)
+        AND fechaCambioEstadoUtc BETWEEN DATEADD(SECOND, -2, @t0) AND DATEADD(SECOND, 2, @t1)
         AND fechaAdjuncionUtc >= fechaRegistroUtc), 1, 0);
+    IF @ok = 0
+        SELECT diag = 'W2_ATTACH_STATE_UTC', t0 = @t0, t1 = @t1, a.estado, a.fechaRegistroUtc, a.fechaAdjuncionUtc, a.fechaCambioEstadoUtc, a.idCorrelacionAdjuncion, esperada = @corrAttach
+        FROM dbo.ArchivoSoporte a WHERE a.id = @file1;
     EXEC #lb4d_expect 'W2_ATTACH_STATE_UTC', @ok;
 
     -- reintento con la MISMA correlacion => idempotente, sin segunda solicitud

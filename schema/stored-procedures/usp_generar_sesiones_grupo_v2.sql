@@ -15,6 +15,7 @@ GO
 --         BEGIN TRANSACTION y no hacen ROLLBACK: su tupla llega intacta y se devuelve tal cual (paridad con el v1).
 -- Fase 2: transaccion propia o SAVE TRANSACTION sp_generar_sesiones_v2 -> usp_internal_aplicar_festivos_grupo
 --         (@soloFuturas = 0: toda sesion del grupo en festivo nace cancelada; las que tienen asistencia se reportan).
+--         DEC-081: luego usp_internal_cancelar_sesiones_receso (dias de receso del periodo; no cambia las columnas del resultado).
 --         Exito: mensaje del SP congelado (GEN_004) + conteos.
 -- CATCH (R2-1): la reversion depende solo de @@TRANCOUNT a la entrada (@trancountEntrada):
 --   * = 0: ROLLBACK si @@TRANCOUNT > 0 y tupla SYS_001 con ufn_obtener_detalle_error (traduce el 3915 del ROLLBACK
@@ -43,6 +44,8 @@ AS
     DECLARE @transaccionPropia     BIT = 0;
     DECLARE @canceladasPorFestivo  INT = 0;
     DECLARE @festivoConAsistencia  INT = 0;
+    DECLARE @canceladasPorReceso   INT = 0;
+    DECLARE @recesoConAsistencia   INT = 0;
     DECLARE @mensajeUsuarioFase2   NVARCHAR(4000);
     DECLARE @mensajeTecnicoFase2   NVARCHAR(4000);
     DECLARE @estadoFase2           BIT;
@@ -89,6 +92,23 @@ BEGIN
                 @mensajeUsuarioResultado = @mensajeUsuarioFase2 OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoFase2 OUTPUT,
                 @estadoResultado = @estadoFase2 OUTPUT;
+
+            IF XACT_STATE() = -1
+                THROW 51000, @mensajeTecnicoFase2, 1;
+
+            -- DEC-081: dias de receso academico del periodo, justo despues de los festivos (un festivo ya aplicado gana)
+            IF XACT_STATE() = 1 AND @estadoFase2 = 1
+                EXEC dbo.usp_internal_cancelar_sesiones_receso
+                    @idGrupo = @idGrupoDefecto,
+                    @idReceso = NULL,
+                    @soloFuturas = 0,
+                    @idCorrelacion = @idCorrelacionDefecto,
+                    @idUsuarioEjecutor = NULL,
+                    @sesionesCanceladas = @canceladasPorReceso OUTPUT,
+                    @sesionesConAsistencia = @recesoConAsistencia OUTPUT,
+                    @mensajeUsuarioResultado = @mensajeUsuarioFase2 OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoFase2 OUTPUT,
+                    @estadoResultado = @estadoFase2 OUTPUT;
 
             IF XACT_STATE() = -1
                 THROW 51000, @mensajeTecnicoFase2, 1;

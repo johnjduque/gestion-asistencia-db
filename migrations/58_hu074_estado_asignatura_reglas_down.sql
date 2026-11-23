@@ -36,10 +36,10 @@ BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
         -- PASO 1: Validación del identificador de correlación
-        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
-            @idCorrelacion = @idCorrelacionDefecto, 
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
+            @idCorrelacion = @idCorrelacionDefecto,
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
         -- PASO 2: Ejecutor obligatorio, perfil COORDINADOR, existencia de la asignatura y titularidad del
@@ -84,7 +84,7 @@ BEGIN
     END CATCH
 
     -- BLOQUE FINAL: Retorno unificado de resultados
-    SELECT 
+    SELECT
         idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,
         mensajeTecnicoResultado = @mensajeTecnicoResultado,
@@ -125,10 +125,10 @@ BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
         -- PASO 1: Validación de correlación
-        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
-            @idCorrelacion = @idCorrelacionDefecto, 
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, 
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT, 
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
+            @idCorrelacion = @idCorrelacionDefecto,
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
         -- PASO 1.5: Validación de perfil RBAC del usuario ejecutor si es suministrado
@@ -178,8 +178,8 @@ BEGIN
         BEGIN
             IF @idPeriodoResolved IS NULL OR NOT EXISTS (SELECT 1 FROM [dbo].[uv_periodo_academico] WHERE id = @idPeriodoResolved)
             BEGIN
-                SELECT TOP 1 @idPeriodoResolved = id 
-                FROM [dbo].[uv_periodo_academico] 
+                SELECT TOP 1 @idPeriodoResolved = id
+                FROM [dbo].[uv_periodo_academico]
                 ORDER BY anio DESC;
             END
 
@@ -311,7 +311,7 @@ BEGIN
     END CATCH
 
     -- BLOQUE FINAL: Retorno unificado de resultados
-    SELECT 
+    SELECT
         idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,
         mensajeTecnicoResultado = @mensajeTecnicoResultado,

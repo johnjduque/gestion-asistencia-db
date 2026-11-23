@@ -42,8 +42,12 @@ PRINT '======================================================================';
 :r /tmp/test/test_val_mensajes_err_pendientes.sql
 -- REA-02 (VAL-oleada9, migracion 47): mensaje del almacenamiento no disponible
 :r /tmp/test/test_val_oleada9_mensaje_almacenamiento.sql
+-- Mensaje ERR_BD_NO_DISPONIBLE (migracion 67)
+:r /tmp/test/test_err_bd_no_disponible.sql
 -- VAL oleada 3: PRU-14 (bordes del umbral de horas) y OBS-03 (procedimientos sin @idCorrelacion)
 :r /tmp/test/test_val_umbral_horas_bordes.sql
+-- VAL PRU-13 / decision 3A: borde del 20 % y del 15 % en la vista de resumen y el motor de alertas
+:r /tmp/test/test_val_umbral_borde_alertas.sql
 :r /tmp/test/test_val_obs03_id_correlacion.sql
 :r /tmp/test/test_usp_registrar_o_actualizar_plan_estudio.sql
 :r /tmp/test/test_usp_plan_estudio_estado_semestres.sql
@@ -61,6 +65,7 @@ PRINT '======================================================================';
 :r /tmp/test/test_hu008_regla_inscripcion_programa.sql
 :r /tmp/test/test_int_hu01_reactivar_matricula_retirada.sql
 :r /tmp/test/test_usp_crear_actualizar_grupo.sql
+:r /tmp/test/test_dec076_dec077_creacion_grupo.sql
 :r /tmp/test/test_usp_crear_actualizar_sesion.sql
 :r /tmp/test/test_usp_validar_sesion_operacion_interno.sql
 :r /tmp/test/test_maint_003k_error_priority.sql
@@ -129,6 +134,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_usp_rotar_token_matricula_grupo.sql
 :r /tmp/test/test_usp_validar_token_matricula_publico.sql
 :r /tmp/test/test_usp_matricular_estudiante_por_token.sql
+:r /tmp/test/test_dec078_matricula_programa_estudiante.sql
+:r /tmp/test/test_semestre_estudiante_programa.sql
 :r /tmp/test/test_culm001_a_retiro_solicitudes.sql
 :r /tmp/test/test_culm001_a_correcciones.sql
 :r /tmp/test/test_culm001_a_fixture_segundo_ambito.sql
@@ -180,8 +187,21 @@ PRINT '======================================================================';
 :r /tmp/test/test_dec074_retiro_carga_masiva.sql
 -- INT-003 (sincronizacion de mensajes desde MessageUcoLab, migracion 45): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_int003_sincronizar_mensaje.sql
+-- INT-004 (sincronizacion de parametros desde el Catalogo externo, migracion 73): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_int004_sincronizar_parametro.sql
+-- INT-004 (formato CIDR_LIST de parametros, migracion 74): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_int004_formato_cidr.sql
 -- CULM-001 D.9-a (hallazgos medios y bajos, migracion 28): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_culm001_d9_hallazgos.sql
+-- SES-GEN-01 (calendario de sesiones del semestre, migracion 64): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_ses_gen_01_calendario_semestre.sql
+-- DEC-081 (receso academico del periodo, migracion 68): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_receso_academico.sql
+-- Revision final P3 (BD-1..BD-10, migracion 69): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_p3_revision_final_bd.sql
+:r /tmp/test/test_auditoria_bd_2026_11_22.sql
+-- Regresion P3 (D1 y D2, 2026-11-22): registro por nombre exacto (DEC-028, sin comodin)
+:r /tmp/test/test_p3_regresion_2026_11_22.sql
 -- CULM-001 / DEC-064 (sesiones manuales: destinatarios y cancelacion por el coordinador, migracion 29): registro por nombre exacto (DEC-028, sin comodin)
 :r /tmp/test/test_sesiones_manuales_notificacion.sql
 -- FIX-CIERRE-001 (cierre masivo sin caer al periodo mas reciente): registro por nombre exacto (DEC-028, sin comodin)

@@ -61,16 +61,16 @@ IF @facultad IS NULL
 BEGIN
     SET @facultad = CAST(@p + '01' AS UNIQUEIDENTIFIER);
     IF NOT EXISTS (SELECT 1 FROM dbo.Usuario WHERE id = @uDecano)
-        INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-        VALUES (@uDecano, @tipoCC, 1985100002, N'CULM1', N'B', N'Decano', N'B', N'culm1.fixture.decano.b@uco.edu.co', 1, 1, N'HashRelleno_CULM1_B_SinCuenta');
+        INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+        VALUES (@uDecano, @tipoCC, 1985100002, N'CULM1', N'B', N'Decano', N'B', N'culm1.fixture.decano.b@uco.edu.co', 1, 1);
     IF NOT EXISTS (SELECT 1 FROM dbo.Decano WHERE id = @decano)
         INSERT INTO dbo.Decano (id, usuario) VALUES (@decano, @uDecano);
     INSERT INTO dbo.Facultad (id, nombre, institucion, decano, estado) VALUES (@facultad, N'CULM1-Facultad B', @inst, @decano, 1);
 END
 
 -- Usuarios del ambito (solo BD).
-INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-SELECT CAST(@p + v.k AS UNIQUEIDENTIFIER), @tipoCC, 1985100000 + v.n, N'CULM1', N'B', v.nombre, v.nombre2, v.correo, 1, 1, N'HashRelleno_CULM1_B_SinCuenta'
+INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+SELECT CAST(@p + v.k AS UNIQUEIDENTIFIER), @tipoCC, 1985100000 + v.n, N'CULM1', N'B', v.nombre, v.nombre2, v.correo, 1, 1
 FROM (VALUES
     ('04', 4, N'Coordinador', N'B', N'culm1.fixture.coordinador.b@uco.edu.co'),
     ('0A', 10, N'Docente', N'B', N'culm1.fixture.docente.b@uco.edu.co'),

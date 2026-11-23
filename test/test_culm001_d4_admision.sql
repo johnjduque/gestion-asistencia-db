@@ -167,23 +167,26 @@ BEGIN TRY
     EXEC #d4_expect 'D4_06_CORREO_NO_INSTITUCIONAL_ADS_005', @ok;
     PRINT 'TEST_PASS:CULM001_D4_06_CORREO_INSTITUCIONAL';
 
-    -- ---------------------------------------------------------------- D4-07 alta nueva sin contrasena => ADS_006
+    -- ---------------------------------------------------------------- D4-07 alta nueva sin clave => se admite (SEG-11)
+    -- La clave la gestiona la identidad externa y dbo.Usuario ya no la guarda: @password (NULL o en blanco) se ignora. Antes
+    -- (ADS_006) la alta nueva sin clave se rechazaba. Se usan personas distintas de @correo2 para no alterar D4-08.
+    DECLARE @correoSc1 NVARCHAR(255) = CONCAT(N'qa.d4.sinclave1', @dominio), @correoSc2 NVARCHAR(255) = CONCAT(N'qa.d4.sinclave2', @dominio);
     TRUNCATE TABLE #a;
     SET @corr = NEWID();
     INSERT #a EXEC dbo.usp_admitir_estudiante @idTipoIdIdentificacion = @tipoCC, @numeroIdentificacion = 916400005,
         @primerNombre = N'Ana', @segundoNombre = NULL, @primerApellido = N'SinClave', @segundoApellido = NULL,
-        @correo = @correo2, @password = NULL, @idPrograma = @idPrograma, @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdmin;
-    SELECT @msgEsperado = contenido FROM dbo.uv_mensaje_usuario WHERE codigo = 'ADS_006';
-    SET @ok = IIF(@msgEsperado IS NOT NULL AND EXISTS (SELECT 1 FROM #a WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msgEsperado)
-                  AND NOT EXISTS (SELECT 1 FROM dbo.Usuario WHERE correo = @correo2), 1, 0);
-    EXEC #d4_expect 'D4_07_SIN_CONTRASENA_ADS_006', @ok;
+        @correo = @correoSc1, @password = NULL, @idPrograma = @idPrograma, @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdmin;
+    SET @ok = IIF(EXISTS (SELECT 1 FROM #a WHERE estadoResultado = 1 AND esUsuarioNuevo = 1 AND esEstudianteNuevo = 1)
+                  AND EXISTS (SELECT 1 FROM dbo.Usuario WHERE correo = @correoSc1 AND numeroIdentificacion = 916400005), 1, 0);
+    EXEC #d4_expect 'D4_07_SIN_CLAVE_SE_ADMITE', @ok;
     TRUNCATE TABLE #a;
     SET @corr = NEWID();
-    INSERT #a EXEC dbo.usp_admitir_estudiante @idTipoIdIdentificacion = @tipoCC, @numeroIdentificacion = 916400005,
-        @primerNombre = N'Ana', @segundoNombre = NULL, @primerApellido = N'SinClave', @segundoApellido = NULL,
-        @correo = @correo2, @password = N'   ', @idPrograma = @idPrograma, @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdmin;
-    SET @ok = IIF(EXISTS (SELECT 1 FROM #a WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msgEsperado), 1, 0);
-    EXEC #d4_expect 'D4_07_CONTRASENA_EN_BLANCO_ADS_006', @ok;
+    INSERT #a EXEC dbo.usp_admitir_estudiante @idTipoIdIdentificacion = @tipoCC, @numeroIdentificacion = 916400095,
+        @primerNombre = N'Ana', @segundoNombre = NULL, @primerApellido = N'ClaveBlanco', @segundoApellido = NULL,
+        @correo = @correoSc2, @password = N'   ', @idPrograma = @idPrograma, @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdmin;
+    SET @ok = IIF(EXISTS (SELECT 1 FROM #a WHERE estadoResultado = 1 AND esUsuarioNuevo = 1 AND esEstudianteNuevo = 1)
+                  AND EXISTS (SELECT 1 FROM dbo.Usuario WHERE correo = @correoSc2 AND numeroIdentificacion = 916400095), 1, 0);
+    EXEC #d4_expect 'D4_07_CLAVE_EN_BLANCO_SE_ADMITE', @ok;
     PRINT 'TEST_PASS:CULM001_D4_07_CONTRASENA_INICIAL';
 
     -- ---------------------------------------------------------------- D4-08 otros perfiles no admiten (RBAC)

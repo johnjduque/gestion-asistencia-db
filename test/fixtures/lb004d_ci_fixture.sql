@@ -66,17 +66,17 @@ IF EXISTS (SELECT 1 FROM dbo.Estudiante WHERE id = @fixtureStudent AND usuario <
 IF NOT EXISTS (SELECT 1 FROM dbo.Usuario WHERE id = @fixtureTeacherUser)
 BEGIN
     INSERT dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido,
-                        primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
+                        primerNombre, segundoNombre, correo, correoConfirmado, estado)
     VALUES (@fixtureTeacherUser, @typeCc, 99040002, N'Fixture', N'LB004D', N'Teacher', N'CI',
-            @teacherEmail, 1, 1, N'NOT_A_CREDENTIAL_FIXTURE');
+            @teacherEmail, 1, 1);
 END;
 
 IF NOT EXISTS (SELECT 1 FROM dbo.Usuario WHERE id = @fixtureStudentUser)
 BEGIN
     INSERT dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido,
-                        primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
+                        primerNombre, segundoNombre, correo, correoConfirmado, estado)
     VALUES (@fixtureStudentUser, @typeCc, 99040003, N'Fixture', N'LB004D', N'Student', N'CI',
-            @studentEmail, 1, 1, N'NOT_A_CREDENTIAL_FIXTURE');
+            @studentEmail, 1, 1);
 END;
 
 IF NOT EXISTS (SELECT 1 FROM dbo.Docente WHERE id = @fixtureTeacher)

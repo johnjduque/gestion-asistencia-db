@@ -125,6 +125,7 @@ BEGIN
         FROM dbo.uv_auth_sesion s
         INNER JOIN dbo.uv_sesion_estado se ON se.idSesion = s.id
         WHERE s.idGrupo = @idGrupoDefecto
+          AND se.solicitudRechazada = 0   -- BD-6: una solicitud rechazada nunca existio como clase (no entra al cronograma ni al selector)
           AND (@filtroFechaDesde IS NULL OR s.fechaHoraInicio >= @filtroFechaDesde)
           AND (@filtroFechaHasta IS NULL OR s.fechaHoraFin <= @filtroFechaHasta)
           AND (@filtroSemana IS NULL OR s.numeroSemana = @filtroSemana)

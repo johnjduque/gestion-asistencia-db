@@ -36,9 +36,9 @@ DECLARE @inst UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_institucion WHERE 
 DECLARE @tid UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.TipoIdentificacion);
 DECLARE @tipo UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_tipo_programa WHERE estaActivoTipoPrograma = 1);
 DECLARE @ud UNIQUEIDENTIFIER = NEWID(), @uc UNIQUEIDENTIFIER = NEWID(), @d UNIQUEIDENTIFIER = NEWID(), @co UNIQUEIDENTIFIER = NEWID(), @f UNIQUEIDENTIFIER = NEWID();
-INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-VALUES (@ud, @tid, 600000000 + ABS(CHECKSUM(NEWID()) % 9999999), N'QA', N'Conc', N'Dec', N'X', CONCAT(CONVERT(NVARCHAR(36), @ud), N'@qa.test'), 1, 1, N'x'),
-       (@uc, @tid, 610000000 + ABS(CHECKSUM(NEWID()) % 9999999), N'QA', N'Conc', N'Coo', N'X', CONCAT(CONVERT(NVARCHAR(36), @uc), N'@qa.test'), 1, 1, N'x');
+INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+VALUES (@ud, @tid, 600000000 + ABS(CHECKSUM(NEWID()) % 9999999), N'QA', N'Conc', N'Dec', N'X', CONCAT(CONVERT(NVARCHAR(36), @ud), N'@qa.test'), 1, 1),
+       (@uc, @tid, 610000000 + ABS(CHECKSUM(NEWID()) % 9999999), N'QA', N'Conc', N'Coo', N'X', CONCAT(CONVERT(NVARCHAR(36), @uc), N'@qa.test'), 1, 1);
 INSERT INTO dbo.Decano (id, usuario) VALUES (@d, @ud);
 INSERT INTO dbo.Facultad (id, nombre, institucion, decano, estado) VALUES (@f, N'QA Conc $sufijo', @inst, @d, 1);
 INSERT INTO dbo.Coordinador (id, usuario, facultad) VALUES (@co, @uc, @f);

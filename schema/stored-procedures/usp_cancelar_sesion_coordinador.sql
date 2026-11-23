@@ -14,8 +14,8 @@ GO
 -- El coordinador del programa cancela una sesion creada manualmente por el docente (uv_sesion_manual: procedencia NULL de v1 o UTC_V2 de v2).
 -- No cambia la firma publica de usp_cancelar_sesion (docente). Reglas:
 --   * RBAC COORDINADOR (SEC_001); sesion existente (SES_001);
---   * ambito: el coordinador coordina AL MENOS UNO de los programas vigentes del grupo (ufn_programas_grupo INTERSECT
---     ufn_programas_coordinador); si no, SEC_002. En un grupo mixto lo reciben (y pueden cancelar) los coordinadores de ambos programas;
+--   * ambito (DEC-077, via usp_validar_coordinador_sesion_interno): el coordinador del programa responsable del grupo
+--     (ufn_programas_grupo_responsable); si no, SEC_002. En un grupo compartido solo ese coordinador cancela;
 --   * solo sesiones manuales: SES_018; motivo del catalogo MotivoCancelacionSesion activo: SES_019; observacion recortada <=
 --     SESION/OBSERVACION_CANCELACION_COORDINADOR_MAXIMA: SES_021;
 --   * mismas reglas de escritura que usp_cancelar_sesion: doble cancelacion SES_011 (se conserva el motivo original); con asistencia o

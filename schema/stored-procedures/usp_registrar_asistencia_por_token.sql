@@ -16,6 +16,9 @@ GO
 --   AQR_001) -> transaccion -> ventana con ASISTENCIA/TOLERANCIA_MINUTOS y MARGEN_RETARDO_MINUTOS (bloquea Sesion; cancelada
 --   SES_010) -> toma abierta (AQR_005) -> matricula A en el grupo de la toma (AQR_004: un estudiante de otro grupo nunca
 --   escribe) -> usp_sincronizar_asistencia_estudiante_interno(@idToma, @registradoPorEstudiante = 1, @soloSiNoExiste = 1).
+-- Concurrencia: la fechaRegistroUtc se lee por las claves unicas (estudianteGrupo, sesion) y (asistencia, toma) de la fila propia.
+-- Una lectura por toma recorre los detalles insertados y aun sin confirmar de los demas estudiantes y, con N registros
+-- concurrentes, cada transaccion espera a otra (interbloqueo 1205 sobre la PK de DetalleAsistencia).
 -- Idempotente por (estudiante, toma): si ya habia detalle responde AQR_008 con yaRegistrado = 1 y no cambia una marca previa
 -- del docente. Exito AQR_009. La red del campus (CIDR), el interruptor y los limites los aplica el backend antes de llamar.
 -- ============================================================================
@@ -43,6 +46,8 @@ AS
     DECLARE @codigoPresente    NVARCHAR(5) = CAST(dbo.ufn_obtener_parametro('ASISTENCIA', 'CODIGO_RAZON_PRESENTE') AS NVARCHAR(5));
     DECLARE @codigoActiva      NVARCHAR(10) = CAST(dbo.ufn_obtener_parametro('MATRICULA', 'ESTADO_INSCRITA') AS NVARCHAR(10));
     DECLARE @idEstudiante      UNIQUEIDENTIFIER;
+    DECLARE @idEstudianteGrupo UNIQUEIDENTIFIER;
+    DECLARE @idAsistenciaPropia UNIQUEIDENTIFIER;
     DECLARE @idTokenAsistencia UNIQUEIDENTIFIER;
     DECLARE @idToma            UNIQUEIDENTIFIER;
     DECLARE @idSesion          UNIQUEIDENTIFIER;
@@ -135,10 +140,12 @@ BEGIN
             END
 
             -- Matricula A del estudiante en el grupo de la toma: un estudiante de otro grupo nunca escribe
-            IF @estadoResultado = 1
-               AND (@idEstudiante IS NULL
-                    OR NOT EXISTS (SELECT 1 FROM dbo.EstudianteGrupo eg INNER JOIN dbo.EstadoEstudianteGrupo e ON e.id = eg.estado
-                                   WHERE eg.estudiante = @idEstudiante AND eg.grupo = @idGrupo AND e.codigo = @codigoActiva))
+            IF @estadoResultado = 1 AND @idEstudiante IS NOT NULL
+                SELECT TOP 1 @idEstudianteGrupo = eg.id
+                FROM dbo.EstudianteGrupo eg INNER JOIN dbo.EstadoEstudianteGrupo e ON e.id = eg.estado
+                WHERE eg.estudiante = @idEstudiante AND eg.grupo = @idGrupo AND e.codigo = @codigoActiva;
+
+            IF @estadoResultado = 1 AND @idEstudianteGrupo IS NULL
             BEGIN
                 SET @p1 = CONVERT(NVARCHAR(36), @idEstudiante);
                 SET @p2 = CONVERT(NVARCHAR(36), @idGrupo);
@@ -161,11 +168,15 @@ BEGIN
                 IF @estadoResultado = 1
                 BEGIN
                     SET @yaRegistrado = IIF(@detalleCreado = 1, 0, 1);
+                    -- Dos busquedas forzadas por las claves unicas de la fila propia: un join por toma o un recorrido de la PK de
+                    -- DetalleAsistencia (plan que el optimizador elige con pocas filas) espera las filas aun sin confirmar de los
+                    -- demas estudiantes y encadena bloqueos con N registros concurrentes.
+                    SELECT @idAsistenciaPropia = a.id
+                    FROM dbo.Asistencia a WITH (FORCESEEK)
+                    WHERE a.estudianteGrupo = @idEstudianteGrupo AND a.sesion = @idSesion;
                     SELECT @fechaRegistro = da.fechaRegistroUtc
-                    FROM dbo.DetalleAsistencia da
-                    INNER JOIN dbo.Asistencia a ON a.id = da.asistencia
-                    INNER JOIN dbo.EstudianteGrupo eg ON eg.id = a.estudianteGrupo
-                    WHERE da.toma = @idToma AND eg.estudiante = @idEstudiante AND a.sesion = @idSesion;
+                    FROM dbo.DetalleAsistencia da WITH (FORCESEEK)
+                    WHERE da.asistencia = @idAsistenciaPropia AND da.toma = @idToma;
                     SELECT @nombreAsignatura = g.nombreAsignatura, @nombreGrupo = g.nombre, @numeroSesion = s.numero
                     FROM dbo.Sesion s INNER JOIN dbo.uv_grupo g ON g.id = s.grupo
                     WHERE s.id = @idSesion;

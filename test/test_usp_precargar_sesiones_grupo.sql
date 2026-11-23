@@ -14,7 +14,7 @@ DECLARE @zonaHorariaSqlServer SYSNAME = (SELECT TOP 1 valor FROM dbo.uv_parametr
 DECLARE @fechaHoraLocalAhora DATETIME2(0) = CAST(SYSUTCDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE @zonaHorariaSqlServer AS DATETIME2(0));
 DECLARE @fechaHoyLocal DATE = CAST(@fechaHoraLocalAhora AS DATE);
 DECLARE @inicioSlotVencidoLocal DATETIME2(0) = DATEADD(MINUTE, DATEDIFF(MINUTE, 0, @fechaHoraLocalAhora) + 5, 0);
-DECLARE @finSlotVencidoLocal DATETIME2(0) = DATEADD(MINUTE, 5, @inicioSlotVencidoLocal);
+DECLARE @finSlotVencidoLocal DATETIME2(0) = DATEADD(MINUTE, 60, @inicioSlotVencidoLocal); -- SES-GEN-01: una franja dura 60 min como minimo y cae en la ventana 06:00-22:00
 DECLARE @codigoDiaHoy NVARCHAR(2) = CASE DATEDIFF(DAY, '19000101', @fechaHoyLocal) % 7
     WHEN 0 THEN N'LU' WHEN 1 THEN N'MA' WHEN 2 THEN N'MI' WHEN 3 THEN N'JU'
     WHEN 4 THEN N'VI' WHEN 5 THEN N'SA' ELSE N'DO' END;
@@ -39,13 +39,13 @@ BEGIN TRY
     DECLARE @uD1 UNIQUEIDENTIFIER = NEWID(), @uD2 UNIQUEIDENTIFIER = NEWID(), @uE UNIQUEIDENTIFIER = NEWID(), @uCoordOtro UNIQUEIDENTIFIER = NEWID();
     DECLARE @d1 UNIQUEIDENTIFIER = NEWID(), @d2 UNIQUEIDENTIFIER = NEWID(), @e UNIQUEIDENTIFIER = NEWID();
     DECLARE @cOtro UNIQUEIDENTIFIER = NEWID(), @pOtro UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uD1, @tipoCC, 973000001, N'Precarga', N'Uno', N'Pablo', N'Qa', N'qa.precarga.d1@test.local', 1, 1, N'HashBackend_P1'),
-           (@uD2, @tipoCC, 973000002, N'Precarga', N'Dos', N'Marina', N'Qa', N'qa.precarga.d2@test.local', 1, 1, N'HashBackend_P2'),
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uD1, @tipoCC, 973000001, N'Precarga', N'Uno', N'Pablo', N'Qa', N'qa.precarga.d1@test.local', 1, 1),
+           (@uD2, @tipoCC, 973000002, N'Precarga', N'Dos', N'Marina', N'Qa', N'qa.precarga.d2@test.local', 1, 1),
            (@uE, @tipoCC, 974000000 + ABS(CHECKSUM(NEWID()) % 99999999), N'Precarga', N'Estudiante', N'Sara', N'Qa',
-            CONCAT(N'qa.precarga.estudiante.', REPLACE(CONVERT(NVARCHAR(36), @uE), N'-', N''), N'@test.local'), 1, 1, N'HashBackend_PE'),
+            CONCAT(N'qa.precarga.estudiante.', REPLACE(CONVERT(NVARCHAR(36), @uE), N'-', N''), N'@test.local'), 1, 1),
            (@uCoordOtro, @tipoCC, 975000000 + ABS(CHECKSUM(NEWID()) % 99999999), N'Precarga', N'Coordinador', N'Oscar', N'Qa',
-            CONCAT(N'qa.precarga.coordinador.', REPLACE(CONVERT(NVARCHAR(36), @uCoordOtro), N'-', N''), N'@test.local'), 1, 1, N'HashBackend_PC');
+            CONCAT(N'qa.precarga.coordinador.', REPLACE(CONVERT(NVARCHAR(36), @uCoordOtro), N'-', N''), N'@test.local'), 1, 1);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d1, @uD1), (@d2, @uD2);
     INSERT INTO dbo.Estudiante (id, usuario) VALUES (@e, @uE);
     INSERT INTO dbo.Coordinador (id, usuario) VALUES (@cOtro, @uCoordOtro);
@@ -82,8 +82,16 @@ BEGIN TRY
         @nombre = N'Grupo QA Precarga A', @idDocente = @d1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uCoord;
     INSERT INTO #r EXEC dbo.usp_crear_grupo @idGrupo = @gB, @idAsignatura = @idAsig, @idPeriodoAcademico = @idFuturo, @codigo = @codB,
         @nombre = N'Grupo QA Precarga B', @idDocente = @d1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uCoord;
+    -- DEC-076: usp_crear_grupo ya no crea grupos en un periodo terminado (PER_010). El caso C (precarga de un grupo cuyo periodo ya
+    -- termino) sigue vigente para grupos existentes, asi que el grupo C se inserta como dato heredado.
     INSERT INTO #r EXEC dbo.usp_crear_grupo @idGrupo = @gC, @idAsignatura = @idAsig, @idPeriodoAcademico = @idPasado, @codigo = @codC,
         @nombre = N'Grupo QA Precarga C', @idDocente = @d1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uCoord;
+    IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeTecnicoResultado LIKE N'%PER_010%')
+        THROW 53402, 'TEST FAILED: DEC-076 crear un grupo en un periodo terminado debe dar PER_010.', 1;
+    DELETE FROM #r WHERE estadoResultado = 0;
+    INSERT INTO dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron,
+        cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)
+    VALUES (@gC, @idAsig, @idPasado, @codC, N'Grupo QA Precarga C', 30, 0, 0, 0, @d1);
     INSERT INTO #r EXEC dbo.usp_crear_grupo @idGrupo = @gV8, @idAsignatura = @idAsig, @idPeriodoAcademico = @idPeriodo8, @codigo = @codV8,
         @nombre = N'Grupo QA Precarga 8 semanas', @idDocente = @d1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uCoord;
     INSERT INTO #r EXEC dbo.usp_crear_grupo @idGrupo = @gV12, @idAsignatura = @idAsig, @idPeriodoAcademico = @idPeriodo12, @codigo = @codV12,
@@ -92,7 +100,7 @@ BEGIN TRY
         @nombre = N'Grupo QA Precarga 16 semanas', @idDocente = @d1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uCoord;
     INSERT INTO #r EXEC dbo.usp_crear_grupo @idGrupo = @gV18, @idAsignatura = @idAsig, @idPeriodoAcademico = @idPeriodo18, @codigo = @codV18,
         @nombre = N'Grupo QA Precarga 18 semanas', @idDocente = @d1, @idCorrelacion = @corr, @idUsuarioEjecutor = @uCoord;
-    IF (SELECT COUNT(*) FROM #r WHERE estadoResultado = 1) <> 7 OR @@TRANCOUNT <> 1
+    IF (SELECT COUNT(*) FROM #r WHERE estadoResultado = 1) <> 6 OR @@TRANCOUNT <> 1
         THROW 53401, 'TEST FAILED: los grupos de prueba debieron crearse dentro de la transaccion externa.', 1;
 
     DECLARE @idEstadoActivo UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.uv_estado_estudiante_grupo WHERE codigo = 'A');
@@ -103,9 +111,10 @@ BEGIN TRY
 
     -- Horario de A: lunes y miercoles 08-10. C (periodo vencido) programa hoy en una franja futura.
     IF CAST(@inicioSlotVencidoLocal AS DATE) <> @fechaHoyLocal OR CAST(@finSlotVencidoLocal AS DATE) <> @fechaHoyLocal
+       OR CAST(@inicioSlotVencidoLocal AS TIME(0)) < '06:00' OR CAST(@finSlotVencidoLocal AS TIME(0)) > '22:00'
     BEGIN
-        SET @inicioSlotVencidoLocal = DATEADD(HOUR, 22, CAST(@fechaHoyLocal AS DATETIME2(0)));
-        SET @finSlotVencidoLocal = DATEADD(MINUTE, 1439, CAST(@fechaHoyLocal AS DATETIME2(0)));
+        SET @inicioSlotVencidoLocal = DATEADD(HOUR, 21, CAST(@fechaHoyLocal AS DATETIME2(0)));
+        SET @finSlotVencidoLocal = DATEADD(HOUR, 22, CAST(@fechaHoyLocal AS DATETIME2(0)));
     END
     DECLARE @horarioVencido NVARCHAR(MAX) = CONCAT(N'[{"codigoDia":"', @codigoDiaHoy, N'","horaInicio":"',
         CONVERT(CHAR(5), CAST(@inicioSlotVencidoLocal AS TIME(0)), 108), N'","horaFin":"',

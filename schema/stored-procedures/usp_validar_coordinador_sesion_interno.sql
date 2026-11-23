@@ -12,8 +12,8 @@ GO
 -- extraordinaria y consultar sus destinatarios. Mantiene en un unico punto la regla de ambito de usp_cancelar_sesion_coordinador:
 --   * RBAC COORDINADOR (SEC_001);
 --   * sesion existente (SES_001);
---   * ambito: el coordinador coordina AL MENOS UNO de los programas vigentes del grupo de la sesion (ufn_programas_grupo
---     INTERSECT ufn_programas_coordinador); si no, SEC_002.
+--   * ambito (DEC-077): el coordinador coordina el programa responsable del grupo de la sesion (ufn_programas_grupo_responsable
+--     INTERSECT ufn_programas_coordinador); si no, SEC_002. En un grupo compartido solo ese coordinador aprueba, rechaza o cancela.
 -- Devuelve el grupo de la sesion en @idGrupo. No escribe ni abre transacciones (compatible con INSERT ... EXEC del llamador).
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_coordinador_sesion_interno]
@@ -85,7 +85,7 @@ BEGIN
         BEGIN
             SELECT @idGrupo = s.grupo FROM dbo.Sesion s WHERE s.id = @idSesionDefecto;
 
-            IF NOT EXISTS (SELECT idPrograma FROM dbo.ufn_programas_grupo(@idGrupo)
+            IF NOT EXISTS (SELECT idPrograma FROM dbo.ufn_programas_grupo_responsable(@idGrupo)
                            INTERSECT
                            SELECT idPrograma FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutorDefecto))
             BEGIN

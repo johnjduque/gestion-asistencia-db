@@ -38,3 +38,11 @@ GO
 IF COL_LENGTH('dbo.SolicitudRevisionAsistencia', 'razonCausaResolucion') IS NULL
     ALTER TABLE [dbo].[SolicitudRevisionAsistencia] ADD [razonCausaResolucion] uniqueidentifier NULL;
 GO
+
+-- AUD-BD M-1 (2026-11-22): indices de apoyo para las FK de ambito y filtro (las vistas uv_auth_* y los SP de ambito filtran por estas columnas).
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.SolicitudRevisionAsistencia') AND name = 'IX_SolicitudRevisionAsistencia_estado')
+    CREATE NONCLUSTERED INDEX IX_SolicitudRevisionAsistencia_estado ON dbo.SolicitudRevisionAsistencia (estado);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.SolicitudRevisionAsistencia') AND name = 'IX_SolicitudRevisionAsistencia_toma')
+    CREATE NONCLUSTERED INDEX IX_SolicitudRevisionAsistencia_toma ON dbo.SolicitudRevisionAsistencia (toma);
+GO

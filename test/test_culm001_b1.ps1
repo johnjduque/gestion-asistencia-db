@@ -119,21 +119,25 @@ catch { $failures += "CULM001_B1_FES_05_CARGA_CONCURRENTE $($_.Exception.Message
 finally { try { $cr = Invoke-ContainerSql -Name 'fes05_cleanup' -Sql $cleanup2099 -AbortOnError; if ($cr.ExitCode -ne 0) { throw "cleanup exit $($cr.ExitCode): $($cr.Lines -join '; ')" } } catch { $failures += 'CULM001_B1_FES_05 cleanup failed' } }
 
 # ---------------------------------------------------------------------------------------------------------------
-# B1-FES-07 (tupla): v2 en un periodo con festivos => sesionesCanceladasPorFestivo = 3; segunda ejecucion = 0
+# B1-FES-07 (tupla): v2 en un periodo de 20 dias que empieza hoy con 2 festivos propios => 2 canceladas; segunda ejecucion = 0
 # ---------------------------------------------------------------------------------------------------------------
 try {
     $sql = @"
 SET NOCOUNT ON;
 SET XACT_ABORT OFF;
 $fixtureSql
-DECLARE @json NVARCHAR(MAX) = N'[{"fecha":"2026-01-01","nombre":"Año Nuevo"},{"fecha":"2026-01-12","nombre":"Reyes Magos"},{"fecha":"2026-03-23","nombre":"San José"},{"fecha":"2026-04-02","nombre":"Jueves Santo"},{"fecha":"2026-04-03","nombre":"Viernes Santo"},{"fecha":"2026-05-01","nombre":"Día del Trabajo"},{"fecha":"2026-05-18","nombre":"Ascensión del Señor"},{"fecha":"2026-06-08","nombre":"Corpus Christi"},{"fecha":"2026-06-15","nombre":"Sagrado Corazón"},{"fecha":"2026-06-29","nombre":"San Pedro y San Pablo"},{"fecha":"2026-07-13","nombre":"Nuestra Señora del Rosario de Chiquinquirá"},{"fecha":"2026-07-20","nombre":"Independencia"},{"fecha":"2026-08-07","nombre":"Batalla de Boyacá"},{"fecha":"2026-08-17","nombre":"Asunción de la Virgen"},{"fecha":"2026-10-12","nombre":"Día de la Raza"},{"fecha":"2026-11-02","nombre":"Todos los Santos"},{"fecha":"2026-11-16","nombre":"Independencia de Cartagena"},{"fecha":"2026-12-08","nombre":"Inmaculada Concepción"},{"fecha":"2026-12-25","nombre":"Navidad"}]';
+-- Ventana relativa a hoy (la generacion exige hoy dentro del periodo): 20 dias, 2 festivos propios del test (dia 4 y dia 11).
+DECLARE @fesA DATE = DATEADD(DAY, 3, @firstDay), @fesB DATE = DATEADD(DAY, 10, @firstDay);
 DECLARE @period UNIQUEIDENTIFIER = NEWID(), @group UNIQUEIDENTIFIER = NEWID(), @corr UNIQUEIDENTIFIER = NEWID();
-CREATE TABLE #cf (a UNIQUEIDENTIFIER, b NVARCHAR(4000), c NVARCHAR(4000), d BIT, e INT, f INT, g INT, h INT, i INT);
 BEGIN TRANSACTION;
-INSERT INTO #cf EXEC dbo.usp_cargar_dias_festivos_automatico @anio = 2026, @festivosJSON = @json, @fuente = N'CALCULO_LOCAL', @diferenciasCalculoLocal = 0, @idCorrelacion = @corr;
-IF NOT EXISTS (SELECT 1 FROM #cf WHERE d = 1) THROW 57501, 'FES07 festivos 2026 no cargados', 1;
+-- Los festivos de la ventana se fijan dentro de la transaccion del test (se revierten): se desactivan los existentes y se siembran dos.
+UPDATE dbo.DiaFestivo SET estaActivo = 0 WHERE fecha BETWEEN @firstDay AND DATEADD(DAY, 19, @firstDay);
+MERGE dbo.DiaFestivo AS t USING (SELECT f, n FROM (VALUES (@fesA, N'CULM1 Festivo A'), (@fesB, N'CULM1 Festivo B')) x(f, n)) AS o ON t.fecha = o.f
+WHEN MATCHED THEN UPDATE SET estaActivo = 1, nombre = o.n
+WHEN NOT MATCHED THEN INSERT (fecha, nombre, fuente, estaActivo, fechaCargaUtc, idCorrelacionCarga) VALUES (o.f, o.n, N'CALCULO_LOCAL', 1, SYSUTCDATETIME(), @corr);
+IF (SELECT COUNT(*) FROM dbo.DiaFestivo WHERE estaActivo = 1 AND fecha BETWEEN @firstDay AND DATEADD(DAY, 19, @firstDay)) <> 2 THROW 57501, 'FES07 festivos de la ventana no sembrados', 1;
 INSERT dbo.PeriodoAcademico (id, institucion, nombre, codigo, fechaInicio, fechaFin, anio)
-VALUES (@period, @institution, N'CULM1 Periodo FES07', 3800000 + ABS(CHECKSUM(NEWID()) % 99999), '2026-11-01', '2026-11-20', 2026);
+VALUES (@period, @institution, N'CULM1 Periodo FES07', 3800000 + ABS(CHECKSUM(NEWID()) % 99999), @firstDay, DATEADD(DAY, 19, @firstDay), YEAR(@firstDay));
 INSERT dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron,
     cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)
 VALUES (@group, @assignment, @period, 943000 + ABS(CHECKSUM(NEWID()) % 56999), N'CULM1 Grupo FES07', 20, 0, 0, 0, @teacher);
@@ -320,8 +324,9 @@ try {
     $migDir = Join-Path (Split-Path -Parent $PSScriptRoot) 'migrations'
     $up = Join-Path $migDir '15_culm001_b1_sesion_cancelada_festivos_up.sql'
     $down = Join-Path $migDir '15_culm001_b1_sesion_cancelada_festivos_down.sql'
-    if (-not (Test-Path $up) -or -not (Test-Path $down)) { throw 'migration 15 up/down files are missing.' }
-    foreach ($f in @($up, $down)) {
+    $down71 = Join-Path $migDir '71_p3_f5_notificaciones_servicio_down.sql'
+    if (-not (Test-Path $up) -or -not (Test-Path $down) -or -not (Test-Path $down71)) { throw 'migration 15 up/down or 71 down files are missing.' }
+    foreach ($f in @($up, $down, $down71)) {
         $null = & docker cp $f "${ContainerName}:$remoteDir/$(Split-Path -Leaf $f)" 2>&1
         if ($LASTEXITCODE -ne 0) { throw "could not copy $f" }
     }
@@ -331,7 +336,7 @@ IF OBJECT_ID(N'dbo.SesionCancelacion', N'U') IS NULL OR OBJECT_ID(N'dbo.TipoCanc
    OR OBJECT_ID(N'dbo.DiaFestivo', N'U') IS NULL OR OBJECT_ID(N'dbo.CargaDiaFestivo', N'U') IS NULL
    OR OBJECT_ID(N'dbo.uv_sesion_estado', N'V') IS NULL OR OBJECT_ID(N'dbo.uv_dia_festivo', N'V') IS NULL
    OR OBJECT_ID(N'dbo.uv_carga_dia_festivo', N'V') IS NULL OR OBJECT_ID(N'dbo.uv_tipo_cancelacion_sesion', N'V') IS NULL
-   OR (SELECT COUNT(*) FROM dbo.TipoCancelacionSesion) <> 2
+   OR (SELECT COUNT(*) FROM dbo.TipoCancelacionSesion WHERE codigo IN (N'DOCENTE', N'FESTIVO')) <> 2
    OR OBJECT_ID(N'dbo.FK_SesionCancelacion_Sesion', N'F') IS NULL OR OBJECT_ID(N'dbo.FK_SesionCancelacion_DiaFestivo', N'F') IS NULL
    OR NOT EXISTS (SELECT 1 FROM sys.sql_modules WHERE object_id = OBJECT_ID(N'dbo.uv_cumplimiento_sesion_grupo') AND definition LIKE N'%SesionCancelacion%')
     THROW 57600, 'MIG_CHECK_UP_FAILED', 1;
@@ -342,6 +347,9 @@ SET NOCOUNT ON;
 SET XACT_ABORT OFF;
 GO
 BEGIN TRANSACTION;
+GO
+-- P3 F5: la migracion 71 retiro PlantillaNotificacion*, que el down de 15 aun usa; se baja primero (dentro de la transaccion revertida).
+:r $remoteDir/71_p3_f5_notificaciones_servicio_down.sql
 GO
 :r $remoteDir/15_culm001_b1_sesion_cancelada_festivos_up.sql
 GO

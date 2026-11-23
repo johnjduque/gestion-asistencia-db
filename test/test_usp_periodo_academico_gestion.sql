@@ -27,12 +27,12 @@ BEGIN TRY
     DECLARE @cC1 UNIQUEIDENTIFIER = NEWID(), @dDec UNIQUEIDENTIFIER = NEWID(), @dDoc UNIQUEIDENTIFIER = NEWID();
     DECLARE @p1 UNIQUEIDENTIFIER = NEWID(), @fDec UNIQUEIDENTIFIER = NEWID(), @instInactiva UNIQUEIDENTIFIER = NEWID();
     DECLARE @per1 UNIQUEIDENTIFIER = NEWID(), @per2 UNIQUEIDENTIFIER = NEWID(), @per3 UNIQUEIDENTIFIER = NEWID(), @corr UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uAdm,         @tipoCC, 970000960, N'Admin', N'Uno', N'Adela', N'Qa', N'qa.adm.hu096@test.local', 1, 1, N'HashBackend_Q0'),
-           (@uAdmInactiva, @tipoCC, 970000965, N'Admin', N'Dos', N'Abel',  N'Qa', N'qa.adm2.hu096@test.local', 1, 1, N'HashBackend_Q5'),
-           (@uC1,          @tipoCC, 970000961, N'Coord', N'Uno', N'Camila', N'Qa', N'qa.c1.hu096@test.local', 1, 1, N'HashBackend_Q1'),
-           (@uDec,         @tipoCC, 970000963, N'Decano', N'Uno', N'Dora', N'Qa', N'qa.dec.hu096@test.local', 1, 1, N'HashBackend_Q3'),
-           (@uDoc,         @tipoCC, 970000964, N'Docente', N'Uno', N'Dario', N'Qa', N'qa.doc.hu096@test.local', 1, 1, N'HashBackend_Q4');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uAdm,         @tipoCC, 970000960, N'Admin', N'Uno', N'Adela', N'Qa', N'qa.adm.hu096@test.local', 1, 1),
+           (@uAdmInactiva, @tipoCC, 970000965, N'Admin', N'Dos', N'Abel',  N'Qa', N'qa.adm2.hu096@test.local', 1, 1),
+           (@uC1,          @tipoCC, 970000961, N'Coord', N'Uno', N'Camila', N'Qa', N'qa.c1.hu096@test.local', 1, 1),
+           (@uDec,         @tipoCC, 970000963, N'Decano', N'Uno', N'Dora', N'Qa', N'qa.dec.hu096@test.local', 1, 1),
+           (@uDoc,         @tipoCC, 970000964, N'Docente', N'Uno', N'Dario', N'Qa', N'qa.doc.hu096@test.local', 1, 1);
     INSERT INTO dbo.Institucion (id, nombre, estado) VALUES (@instInactiva, N'Institucion QA inactiva HU096', 0);
     INSERT INTO dbo.Administrador (id, usuario, institucion) VALUES (NEWID(), @uAdm, @idInstitucion), (NEWID(), @uAdmInactiva, @instInactiva);
     INSERT INTO dbo.Coordinador (id, usuario) VALUES (@cC1, @uC1);
@@ -49,7 +49,7 @@ BEGIN TRY
 
     -- T-096-01: el administrador crea un periodo en su institucion; codigo y anio derivados de fechaInicio
     INSERT INTO #rc EXEC dbo.usp_crear_periodo_academico
-        @idPeriodo = @per1, @nombre = N' QA-2090-1 ', @fechaInicio = '2090-02-01', @fechaFin = '2090-06-30', @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdm;
+        @idPeriodo = @per1, @nombre = N' QA-2090-1 ', @fechaInicio = '2090-02-01', @fechaFin = '2090-05-23', @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdm;
     INSERT INTO #r SELECT idCorrelacion, mensajeUsuarioResultado, mensajeTecnicoResultado, estadoResultado FROM #rc;
     TRUNCATE TABLE #rc;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 1) THROW 52810, 'T-096-01 FAILED: el administrador no pudo crear el periodo.', 1;
@@ -61,7 +61,7 @@ BEGIN TRY
     -- T-096-02: segundo semestre => codigo terminado en 2
     TRUNCATE TABLE #r;
     INSERT INTO #rc EXEC dbo.usp_crear_periodo_academico
-        @idPeriodo = @per2, @nombre = N'QA-2090-2', @fechaInicio = '2090-08-01', @fechaFin = '2090-12-15', @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdm;
+        @idPeriodo = @per2, @nombre = N'QA-2090-2', @fechaInicio = '2090-08-01', @fechaFin = '2090-11-20', @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdm;
     INSERT INTO #r SELECT idCorrelacion, mensajeUsuarioResultado, mensajeTecnicoResultado, estadoResultado FROM #rc;
     TRUNCATE TABLE #rc;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 1) THROW 52820, 'T-096-02 FAILED: el administrador no pudo crear el segundo periodo.', 1;
@@ -71,14 +71,14 @@ BEGIN TRY
     -- T-096-03: rechazos (id nulo, duplicado, fechas, COORDINADOR, DECANO, DOCENTE, admin de institucion inactiva, ejecutor nulo)
     TRUNCATE TABLE #r;
     INSERT INTO #rc EXEC dbo.usp_crear_periodo_academico
-        @idPeriodo = NULL, @nombre = N'QA-2091-1', @fechaInicio = '2091-02-01', @fechaFin = '2091-06-30', @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdm;
+        @idPeriodo = NULL, @nombre = N'QA-2091-1', @fechaInicio = '2091-02-01', @fechaFin = '2091-05-23', @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdm;
     INSERT INTO #r SELECT idCorrelacion, mensajeUsuarioResultado, mensajeTecnicoResultado, estadoResultado FROM #rc;
     TRUNCATE TABLE #rc;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0) THROW 52830, 'T-096-03 FAILED: id de periodo nulo debio rechazarse.', 1;
     SELECT @msg = contenido FROM dbo.uv_mensaje_usuario WHERE codigo = 'PER_003';
     TRUNCATE TABLE #r;
     INSERT INTO #rc EXEC dbo.usp_crear_periodo_academico
-        @idPeriodo = @per3, @nombre = N'qa-2090-1', @fechaInicio = '2091-02-01', @fechaFin = '2091-06-30', @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdm;
+        @idPeriodo = @per3, @nombre = N'qa-2090-1', @fechaInicio = '2091-02-01', @fechaFin = '2091-05-23', @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdm;
     INSERT INTO #r SELECT idCorrelacion, mensajeUsuarioResultado, mensajeTecnicoResultado, estadoResultado FROM #rc;
     TRUNCATE TABLE #rc;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msg) THROW 52831, 'T-096-03 FAILED: nombre duplicado debio retornar PER_003.', 1;
@@ -100,7 +100,7 @@ BEGIN TRY
     BEGIN
         TRUNCATE TABLE #r;
         INSERT INTO #rc EXEC dbo.usp_crear_periodo_academico
-            @idPeriodo = @per3, @nombre = N'QA-2091-1', @fechaInicio = '2091-02-01', @fechaFin = '2091-06-30', @idCorrelacion = @corr, @idUsuarioEjecutor = @uSinPermiso;
+            @idPeriodo = @per3, @nombre = N'QA-2091-1', @fechaInicio = '2091-02-01', @fechaFin = '2091-05-23', @idCorrelacion = @corr, @idUsuarioEjecutor = @uSinPermiso;
         INSERT INTO #r SELECT idCorrelacion, mensajeUsuarioResultado, mensajeTecnicoResultado, estadoResultado FROM #rc;
         TRUNCATE TABLE #rc;
         IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msg)
@@ -112,13 +112,13 @@ BEGIN TRY
     SELECT @msg = contenido FROM dbo.uv_mensaje_usuario WHERE codigo = 'PER_005';
     TRUNCATE TABLE #r;
     INSERT INTO #rc EXEC dbo.usp_crear_periodo_academico
-        @idPeriodo = @per3, @nombre = N'QA-2091-1', @fechaInicio = '2091-02-01', @fechaFin = '2091-06-30', @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdmInactiva;
+        @idPeriodo = @per3, @nombre = N'QA-2091-1', @fechaInicio = '2091-02-01', @fechaFin = '2091-05-23', @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdmInactiva;
     INSERT INTO #r SELECT idCorrelacion, mensajeUsuarioResultado, mensajeTecnicoResultado, estadoResultado FROM #rc;
     TRUNCATE TABLE #rc;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msg) THROW 52835, 'T-096-03 FAILED: admin de institucion inactiva debio retornar PER_005.', 1;
     TRUNCATE TABLE #r;
     INSERT INTO #rc EXEC dbo.usp_crear_periodo_academico
-        @idPeriodo = @per3, @nombre = N'QA-2091-1', @fechaInicio = '2091-02-01', @fechaFin = '2091-06-30', @idCorrelacion = @corr, @idUsuarioEjecutor = NULL;
+        @idPeriodo = @per3, @nombre = N'QA-2091-1', @fechaInicio = '2091-02-01', @fechaFin = '2091-05-23', @idCorrelacion = @corr, @idUsuarioEjecutor = NULL;
     INSERT INTO #r SELECT idCorrelacion, mensajeUsuarioResultado, mensajeTecnicoResultado, estadoResultado FROM #rc;
     TRUNCATE TABLE #rc;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0) THROW 52836, 'T-096-03 FAILED: ejecutor nulo debio rechazarse.', 1;
@@ -128,13 +128,13 @@ BEGIN TRY
     -- T-097-01: el administrador modifica; codigo y anio se recalculan; conservar el nombre esta permitido
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_actualizar_periodo_academico
-        @idPeriodo = @per1, @nombre = N'QA-2092-2', @fechaInicio = '2092-07-15', @fechaFin = '2092-11-30', @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdm;
+        @idPeriodo = @per1, @nombre = N'QA-2092-2', @fechaInicio = '2092-07-15', @fechaFin = '2092-11-03', @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdm;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 1) THROW 52840, 'T-097-01 FAILED: el administrador no pudo modificar.', 1;
     IF NOT EXISTS (SELECT 1 FROM dbo.PeriodoAcademico WHERE id = @per1 AND nombre = N'QA-2092-2' AND codigo = 20922 AND anio = 2092 AND fechaInicio = '2092-07-15')
         THROW 52841, 'T-097-01 FAILED: datos modificados inesperados.', 1;
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_actualizar_periodo_academico
-        @idPeriodo = @per1, @nombre = N'QA-2092-2', @fechaInicio = '2092-07-15', @fechaFin = '2092-12-10', @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdm;
+        @idPeriodo = @per1, @nombre = N'QA-2092-2', @fechaInicio = '2092-07-15', @fechaFin = '2092-11-03', @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdm;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 1) THROW 52842, 'T-097-01 FAILED: conservar el mismo nombre debe permitirse.', 1;
     PRINT 'TEST_PASS:T-097-01';
 
@@ -142,12 +142,12 @@ BEGIN TRY
     SELECT @msg = contenido FROM dbo.uv_mensaje_usuario WHERE codigo = 'PER_001';
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_actualizar_periodo_academico
-        @idPeriodo = @per3, @nombre = N'QA-X', @fechaInicio = '2093-01-01', @fechaFin = '2093-05-01', @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdm;
+        @idPeriodo = @per3, @nombre = N'QA-X', @fechaInicio = '2093-01-01', @fechaFin = '2093-04-22', @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdm;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msg) THROW 52850, 'T-097-02 FAILED: periodo inexistente debio retornar PER_001.', 1;
     SELECT @msg = contenido FROM dbo.uv_mensaje_usuario WHERE codigo = 'PER_003';
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_actualizar_periodo_academico
-        @idPeriodo = @per1, @nombre = N'qa-2090-2', @fechaInicio = '2093-01-01', @fechaFin = '2093-05-01', @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdm;
+        @idPeriodo = @per1, @nombre = N'qa-2090-2', @fechaInicio = '2093-01-01', @fechaFin = '2093-04-22', @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdm;
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msg) THROW 52851, 'T-097-02 FAILED: nombre de otro periodo debio retornar PER_003.', 1;
     SELECT @msg = contenido FROM dbo.uv_mensaje_usuario WHERE codigo = 'PER_002';
     TRUNCATE TABLE #r;
@@ -156,7 +156,7 @@ BEGIN TRY
     IF NOT EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 0 AND mensajeUsuarioResultado = @msg) THROW 52852, 'T-097-02 FAILED: fechas iguales debio retornar PER_002.', 1;
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_actualizar_periodo_academico
-        @idPeriodo = @per1, @nombre = N'QA-COORD', @fechaInicio = '2093-01-01', @fechaFin = '2093-05-01', @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
+        @idPeriodo = @per1, @nombre = N'QA-COORD', @fechaInicio = '2093-01-01', @fechaFin = '2093-04-22', @idCorrelacion = @corr, @idUsuarioEjecutor = @uC1;
     IF EXISTS (SELECT 1 FROM #r WHERE estadoResultado = 1) THROW 52853, 'T-097-02 FAILED: el COORDINADOR no debe modificar periodos.', 1;
     IF NOT EXISTS (SELECT 1 FROM dbo.PeriodoAcademico WHERE id = @per1 AND nombre = N'QA-2092-2') THROW 52854, 'T-097-02 FAILED: un rechazo modifico el periodo.', 1;
     PRINT 'TEST_PASS:T-097-02';

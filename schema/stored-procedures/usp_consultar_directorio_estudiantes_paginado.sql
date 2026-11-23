@@ -17,7 +17,7 @@ GO
 --   * COORDINADOR activo: estudiantes con EstudiantePrograma en sus programas.
 --   * DOCENTE: estudiantes con alguna matricula (en cualquier estado: padron historico) en sus grupos.
 --   * Cualquier otro rol: ambito vacio.
--- Modo listado (@idEstudiante NULL): 12 columnas, orden primerApellido, primerNombre, numeroIdentificacion, id;
+-- Modo listado (@idEstudiante NULL): 12 columnas + idPrograma, nombrePrograma y semestreActual al final (migracion 63; 15), orden primerApellido, primerNombre, numeroIdentificacion, id;
 -- paginacion protegida (pagina >= 1, tamano 1..100). Los filtros solo restringen dentro del ambito: igualdad para tipo
 -- y numero de documento, LIKE con escape de %, _ y \ sobre UPPER(nombreCompleto) y LOWER(correo), y EXISTS sobre
 -- uv_estudiante para los academicos.
@@ -152,9 +152,25 @@ BEGIN
             nombreCompleto       = CAST(u.nombreCompleto AS NVARCHAR(400)),
             correo               = u.correo,
             estaActivoUsuario    = u.estaActivoUsuario,
-            totalRegistros       = COUNT(*) OVER()
+            totalRegistros       = COUNT(*) OVER(),
+            idPrograma           = pr.idPrograma,
+            nombrePrograma       = pr.nombrePrograma,
+            semestreActual       = pr.semestreActual
         FROM dbo.uv_estudiante_identidad e
         INNER JOIN dbo.uv_usuario u ON u.id = e.idUsuario
+        -- Programa del estudiante dentro del ambito del ejecutor (coordinador: los que coordina; administrador: su institucion) y,
+        -- con @idPrograma, solo ese; si hay varios, el de menor nombre. Docente: sin programa.
+        OUTER APPLY (
+            SELECT TOP (1) idPrograma = p.id, nombrePrograma = p.nombre, semestreActual = CAST(ep.semestreActual AS INT)
+            FROM dbo.EstudiantePrograma ep
+            INNER JOIN dbo.Programa p ON p.id = ep.programa
+            WHERE ep.estudiante = e.id
+              AND (@idPrograma IS NULL OR ep.programa = @idPrograma)
+              AND (EXISTS (SELECT 1 FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutor) cp WHERE cp.idPrograma = p.id)
+                   OR EXISTS (SELECT 1 FROM dbo.Administrador ad INNER JOIN dbo.Facultad f ON f.institucion = ad.institucion
+                              WHERE ad.usuario = @idUsuarioEjecutor AND f.id = p.facultad))
+            ORDER BY p.nombre ASC, p.id ASC
+        ) pr
         WHERE e.id IN (SELECT amb.idEstudiante FROM ambito amb)
           AND (@idTipoIdentificacion IS NULL OR u.idTipoIdentificacion = @idTipoIdentificacion)
           AND (@numeroIdentificacion IS NULL OR u.numeroIdentificacion = @numeroIdentificacion)

@@ -19,6 +19,7 @@ $dbRoot = Split-Path -Parent $PSScriptRoot
 $null = & docker exec -u 0 $ContainerName mkdir -p "$remoteDir/migrations" 2>&1
 $null = & docker cp (Join-Path $dbRoot 'migrations/19_culm001_c_cancelacion_inasistencia_up.sql') "${ContainerName}:$remoteDir/migrations/" 2>&1
 $null = & docker cp (Join-Path $dbRoot 'migrations/19_culm001_c_cancelacion_inasistencia_down.sql') "${ContainerName}:$remoteDir/migrations/" 2>&1
+$null = & docker cp (Join-Path $dbRoot 'migrations/71_p3_f5_notificaciones_servicio_down.sql') "${ContainerName}:$remoteDir/migrations/" 2>&1
 $null = & docker cp (Join-Path $PSScriptRoot 'test_culm001_c_migraciones.sql') "${ContainerName}:$remoteDir/test_culm001_c_migraciones.sql" 2>&1
 $null = & docker exec -u 0 $ContainerName chmod -R a+rX $remoteDir 2>&1
 $failures = @()

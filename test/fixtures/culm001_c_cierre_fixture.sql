@@ -22,8 +22,8 @@ DECLARE @periodCodeText NVARCHAR(50) = CONVERT(NVARCHAR(50), @periodCode);
 DECLARE @corr UNIQUEIDENTIFIER = NEWID();
 IF @institution IS NULL OR @adminUser IS NULL OR @uCoordC IS NULL OR @estAct IS NULL OR @estFin IS NULL OR @estCanc IS NULL OR @rzSJC IS NULL OR @modoC IS NULL OR @cerC IS NULL OR @tipoCCc IS NULL
     THROW 58300, 'TEST FAILED: C cierre fixture: faltan datos sembrados.', 1;
-INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-VALUES (@uDocC, @tipoCCc, 1960000000 + ABS(CHECKSUM(NEWID()) % 9999999), N'CULMC', N'', N'DocCierre', N'', CONCAT(N'culmc.cierre.', CONVERT(NVARCHAR(12), ABS(CHECKSUM(NEWID()))), N'@fixture.invalid'), 1, 1, N'FIXTURE_DISABLED_ACCOUNT');
+INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+VALUES (@uDocC, @tipoCCc, 1960000000 + ABS(CHECKSUM(NEWID()) % 9999999), N'CULMC', N'', N'DocCierre', N'', CONCAT(N'culmc.cierre.', CONVERT(NVARCHAR(12), ABS(CHECKSUM(NEWID()))), N'@fixture.invalid'), 1, 1);
 INSERT INTO dbo.Docente (id, usuario) VALUES (@docC, @uDocC);
 INSERT INTO dbo.PeriodoAcademico (id, institucion, nombre, codigo, fechaInicio, fechaFin, anio)
 VALUES (@period, @institution, N'Periodo QA Cierre C', @periodCode, DATEADD(DAY, -90, CAST(GETDATE() AS DATE)), DATEADD(DAY, -2, CAST(GETDATE() AS DATE)), YEAR(GETDATE()));

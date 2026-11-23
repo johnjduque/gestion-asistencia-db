@@ -26,9 +26,9 @@ BEGIN TRY
     WHILE @i <= 14
     BEGIN
         DECLARE @uid UNIQUEIDENTIFIER = NEWID();
-        INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
+        INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
         VALUES (@uid, @tipoId, 300000000 + ABS(CHECKSUM(NEWID()) % 99999999), CONCAT(N'Apellido', CHAR(64 + @i)), N'QA', CONCAT(N'Nombre', CHAR(64 + @i)), N'X',
-                CONCAT(CONVERT(NVARCHAR(36), @uid), N'@qa.test'), 1, 1, N'x');
+                CONCAT(CONVERT(NVARCHAR(36), @uid), N'@qa.test'), 1, 1);
         INSERT INTO #u (id) VALUES (@uid);
         SET @i += 1;
     END
@@ -178,9 +178,9 @@ BEGIN TRY
     DECLARE @c UNIQUEIDENTIFIER = NEWID(), @inexistente UNIQUEIDENTIFIER = NEWID(), @err NVARCHAR(4000);
     DECLARE @g1 UNIQUEIDENTIFIER = (SELECT id FROM #g WHERE k = N'G1'), @g2 UNIQUEIDENTIFIER = (SELECT id FROM #g WHERE k = N'G2'), @g3 UNIQUEIDENTIFIER = (SELECT id FROM #g WHERE k = N'G3');
     CREATE TABLE #r2 (n INT IDENTITY(1,1), idPrograma UNIQUEIDENTIFIER, nombrePrograma NVARCHAR(50), estaActivoPrograma BIT, totalEstudiantes INT, estudiantesRiesgo INT, estudiantesPerdida INT,
-        tasaRetencion DECIMAL(5,2), sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2), horasDictadas DECIMAL(12,2), horasFalta DECIMAL(12,2));
+        tasaRetencion DECIMAL(5,2), sesionesEjecutadas INT, faltasSinJustaCausa INT, porcentajeAusentismo DECIMAL(5,2), horasDictadas DECIMAL(12,2), horasFalta DECIMAL(12,2), horasPeriodo DECIMAL(12,2));
     -- T-DB-11/12: filas exactas, orden por ausentismo desc con nulos al final, programa inactivo listado (D5), sin programas de otra facultad
-    INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta)
+    INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta, horasPeriodo)
     EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @idPeriodoAcademico = NULL;
     IF (SELECT COUNT(*) FROM #r2) <> 3 THROW 53501, 'TEST FAILED: T-DB-11 se esperaban 3 programas (P1, P2, P4) y ninguno de F2', 1;
     IF EXISTS (SELECT 1 FROM #r2 WHERE idPrograma = @px) THROW 53502, 'TEST FAILED: T-DB-11 PX es de otra facultad', 1;
@@ -196,14 +196,14 @@ BEGIN TRY
     TRUNCATE TABLE #r2;
 
     -- Aislamiento: decano2 solo ve PX (sin datos)
-    INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta)
+    INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta, horasPeriodo)
     EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uDec2, @idCorrelacion = @c;
     IF NOT ((SELECT COUNT(*) FROM #r2) = 1 AND EXISTS (SELECT 1 FROM #r2 WHERE idPrograma = @px AND totalEstudiantes = 0 AND porcentajeAusentismo IS NULL))
         THROW 53507, 'TEST FAILED: el decano2 debe ver solo PX', 1;
     TRUNCATE TABLE #r2;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta) EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uC1, @idCorrelacion = @c;
+        INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta, horasPeriodo) EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uC1, @idCorrelacion = @c;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -212,7 +212,7 @@ BEGIN TRY
         THROW 53510, 'TEST FAILED: T-DB-02 coordinador (esperaba KPI_003).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta) EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uE1, @idCorrelacion = @c;
+        INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta, horasPeriodo) EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uE1, @idCorrelacion = @c;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -221,7 +221,7 @@ BEGIN TRY
         THROW 53511, 'TEST FAILED: T-DB-02 estudiante (esperaba KPI_003).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta) EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uPlano, @idCorrelacion = @c;
+        INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta, horasPeriodo) EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uPlano, @idCorrelacion = @c;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -230,7 +230,7 @@ BEGIN TRY
         THROW 53512, 'TEST FAILED: T-DB-02 usuario sin perfil (esperaba KPI_003).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta) EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @idPeriodoAcademico = @inexistente;
+        INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta, horasPeriodo) EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = @c, @idPeriodoAcademico = @inexistente;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();
@@ -239,7 +239,7 @@ BEGIN TRY
         THROW 53513, 'TEST FAILED: periodo inexistente (esperaba PER_001).', 1;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta) EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = NULL;
+        INSERT INTO #r2 (idPrograma, nombrePrograma, estaActivoPrograma, totalEstudiantes, estudiantesRiesgo, estudiantesPerdida, tasaRetencion, sesionesEjecutadas, faltasSinJustaCausa, porcentajeAusentismo, horasDictadas, horasFalta, horasPeriodo) EXEC dbo.usp_consultar_comparativa_programas_facultad @idUsuarioEjecutor = @uDec, @idCorrelacion = NULL;
     END TRY
     BEGIN CATCH
         SET @err = ERROR_MESSAGE();

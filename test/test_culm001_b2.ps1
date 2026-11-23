@@ -304,13 +304,13 @@ DECLARE @abierta UNIQUEIDENTIFIER = (SELECT id FROM dbo.EstadoTomaAsistencia WHE
 DECLARE @uD UNIQUEIDENTIFIER = NEWID(), @d UNIQUEIDENTIFIER = NEWID(), @per UNIQUEIDENTIFIER = NEWID(), @g UNIQUEIDENTIFIER = NEWID();
 DECLARE @hoy DATE = CAST(SYSUTCDATETIME() AS DATE);
 BEGIN TRANSACTION;
-INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-VALUES (@uD, @tipoCC, 979000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Concurrente', N'CulmB', N'Doc', N'B2', N'$fixtureTag.d@test.local', 1, 1, N'HashBackend_CULMB2');
+INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+VALUES (@uD, @tipoCC, 979000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Concurrente', N'CulmB', N'Doc', N'B2', N'$fixtureTag.d@test.local', 1, 1);
 INSERT INTO dbo.Docente (id, usuario) VALUES (@d, @uD);
 DECLARE @e TABLE (n INT, u UNIQUEIDENTIFIER, e UNIQUEIDENTIFIER);
 INSERT INTO @e SELECT v.n, NEWID(), NEWID() FROM (VALUES (1), (2), (3)) v(n);
-INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-SELECT u, @tipoCC, 979100000 + n * 10000 + ABS(CHECKSUM(NEWID()) % 9999), CONCAT(N'Conc', n), N'CulmB', N'Est', N'B2', CONCAT(N'$fixtureTag.e', n, N'@test.local'), 1, 1, N'HashBackend_CULMB2' FROM @e;
+INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+SELECT u, @tipoCC, 979100000 + n * 10000 + ABS(CHECKSUM(NEWID()) % 9999), CONCAT(N'Conc', n), N'CulmB', N'Est', N'B2', CONCAT(N'$fixtureTag.e', n, N'@test.local'), 1, 1 FROM @e;
 INSERT INTO dbo.Estudiante (id, usuario) SELECT e, u FROM @e;
 INSERT INTO dbo.PeriodoAcademico (id, institucion, nombre, codigo, fechaInicio, fechaFin, anio)
 VALUES (@per, @idInst, N'$fixtureTag', 3500000 + ABS(CHECKSUM(NEWID()) % 400000), DATEADD(DAY, -30, @hoy), DATEADD(DAY, 30, @hoy), YEAR(@hoy));

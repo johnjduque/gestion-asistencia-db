@@ -15,6 +15,8 @@ GO
 -- programa en el grupo: asistencia, inasistencia y excusa = ROUND(100 x horas / D, 2); sinRegistro = MAX(0, 100 - las tres). Si la suma de los
 -- tres redondeos supera 100, el exceso se resta del mayor (en empate: asistencia, inasistencia, excusa); asi los cuatro suman 100.00 y ninguno
 -- es negativo. Con D = 0 los cuatro son 0. Columnas nuevas AL FINAL (tras totalRegistros): horasDictadas, porcentajeExcusa, porcentajeSinRegistro.
+-- BD-8 (2026-11-22): porcentajeSinRegistro cuenta SOLO horas ya dictadas sin asistencia/falta/excusa; las horas futuras del periodo van en la columna
+-- nueva AL FINAL porcentajePorDictar, de modo que asistencia + inasistencia + excusa + sinRegistro + porDictar = 100.00.
 -- ATA D2 (ADDENDUM_ATA_ASISTENCIA_TOMAS_AVISOS B): D pasa a horasPeriodo x activos (horas de todas las sesiones del periodo); horasDictadas se sigue
 -- mostrando como lo dictado hasta hoy.
 -- Metricas: estudiantes activos (A), sesiones ejecutadas (vencidas con registro de asistencia), asistencias, faltas sin
@@ -25,6 +27,7 @@ GO
 -- de los comandos. Las fallas de validacion se propagan con THROW (VAL_001 / SEC_001 / PAG_001).
 -- Ambito: perfiles COORDINADOR, DECANO o ADMINISTRADOR; los grupos salen de uv_auth_grupo (fail-closed): el
 -- coordinador ve su programa, el decano su facultad y el administrador su institucion.
+-- Revision final P3: solo se devuelven las filas (grupo, programa) de los programas del ambito del ejecutor.
 -- SESSION_CONTEXT: se captura el previo y SIEMPRE se restaura (exito y error).
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_consolidado_asistencia_grupos_paginado]
@@ -79,6 +82,9 @@ BEGIN
                     gp.idPrograma
             FROM    dbo.uv_auth_grupo g
             INNER JOIN dbo.uv_grupo_programa gp ON gp.idGrupo = g.id
+            -- Revision final P3: un grupo compartido ya no trae filas de programas FUERA del ambito del ejecutor (uv_auth_programa: coordinador -> los
+            -- suyos, decano -> su facultad, administrador -> su institucion); antes salia una fila por cada programa del grupo.
+            INNER JOIN dbo.uv_auth_programa ap ON ap.id = gp.idPrograma
             WHERE   (@idPeriodoAcademico IS NULL OR g.idPeriodoAcademico = @idPeriodoAcademico)
                AND  (@idPrograma IS NULL OR gp.idPrograma = @idPrograma)
                AND  (@idAsignatura IS NULL OR g.idAsignatura = @idAsignatura)
@@ -132,7 +138,9 @@ BEGIN
             porcentajeExcusa        = CAST(q.excusaFinal AS DECIMAL(5,2)),
             porcentajeSinRegistro   = CAST(q.sinRegistro AS DECIMAL(5,2)),
             -- CIERRE-W3I: clasificacion del grupo (REGULAR/RIESGO/PERDIDA) con la unica regla de permanencia y los umbrales del catalogo
-            codigoPermanencia       = dbo.ufn_clasificar_permanencia(CAST(q.inasistenciaFinal AS DECIMAL(5,2)), NULL)
+            codigoPermanencia       = dbo.ufn_clasificar_permanencia(CAST(q.inasistenciaFinal AS DECIMAL(5,2)), NULL),
+            -- BD-8: lo que aun no se dicta (horas futuras del periodo): 100 - asistencia - inasistencia - excusa - sinRegistro
+            porcentajePorDictar     = CAST(q.porDictar AS DECIMAL(5,2))
         FROM @grupos g
         LEFT JOIN consolidado c ON c.idGrupo = g.id AND c.idPrograma = g.idPrograma
         -- D = horasPeriodo x activos (ATA D2: horas de todas las sesiones del periodo); p* = porcentajes redondeados; exceso = lo que la suma de los tres supera 100 (R-1)
@@ -146,8 +154,17 @@ BEGIN
         CROSS APPLY (SELECT asistenciaFinal = pr.pAsistencia - IIF(x.mayor = 1, x.exceso, 0),
                             inasistenciaFinal = pr.pInasistencia - IIF(x.mayor = 2, x.exceso, 0),
                             excusaFinal = pr.pExcusa - IIF(x.mayor = 3, x.exceso, 0),
-                            sinRegistro = CAST(IIF(den.denominador = 0 OR pr.pAsistencia + pr.pInasistencia + pr.pExcusa >= 100, 0,
-                                                   100 - (pr.pAsistencia + pr.pInasistencia + pr.pExcusa)) AS DECIMAL(9,2))) q
+                            -- BD-8: el resto hasta 100 se reparte entre "sin registro" (horas YA dictadas sin asistencia, falta ni excusa:
+                            -- horasDictadas x activos - lo registrado) y "por dictar" (horas futuras del periodo); antes todo el resto era
+                            -- "sin registro" e incluia las sesiones futuras.
+                            resto = CAST(IIF(den.denominador = 0 OR pr.pAsistencia + pr.pInasistencia + pr.pExcusa >= 100, 0,
+                                             100 - (pr.pAsistencia + pr.pInasistencia + pr.pExcusa)) AS DECIMAL(9,2))) r0
+        CROSS APPLY (SELECT pSinRegistroBruto = CAST(IIF(den.denominador = 0, 0,
+                                    ROUND(100.0 * (ISNULL(c.horasDictadas, 0) * ISNULL(c.activos, 0) - c.horasAsistidas - c.horasFalta - c.horasExcusa)
+                                          / den.denominador, 2)) AS DECIMAL(9,2))) sb
+        CROSS APPLY (SELECT asistenciaFinal = r0.asistenciaFinal, inasistenciaFinal = r0.inasistenciaFinal, excusaFinal = r0.excusaFinal,
+                            sinRegistro = CAST(IIF(sb.pSinRegistroBruto < 0, 0, IIF(sb.pSinRegistroBruto > r0.resto, r0.resto, sb.pSinRegistroBruto)) AS DECIMAL(9,2)),
+                            porDictar = CAST(r0.resto - IIF(sb.pSinRegistroBruto < 0, 0, IIF(sb.pSinRegistroBruto > r0.resto, r0.resto, sb.pSinRegistroBruto)) AS DECIMAL(9,2))) q
         LEFT JOIN dbo.uv_periodo_academico pa ON pa.id = g.idPeriodoAcademico
         LEFT JOIN dbo.uv_programa p ON p.id = g.idPrograma
         LEFT JOIN dbo.uv_docente_identidad d ON d.id = g.idDocente

@@ -461,6 +461,13 @@ BEGIN
 END
 GO
 
+-- INT-004 (migracion 73): la bitacora de sincronizacion de parametros externos apunta al parametro afectado.
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_SincronizacionParametroExterno_CatalogoParametro')
+BEGIN
+    ALTER TABLE [dbo].[SincronizacionParametroExterno] ADD CONSTRAINT [FK_SincronizacionParametroExterno_CatalogoParametro] FOREIGN KEY ([parametro]) REFERENCES [dbo].[CatalogoParametro] ([id]);
+END
+GO
+
 -- CULM-001 C.1 (CONTRACT §2.2): claves foraneas de alertas y revisiones de cancelacion por inasistencia.
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_AlertaInasistencia_EstudianteGrupo')
     ALTER TABLE [dbo].[AlertaInasistencia] ADD CONSTRAINT [FK_AlertaInasistencia_EstudianteGrupo] FOREIGN KEY ([estudianteGrupo]) REFERENCES [dbo].[EstudianteGrupo] ([id]);
@@ -556,5 +563,27 @@ GO
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_AvisoSesionSinToma_Sesion')
 BEGIN
     ALTER TABLE [dbo].[AvisoSesionSinToma] ADD CONSTRAINT [FK_AvisoSesionSinToma_Sesion] FOREIGN KEY ([sesion]) REFERENCES [dbo].[Sesion] ([id]);
+END
+GO
+-- DEC-077: programa responsable del grupo
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Grupo_ProgramaResponsable')
+BEGIN
+    ALTER TABLE [dbo].[Grupo] ADD CONSTRAINT [FK_Grupo_ProgramaResponsable] FOREIGN KEY ([programaResponsable]) REFERENCES [dbo].[Programa] ([id]);
+END
+GO
+-- DEC-081: receso academico del periodo y su enlace con las sesiones canceladas
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_PeriodoRecesoAcademico_PeriodoAcademico')
+BEGIN
+    ALTER TABLE [dbo].[PeriodoRecesoAcademico] ADD CONSTRAINT [FK_PeriodoRecesoAcademico_PeriodoAcademico] FOREIGN KEY ([periodoAcademico]) REFERENCES [dbo].[PeriodoAcademico] ([id]);
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_PeriodoRecesoAcademico_Usuario')
+BEGIN
+    ALTER TABLE [dbo].[PeriodoRecesoAcademico] ADD CONSTRAINT [FK_PeriodoRecesoAcademico_Usuario] FOREIGN KEY ([usuarioCreador]) REFERENCES [dbo].[Usuario] ([id]);
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_SesionCancelacion_PeriodoRecesoAcademico')
+BEGIN
+    ALTER TABLE [dbo].[SesionCancelacion] ADD CONSTRAINT [FK_SesionCancelacion_PeriodoRecesoAcademico] FOREIGN KEY ([recesoAcademico]) REFERENCES [dbo].[PeriodoRecesoAcademico] ([id]);
 END
 GO

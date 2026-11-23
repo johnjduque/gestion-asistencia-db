@@ -28,9 +28,9 @@ IF @tipoCC IS NULL OR @idAsig IS NULL OR @uCoord IS NULL OR @idPeriodo IS NULL O
 BEGIN TRANSACTION;
 BEGIN TRY
     DECLARE @uD1 UNIQUEIDENTIFIER = NEWID(), @uD2 UNIQUEIDENTIFIER = NEWID(), @d1 UNIQUEIDENTIFIER = NEWID(), @d2 UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uD1, @tipoCC, 971000001, N'Cruce', N'Uno', N'Daniel', N'Qa', N'qa.cruce.d1@test.local', 1, 1, N'HashBackend_C1'),
-           (@uD2, @tipoCC, 971000002, N'Cruce', N'Dos', N'Debora', N'Qa', N'qa.cruce.d2@test.local', 1, 1, N'HashBackend_C2');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uD1, @tipoCC, 971000001, N'Cruce', N'Uno', N'Daniel', N'Qa', N'qa.cruce.d1@test.local', 1, 1),
+           (@uD2, @tipoCC, 971000002, N'Cruce', N'Dos', N'Debora', N'Qa', N'qa.cruce.d2@test.local', 1, 1);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d1, @uD1), (@d2, @uD2);
     INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
     VALUES (NEWID(), @d1, @idProg, 1, SYSUTCDATETIME()), (NEWID(), @d2, @idProg, 1, SYSUTCDATETIME());

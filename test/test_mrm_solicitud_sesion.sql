@@ -9,6 +9,7 @@ GO
 --   MRM_05 aprobar: ambito (SEC_001 docente, SEC_002 fuera de ambito), SES_025 sin solicitud, aprobada, SES_024 si ya fue resuelta
 --   MRM_06 rechazar: motivo (SES_019), observacion (SES_021), RECHAZADA + SesionCancelacion con el prefijo, SES_024 si ya fue resuelta
 --   MRM_07 consulta paginada del coordinador: ambito, pendientes/todas, OFFSET/FETCH y totalRegistros, una fila por sesion en grupo mixto
+--   DEC-077: en el grupo mixto solo el coordinador del programa responsable aprueba, rechaza y recibe el aviso de la sesion
 --   MRM_08 destinatarios: la fila DOCENTE en usp_consultar_destinatarios_sesion_manual y usp_consultar_destinatarios_solicitud_sesion (coordinador)
 --   MRM_09 el docente ya no crea grupos (SEC_001); el coordinador si
 -- Todo dentro de transacciones revertidas; @@TRANCOUNT = 0 al terminar.
@@ -20,6 +21,9 @@ BEGIN TRY
 :r /tmp/test/fixtures/culm001_b2nm_asignatura_compartida.sql
     DECLARE @c UNIQUEIDENTIFIER = NEWID();
     DECLARE @tran INT = @@TRANCOUNT;
+    -- DEC-077: en el grupo compartido solo el coordinador del programa responsable resuelve las solicitudes. MRM_05 aprueba con CA
+    -- (responsable A); MRM_06 cambia el responsable a B para que rechace CB.
+    UPDATE dbo.Grupo SET programaResponsable = @progA WHERE id = @grupoG;
 
     -- MRM_00: objetos, catalogos y mensajes
     IF OBJECT_ID(N'dbo.SesionSolicitud', N'U') IS NULL OR OBJECT_ID(N'dbo.EstadoSolicitudSesion', N'U') IS NULL
@@ -37,9 +41,6 @@ BEGIN TRY
     IF EXISTS (SELECT 1 FROM (VALUES ('SES_022'), ('SES_023'), ('SES_024'), ('SES_025'), ('SES_026'), ('SES_027')) m(codigo)
                WHERE NOT EXISTS (SELECT 1 FROM dbo.uv_mensaje_usuario u WHERE u.codigo = m.codigo) OR NOT EXISTS (SELECT 1 FROM dbo.uv_mensaje_tecnico t WHERE t.codigo = m.codigo))
         THROW 59003, 'TEST FAILED CULM001_MRM_00: mensajes SES_022..SES_027 ausentes.', 1;
-    IF (SELECT COUNT(*) FROM dbo.PlantillaNotificacion WHERE activa = 1 AND tipo IN ('SESION_SOLICITUD_CREADA_COORDINADOR', 'SESION_SOLICITUD_APROBADA_DOCENTE', 'SESION_SOLICITUD_RECHAZADA_DOCENTE')) <> 3
-       OR (SELECT COUNT(*) FROM dbo.PlantillaNotificacionMarcador WHERE tipo IN ('SESION_SOLICITUD_CREADA_COORDINADOR', 'SESION_SOLICITUD_APROBADA_DOCENTE', 'SESION_SOLICITUD_RECHAZADA_DOCENTE')) <> 23
-        THROW 59004, 'TEST FAILED CULM001_MRM_00: plantillas SESION_SOLICITUD_* (3) o sus 23 marcadores ausentes.', 1;
     PRINT 'TEST_PASS:CULM001_MRM_00_OBJETOS_Y_SEMILLAS';
 
     CREATE TABLE #mrm_r (idCorrelacion UNIQUEIDENTIFIER NULL, mensajeUsuarioResultado NVARCHAR(4000) NULL, mensajeTecnicoResultado NVARCHAR(4000) NULL, estadoResultado BIT NOT NULL);
@@ -141,8 +142,8 @@ BEGIN TRY
 
     -- MRM_05: aprobar
     DECLARE @uCX UNIQUEIDENTIFIER = NEWID(), @coordCX UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uCX, @tipoCC, 1950000098, N'MRM', N'', N'CoordX', N'', N'mrm.coordx@fixture.invalid', 1, 1, N'FIXTURE_DISABLED_ACCOUNT');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uCX, @tipoCC, 1950000098, N'MRM', N'', N'CoordX', N'', N'mrm.coordx@fixture.invalid', 1, 1);
     INSERT INTO dbo.Coordinador (id, usuario, estado, facultad) VALUES (@coordCX, @uCX, 1, @fac);
 
     INSERT #mrm_apr EXEC dbo.usp_aprobar_solicitud_sesion @idSesion = @sV2, @observacion = NULL, @idCorrelacion = @c, @idUsuarioEjecutor = @uT;
@@ -152,6 +153,10 @@ BEGIN TRY
     INSERT #mrm_apr EXEC dbo.usp_aprobar_solicitud_sesion @idSesion = @sV2, @observacion = NULL, @idCorrelacion = @c, @idUsuarioEjecutor = @uCX;
     IF NOT EXISTS (SELECT 1 FROM #mrm_apr WHERE estadoResultado = 0 AND mensajeTecnicoResultado LIKE N'DBCODE=SEC[_]002|%' AND idSesion IS NULL)
         THROW 59051, 'TEST FAILED CULM001_MRM_05: un coordinador fuera de ambito debe recibir SEC_002.', 1;
+    TRUNCATE TABLE #mrm_apr;
+    INSERT #mrm_apr EXEC dbo.usp_aprobar_solicitud_sesion @idSesion = @sV2, @observacion = NULL, @idCorrelacion = @c, @idUsuarioEjecutor = @uCB;
+    IF NOT EXISTS (SELECT 1 FROM #mrm_apr WHERE estadoResultado = 0 AND mensajeTecnicoResultado LIKE N'DBCODE=SEC[_]002|%' AND idSesion IS NULL)
+        THROW 59062, 'TEST FAILED CULM001_MRM_05: DEC-077 el coordinador de otro programa del grupo (no responsable) debe recibir SEC_002.', 1;
     TRUNCATE TABLE #mrm_apr;
     INSERT #mrm_apr EXEC dbo.usp_aprobar_solicitud_sesion @idSesion = @sGen, @observacion = NULL, @idCorrelacion = @c, @idUsuarioEjecutor = @uCA;
     IF NOT EXISTS (SELECT 1 FROM #mrm_apr WHERE estadoResultado = 0 AND mensajeTecnicoResultado LIKE N'DBCODE=SES[_]025|%')
@@ -193,7 +198,8 @@ BEGIN TRY
         THROW 59061, 'TEST FAILED CULM001_MRM_05: una observacion demasiado larga debe responder SES_021 sin escrituras.', 1;
     TRUNCATE TABLE #mrm_apr;
 
-    -- MRM_06: rechazar (el otro coordinador del grupo mixto, CB)
+    -- MRM_06: rechazar. DEC-077: el responsable pasa a ser B y rechaza CB.
+    UPDATE dbo.Grupo SET programaResponsable = @progB WHERE id = @grupoG;
     DECLARE @motivo NVARCHAR(50) = (SELECT TOP 1 codigo FROM dbo.uv_motivo_cancelacion_sesion WHERE estaActivo = 1 ORDER BY orden);
     DECLARE @nombreMotivo NVARCHAR(200) = (SELECT TOP 1 nombre FROM dbo.uv_motivo_cancelacion_sesion WHERE estaActivo = 1 ORDER BY orden);
     DECLARE @prefijo NVARCHAR(200) = CAST(dbo.ufn_obtener_parametro_texto(NULL, 'SESION', 'PREFIJO_MOTIVO_SOLICITUD_RECHAZADA') AS NVARCHAR(200));
@@ -213,7 +219,7 @@ BEGIN TRY
     IF NOT EXISTS (SELECT 1 FROM #mrm_can WHERE estadoResultado = 0 AND mensajeTecnicoResultado LIKE N'DBCODE=SEC[_]001|%')
         THROW 59073, 'TEST FAILED CULM001_MRM_06: el docente no puede rechazar (SEC_001).', 1;
     TRUNCATE TABLE #mrm_can;
-    INSERT #mrm_can EXEC dbo.usp_rechazar_solicitud_sesion @idSesion = @sGen, @codigoMotivo = @motivo, @observacion = NULL, @idCorrelacion = @c, @idUsuarioEjecutor = @uCA;
+    INSERT #mrm_can EXEC dbo.usp_rechazar_solicitud_sesion @idSesion = @sGen, @codigoMotivo = @motivo, @observacion = NULL, @idCorrelacion = @c, @idUsuarioEjecutor = @uCB;
     IF NOT EXISTS (SELECT 1 FROM #mrm_can WHERE estadoResultado = 0 AND mensajeTecnicoResultado LIKE N'DBCODE=SES[_]025|%') OR EXISTS (SELECT 1 FROM dbo.SesionCancelacion WHERE sesion = @sGen)
         THROW 59074, 'TEST FAILED CULM001_MRM_06: rechazar una sesion sin solicitud debe responder SES_025 y no cancelarla.', 1;
     TRUNCATE TABLE #mrm_can;
@@ -298,10 +304,10 @@ BEGIN TRY
         THROW 59098, 'TEST FAILED CULM001_MRM_07: un coordinador sin programas del grupo no ve solicitudes ajenas.', 1;
     TRUNCATE TABLE #mrm_sol;
     UPDATE dbo.Programa SET coordinador = (SELECT id FROM dbo.Coordinador WHERE usuario = @uCB) WHERE id = @progB;
-    -- un coordinador que solo coordina B ve las mismas solicitudes del grupo mixto (los dos programas lo incluyen)
+    -- DEC-077: el coordinador que solo coordina B (el programa responsable) ve las mismas solicitudes del grupo mixto
     INSERT #mrm_sol EXEC dbo.usp_consultar_solicitudes_sesion_coordinador_paginado @idUsuario = @uCB, @soloPendientes = 1, @idCorrelacion = @c;
     IF (SELECT COUNT(*) FROM #mrm_sol) <> 4 OR EXISTS (SELECT 1 FROM #mrm_sol WHERE idPrograma <> @progB)
-        THROW 59099, 'TEST FAILED CULM001_MRM_07: el otro coordinador del grupo mixto ve las mismas 4 pendientes por el programa B.', 1;
+        THROW 59099, 'TEST FAILED CULM001_MRM_07: el coordinador del programa responsable (B) ve las 4 pendientes.', 1;
     TRUNCATE TABLE #mrm_sol;
     PRINT 'TEST_PASS:CULM001_MRM_07_CONSULTA_PAGINADA_COORDINADOR';
 
@@ -310,20 +316,23 @@ BEGIN TRY
         nombreAsignatura NVARCHAR(200), nombreGrupo NVARCHAR(300), nombreDocente NVARCHAR(400), fechaHoraInicio DATETIME2, fechaHoraFin DATETIME2);
     INSERT #mrm_dest EXEC dbo.usp_consultar_destinatarios_sesion_manual @idSesion = @sV2, @idCorrelacion = @c, @idUsuarioEjecutor = @uT;
     IF (SELECT COUNT(*) FROM #mrm_dest WHERE tipoDestinatario = N'DOCENTE') <> 1 OR NOT EXISTS (SELECT 1 FROM #mrm_dest WHERE tipoDestinatario = N'DOCENTE' AND idUsuario = @uT AND correo IS NOT NULL AND nombreCompleto IS NOT NULL)
-       OR (SELECT COUNT(*) FROM #mrm_dest WHERE tipoDestinatario = N'ESTUDIANTE') <> 3 OR (SELECT COUNT(*) FROM #mrm_dest WHERE tipoDestinatario = N'COORDINADOR') <> 2
-        THROW 59100, 'TEST FAILED CULM001_MRM_08: los destinatarios de la sesion manual incluyen al DOCENTE titular (1), 3 estudiantes y 2 coordinadores.', 1;
+       OR (SELECT COUNT(*) FROM #mrm_dest WHERE tipoDestinatario = N'ESTUDIANTE') <> 3 OR (SELECT COUNT(*) FROM #mrm_dest WHERE tipoDestinatario = N'COORDINADOR') <> 1
+       OR NOT EXISTS (SELECT 1 FROM #mrm_dest WHERE tipoDestinatario = N'COORDINADOR' AND idUsuario = @uCB)
+        THROW 59100, 'TEST FAILED CULM001_MRM_08: los destinatarios de la sesion manual incluyen al DOCENTE titular (1), 3 estudiantes y solo el coordinador responsable (DEC-077).', 1;
     TRUNCATE TABLE #mrm_dest;
-    INSERT #mrm_dest EXEC dbo.usp_consultar_destinatarios_solicitud_sesion @idSesion = @sV2, @idCorrelacion = @c, @idUsuarioEjecutor = @uCA;
+    INSERT #mrm_dest EXEC dbo.usp_consultar_destinatarios_solicitud_sesion @idSesion = @sV2, @idCorrelacion = @c, @idUsuarioEjecutor = @uCB;
     IF (SELECT COUNT(*) FROM #mrm_dest WHERE tipoDestinatario = N'DOCENTE') <> 1 OR NOT EXISTS (SELECT 1 FROM #mrm_dest WHERE tipoDestinatario = N'DOCENTE' AND idUsuario = @uT AND correo IS NOT NULL)
        OR (SELECT COUNT(*) FROM #mrm_dest WHERE tipoDestinatario = N'ESTUDIANTE') <> 3 OR EXISTS (SELECT 1 FROM #mrm_dest WHERE tipoDestinatario NOT IN (N'DOCENTE', N'ESTUDIANTE'))
        OR EXISTS (SELECT 1 FROM #mrm_dest WHERE nombreAsignatura IS NULL OR nombreDocente IS NULL OR fechaHoraInicio IS NULL OR fechaHoraFin IS NULL)
         THROW 59101, 'TEST FAILED CULM001_MRM_08: el coordinador obtiene el DOCENTE titular y los 3 estudiantes activos de la solicitud.', 1;
     TRUNCATE TABLE #mrm_dest;
-    INSERT #mrm_dest EXEC dbo.usp_consultar_destinatarios_solicitud_sesion @idSesion = @sV1, @idCorrelacion = @c, @idUsuarioEjecutor = @uCB;
-    IF (SELECT COUNT(*) FROM #mrm_dest) <> 4
-        THROW 59102, 'TEST FAILED CULM001_MRM_08: el segundo coordinador del grupo mixto tambien obtiene los destinatarios (docente + 3 estudiantes).', 1;
-    TRUNCATE TABLE #mrm_dest;
-    INSERT #mrm_dest EXEC dbo.usp_consultar_destinatarios_solicitud_sesion @idSesion = @sGen, @idCorrelacion = @c, @idUsuarioEjecutor = @uCA;
+    -- DEC-077: el coordinador de otro programa del grupo (CA, ya no coordina B) no resuelve ni consulta la solicitud (SEC_002).
+    DECLARE @mu08 NVARCHAR(4000), @mt08 NVARCHAR(4000), @ok08 BIT, @g08 UNIQUEIDENTIFIER;
+    EXEC dbo.usp_validar_coordinador_sesion_interno @idSesion = @sV1, @idUsuarioEjecutor = @uCA, @idCorrelacion = @c,
+        @mensajeUsuarioResultado = @mu08 OUTPUT, @mensajeTecnicoResultado = @mt08 OUTPUT, @estadoResultado = @ok08 OUTPUT, @idGrupo = @g08;
+    IF @ok08 = 1 OR @mt08 NOT LIKE N'%SEC_002%'
+        THROW 59102, 'TEST FAILED CULM001_MRM_08: DEC-077 el coordinador no responsable del grupo mixto debe recibir SEC_002.', 1;
+    INSERT #mrm_dest EXEC dbo.usp_consultar_destinatarios_solicitud_sesion @idSesion = @sGen, @idCorrelacion = @c, @idUsuarioEjecutor = @uCB;
     IF EXISTS (SELECT 1 FROM #mrm_dest)
         THROW 59103, 'TEST FAILED CULM001_MRM_08: una sesion sin solicitud no tiene destinatarios de solicitud.', 1;
     TRUNCATE TABLE #mrm_dest;
@@ -392,8 +401,8 @@ BEGIN TRY
 :r /tmp/test/fixtures/culm001_b2nm_asignatura_compartida.sql
     DECLARE @c2 UNIQUEIDENTIFIER = NEWID(), @s2 UNIQUEIDENTIFIER = NEWID(), @err2 NVARCHAR(4000) = NULL;
     DECLARE @uCX2 UNIQUEIDENTIFIER = NEWID(), @coordCX2 UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uCX2, @tipoCC, 1950000097, N'MRM', N'', N'CoordX2', N'', N'mrm.coordx2@fixture.invalid', 1, 1, N'FIXTURE_DISABLED_ACCOUNT');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uCX2, @tipoCC, 1950000097, N'MRM', N'', N'CoordX2', N'', N'mrm.coordx2@fixture.invalid', 1, 1);
     INSERT INTO dbo.Coordinador (id, usuario, estado, facultad) VALUES (@coordCX2, @uCX2, 1, @fac);
     INSERT dbo.Sesion (id, nombre, numero, codigo, numeroSemana, grupo, fechaHoraInicio, fechaHoraFin, procedenciaTemporal)
     VALUES (@s2, N'MRM thr', 951, N'MRM951', 1, @grupoG, DATEADD(DAY, 3, SYSUTCDATETIME()), DATEADD(MINUTE, 3 * 1440 + 120, SYSUTCDATETIME()), N'UTC_V2');

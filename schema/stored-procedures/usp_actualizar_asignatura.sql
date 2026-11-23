@@ -1,4 +1,4 @@
-USE [gestionasistenciadb];
+﻿USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
 GO
@@ -19,13 +19,15 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_actualizar_asignatura]
     -- REC2 (auditoria BD 2026-10-28): ejecutor obligatorio (GEN_002 si llega NULL). El DEFAULT solo conserva la
     -- compatibilidad de firma; RBAC COORDINADOR + titularidad del PROGRAMA se validan en usp_validar_gestion_asignatura_coordinador_interno.
     @idUsuarioEjecutor  UNIQUEIDENTIFIER = NULL,
-    @codigoCaracter     NVARCHAR(3) = NULL   -- CULM-001 B2NM: NULL conserva el caracter actual del vinculo
+    @codigoCaracter     NVARCHAR(3) = NULL,  -- CULM-001 B2NM: NULL conserva el caracter actual del vinculo
+    @horasSemanales     INT = NULL           -- SES-GEN-01: NULL conserva las horas actuales
 )
 AS
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idAsignaturaDefecto  UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idAsignatura, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @codigoDefecto        NVARCHAR(50)     = UPPER(TRIM(@codigo));
     DECLARE @creditosMaximo           INT              = dbo.ufn_obtener_parametro_int(NULL, 'ASIGNATURA', 'CREDITOS_MAXIMO');
+    DECLARE @horasSemanalesMaximo     INT              = dbo.ufn_obtener_parametro_int(NULL, 'ASIGNATURA', 'HORAS_SEMANALES_MAXIMO');
     DECLARE @nombreDefecto        NVARCHAR(50)     = TRIM(@nombre);
     DECLARE @idAreaResolved       UNIQUEIDENTIFIER;
     DECLARE @idComponenteResolved UNIQUEIDENTIFIER;
@@ -91,10 +93,24 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 2.1c (SES-GEN-01 H-04): horasSemanales, si llega, es un entero entre 1 y ASIGNATURA/HORAS_SEMANALES_MAXIMO (ASI_013).
+        --          Limite ausente: fail-closed. NULL = sin cargar (crear) o sin cambio (actualizar).
+        IF @estadoResultado = 1 AND @horasSemanales IS NOT NULL AND (@horasSemanalesMaximo IS NULL OR @horasSemanales < 1 OR @horasSemanales > @horasSemanalesMaximo)
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'ASI_013',
+                @p_param1 = @horasSemanalesMaximo,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
         -- PASO 3: Validar unicidad del código si cambia
         IF @estadoResultado = 1 AND @codigoDefecto IS NOT NULL AND @codigoDefecto <> ''
         BEGIN
-            IF EXISTS (SELECT 1 FROM [dbo].[Asignatura] WHERE UPPER(TRIM(codigo)) = @codigoDefecto AND id <> @idAsignaturaDefecto)
+            IF EXISTS (SELECT 1 FROM dbo.uv_asignatura WHERE UPPER(TRIM(codigo)) = @codigoDefecto AND id <> @idAsignaturaDefecto)
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
                     @p_codigo = 'ASI_002',
@@ -126,15 +142,14 @@ BEGIN
         IF @estadoResultado = 1 AND @semestreNumero IS NOT NULL
         BEGIN
             SELECT @idSpeNuevo = spe.id
-            FROM dbo.SemestrePlanEstudio spe
-            INNER JOIN dbo.Semestre sm ON sm.id = spe.semestre
-            WHERE spe.planEstudio = @idPlanEstudio AND sm.numero = @semestreNumero;
+            FROM dbo.uv_semestre_plan_estudio spe
+            WHERE spe.idPlanEstudio = @idPlanEstudio AND spe.numeroSemestre = @semestreNumero;
             IF @idSpeNuevo IS NULL
                 SET @codigoRechazo = 'PLA_004';
         END
         IF @estadoResultado = 1 AND @codigoRechazo IS NULL AND NULLIF(TRIM(@codigoCaracter), N'') IS NOT NULL
         BEGIN
-            SELECT @idCaracterNuevo = c.id FROM dbo.CaracterAsignaturaPlan c WHERE c.codigo = TRIM(@codigoCaracter) AND c.estado = 1;
+            SELECT @idCaracterNuevo = c.id FROM dbo.uv_caracter_asignatura_plan c WHERE c.codigo = TRIM(@codigoCaracter) AND c.estaActivo = 1;
             IF @idCaracterNuevo IS NULL
                 SET @codigoRechazo = 'ASI_007';
         END
@@ -146,9 +161,10 @@ BEGIN
                    (@codigoDefecto IS NOT NULL AND @codigoDefecto <> '' AND a.codigo <> @codigoDefecto)
                 OR (@nombreDefecto IS NOT NULL AND @nombreDefecto <> '' AND a.nombre <> @nombreDefecto)
                 OR (@creditos IS NOT NULL AND a.credito <> @creditos)
-                OR (@idAreaResolved IS NOT NULL AND a.area <> @idAreaResolved)
-                OR (@idComponenteResolved IS NOT NULL AND a.componente <> @idComponenteResolved), 1, 0)
-            FROM dbo.Asignatura a WHERE a.id = @idAsignaturaDefecto;
+                OR (@horasSemanales IS NOT NULL AND (a.horasSemanales IS NULL OR a.horasSemanales <> @horasSemanales))
+                OR (@idAreaResolved IS NOT NULL AND a.idArea <> @idAreaResolved)
+                OR (@idComponenteResolved IS NOT NULL AND a.idComponente <> @idComponenteResolved), 1, 0)
+            FROM dbo.uv_asignatura a WHERE a.id = @idAsignaturaDefecto;
 
             IF @cambiaCatalogo = 1
                AND EXISTS (SELECT 1 FROM dbo.uv_asignatura_plan_estudio v
@@ -159,10 +175,10 @@ BEGIN
 
         -- PASO 4.3: un vinculo (inactivo) ya ocupa el semestre destino -> ASI_003
         IF @estadoResultado = 1 AND @codigoRechazo IS NULL AND @idSpeNuevo IS NOT NULL
-           AND EXISTS (SELECT 1 FROM dbo.AsignaturaPlanEstudio ape
-                       WHERE ape.asignatura = @idAsignaturaDefecto AND ape.semestrePlanEstudio = @idSpeNuevo)
-           AND NOT EXISTS (SELECT 1 FROM dbo.AsignaturaPlanEstudio ape2
-                           WHERE ape2.asignatura = @idAsignaturaDefecto AND ape2.semestrePlanEstudio = @idSpeNuevo AND ape2.estaActivo = 1)
+           AND EXISTS (SELECT 1 FROM dbo.uv_asignatura_plan_estudio ape
+                       WHERE ape.idAsignatura = @idAsignaturaDefecto AND ape.idSemestrePlanEstudio = @idSpeNuevo)
+           AND NOT EXISTS (SELECT 1 FROM dbo.uv_asignatura_plan_estudio ape2
+                           WHERE ape2.idAsignatura = @idAsignaturaDefecto AND ape2.idSemestrePlanEstudio = @idSpeNuevo AND ape2.estaActivoVinculo = 1)
             SET @codigoRechazo = 'ASI_003';
 
         IF @estadoResultado = 1 AND @codigoRechazo IS NOT NULL
@@ -186,17 +202,18 @@ BEGIN
                 SET codigo = CASE WHEN @codigoDefecto IS NOT NULL AND @codigoDefecto <> '' THEN @codigoDefecto ELSE codigo END,
                     nombre = CASE WHEN @nombreDefecto IS NOT NULL AND @nombreDefecto <> '' THEN @nombreDefecto ELSE nombre END,
                     credito = CASE WHEN @creditos IS NOT NULL THEN @creditos ELSE credito END,
+                    horasSemanales = CASE WHEN @horasSemanales IS NOT NULL THEN @horasSemanales ELSE horasSemanales END,
                     area = CASE WHEN @idAreaResolved IS NOT NULL THEN @idAreaResolved ELSE area END,
                     componente = CASE WHEN @idComponenteResolved IS NOT NULL THEN @idComponenteResolved ELSE componente END
                 WHERE id = @idAsignaturaDefecto;
 
             -- La MISMA fila de la tabla puente cambia de semestre / caracter (no se crea otra: la asignatura de un solo plan sigue 1:1)
             UPDATE ape
-            SET ape.semestrePlanEstudio = COALESCE(@idSpeNuevo, ape.semestrePlanEstudio),
-                ape.caracter = COALESCE(@idCaracterNuevo, ape.caracter)
+            SET ape.semestrePlanEstudio = CASE WHEN @idSpeNuevo IS NOT NULL THEN @idSpeNuevo ELSE ape.semestrePlanEstudio END,
+                ape.caracter = CASE WHEN @idCaracterNuevo IS NOT NULL THEN @idCaracterNuevo ELSE ape.caracter END
             FROM dbo.AsignaturaPlanEstudio ape
-            INNER JOIN dbo.SemestrePlanEstudio spe ON spe.id = ape.semestrePlanEstudio
-            WHERE ape.asignatura = @idAsignaturaDefecto AND spe.planEstudio = @idPlanEstudio AND ape.estaActivo = 1;
+            INNER JOIN dbo.uv_semestre_plan_estudio spe ON spe.id = ape.semestrePlanEstudio
+            WHERE ape.asignatura = @idAsignaturaDefecto AND spe.idPlanEstudio = @idPlanEstudio AND ape.estaActivo = 1;
 
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'GEN_004',

@@ -64,3 +64,8 @@ GO
 -- CULM-001 B2NM (S3 minimo): programa por defecto de la ventana de matricula en grupos multiprograma.
 IF COL_LENGTH('dbo.TokenMatriculaGrupo', 'programaPorDefecto') IS NULL
     ALTER TABLE dbo.TokenMatriculaGrupo ADD programaPorDefecto UNIQUEIDENTIFIER NULL;
+
+-- AUD-BD M-1 (2026-11-22): indices de apoyo para las FK de ambito y filtro (las vistas uv_auth_* y los SP de ambito filtran por estas columnas).
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.TokenMatriculaGrupo') AND name = 'IX_TokenMatriculaGrupo_docenteEmisor')
+    CREATE NONCLUSTERED INDEX IX_TokenMatriculaGrupo_docenteEmisor ON dbo.TokenMatriculaGrupo (docenteEmisor);
+GO

@@ -64,12 +64,7 @@
       { "objeto": "dbo.fn_diagramobjects", "existe": false }
     ],
     "08_notif002a_plantillas_notificacion": [
-      { "tabla": "dbo.PlantillaNotificacion" },
-      { "tabla": "dbo.PlantillaNotificacionMarcador" },
-      { "indice": "dbo.PlantillaNotificacion.UX_PlantillaNotificacion_activa" },
-      { "restriccion": "UQ_PlantillaNotificacion_tipo_idioma_version" },
-      { "restriccion": "UQ_PlantillaNotificacionMarcador_tipo_marcador" },
-      { "tabla": "dbo.PlantillaNotificacion", "donde": "tipo = 'RETIRO_ESTUDIANTE_GRUPO'" }
+      { "objeto": "dbo.usp_consultar_contacto_notificacion" }
     ],
     "09_eliminar_validar_grupo_docente": [
       { "objeto": "dbo.usp_validar_grupo_exista_para_docente_interno", "existe": false }
@@ -254,7 +249,6 @@
       { "objeto": "dbo.uv_sesion_manual" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'SES_021'" },
       { "tabla": "dbo.MotivoCancelacionSesion", "donde": "codigo = 'DUPLICADA'" },
-      { "tabla": "dbo.PlantillaNotificacion", "donde": "tipo = 'SESION_MANUAL_CREADA_ESTUDIANTE'" },
       { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'SESION' AND clave = 'OBSERVACION_CANCELACION_COORDINADOR_MAXIMA'" }
     ],
     "30_mrm_solicitud_sesion": [
@@ -265,8 +259,7 @@
       { "objeto": "dbo.usp_rechazar_solicitud_sesion" },
       { "objeto": "dbo.uv_solicitud_sesion" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'SES_027'" },
-      { "tabla": "dbo.EstadoSolicitudSesion", "donde": "codigo = 'RECHAZADA'" },
-      { "tabla": "dbo.PlantillaNotificacion", "donde": "tipo = 'SESION_SOLICITUD_APROBADA_DOCENTE'" }
+      { "tabla": "dbo.EstadoSolicitudSesion", "donde": "codigo = 'RECHAZADA'" }
     ],
     "31_mrm_coordinador_decide_cancelacion": [
       { "objeto": "dbo.usp_decidir_revision_cancelacion" },
@@ -297,8 +290,7 @@
       { "objeto": "dbo.usp_consultar_token_recuperacion_clave", "existe": false },
       { "objeto": "dbo.usp_consumir_token_recuperacion_clave", "existe": false },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo IN ('RCL_001', 'RCL_002', 'RCL_003')", "existe": false },
-      { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'RECUPERACION_CLAVE'", "existe": false },
-      { "tabla": "dbo.PlantillaNotificacion", "donde": "tipo = 'RECUPERACION_CLAVE'", "existe": false }
+      { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'RECUPERACION_CLAVE'", "existe": false }
     ],
     "37_pc_tomas_puntos_control": [
       { "columna": "dbo.SolicitudRevisionAsistencia.toma" },
@@ -361,7 +353,6 @@
     ],
     "46_ident002_activacion_cuentas": [
       { "objeto": "dbo.usp_consultar_reenvio_activacion_cuenta" },
-      { "tabla": "dbo.PlantillaNotificacion", "donde": "tipo = 'ACTIVACION_CUENTA'" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ACT_002'" }
     ],
     "47_val_mensaje_almacenamiento": [
@@ -383,8 +374,7 @@
       { "objeto": "dbo.usp_consultar_sesiones_pendientes_aviso_falta" },
       { "objeto": "dbo.usp_consultar_faltas_sesion_aviso" },
       { "objeto": "dbo.usp_registrar_aviso_falta_sesion" },
-      { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'AVISO_FALTA_SESION' AND clave = 'LOTE'" },
-      { "tabla": "dbo.PlantillaNotificacion", "donde": "tipo = 'FALTA_ASISTENCIA_SESION_ESTUDIANTE'" }
+      { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'AVISO_FALTA_SESION' AND clave = 'LOTE'" }
     ],
     "52_ata_solicitudes_docente_calendario": [
       { "objeto": "dbo.usp_consultar_solicitudes_sesion_docente_paginado" },
@@ -417,8 +407,7 @@
       { "objeto": "dbo.usp_consultar_sesiones_pendientes_aviso_sin_toma" },
       { "objeto": "dbo.usp_consultar_destinatarios_aviso_sin_toma" },
       { "objeto": "dbo.usp_registrar_aviso_sesion_sin_toma" },
-      { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'AVISO_SESION_SIN_TOMA' AND clave = 'LOTE'" },
-      { "tabla": "dbo.PlantillaNotificacion", "donde": "tipo = 'SESION_SIN_TOMA_COORDINADOR'" }
+      { "tabla": "dbo.CatalogoParametro", "donde": "grupo = 'AVISO_SESION_SIN_TOMA' AND clave = 'LOTE'" }
     ],
     "58_hu074_estado_asignatura_reglas": [
       { "objeto": "dbo.usp_validar_asignatura_activa_interno" },
@@ -431,6 +420,116 @@
     ],
     "60_componente_electiva": [
       { "tabla": "dbo.Componente", "donde": "codigo = 'ELE'" }
+    ],
+    "61_dec076_dec077_creacion_grupo": [
+      { "columna": "dbo.Grupo.programaResponsable" },
+      { "objeto": "dbo.ufn_programas_grupo_responsable" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'PER_010'" },
+      { "tabla": "dbo.CatalogoMensajeTecnico", "donde": "codigo = 'PER_010'" }
+    ],
+    "62_dec078_matricula_programa_estudiante": [
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'MQR_008' AND contenido LIKE N'%elige el programa%'" },
+      { "tabla": "dbo.CatalogoMensajeTecnico", "donde": "codigo = 'MQR_008' AND contenido LIKE N'%DEC-078%'" }
+    ],
+    "63_semestre_actual_estudiante_programa": [
+      { "columna": "dbo.EstudiantePrograma.semestreActual" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'EST_009'" },
+      { "tabla": "dbo.CatalogoMensajeTecnico", "donde": "codigo = 'EST_009'" }
+    ],
+    "64_ses_gen_01_calendario_semestre": [
+      { "columna": "dbo.Asignatura.horasSemanales" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ASI_013'" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ASI_014'" }
+    ],
+    "65_catalogos_nombres_capitalizados": [
+      { "tabla": "dbo.TipoPrograma", "donde": "codigo = 'PRE' AND nombre COLLATE Latin1_General_CS_AS = 'Pregrado'" },
+      { "tabla": "dbo.TipoPrograma", "donde": "codigo = 'POS' AND nombre COLLATE Latin1_General_CS_AS = 'Posgrado'" },
+      { "tabla": "dbo.Estado", "donde": "codigo = 'A' AND nombre COLLATE Latin1_General_CS_AS = 'Aceptada'" },
+      { "tabla": "dbo.EstadoEstudianteGrupo", "donde": "codigo = 'A' AND nombre COLLATE Latin1_General_CS_AS = 'Activo'" },
+      { "tabla": "dbo.RazonCausa", "donde": "codigo = 'AN' AND nombre COLLATE Latin1_General_CS_AS = 'Asistencia normal'" }
+    ],
+    "66_seg11_retiro_password_usuario": [
+      { "columna": "dbo.Usuario.password", "existe": false }
+    ],
+    "67_err_bd_no_disponible": [
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ERR_BD_NO_DISPONIBLE'" },
+      { "tabla": "dbo.CatalogoMensajeTecnico", "donde": "codigo = 'ERR_BD_NO_DISPONIBLE'" }
+    ],
+    "68_receso_academico": [
+      { "tabla": "dbo.PeriodoRecesoAcademico" },
+      { "columna": "dbo.SesionCancelacion.recesoAcademico" },
+      { "tabla": "dbo.TipoCancelacionSesion", "donde": "codigo = 'RECESO'" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'REC_001'" }
+    ],
+    "69_p3_revision_final": [
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'PER_012'" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'EST_010'" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'EST_011'" },
+      { "tabla": "dbo.CatalogoMensajeTecnico", "donde": "codigo = 'PER_012'" }
+    ],
+    "70_auditoria_bd_2026_11_22": [
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ERR_CORRELACION_REQUERIDA' AND contenido LIKE N'%c' + NCHAR(243) + N'digo%'" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ARC_003' AND contenido LIKE N'%v' + NCHAR(225) + N'lidos%'" },
+      { "tabla": "dbo.CatalogoMensajeTecnico", "donde": "codigo = 'VAL_APP_068' AND contenido LIKE N'%d' + NCHAR(237) + N'as%'" },
+      { "indice": "dbo.Grupo.IX_Grupo_docente" },
+      { "indice": "dbo.Grupo.IX_Grupo_periodoAcademico" },
+      { "indice": "dbo.Grupo.IX_Grupo_programaResponsable" },
+      { "indice": "dbo.Horario.IX_Horario_grupo" },
+      { "indice": "dbo.Horario.IX_Horario_dia" },
+      { "indice": "dbo.DocentePrograma.IX_DocentePrograma_programa" },
+      { "indice": "dbo.EstudiantePrograma.IX_EstudiantePrograma_programa" },
+      { "indice": "dbo.Programa.IX_Programa_facultad" },
+      { "indice": "dbo.Programa.IX_Programa_coordinador" },
+      { "indice": "dbo.PlanEstudio.IX_PlanEstudio_programa" },
+      { "indice": "dbo.SemestrePlanEstudio.IX_SemestrePlanEstudio_planEstudio" },
+      { "indice": "dbo.Coordinador.IX_Coordinador_facultad" },
+      { "indice": "dbo.Coordinador.IX_Coordinador_usuario" },
+      { "indice": "dbo.Docente.IX_Docente_usuario" },
+      { "indice": "dbo.Estudiante.IX_Estudiante_usuario" },
+      { "indice": "dbo.Administrador.IX_Administrador_usuario" },
+      { "indice": "dbo.Decano.IX_Decano_usuario" },
+      { "indice": "dbo.Facultad.IX_Facultad_decano" },
+      { "indice": "dbo.EstudianteGrupo.IX_EstudianteGrupo_estado" },
+      { "indice": "dbo.DetalleAsistencia.IX_DetalleAsistencia_razonCausa" },
+      { "indice": "dbo.SolicitudRevisionAsistencia.IX_SolicitudRevisionAsistencia_estado" },
+      { "indice": "dbo.SolicitudRevisionAsistencia.IX_SolicitudRevisionAsistencia_toma" },
+      { "indice": "dbo.TomaAsistencia.IX_TomaAsistencia_estado" },
+      { "indice": "dbo.TomaAsistencia.IX_TomaAsistencia_docenteApertura" },
+      { "indice": "dbo.RevisionCancelacion.IX_RevisionCancelacion_programaResolucion" },
+      { "indice": "dbo.RevisionCancelacion.IX_RevisionCancelacion_usuarioResolucion" },
+      { "indice": "dbo.SesionSolicitud.IX_SesionSolicitud_usuarioSolicitante" },
+      { "indice": "dbo.TokenMatriculaGrupo.IX_TokenMatriculaGrupo_docenteEmisor" },
+      { "objeto": "dbo.ufn_obtener_estado_estudiante_grupo", "existe": false }
+    ],
+    "71_p3_f5_notificaciones_servicio": [
+      { "tabla": "dbo.PlantillaNotificacion", "existe": false },
+      { "tabla": "dbo.PlantillaNotificacionMarcador", "existe": false },
+      { "objeto": "dbo.uv_notificacion_saliente_admin", "existe": false },
+      { "objeto": "dbo.usp_consultar_plantillas_notificacion_admin", "existe": false },
+      { "objeto": "dbo.usp_guardar_plantilla_notificacion", "existe": false },
+      { "objeto": "dbo.usp_activar_version_plantilla_notificacion", "existe": false },
+      { "objeto": "dbo.usp_consultar_plantilla_notificacion_activa", "existe": false },
+      { "objeto": "dbo.usp_consultar_notificaciones_salientes_admin", "existe": false },
+      { "objeto": "dbo.usp_reintentar_notificacion_saliente", "existe": false },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'NTF_006'", "existe": false },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'ERR_NOTIFICACIONES_NO_DISPONIBLE'" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'RPT_ASISTENCIA_ESTADO_ASISTIO'" }
+    ],
+    "72_p3_regresion_estado_cancelada": [
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'RPT_ASISTENCIA_ESTADO_CANCELADA'" },
+      { "tabla": "dbo.CatalogoMensajeTecnico", "donde": "codigo = 'RPT_ASISTENCIA_ESTADO_CANCELADA'" }
+    ],
+    "73_int004_sincronizar_parametros": [
+      { "tabla": "dbo.SincronizacionParametroExterno" },
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'PRM_013'" }
+    ],
+    "74_int004_formato_parametros": [
+      { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'PRM_017'" }
+    ],
+    "75_dec081_dedup_preambulo_receso": [
+      { "objeto": "dbo.usp_validar_ejecutor_administrador_periodo_interno" },
+      { "objeto": "dbo.usp_crear_receso_academico", "contiene": "usp_validar_ejecutor_administrador_periodo_interno" },
+      { "objeto": "dbo.usp_retirar_receso_academico", "contiene": "usp_validar_ejecutor_administrador_periodo_interno" }
     ]
   }
 }

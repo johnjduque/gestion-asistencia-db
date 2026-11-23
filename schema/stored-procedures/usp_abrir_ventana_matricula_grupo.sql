@@ -39,6 +39,7 @@ AS
     DECLARE @codigoRechazo      VARCHAR(20)      = NULL;
 BEGIN
     SET NOCOUNT ON;
+    SET XACT_ABORT ON;   -- AUD-BD M-6: un error no capturado condena la transaccion; el CATCH ya maneja XACT_STATE() = -1 (THROW si no es propia)
     BEGIN TRY
         -- PASO 1: correlacion, ejecutor y datos del token
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
@@ -119,23 +120,9 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
-        -- PASO 4.1 (CULM-001 B2NM, S3): programa de la ventana en grupos multiprograma (EST_005 si falta, EST_006 si es ajeno)
-        IF @estadoResultado = 1 AND (SELECT COUNT(*) FROM dbo.ufn_programas_grupo(@idGrupoDefecto)) > 1
-        BEGIN
-            DECLARE @codigoPrograma NVARCHAR(10) = CASE
-                WHEN @idPrograma IS NULL THEN 'EST_005'
-                WHEN NOT EXISTS (SELECT 1 FROM dbo.ufn_programas_grupo(@idGrupoDefecto) pg WHERE pg.idPrograma = @idPrograma) THEN 'EST_006' END;
-            IF @codigoPrograma IS NOT NULL
-            BEGIN
-                EXEC dbo.usp_obtener_mensaje_catalogo
-                    @p_codigo = @codigoPrograma,
-                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-                SET @estadoResultado = 0;
-            END
-        END
-        ELSE IF @estadoResultado = 1 AND @idPrograma IS NOT NULL
+        -- PASO 4.1 (DEC-078, sustituye S3 de CULM-001 B2NM): la ventana puede fijar un programa del grupo (EST_006 si es ajeno);
+        --          sin programa, en un grupo compartido cada estudiante elige el suyo al matricularse.
+        IF @estadoResultado = 1 AND @idPrograma IS NOT NULL
              AND NOT EXISTS (SELECT 1 FROM dbo.ufn_programas_grupo(@idGrupoDefecto) pg WHERE pg.idPrograma = @idPrograma)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo

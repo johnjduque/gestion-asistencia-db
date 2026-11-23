@@ -28,7 +28,7 @@ CREATE TABLE #resultadoGrupos (
     grupoEstaHablitado BIT,
     fechaInicioPeriodoAcademico DATETIME2,
     fechaFinPeriodoAcademico DATETIME2,
-    totalRegistros INT
+    totalRegistros INT, idProgramaResponsable UNIQUEIDENTIFIER, nombreProgramaResponsable NVARCHAR(50), esResponsable BIT, nombreDocente NVARCHAR(300)
 );
 
 BEGIN TRANSACTION;
@@ -113,7 +113,7 @@ IF OBJECT_ID('tempdb..#resultadoRestore') IS NOT NULL DROP TABLE #resultadoResto
 CREATE TABLE #resultadoRestore (
     id UNIQUEIDENTIFIER, codigo INT, nombre NVARCHAR(100), idAsignatura UNIQUEIDENTIFIER, nombreAsignatura NVARCHAR(100),
     idDocente UNIQUEIDENTIFIER, capacidadMaximaPermitida INT, estudiantesActivos INT, cuposDisponibles INT,
-    grupoEstaHablitado BIT, fechaInicioPeriodoAcademico DATETIME2, fechaFinPeriodoAcademico DATETIME2, totalRegistros INT
+    grupoEstaHablitado BIT, fechaInicioPeriodoAcademico DATETIME2, fechaFinPeriodoAcademico DATETIME2, totalRegistros INT, idProgramaResponsable UNIQUEIDENTIFIER, nombreProgramaResponsable NVARCHAR(50), esResponsable BIT, nombreDocente NVARCHAR(300)
 );
 
 -- ============================================================================

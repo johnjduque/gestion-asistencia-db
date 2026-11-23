@@ -27,10 +27,10 @@ BEGIN TRANSACTION;
 BEGIN TRY
     DECLARE @uD1 UNIQUEIDENTIFIER = NEWID(), @uD2 UNIQUEIDENTIFIER = NEWID(), @d1 UNIQUEIDENTIFIER = NEWID(), @d2 UNIQUEIDENTIFIER = NEWID();
     DECLARE @uC2 UNIQUEIDENTIFIER = NEWID(), @c2 UNIQUEIDENTIFIER = NEWID(), @p2 UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uD1, @tipoCC, 972000001, N'Horario', N'Uno', N'Hector', N'Qa', N'qa.horario.d1@test.local', 1, 1, N'HashBackend_H1'),
-           (@uD2, @tipoCC, 972000002, N'Horario', N'Dos', N'Helena', N'Qa', N'qa.horario.d2@test.local', 1, 1, N'HashBackend_H2'),
-           (@uC2, @tipoCC, 972000003, N'Horario', N'Coord', N'Hugo', N'Qa', N'qa.horario.c2@test.local', 1, 1, N'HashBackend_H3');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uD1, @tipoCC, 972000001, N'Horario', N'Uno', N'Hector', N'Qa', N'qa.horario.d1@test.local', 1, 1),
+           (@uD2, @tipoCC, 972000002, N'Horario', N'Dos', N'Helena', N'Qa', N'qa.horario.d2@test.local', 1, 1),
+           (@uC2, @tipoCC, 972000003, N'Horario', N'Coord', N'Hugo', N'Qa', N'qa.horario.c2@test.local', 1, 1);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d1, @uD1), (@d2, @uD2);
     INSERT INTO dbo.Coordinador (id, usuario) VALUES (@c2, @uC2);
     INSERT INTO dbo.Programa (id, facultad, tipoDePrograma, nombre, coordinador, estado)
@@ -205,8 +205,8 @@ BEGIN TRY
         THROW 53287, 'TEACHER_CREATES_GROUP FAILED: segundo guardado del docente debio retornar HOR_005 sin cambios.', 1;
     -- F3: un docente sin vinculo activo con el programa de la asignatura no puede abrir el grupo (SEC_002, sin crearlo)
     DECLARE @uD3 UNIQUEIDENTIFIER = NEWID(), @d3 UNIQUEIDENTIFIER = NEWID(), @gF UNIQUEIDENTIFIER = NEWID(), @codF INT = @base + 5;
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uD3, @tipoCC, 972000004, N'Horario', N'SinVinculo', N'Hilario', N'Qa', N'qa.horario.d3@test.local', 1, 1, N'HashBackend_H4');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uD3, @tipoCC, 972000004, N'Horario', N'SinVinculo', N'Hilario', N'Qa', N'qa.horario.d3@test.local', 1, 1);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d3, @uD3);
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_crear_grupo @idGrupo = @gF, @idAsignatura = @idAsig, @idPeriodoAcademico = @idPeriodo, @codigo = @codF,
@@ -250,8 +250,8 @@ DECLARE @codY INT = @base + 1;
 CREATE TABLE #r (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHAR(4000), mensajeTecnicoResultado NVARCHAR(4000), estadoResultado BIT);
 
 BEGIN TRY
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uD, @tipoCC, 972000009, N'Horario', N'Propio', N'Hilda', N'Qa', N'qa.horario.own@test.local', 1, 1, N'HashBackend_H9');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uD, @tipoCC, 972000009, N'Horario', N'Propio', N'Hilda', N'Qa', N'qa.horario.own@test.local', 1, 1);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d, @uD);
     INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
     VALUES (NEWID(), @d, @idProg, 1, SYSUTCDATETIME());

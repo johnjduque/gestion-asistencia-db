@@ -235,8 +235,8 @@ BEGIN TRY
     -- directo porque el ROLLBACK a savepoint no esta permitido dentro de INSERT ... EXEC.
     DECLARE @uInactivo UNIQUEIDENTIFIER = NEWID();
     DECLARE @tipoId UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.TipoIdentificacion ORDER BY id);
-    INSERT dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uInactivo, @tipoId, 990200009, N'Inactivo', N'Registro', N'Persona', N'Sin rol', N'reg.inactivo@uco.edu.co', 1, 0, @pwd);
+    INSERT dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uInactivo, @tipoId, 990200009, N'Inactivo', N'Registro', N'Persona', N'Sin rol', N'reg.inactivo@uco.edu.co', 1, 0);
     DECLARE @correoInactivo NVARCHAR(100) = (SELECT correo FROM dbo.uv_usuario WHERE id = @uInactivo);
     DECLARE @numInactivo INT = 990200009;
     SET @coordAntes = (SELECT COUNT(*) FROM dbo.Coordinador); SET @programasAntes = (SELECT COUNT(*) FROM dbo.Programa);

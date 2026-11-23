@@ -19,6 +19,8 @@ PRINT 'TEST START: test_ata_p2_solicitudes_calendario';
 BEGIN TRANSACTION;
 BEGIN TRY
 :r /tmp/test/fixtures/culm001_b2nm_asignatura_compartida.sql
+    -- DEC-077: el programa responsable del grupo mixto es A: su coordinador (CA) aprueba y rechaza las solicitudes.
+    UPDATE dbo.Grupo SET programaResponsable = @progA WHERE id = @grupoG;
     DECLARE @c UNIQUEIDENTIFIER = NEWID();
     DECLARE @tz NVARCHAR(128) = CONVERT(NVARCHAR(128), dbo.ufn_obtener_parametro('TIEMPO', 'ZONA_HORARIA_SQLSERVER'));
 
@@ -46,7 +48,8 @@ BEGIN TRY
     CREATE TABLE #ata_sol (idSesion UNIQUEIDENTIFIER, nombreSesion NVARCHAR(200), codigoSesion NVARCHAR(50), idGrupo UNIQUEIDENTIFIER, nombreGrupo NVARCHAR(200), nombreAsignatura NVARCHAR(200),
         idPrograma UNIQUEIDENTIFIER, nombrePrograma NVARCHAR(200), idDocente UNIQUEIDENTIFIER, nombreDocente NVARCHAR(400), fechaHoraInicio DATETIME2, fechaHoraFin DATETIME2,
         estadoSolicitud NVARCHAR(30), nombreEstadoSolicitud NVARCHAR(100), fechaSolicitudUtc DATETIME2, fechaResolucionUtc DATETIME2 NULL, observacion NVARCHAR(500) NULL,
-        usuarioSolicitante UNIQUEIDENTIFIER, pendienteAprobacion BIT, estaCancelada BIT, totalRegistros INT);
+        usuarioSolicitante UNIQUEIDENTIFIER, pendienteAprobacion BIT, estaCancelada BIT, totalRegistros INT,
+        nombreProgramaResponsable NVARCHAR(200) NULL, nombreCoordinadorResolutor NVARCHAR(400) NULL);
     CREATE TABLE #ata_cal (idSesion UNIQUEIDENTIFIER, idGrupo UNIQUEIDENTIFIER, codigoGrupo INT, nombreGrupo NVARCHAR(200), idAsignatura UNIQUEIDENTIFIER, codigoAsignatura NVARCHAR(50),
         nombreAsignatura NVARCHAR(200), idDocente UNIQUEIDENTIFIER, nombreDocente NVARCHAR(400), fechaHoraInicioUtc DATETIME2, fechaHoraFinUtc DATETIME2, esExtraordinaria BIT,
         estaCancelada BIT, motivoCancelacion NVARCHAR(500) NULL, esCancelacionAutomatica BIT NULL, nombreDiaFestivo NVARCHAR(200) NULL);
@@ -74,13 +77,18 @@ BEGIN TRY
         THROW 59311, 'TEST FAILED ATA_P2_01: el docente debe ver sus 3 solicitudes pendientes, una fila por sesion y con un programa del grupo.', 1;
     IF EXISTS (SELECT 1 FROM (SELECT fechaSolicitudUtc, prev = LAG(fechaSolicitudUtc) OVER (ORDER BY (SELECT NULL)) FROM #ata_sol) x WHERE prev < fechaSolicitudUtc)
         THROW 59312, 'TEST FAILED ATA_P2_01: el orden debe ser fechaSolicitudUtc DESC.', 1;
+    -- C6 (DEC-077): cada solicitud nombra al programa responsable (A) y a su coordinador resolutor (CA).
+    IF EXISTS (SELECT 1 FROM #ata_sol WHERE idPrograma <> @progA OR nombreProgramaResponsable IS NULL OR nombreProgramaResponsable <> nombrePrograma
+                                          OR nombreCoordinadorResolutor IS NULL
+                                          OR nombreCoordinadorResolutor <> (SELECT TOP 1 ci.nombreCompleto FROM dbo.uv_coordinador_identidad ci WHERE ci.idUsuario = @uCA))
+        THROW 59399, 'TEST FAILED ATA_P2_01: nombreProgramaResponsable y nombreCoordinadorResolutor deben ser los del programa responsable (A) y su coordinador.', 1;
     TRUNCATE TABLE #ata_sol;
     PRINT 'TEST_PASS:ATA_P2_01_DOCENTE_VE_SUS_PENDIENTES';
 
-    -- ATA_P2_02: aprobar (CA) y rechazar (CB); soloPendientes = 0, @idGrupo y paginacion
+    -- ATA_P2_02: aprobar y rechazar (CA, coordinador responsable; DEC-077); soloPendientes = 0, @idGrupo y paginacion
     INSERT #ata_apr EXEC dbo.usp_aprobar_solicitud_sesion @idSesion = @sApr, @observacion = NULL, @idCorrelacion = @c, @idUsuarioEjecutor = @uCA;
     DECLARE @motivo NVARCHAR(50) = (SELECT TOP 1 codigo FROM dbo.uv_motivo_cancelacion_sesion WHERE estaActivo = 1 ORDER BY orden);
-    INSERT #ata_can EXEC dbo.usp_rechazar_solicitud_sesion @idSesion = @sRec, @codigoMotivo = @motivo, @observacion = NULL, @idCorrelacion = @c, @idUsuarioEjecutor = @uCB;
+    INSERT #ata_can EXEC dbo.usp_rechazar_solicitud_sesion @idSesion = @sRec, @codigoMotivo = @motivo, @observacion = NULL, @idCorrelacion = @c, @idUsuarioEjecutor = @uCA;
     IF NOT EXISTS (SELECT 1 FROM #ata_apr WHERE estadoResultado = 1) OR NOT EXISTS (SELECT 1 FROM #ata_can WHERE estadoResultado = 1)
         THROW 59313, 'TEST FAILED ATA_P2_02: la aprobacion y el rechazo de la prueba debieron ejecutarse.', 1;
     INSERT #ata_sol EXEC dbo.usp_consultar_solicitudes_sesion_docente_paginado @idUsuario = @uT, @idCorrelacion = @c;
@@ -147,7 +155,7 @@ BEGIN TRY
     INSERT dbo.DiaFestivo (id, fecha, nombre, fuente, estaActivo, fechaCargaUtc, idCorrelacionCarga)
     VALUES (@idFestivo, DATEADD(DAY, 1, @base), N'Festivo ATA', N'PRUEBA', 1, SYSUTCDATETIME(), @c);
     INSERT dbo.SesionCancelacion (sesion, tipoCancelacion, motivo, diaFestivo, usuarioEjecutor, idCorrelacion)
-    SELECT @sF, t.id, N'Dia festivo', @idFestivo, NULL, @c FROM dbo.TipoCancelacionSesion t WHERE t.esAutomatica = 1;
+    SELECT @sF, t.id, N'Dia festivo', @idFestivo, NULL, @c FROM dbo.TipoCancelacionSesion t WHERE t.codigo = N'FESTIVO';
     INSERT dbo.SesionCancelacion (sesion, tipoCancelacion, motivo, diaFestivo, usuarioEjecutor, idCorrelacion)
     SELECT @sM, t.id, N'Calamidad del docente', NULL, @uT, @c FROM dbo.TipoCancelacionSesion t WHERE t.esAutomatica = 0;
 

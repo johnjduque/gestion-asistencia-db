@@ -18,11 +18,12 @@ IF OBJECT_ID(N'dbo.SesionCancelacion', N'U') IS NULL OR OBJECT_ID(N'dbo.TipoCanc
    OR OBJECT_ID(N'dbo.uv_sesion_estado', N'V') IS NULL OR OBJECT_ID(N'dbo.uv_tipo_cancelacion_sesion', N'V') IS NULL
    OR OBJECT_ID(N'dbo.usp_cancelar_sesion', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_consultar_destinatarios_sesion_cancelada', N'P') IS NULL
     THROW 57100, 'TEST FAILED CULM001_B1_CAN_00: faltan objetos de B.1 (SesionCancelacion, TipoCancelacionSesion, uv_sesion_estado, uv_tipo_cancelacion_sesion, usp_cancelar_sesion, usp_consultar_destinatarios_sesion_cancelada).', 1;
--- Catalogo con exactamente un tipo por bandera (ids fijos de la semilla 34)
-IF (SELECT COUNT(*) FROM dbo.uv_tipo_cancelacion_sesion) <> 2
+-- Catalogo de la semilla 34 (ids fijos): un solo tipo manual (esAutomatica = 0) y los automaticos FESTIVO y, desde DEC-081 (migracion 68), RECESO
+IF (SELECT COUNT(*) FROM dbo.uv_tipo_cancelacion_sesion) <> 3 OR (SELECT COUNT(*) FROM dbo.uv_tipo_cancelacion_sesion WHERE esAutomatica = 0) <> 1
+   OR NOT EXISTS (SELECT 1 FROM dbo.uv_tipo_cancelacion_sesion WHERE id = '7C1E0B10-5E51-4C0A-9A01-000000000003' AND codigo = N'RECESO' AND esAutomatica = 1)
    OR NOT EXISTS (SELECT 1 FROM dbo.uv_tipo_cancelacion_sesion WHERE id = '7C1E0B10-5E51-4C0A-9A01-000000000001' AND codigo = N'DOCENTE' AND esAutomatica = 0)
    OR NOT EXISTS (SELECT 1 FROM dbo.uv_tipo_cancelacion_sesion WHERE id = '7C1E0B10-5E51-4C0A-9A01-000000000002' AND codigo = N'FESTIVO' AND esAutomatica = 1)
-    THROW 57101, 'TEST FAILED CULM001_B1_CAN_00: TipoCancelacionSesion no tiene las 2 filas de la semilla (DOCENTE/0, FESTIVO/1).', 1;
+    THROW 57101, 'TEST FAILED CULM001_B1_CAN_00: TipoCancelacionSesion no tiene las 3 filas de la semilla (DOCENTE/0, FESTIVO/1, RECESO/1).', 1;
 IF dbo.ufn_obtener_parametro_int(NULL, 'SESION', 'MOTIVO_CANCELACION_LONGITUD_MINIMA') <> 10
    OR dbo.ufn_obtener_parametro_int(NULL, 'SESION', 'MOTIVO_CANCELACION_LONGITUD_MAXIMA') <> 500
     THROW 57102, 'TEST FAILED CULM001_B1_CAN_00: parametros SESION/MOTIVO_CANCELACION_LONGITUD_* ausentes o distintos de 10/500.', 1;
@@ -31,10 +32,6 @@ IF EXISTS (SELECT 1 FROM (VALUES ('SES_010'), ('SES_011'), ('SES_012'), ('SES_01
               OR NOT EXISTS (SELECT 1 FROM dbo.uv_mensaje_tecnico t WHERE t.codigo = c.codigo))
    OR EXISTS (SELECT 1 FROM dbo.uv_mensaje_usuario WHERE codigo = 'SES_015')
     THROW 57103, 'TEST FAILED CULM001_B1_CAN_00: mensajes SES_010..SES_014/SES_016 ausentes o SES_015 (reservado) sembrado.', 1;
-IF NOT EXISTS (SELECT 1 FROM dbo.PlantillaNotificacion WHERE tipo = 'SESION_CANCELADA' AND activa = 1)
-   OR (SELECT COUNT(*) FROM dbo.PlantillaNotificacionMarcador WHERE tipo = 'SESION_CANCELADA'
-       AND marcador IN ('estudiante', 'asignatura', 'grupo', 'fecha', 'horaInicio', 'horaFin', 'motivo', 'docente')) <> 8
-    THROW 57104, 'TEST FAILED CULM001_B1_CAN_00: plantilla SESION_CANCELADA o sus 8 marcadores ausentes.', 1;
 -- Columnas de uv_sesion_estado (§2.5)
 IF (SELECT COUNT(*) FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.uv_sesion_estado') AND name IN (
         'idSesion', 'idGrupo', 'numero', 'nombre', 'fechaHoraInicio', 'fechaHoraFin', 'procedenciaTemporal', 'estaCancelada',
@@ -87,12 +84,12 @@ BEGIN TRY
     DECLARE @uD1 UNIQUEIDENTIFIER = NEWID(), @uD2 UNIQUEIDENTIFIER = NEWID(), @uE1 UNIQUEIDENTIFIER = NEWID(), @uE2 UNIQUEIDENTIFIER = NEWID(), @uE3 UNIQUEIDENTIFIER = NEWID();
     DECLARE @d1 UNIQUEIDENTIFIER = NEWID(), @d2 UNIQUEIDENTIFIER = NEWID(), @e1 UNIQUEIDENTIFIER = NEWID(), @e2 UNIQUEIDENTIFIER = NEWID(), @e3 UNIQUEIDENTIFIER = NEWID();
     DECLARE @tag NVARCHAR(12) = LEFT(REPLACE(CONVERT(NVARCHAR(36), NEWID()), N'-', N''), 12);
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uD1, @tipoCC, 981000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Titular', N'Culm', N'Diana', N'B1', CONCAT(N'culm1.d1.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULM1'),
-           (@uD2, @tipoCC, 982000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Ajeno', N'Culm', N'Dario', N'B1', CONCAT(N'culm1.d2.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULM1'),
-           (@uE1, @tipoCC, 983000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Uno', N'Culm', N'Elena', N'B1', CONCAT(N'culm1.e1.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULM1'),
-           (@uE2, @tipoCC, 984000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Dos', N'Culm', N'Ernesto', N'B1', CONCAT(N'culm1.e2.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULM1'),
-           (@uE3, @tipoCC, 985000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Tres', N'Culm', N'Eva', N'B1', CONCAT(N'culm1.e3.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULM1');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uD1, @tipoCC, 981000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Titular', N'Culm', N'Diana', N'B1', CONCAT(N'culm1.d1.', @tag, N'@test.local'), 1, 1),
+           (@uD2, @tipoCC, 982000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Ajeno', N'Culm', N'Dario', N'B1', CONCAT(N'culm1.d2.', @tag, N'@test.local'), 1, 1),
+           (@uE1, @tipoCC, 983000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Uno', N'Culm', N'Elena', N'B1', CONCAT(N'culm1.e1.', @tag, N'@test.local'), 1, 1),
+           (@uE2, @tipoCC, 984000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Dos', N'Culm', N'Ernesto', N'B1', CONCAT(N'culm1.e2.', @tag, N'@test.local'), 1, 1),
+           (@uE3, @tipoCC, 985000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Tres', N'Culm', N'Eva', N'B1', CONCAT(N'culm1.e3.', @tag, N'@test.local'), 1, 1);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d1, @uD1), (@d2, @uD2);
     INSERT INTO dbo.Estudiante (id, usuario) VALUES (@e1, @uE1), (@e2, @uE2), (@e3, @uE3);
 
@@ -276,7 +273,7 @@ BEGIN TRY
 
     -- Invariante de coherencia tipo/diaFestivo en toda la tabla
     IF EXISTS (SELECT 1 FROM dbo.SesionCancelacion sc JOIN dbo.TipoCancelacionSesion t ON t.id = sc.tipoCancelacion
-               WHERE (t.esAutomatica = 1 AND sc.diaFestivo IS NULL) OR (t.esAutomatica = 0 AND (sc.diaFestivo IS NOT NULL OR sc.usuarioEjecutor IS NULL)))
+               WHERE (t.esAutomatica = 1 AND (sc.diaFestivo IS NULL AND sc.recesoAcademico IS NULL OR sc.diaFestivo IS NOT NULL AND sc.recesoAcademico IS NOT NULL)) OR (t.esAutomatica = 0 AND (sc.diaFestivo IS NOT NULL OR sc.recesoAcademico IS NOT NULL OR sc.usuarioEjecutor IS NULL)))
         THROW 57190, 'TEST FAILED INV_SESION_CANCELACION_COHERENTE: tipo automatico <=> diaFestivo NOT NULL.', 1;
     PRINT 'TEST_PASS:CULM001_B1_INV_SESION_CANCELACION_COHERENTE';
 END TRY

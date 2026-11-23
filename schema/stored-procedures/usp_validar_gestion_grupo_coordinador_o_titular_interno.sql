@@ -10,7 +10,7 @@ GO
 -- La usan usp_guardar_horarios_grupo y usp_precargar_sesiones_grupo.
 --   * ejecutor obligatorio (GEN_002) con perfil COORDINADOR o DOCENTE (SEC_001);
 --   * el grupo existe (VAL_002);
---   * COORDINADOR: debe coordinar el programa de la asignatura del grupo (SEC_002);
+--   * COORDINADOR: debe coordinar el programa responsable del grupo (SEC_002; DEC-077);
 --   * DOCENTE: debe ser el titular del grupo (SEC_002).
 -- Devuelve si el ejecutor actua como coordinador y el docente titular del grupo, para las reglas propias del caller.
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_gestion_grupo_coordinador_o_titular_interno]
@@ -98,12 +98,12 @@ BEGIN
         -- COORDINADOR: titular del programa de la asignatura del grupo
         IF @estadoResultado = 1 AND @ejecutorEsCoordinador = 1
         BEGIN
-            -- CULM-001 B2NM (R8, O-N7): sin TOP 1. En un grupo compartido, un coordinador gestiona solo si coordina TODOS los
-            -- programas vigentes del grupo (minimo privilegio, coherente con S2); si no, SEC_002.
-            IF NOT EXISTS (SELECT 1 FROM dbo.ufn_programas_grupo(@idGrupo))
-               OR EXISTS (SELECT idPrograma FROM dbo.ufn_programas_grupo(@idGrupo)
-                          EXCEPT
-                          SELECT idPrograma FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutorDefecto))
+            -- DEC-077 (sustituye O-N7 de CULM-001 B2NM): gestiona el coordinador del programa responsable del grupo
+            -- (ufn_programas_grupo_responsable). Exigir TODOS los programas impedia crear con horario cualquier grupo de una
+            -- asignatura compartida; aceptar CUALQUIERA de ellos dejaba al grupo con varios responsables. Si no, SEC_002.
+            IF NOT EXISTS (SELECT idPrograma FROM dbo.ufn_programas_grupo_responsable(@idGrupo)
+                           INTERSECT
+                           SELECT idPrograma FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutorDefecto))
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
                     @p_codigo = 'SEC_002',

@@ -33,7 +33,6 @@ DECLARE @estaActivoDefecto               BIT = dbo.ufn_obtener_parametro_int(@es
     DECLARE @primerNombreDefecto             NVARCHAR(255) = UPPER(TRIM(dbo.ufn_obtener_parametro_texto(@primerNombre, 'GENERAL', 'CADENA_VACIA')));
     DECLARE @segundoNombreDefecto            NVARCHAR(255) = UPPER(TRIM(dbo.ufn_obtener_parametro_texto(@segundoNombre, 'GENERAL', 'CADENA_VACIA')));
     DECLARE @correoDefecto                   NVARCHAR(255) = LOWER(TRIM(dbo.ufn_obtener_parametro_texto(@correo, 'GENERAL', 'CADENA_VACIA')));
-    DECLARE @passwordDefecto                 NVARCHAR(500) = TRIM(dbo.ufn_obtener_parametro_texto(@password, 'GENERAL', 'CADENA_VACIA'));
 
 -- Inicialización de respuesta desde parámetros del catálogo
 SELECT
@@ -150,18 +149,6 @@ BEGIN
         SET @estadoResultado = 0;
     END
 
-        -- F. Validar presencia de Password/Hash
-        IF @estadoResultado = 1 AND (@passwordDefecto IS NULL OR TRIM(@passwordDefecto) = '')
-        BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo
-                @p_codigo = 'VAL_007',
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-    END
-
         -- PASO 4: Registro final del usuario en dbo.Usuario
         IF @estadoResultado = 1 
         BEGIN
@@ -169,14 +156,14 @@ BEGIN
             (
             id, tipoIdIdentificacion, numeroIdentificacion,
             primerApellido, segundoApellido, primerNombre, segundoNombre,
-            correo, correoConfirmado, estado, password
+            correo, correoConfirmado, estado
             )
         VALUES
             (
                 NEWID(), @idTipoIdIdentificacionDefecto, @numeroIdentificacionDefecto,
                 @primerApellidoDefecto, @segundoApellidoDefecto,
                 @primerNombreDefecto, @segundoNombreDefecto,
-                @correoDefecto, 0, @estaActivoDefecto, @passwordDefecto
+                @correoDefecto, 0, @estaActivoDefecto
             );
 
         EXEC dbo.usp_obtener_mensaje_catalogo

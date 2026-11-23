@@ -66,7 +66,8 @@ BEGIN TRY
         nombreGrupo NVARCHAR(200) NULL,
         nombreDocente NVARCHAR(300) NULL,
         fechaExpiracionUtc DATETIME2(0) NULL,
-        cupoDisponible INT NULL
+        cupoDisponible INT NULL,
+        programasElegibles NVARCHAR(MAX) NULL   -- DEC-078
     );
     CREATE TABLE #por (idGrupo UNIQUEIDENTIFIER NULL, idDocenteEmisor UNIQUEIDENTIFIER NULL);
 

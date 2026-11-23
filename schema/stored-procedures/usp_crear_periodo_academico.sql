@@ -1,4 +1,4 @@
-USE [gestionasistenciadb];
+﻿USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
 GO
@@ -9,6 +9,7 @@ GO
 -- toda la institucion; DECANO y COORDINADOR solo lo consultan). Reglas:
 --   * nombre obligatorio y unico (sin distinguir mayusculas) dentro de la institucion (PER_003).
 --   * fechaInicio < fechaFin (PER_002).
+--   * BD-3: sin fechas solapadas con otro periodo de la institucion (PER_012).
 --   * codigo y anio se derivan de fechaInicio: anio = YEAR(fechaInicio); codigo = anio * 10 + (1 si inicia en
 --     enero-junio, 2 si inicia en julio-diciembre), igual que la semilla (2026-2 => 20262).
 -- Concurrencia: los periodos de la institucion se bloquean (UPDLOCK, HOLDLOCK) mientras se valida la unicidad.
@@ -31,6 +32,8 @@ AS
     DECLARE @nombreDef                NVARCHAR(50)     = TRIM(@nombre);
     DECLARE @idInstitucion            UNIQUEIDENTIFIER;
     DECLARE @conteoBloqueo            INT;
+    DECLARE @semanasDuracion          INT              = dbo.ufn_obtener_parametro_int(NULL, 'PERIODO', 'SEMANAS_DURACION');
+    DECLARE @fechaFinCalculada        DATE;
 
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -81,11 +84,30 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
-        -- PASO 5: Validacion de negocio (PER_002)
+        -- PASO 5 (SES-GEN-01 B2): el semestre dura PERIODO/SEMANAS_DURACION semanas (112 dias con 16): fechaFin = fechaInicio + 7 * semanas - 1.
+        --         @fechaFin es opcional: si falta se calcula. Parametro ausente: fail-closed (PER_011).
+        IF @estadoResultado = 1 AND @fechaInicio IS NOT NULL AND @semanasDuracion IS NOT NULL
+        BEGIN
+            SET @fechaFinCalculada = DATEADD(DAY, 7 * @semanasDuracion - 1, CAST(@fechaInicio AS DATE));
+            IF @fechaFin IS NULL SET @fechaFin = CAST(@fechaFinCalculada AS DATETIME2);
+        END
+
+        -- PASO 5.1: Validacion de negocio (PER_002)
         IF @estadoResultado = 1 AND (@fechaInicio IS NULL OR @fechaFin IS NULL OR @fechaInicio >= @fechaFin)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'PER_002',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
+        -- PASO 5.2 (SES-GEN-01 B2): la duracion exacta del semestre (PER_011)
+        IF @estadoResultado = 1 AND (@semanasDuracion IS NULL OR CAST(@fechaFin AS DATE) <> @fechaFinCalculada)
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'PER_011', @p_param1 = @semanasDuracion, @p_param2 = @fechaFinCalculada,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
             SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
@@ -122,6 +144,17 @@ BEGIN
                 SET @estadoResultado = 0;
             END
             ELSE
+            BEGIN
+                -- BD-3: las fechas no pueden solaparse con otro periodo de la institucion (PER_012); los periodos ya estan bloqueados.
+                EXEC dbo.usp_validar_solape_periodo_academico_interno
+                    @idInstitucion = @idInstitucion, @fechaInicio = @fechaInicio, @fechaFin = @fechaFin,
+                    @idPeriodoExcluir = NULL, @idCorrelacion = @idCorrelacionDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                    @estadoResultado = @estadoResultado OUTPUT;
+            END
+
+            IF @estadoResultado = 1
             BEGIN
                 INSERT INTO dbo.PeriodoAcademico (id, institucion, nombre, codigo, fechaInicio, fechaFin, anio)
                 VALUES (

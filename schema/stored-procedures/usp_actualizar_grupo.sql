@@ -1,4 +1,4 @@
-USE [gestionasistenciadb];
+﻿USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
 GO
@@ -25,6 +25,11 @@ AS
     DECLARE @idAsigCurrent        UNIQUEIDENTIFIER;
     DECLARE @idPeriodoCurrent     UNIQUEIDENTIFIER;
     DECLARE @estudiantesActivos   INT;
+    DECLARE @ejecutorEsCoordinador BIT = 0;   -- SES-GEN-01 H-06: salida de la validacion de ambito
+    DECLARE @idDocenteTitular      UNIQUEIDENTIFIER;
+    DECLARE @transaccionPropia     BIT = 0;           -- AUD-BD A-2: la transaccion la abre este SP solo si no habia una externa
+    DECLARE @grupoBloqueado        UNIQUEIDENTIFIER;
+    DECLARE @estadoMatriculaActiva UNIQUEIDENTIFIER;
 
     -- Variables locales de respuesta
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -33,6 +38,7 @@ AS
 
 BEGIN
     SET NOCOUNT ON;
+    SET XACT_ABORT ON;   -- AUD-BD A-2
     BEGIN TRY
         -- PASO 1: Validación de correlación
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno 
@@ -85,6 +91,47 @@ BEGIN
                 SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
                 SET @estadoResultado = 0;
             END
+        END
+
+        -- PASO 2B (SES-GEN-01 H-06, cierra SECURITY_FINDING-GRP-001): el coordinador solo edita grupos de los programas que coordina (SEC_002).
+        --          Antes el ambito solo lo validaba usp_guardar_horarios_grupo, y solo cuando llegaban franjas.
+        IF @estadoResultado = 1
+        BEGIN
+            EXEC dbo.usp_validar_gestion_grupo_coordinador_o_titular_interno
+                @idGrupo = @idGrupoDefecto,
+                @idUsuarioEjecutor = @idUsuarioEjecutor,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @ejecutorEsCoordinador = @ejecutorEsCoordinador OUTPUT,
+                @idDocenteTitular = @idDocenteTitular OUTPUT,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+
+            -- Solo el coordinador edita grupos: un titular que no coordina el programa no pasa (el PASO 1.5 ya exige el perfil COORDINADOR)
+            IF @estadoResultado = 1 AND @ejecutorEsCoordinador = 0
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'SEC_002',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+        END
+
+        -- PASO 2C (AUD-BD A-2): desde aqui hasta el UPDATE todo ocurre en una transaccion con la fila del grupo y sus matriculas activas
+        --          bloqueadas (UPDLOCK, HOLDLOCK): una matricula concurrente no puede dejar cupo < matriculados entre la validacion y el UPDATE.
+        IF @estadoResultado = 1
+        BEGIN
+            IF @@TRANCOUNT = 0
+            BEGIN
+                BEGIN TRANSACTION;
+                SET @transaccionPropia = 1;
+            END
+
+            SELECT @grupoBloqueado = g.id
+            FROM dbo.Grupo g WITH (UPDLOCK, HOLDLOCK)
+            WHERE g.id = @idGrupoDefecto;
         END
 
         -- PASO 3: Validar docente si se modifica (se usa el parámetro crudo: @idDocenteDefecto
@@ -163,9 +210,12 @@ BEGIN
         -- PASO 5: Validar que el nuevo cupo máximo no sea inferior a la ocupación actual del grupo
         IF @estadoResultado = 1 AND @cupoMaximo IS NOT NULL AND @cupoMaximo > 0
         BEGIN
-            SELECT @estudiantesActivos = cantidadActivos
-            FROM [dbo].[uv_estadistica_grupo]
-            WHERE id = @idGrupoDefecto;
+            SELECT @estadoMatriculaActiva = e.id FROM dbo.EstadoEstudianteGrupo e WHERE e.codigo = 'A';
+
+            -- Lectura bloqueante en tablas base (la vista uv_estadistica_grupo no admite hints): rango de matriculas del grupo bajo UPDLOCK, HOLDLOCK
+            SELECT @estudiantesActivos = COUNT(1)
+            FROM dbo.EstudianteGrupo eg WITH (UPDLOCK, HOLDLOCK)
+            WHERE eg.grupo = @idGrupoDefecto AND eg.estado = @estadoMatriculaActiva;
 
             IF @estudiantesActivos IS NOT NULL AND @cupoMaximo < @estudiantesActivos
             BEGIN
@@ -193,7 +243,7 @@ BEGIN
             WHERE id = @idGrupoDefecto;
 
             EXEC dbo.usp_obtener_mensaje_catalogo
-                @p_codigo = 'GEN_004',
+                @p_codigo = 'GEN_005',   -- BD-10: actualizacion (antes GEN_004 'registrado(a)' al EDITAR un grupo)
                 @p_param1 = 'Grupo',
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
@@ -201,8 +251,17 @@ BEGIN
             SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
         END
 
+        -- Cierre de la transaccion propia: confirma el UPDATE; las ramas de rechazo no escriben y solo liberan el bloqueo
+        IF @transaccionPropia = 1
+        BEGIN
+            IF @estadoResultado = 1 COMMIT TRANSACTION;
+            ELSE ROLLBACK TRANSACTION;
+        END
+
     END TRY
     BEGIN CATCH
+        IF XACT_STATE() <> 0 AND @transaccionPropia = 1 ROLLBACK TRANSACTION;
+
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,

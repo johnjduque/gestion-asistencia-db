@@ -10,6 +10,7 @@ GO
 --
 -- Matricula manual de un estudiante en un grupo. CULM-001 A.1:
 --   * F-COO-004: solo el DOCENTE TITULAR del grupo matricula (perfil DOCENTE y titularidad GRUPO, SEC_001/SEC_002).
+--   * BD-4 (2026-11-22): un estudiante existente solo se matricula con un programa comun con el grupo (EST_010, EST_011, EST_006).
 --   * DEC-009: una matricula retirada del estudiante en el grupo se reactiva (la misma fila) en el interno.
 --   * Atomico (bloqueante 1): SET XACT_ABORT ON; transaccion propia si @@TRANCOUNT = 0, si no savepoint
 --     sp_registrar_estudiante_grupo. Las validaciones sin escritura van antes del savepoint de negocio
@@ -127,6 +128,26 @@ BEGIN
         BEGIN
             EXEC dbo.usp_validar_cupo_disponible_grupo_interno
                 @idGrupo = @idGrupoDefecto,
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
+
+        -- PASO 1.95 (BD-4): un estudiante que ya existe solo se matricula si comparte un programa con el grupo (EST_010/EST_011/EST_006);
+        -- el estudiante nuevo creado en este acto queda vinculado al programa elegido del grupo (sin cambio). Antes de escribir nada.
+        IF @estadoResultado = 1
+        BEGIN
+            DECLARE @idEstudianteExistente UNIQUEIDENTIFIER;
+            SELECT TOP 1 @idEstudianteExistente = e.id
+            FROM dbo.Usuario u
+            INNER JOIN dbo.Estudiante e ON e.usuario = u.id
+            WHERE u.correo = LOWER(TRIM(@correo));
+
+            EXEC dbo.usp_validar_programa_comun_estudiante_grupo_interno
+                @idEstudiante = @idEstudianteExistente,
+                @idGrupo = @idGrupoDefecto,
+                @idProgramaElegido = @idPrograma,
                 @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,

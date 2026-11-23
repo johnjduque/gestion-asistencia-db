@@ -32,3 +32,11 @@ BEGIN
     ALTER TABLE [dbo].[Programa] ADD [jornada] uniqueidentifier NULL;
 END
 GO
+
+-- AUD-BD M-1 (2026-11-22): indices de apoyo para las FK de ambito y filtro (las vistas uv_auth_* y los SP de ambito filtran por estas columnas).
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Programa') AND name = 'IX_Programa_facultad')
+    CREATE NONCLUSTERED INDEX IX_Programa_facultad ON dbo.Programa (facultad);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Programa') AND name = 'IX_Programa_coordinador')
+    CREATE NONCLUSTERED INDEX IX_Programa_coordinador ON dbo.Programa (coordinador);
+GO

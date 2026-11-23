@@ -99,12 +99,12 @@ BEGIN TRY
     DECLARE @tag NVARCHAR(12) = LEFT(REPLACE(CONVERT(NVARCHAR(36), NEWID()), N'-', N''), 12);
     CREATE TABLE #ptcEst (n INT, idUsuario UNIQUEIDENTIFIER, idEstudiante UNIQUEIDENTIFIER, idEG UNIQUEIDENTIFIER, idAsistencia UNIQUEIDENTIFIER);
     INSERT INTO #ptcEst (n, idUsuario, idEstudiante, idEG, idAsistencia) SELECT v.n, NEWID(), NEWID(), NEWID(), NEWID() FROM (VALUES (1),(2),(3),(4),(5)) v(n);
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uD, @tipoCC, 977000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Titular', N'Puntos', N'Doc', N'PC', CONCAT(N'pc.d1.', @tag, N'@test.local'), 1, 1, N'HashBackend_PC'),
-           (@uD2, @tipoCC, 978000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Ajeno', N'Puntos', N'Doc', N'PC', CONCAT(N'pc.d2.', @tag, N'@test.local'), 1, 1, N'HashBackend_PC');
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uD, @tipoCC, 977000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Titular', N'Puntos', N'Doc', N'PC', CONCAT(N'pc.d1.', @tag, N'@test.local'), 1, 1),
+           (@uD2, @tipoCC, 978000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Ajeno', N'Puntos', N'Doc', N'PC', CONCAT(N'pc.d2.', @tag, N'@test.local'), 1, 1);
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
     SELECT e.idUsuario, @tipoCC, 979000000 + e.n * 10000 + ABS(CHECKSUM(NEWID()) % 9999), CONCAT(N'Estudiante', e.n), N'Puntos', N'Est', N'PC',
-           CONCAT(N'pc.e', e.n, N'.', @tag, N'@test.local'), 1, 1, N'HashBackend_PC'
+           CONCAT(N'pc.e', e.n, N'.', @tag, N'@test.local'), 1, 1
     FROM #ptcEst e;
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d, @uD), (@d2, @uD2);
     INSERT INTO dbo.Estudiante (id, usuario) SELECT idEstudiante, idUsuario FROM #ptcEst;

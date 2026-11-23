@@ -19,10 +19,10 @@ BEGIN TRY
     DECLARE @uC1 UNIQUEIDENTIFIER = NEWID(), @uC2 UNIQUEIDENTIFIER = NEWID(), @uD UNIQUEIDENTIFIER = NEWID();
     DECLARE @cC1 UNIQUEIDENTIFIER = NEWID(), @cC2 UNIQUEIDENTIFIER = NEWID(), @dD UNIQUEIDENTIFIER = NEWID();
     DECLARE @p1 UNIQUEIDENTIFIER = NEWID(), @p2 UNIQUEIDENTIFIER = NEWID(), @corr UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uC1, @tipoCC, 950000001, N'Coord', N'Uno', N'Carlos', N'Qa', N'qa.c1.hu092@test.local', 1, 1, N'HashBackend_F1'),
-           (@uC2, @tipoCC, 950000002, N'Coord', N'Dos', N'Diana',  N'Qa', N'qa.c2.hu092@test.local', 1, 1, N'HashBackend_F2'),
-           (@uD,  @tipoCC, 950000011, N'Original', N'Apellido', N'Nombre', N'Viejo', N'qa.doc.hu092@test.local', 1, 1, N'HashBackend_F3');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uC1, @tipoCC, 950000001, N'Coord', N'Uno', N'Carlos', N'Qa', N'qa.c1.hu092@test.local', 1, 1),
+           (@uC2, @tipoCC, 950000002, N'Coord', N'Dos', N'Diana',  N'Qa', N'qa.c2.hu092@test.local', 1, 1),
+           (@uD,  @tipoCC, 950000011, N'Original', N'Apellido', N'Nombre', N'Viejo', N'qa.doc.hu092@test.local', 1, 1);
     INSERT INTO dbo.Coordinador (id, usuario) VALUES (@cC1, @uC1), (@cC2, @uC2);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@dD, @uD);
     INSERT INTO dbo.Programa (id, facultad, tipoDePrograma, nombre, coordinador, estado)
@@ -68,8 +68,8 @@ BEGIN TRY
     -- T-092-04: ambito. Docente sin vinculo con el programa y coordinador ajeno.
     SELECT @msg = contenido FROM dbo.uv_mensaje_usuario WHERE codigo = 'DOC_008';
     DECLARE @uD2 UNIQUEIDENTIFIER = NEWID(), @dD2 UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uD2, @tipoCC, 950000012, N'Sin', N'Vinculo', N'Docente', N'Qa', N'qa.doc2.hu092@test.local', 1, 1, N'HashBackend_F4');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uD2, @tipoCC, 950000012, N'Sin', N'Vinculo', N'Docente', N'Qa', N'qa.doc2.hu092@test.local', 1, 1);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@dD2, @uD2);
     TRUNCATE TABLE #r;
     INSERT INTO #r EXEC dbo.usp_actualizar_docente_programa

@@ -14,6 +14,9 @@ SET QUOTED_IDENTIFIER ON;
 GO
 BEGIN TRANSACTION;
 GO
+-- P3 F5: la migracion 71 retiro PlantillaNotificacion*; se baja primero (dentro de la transaccion) para que las migraciones anteriores, que aun la usan, se prueben igual que antes.
+:r $(MIGDIR)/71_p3_f5_notificaciones_servicio_down.sql
+GO
 IF OBJECT_ID(N'tempdb..#atamig') IS NOT NULL DROP TABLE #atamig;
 CREATE TABLE #atamig (k NVARCHAR(80) PRIMARY KEY, v VARBINARY(32));
 INSERT #atamig SELECT o.name, HASHBYTES('SHA2_256', m.definition)

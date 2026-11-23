@@ -20,10 +20,10 @@ BEGIN TRY
     DECLARE @uC1 UNIQUEIDENTIFIER = NEWID(), @uC2 UNIQUEIDENTIFIER = NEWID(), @uC3 UNIQUEIDENTIFIER = NEWID();
     DECLARE @cC1 UNIQUEIDENTIFIER = NEWID(), @cC2 UNIQUEIDENTIFIER = NEWID(), @cC3 UNIQUEIDENTIFIER = NEWID();
     DECLARE @p1 UNIQUEIDENTIFIER = NEWID(), @p2 UNIQUEIDENTIFIER = NEWID(), @p3 UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uC1, @tipoCC, 940000001, N'Coord', N'Uno', N'Carlos', N'Qa', N'qa.c1.cand@test.local', 1, 1, N'HashBackend_F1'),
-           (@uC2, @tipoCC, 940000002, N'Coord', N'Dos', N'Diana',  N'Qa', N'qa.c2.cand@test.local', 1, 1, N'HashBackend_F2'),
-           (@uC3, @tipoCC, 940000003, N'Coord', N'Tres', N'Tomas', N'Qa', N'qa.c3.cand@test.local', 1, 1, N'HashBackend_F3');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uC1, @tipoCC, 940000001, N'Coord', N'Uno', N'Carlos', N'Qa', N'qa.c1.cand@test.local', 1, 1),
+           (@uC2, @tipoCC, 940000002, N'Coord', N'Dos', N'Diana',  N'Qa', N'qa.c2.cand@test.local', 1, 1),
+           (@uC3, @tipoCC, 940000003, N'Coord', N'Tres', N'Tomas', N'Qa', N'qa.c3.cand@test.local', 1, 1);
     INSERT INTO dbo.Coordinador (id, usuario) VALUES (@cC1, @uC1), (@cC2, @uC2), (@cC3, @uC3);
     DECLARE @inst2 UNIQUEIDENTIFIER = NEWID(), @fac2 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.Institucion (id, nombre, estado) VALUES (@inst2, N'Institucion QA Cand', 1);
@@ -34,11 +34,11 @@ BEGIN TRY
     -- Docentes "Candidato": d1 solo en P1 (excluido), d2 en P2 (candidato), d3 en P3 otra institucion (excluido), d4 en P2 con usuario inactivo (excluido)
     DECLARE @u1 UNIQUEIDENTIFIER = NEWID(), @u2 UNIQUEIDENTIFIER = NEWID(), @u3 UNIQUEIDENTIFIER = NEWID(), @u4 UNIQUEIDENTIFIER = NEWID();
     DECLARE @d1 UNIQUEIDENTIFIER = NEWID(), @d2 UNIQUEIDENTIFIER = NEWID(), @d3 UNIQUEIDENTIFIER = NEWID(), @d4 UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@u1, @tipoCC, 940001001, N'Candidato', N'Uno',    N'Ana', N'Qa', N'qa.k1.cand@test.local', 1, 1, N'HashBackend_F4'),
-           (@u2, @tipoCC, 940001002, N'Candidato', N'Dos',    N'Ana', N'Qa', N'qa.k2.cand@test.local', 1, 1, N'HashBackend_F5'),
-           (@u3, @tipoCC, 940001003, N'Candidato', N'Tres',   N'Ana', N'Qa', N'qa.k3.cand@test.local', 1, 1, N'HashBackend_F6'),
-           (@u4, @tipoCC, 940001004, N'Candidato', N'Cuatro', N'Ana', N'Qa', N'qa.k4.cand@test.local', 1, 0, N'HashBackend_F7');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@u1, @tipoCC, 940001001, N'Candidato', N'Uno',    N'Ana', N'Qa', N'qa.k1.cand@test.local', 1, 1),
+           (@u2, @tipoCC, 940001002, N'Candidato', N'Dos',    N'Ana', N'Qa', N'qa.k2.cand@test.local', 1, 1),
+           (@u3, @tipoCC, 940001003, N'Candidato', N'Tres',   N'Ana', N'Qa', N'qa.k3.cand@test.local', 1, 1),
+           (@u4, @tipoCC, 940001004, N'Candidato', N'Cuatro', N'Ana', N'Qa', N'qa.k4.cand@test.local', 1, 0);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d1, @u1), (@d2, @u2), (@d3, @u3), (@d4, @u4);
     INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
     VALUES (NEWID(), @d1, @p1, 1, SYSUTCDATETIME()), (NEWID(), @d2, @p2, 1, SYSUTCDATETIME()),

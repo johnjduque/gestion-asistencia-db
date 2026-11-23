@@ -38,8 +38,8 @@ BEGIN TRY
     UPDATE dbo.Grupo SET cantidadEstudiantes = (SELECT COUNT(*) FROM dbo.uv_estudiante_grupo
         WHERE idGrupo = @group AND codigoEstadoEstudiante = 'A') + 2 WHERE id = @group;
 
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@u1, @tipoCC, 970009001, N'Uno', N'Qa', N'Est', N'Int', N'qa.inthu01.1@test.local', 1, 1, N'HashBackend_R1');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@u1, @tipoCC, 970009001, N'Uno', N'Qa', N'Est', N'Int', N'qa.inthu01.1@test.local', 1, 1);
     INSERT INTO dbo.Estudiante (id, usuario) VALUES (@e1, @u1);
 
     -- E1 matriculado a mano por el docente titular y luego retirado (HU051: A -> I).

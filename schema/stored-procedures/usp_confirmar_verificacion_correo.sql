@@ -27,6 +27,7 @@ AS
     DECLARE @consumidos TABLE (usuario UNIQUEIDENTIFIER NOT NULL);
 BEGIN
     SET NOCOUNT ON;
+    SET XACT_ABORT ON;   -- AUD-BD M-6: un error no capturado condena la transaccion; el CATCH ya maneja XACT_STATE() = -1 (THROW si no es propia)
     BEGIN TRY
         SET @conteoTransaccionesInicial = @@TRANCOUNT;
         IF @conteoTransaccionesInicial = 0

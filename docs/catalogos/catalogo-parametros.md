@@ -31,3 +31,28 @@ El catálogo de arriba es el inventario funcional original. Los parámetros que 
 | AUDITORIA | RANGO_MAXIMO_DIAS | 90 | INT | 1..366 | No (el grupo AUDITORIA está en `PARAMETROS/GRUPOS_NO_EDITABLES`) | Días máximos entre la fecha inicial y la final de la consulta de auditoría. Lo lee el backend en lugar de tenerlo fijo (PAR-06). | `migrations/40_val_parametro_rango_auditoria_up.sql`, `schema/seed/57_val_parametro_rango_auditoria.sql` |
 
 El rango 1..366 vive en `CatalogoParametroEdicion` (fila con `esEditable = 0`) y lo valida `ufn_validar_valor_parametro` (código `PRM_005` fuera de rango).
+
+### SES-GEN-01: calendario de sesiones del semestre (`migrations/64_ses_gen_01_calendario_semestre_up.sql`)
+
+| Grupo | Clave | Valor | Tipo | Descripción |
+| --- | --- | --- | --- | --- |
+| PERIODO | SEMANAS_DURACION | 16 | INT | El semestre dura siempre 16 semanas (112 días corridos): `fechaFin = fechaInicio + 7 x semanas - 1`. Lo imponen `usp_crear_periodo_academico` y `usp_actualizar_periodo_academico` al crear y al cambiar fechas (`PER_011`); los períodos históricos se conservan. |
+| ASIGNATURA | HORAS_SEMANALES_MAXIMO | 40 | INT | Tope de `Asignatura.horasSemanales` (horas de 60 minutos de reloj, entero >= 1; `ASI_013`). |
+| HORARIO | DURACION_MINIMA_MINUTOS | 60 | INT | Duración mínima de cada franja del horario de un grupo (`HOR_007`). Parámetro ausente: no se valida. |
+| HORARIO | DURACION_MAXIMA_MINUTOS | 240 | INT | Duración máxima de cada franja (`HOR_007`). |
+| HORARIO | VENTANA_INICIO | 06:00 | STRING | Hora local institucional más temprana en que puede empezar una franja (`HOR_008`). |
+| HORARIO | VENTANA_FIN | 22:00 | STRING | Hora local institucional más tardía en que puede terminar una franja (`HOR_008`). |
+
+Ninguno es editable desde la pantalla de parámetros (sin fila en `CatalogoParametroEdicion`).
+
+### DEC-081: receso académico del período (`migrations/68_receso_academico_up.sql`)
+
+| Grupo | Clave | Valor | Tipo | Descripción |
+| --- | --- | --- | --- | --- |
+| RECESO | PREFIJO_MOTIVO_CANCELACION | Receso académico:  | STRING | Prefijo del motivo de la cancelación automática por un día de receso (motivo final = prefijo + motivo del día). |
+| RECESO | CODIGO_TIPO_CANCELACION | RECESO | STRING | Código del `TipoCancelacionSesion` con que se cancelan las sesiones de un receso. |
+| RECESO | MOTIVO_LONGITUD_MAXIMA | 200 | INT | Largo máximo del motivo (`REC_008`); `PeriodoRecesoAcademico.motivo` es `NVARCHAR(200)`. |
+| SESION | CODIGO_TIPO_CANCELACION_FESTIVO | FESTIVO | STRING | Código del `TipoCancelacionSesion` de la cancelación por festivo (antes se hallaba con `esAutomatica = 1`, hoy hay dos tipos automáticos). |
+
+Ninguno es editable desde la pantalla de parámetros (sin fila en `CatalogoParametroEdicion`).
+

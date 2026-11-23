@@ -18,7 +18,7 @@ CREATE OR ALTER FUNCTION [dbo].[ufn_obtener_mensaje_desde_plantilla]
 	) RETURNS NVARCHAR(MAX) AS
 BEGIN   
 
-		DECLARE @idCorrelacionDefecto AS NVARCHAR(50) = UPPER(LTRIM(RTRIM(ISNULL(@idCorrelacion, '00000000-0000-0000-0000-000000000000'))))
+		DECLARE @idCorrelacionDefecto AS NVARCHAR(50) = UPPER(LTRIM(RTRIM(ISNULL(@idCorrelacion, CAST(dbo.ufn_obtener_parametro('GENERAL', 'GUID_DEFECTO_CORRELACION') AS NVARCHAR(50))))))
 		DECLARE @tipoDefecto AS NVARCHAR(50) = TRIM(ISNULL(@tipo, ''))
 		DECLARE @numeroDefecto AS NVARCHAR(50) = TRIM(ISNULL(@numero, ''))
 		DECLARE @severidadDefecto AS NVARCHAR(50) =TRIM( ISNULL(@severidad, ''))

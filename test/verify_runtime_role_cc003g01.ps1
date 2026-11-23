@@ -79,7 +79,7 @@ SELECT CONCAT('syncRetirado=', IIF(OBJECT_ID(N'dbo.usp_sincronizar_usuario', N'P
         @{ Name = 'USUARIO_INSERT'; Query = "INSERT dbo.Usuario (id) VALUES (NEWID());" },
         @{ Name = 'USUARIO_UPDATE'; Query = 'UPDATE dbo.Usuario SET estado = estado WHERE 1 = 0;' },
         @{ Name = 'USUARIO_DELETE'; Query = 'DELETE dbo.Usuario WHERE 1 = 0;' },
-        @{ Name = 'USUARIO_SELECT'; Query = 'SELECT TOP 1 password FROM dbo.Usuario;' },
+        @{ Name = 'USUARIO_SELECT'; Query = 'SELECT TOP 1 correo FROM dbo.Usuario;' },
         @{ Name = 'PLAN_INSERT'; Query = 'INSERT dbo.PlanEstudio (id) VALUES (NEWID());' },
         @{ Name = 'PLAN_UPDATE'; Query = 'UPDATE dbo.PlanEstudio SET inp = inp WHERE 1 = 0;' },
         @{ Name = 'PLAN_DELETE'; Query = 'DELETE dbo.PlanEstudio WHERE 1 = 0;' }

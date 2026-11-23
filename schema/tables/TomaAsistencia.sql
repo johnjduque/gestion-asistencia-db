@@ -39,3 +39,11 @@ GO
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.TomaAsistencia') AND name = 'IX_TomaAsistencia_abiertas')
     CREATE NONCLUSTERED INDEX IX_TomaAsistencia_abiertas ON dbo.TomaAsistencia (fechaAperturaUtc) INCLUDE (sesion, modo) WHERE fechaCierreUtc IS NULL;
 GO
+
+-- AUD-BD M-1 (2026-11-22): indices de apoyo para las FK de ambito y filtro (las vistas uv_auth_* y los SP de ambito filtran por estas columnas).
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.TomaAsistencia') AND name = 'IX_TomaAsistencia_estado')
+    CREATE NONCLUSTERED INDEX IX_TomaAsistencia_estado ON dbo.TomaAsistencia (estado);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.TomaAsistencia') AND name = 'IX_TomaAsistencia_docenteApertura')
+    CREATE NONCLUSTERED INDEX IX_TomaAsistencia_docenteApertura ON dbo.TomaAsistencia (docenteApertura);
+GO

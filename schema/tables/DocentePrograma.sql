@@ -21,3 +21,8 @@ ALTER TABLE [dbo].[DocentePrograma] ADD CONSTRAINT [PK_DocentePrograma] PRIMARY 
 ALTER TABLE [dbo].[DocentePrograma] ADD CONSTRAINT [UQ_DocentePrograma_docente_programa] UNIQUE ([docente], [programa]);
 END
 GO
+
+-- AUD-BD M-1 (2026-11-22): indices de apoyo para las FK de ambito y filtro (las vistas uv_auth_* y los SP de ambito filtran por estas columnas).
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.DocentePrograma') AND name = 'IX_DocentePrograma_programa')
+    CREATE NONCLUSTERED INDEX IX_DocentePrograma_programa ON dbo.DocentePrograma (programa);
+GO

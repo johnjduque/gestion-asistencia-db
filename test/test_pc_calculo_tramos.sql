@@ -97,11 +97,11 @@ BEGIN TRY
     -- Sesiones de 08:00 a 10:00 UTC en dias pasados (minutos enteros): base = hace 40 dias
     DECLARE @base DATETIME2(7) = DATEADD(HOUR, 8, CAST(DATEADD(DAY, -40, CAST(SYSUTCDATETIME() AS DATE)) AS DATETIME2(7)));
 
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uD, @tipoCC, 975000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Puntos', N'Control', N'Doc', N'PC', CONCAT(N'pccal.d.', @tag, N'@test.local'), 1, 1, N'HashBackend_PC');
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uD, @tipoCC, 975000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Puntos', N'Control', N'Doc', N'PC', CONCAT(N'pccal.d.', @tag, N'@test.local'), 1, 1);
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
     SELECT c.idUsuario, @tipoCC, 976000000 + c.orden * 10000 + ABS(CHECKSUM(NEWID()) % 9999), CONCAT(N'Puntos', c.orden), N'Control', N'Est', N'PC',
-           CONCAT(N'pccal.e', c.orden, N'.', @tag, N'@test.local'), 1, 1, N'HashBackend_PC'
+           CONCAT(N'pccal.e', c.orden, N'.', @tag, N'@test.local'), 1, 1
     FROM #pcC c;
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d, @uD);
     INSERT INTO dbo.Estudiante (id, usuario) SELECT idEstudiante, idUsuario FROM #pcC;

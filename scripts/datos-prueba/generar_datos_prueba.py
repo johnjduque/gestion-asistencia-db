@@ -20,7 +20,6 @@ from datetime import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 NS = uuid.UUID("6f1c2a7e-3b4d-4c5e-9f60-a1b2c3d4e5f6")
 INSTITUCION = "B1C2D3E4-0000-0000-0000-000000000001"
-PASSWORD_PLACEHOLDER = "HashBackend_AbCdEf1234567890"  # igual que las semillas: la autenticacion vive en Keycloak
 
 
 def gid(kind, key):
@@ -264,8 +263,10 @@ ESTUDIANTES = [
 # Asistencia: % de faltas sin justa causa por matricula (resto: 0-8 % segun hash) y excusas
 TASAS = {
     ("E-SANTIAGO", "BDA-1"): (28, 0), ("E-BRAYAN", "ETI-2"): (25, 0), ("E-KEVIN", "CAL-3"): (30, 0),   # perdida
-    ("E-MATEO", "CAL-1"): (17, 0), ("E-LAURA", "IOP-1"): (16, 0), ("E-CAMILA", "COS-1"): (18, 0),     # riesgo
-    ("E-VALERIA", "PSD-1"): (16, 0),
+    # riesgo: el % es de las sesiones ya dictadas, pero desde ATA (migracion 50) la alerta usa las horas de TODO el periodo:
+    # 19 % de lo dictado queda entre el 15 % (riesgo) y el 20 % (perdida) del periodo.
+    ("E-MATEO", "CAL-1"): (19, 0), ("E-LAURA", "IOP-1"): (19, 0), ("E-CAMILA", "COS-1"): (18, 0),     # riesgo
+    ("E-VALERIA", "PSD-1"): (19, 0),
     ("E-CARLOS", "ARQ-1"): (4, 1), ("E-SARA", "CAL-2"): (4, 1), ("E-DANIELA", "FPR-1"): (0, 2),        # excusas
     ("E-ALEJANDRO", "H-FAD"): (25, 0),                                                                # 2026-1: CI al cierre
 }
@@ -388,6 +389,9 @@ def main():
     per_id = {p[0]: (p[1] or gid("periodo", p[0])) for p in PERIODOS}
     grupo_id = {x[0]: GRUPO_ID.get(x[0]) or gid("grupo", x[0]) for x in GRUPOS}
     asig_nombre = {a[0]: a[1] for a in ASIGNATURAS}
+    # DEC-077: programa responsable del grupo = el primer programa de la asignatura (el del coordinador que crea el grupo);
+    # en un grupo compartido solo su coordinador gestiona el grupo y resuelve sus solicitudes de sesion.
+    asig_responsable = {a[0]: a[5][0][0] for a in ASIGNATURAS}
 
     out = []
     w = out.append
@@ -419,16 +423,16 @@ def main():
       "  AND NOT EXISTS (SELECT 1 FROM dbo.Administrador WHERE usuario = 'E1F2A3B4-0000-0000-0000-000000000006');\n\n")
 
     # Usuarios
-    w("-- Usuarios (73). La contrasena real vive en Keycloak; la columna guarda el mismo marcador que las semillas.\n")
+    w("-- Usuarios (73). La contrasena vive en Keycloak; la tabla no guarda credenciales.\n")
     for p in unicos:
         if p["clave"] in CANON:
             w(f"UPDATE dbo.Usuario SET primerNombre = {q(p['n1'])}, segundoNombre = {q(p['n2'])}, primerApellido = {q(p['a1'])}, "
               f"segundoApellido = {q(p['a2'])}, correoConfirmado = {p['confirmado']}, estado = 1 WHERE id = '{p['uid']}';\n")
     rows = [[g(p["uid"]), "@tiCC", str(p["numero"]), q(p["a1"]), q(p["a2"]), q(p["n1"]), q(p["n2"]), q(p["correo"]),
-             str(p["confirmado"]), "1" if p["activo"] else "0", q(PASSWORD_PLACEHOLDER)]
+             str(p["confirmado"]), "1" if p["activo"] else "0"]
             for p in unicos if p["clave"] not in CANON]
     w("\n" + insert("Usuario", ["id", "tipoIdIdentificacion", "numeroIdentificacion", "primerApellido", "segundoApellido",
-                               "primerNombre", "segundoNombre", "correo", "correoConfirmado", "estado", "password"], rows))
+                               "primerNombre", "segundoNombre", "correo", "correoConfirmado", "estado"], rows))
 
     # Areas, facultades, decanos
     w(insert("Area", ["id", "nombre", "codigo", "estado"], [[g(area_id[c]), q(n), q(c), "1"] for c, n, _ in AREAS]))
@@ -526,14 +530,15 @@ def main():
         n = inscritos.get(k, 0)
         cupo = n if cupo == "LLENO" else (n + 1 if cupo == "CASI" else cupo)
         nombre = f"Grupo {cod:02d} - {asig_nombre[ac]}"[:50]
-        grows.append([g(grupo_id[k]), g(asig_id[ac]), g(per_id[per]), str(cod), q(nombre), str(cupo), "0", "0", "0", g(rid(doc if doc != "T-DIA" else "T-DIA", "docente"))])
+        grows.append([g(grupo_id[k]), g(asig_id[ac]), g(per_id[per]), str(cod), q(nombre), str(cupo), "0", "0", "0", g(rid(doc if doc != "T-DIA" else "T-DIA", "docente")),
+                      g(prog_id[asig_responsable[ac]])])
     w("UPDATE dbo.Grupo SET docente = 'F1A2B3C4-0000-0000-0000-000000000003' WHERE id = @gArq;\n")
     w(insert("Grupo", ["id", "asignatura", "periodoAcademico", "codigo", "nombre", "cantidadEstudiantes",
                        "cantidadEstudiantesFinalizaron", "cantidadEstudiantesCancelaronVoluntadPropia",
-                       "cantidadEstudiantesCancelaronAutomaticamente", "docente"], grows))
+                       "cantidadEstudiantesCancelaronAutomaticamente", "docente", "programaResponsable"], grows))
     for r in grows:
         if r[0] == g(grupo_id["ARQ-1"]):
-            w(f"UPDATE dbo.Grupo SET nombre = {r[4]}, cantidadEstudiantes = {r[5]} WHERE id = @gArq;\n\n")
+            w(f"UPDATE dbo.Grupo SET nombre = {r[4]}, cantidadEstudiantes = {r[5]}, programaResponsable = {r[10]} WHERE id = @gArq;\n\n")
     hrows = []
     for k, _a, _c, _d, _p, fr, _cu in GRUPOS:
         for i, (dia, a, b) in enumerate(fr):

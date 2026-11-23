@@ -16,7 +16,10 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_validar_token_matricula_publico]
 (
     @tokenHash     VARBINARY(32) = NULL,
     @pin           NCHAR(6)      = NULL,
-    @idCorrelacion UNIQUEIDENTIFIER
+    @idCorrelacion UNIQUEIDENTIFIER,
+    -- Revision final P3: si se conoce al estudiante (sesion iniciada), programasElegibles es la interseccion entre sus programas y los del
+    -- grupo; con un unico programa comun o ninguno la lista es NULL (no hay nada que elegir). Anonimo (NULL): los programas del grupo.
+    @idUsuarioEjecutor UNIQUEIDENTIFIER = NULL
 )
 AS
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
@@ -104,8 +107,32 @@ BEGIN
         nombreGrupo        = v.nombreGrupo,
         nombreDocente      = v.nombreDocente,
         fechaExpiracionUtc = v.fechaExpiracionUtc,
-        cupoDisponible     = v.cupoDisponible
+        cupoDisponible     = v.cupoDisponible,
+        -- DEC-078: programas entre los que elige el estudiante (JSON [{idPrograma, nombre}] por nombre); NULL si la ventana fija
+        -- el programa o el grupo tiene uno solo. Solo nombres de programas: ningun dato de estudiantes.
+        programasElegibles = CASE
+            WHEN t.programaPorDefecto IS NULL AND est.idEstudiante IS NULL AND (SELECT COUNT(*) FROM dbo.ufn_programas_grupo(v.grupo)) > 1
+            THEN (SELECT pg.idPrograma, p.nombre
+                  FROM dbo.ufn_programas_grupo(v.grupo) pg
+                  INNER JOIN dbo.Programa p ON p.id = pg.idPrograma
+                  ORDER BY p.nombre, p.id
+                  FOR JSON PATH)
+            WHEN t.programaPorDefecto IS NULL AND est.idEstudiante IS NOT NULL
+                 AND (SELECT COUNT(*) FROM dbo.EstudiantePrograma ep INNER JOIN dbo.ufn_programas_grupo(v.grupo) pg ON pg.idPrograma = ep.programa
+                      WHERE ep.estudiante = est.idEstudiante) > 1
+            THEN (SELECT pg.idPrograma, p.nombre
+                  FROM dbo.EstudiantePrograma ep
+                  INNER JOIN dbo.ufn_programas_grupo(v.grupo) pg ON pg.idPrograma = ep.programa
+                  INNER JOIN dbo.Programa p ON p.id = pg.idPrograma
+                  WHERE ep.estudiante = est.idEstudiante
+                  ORDER BY p.nombre, p.id
+                  FOR JSON PATH)
+        END
     FROM dbo.uv_token_matricula_grupo v
+    INNER JOIN dbo.TokenMatriculaGrupo t ON t.id = v.id
+    -- estudiante conocido con al menos un programa (sin programas: se comporta como el anonimo)
+    OUTER APPLY (SELECT TOP 1 idEstudiante = e.id FROM dbo.Estudiante e
+                 WHERE e.usuario = @idUsuarioEjecutor AND EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep WHERE ep.estudiante = e.id)) est
     WHERE v.id = @idVentana;
 END;
 GO

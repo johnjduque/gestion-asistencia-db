@@ -25,7 +25,7 @@ BEGIN TRY
         THROW 51921, 'TEST FAILED: USER_SYNC_SUCCESS wrong canonical result.', 1;
     SELECT @user = id FROM dbo.uv_usuario WHERE correo = @email;
     IF @user IS NULL OR NOT EXISTS (SELECT 1 FROM dbo.uv_usuario_autenticacion
-        WHERE idUsuario = @user AND correo = @email AND password = N'HashBackend_QaSync1234567890'
+        WHERE idUsuario = @user AND correo = @email
         AND estaActivoUsuario = 1)
         THROW 51922, 'TEST FAILED: USER_SYNC_SUCCESS not visible in identity/auth views.', 1;
 

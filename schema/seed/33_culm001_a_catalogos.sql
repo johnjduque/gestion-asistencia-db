@@ -35,7 +35,7 @@ GO
 -- A.2-7 lo reutiliza para el reclamo retirado por el estudiante (A2-C4). El estado E (en espera) se retira.
 MERGE INTO [dbo].[Estado] AS Target
 USING (VALUES
-    ('D6E2F3A4-5B6C-4D7E-9F80-A12B3C4D5E6F', 'retirada', 'X')
+    ('D6E2F3A4-5B6C-4D7E-9F80-A12B3C4D5E6F', 'Retirada', 'X')
 ) AS Source (id, nombre, codigo)
 ON (Target.id = TRY_CAST(Source.id AS UNIQUEIDENTIFIER) OR Target.codigo = Source.codigo)
 WHEN MATCHED THEN

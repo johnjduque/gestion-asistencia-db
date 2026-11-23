@@ -69,17 +69,17 @@ BEGIN TRY
     BEGIN
         DECLARE @decTitular UNIQUEIDENTIFIER = NEWID();
         SET @uDecTitular = NEWID();
-        INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-        VALUES (@uDecTitular, @tipoId, 600000000 + ABS(CHECKSUM(NEWID()) % 99999999), N'QA', N'Decano', N'Titular', N'X', CONCAT(CONVERT(NVARCHAR(36), @uDecTitular), N'@qa.test'), 1, 1, N'x');
+        INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+        VALUES (@uDecTitular, @tipoId, 600000000 + ABS(CHECKSUM(NEWID()) % 99999999), N'QA', N'Decano', N'Titular', N'X', CONCAT(CONVERT(NVARCHAR(36), @uDecTitular), N'@qa.test'), 1, 1);
         INSERT INTO dbo.Decano (id, usuario) VALUES (@decTitular, @uDecTitular);
         UPDATE dbo.Facultad SET decano = @decTitular WHERE id = @idFacultad;
     END
 
     -- Decano ajeno con una facultad propia sin programas en la MISMA institucion, y un usuario sin ambito.
     DECLARE @uDecAjeno UNIQUEIDENTIFIER = NEWID(), @decAjeno UNIQUEIDENTIFIER = NEWID(), @uPlano UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uDecAjeno, @tipoId, 600000000 + ABS(CHECKSUM(NEWID()) % 99999999), N'QA', N'Decano', N'Ajeno', N'X', CONCAT(CONVERT(NVARCHAR(36), @uDecAjeno), N'@qa.test'), 1, 1, N'x'),
-           (@uPlano, @tipoId, 600000000 + ABS(CHECKSUM(NEWID()) % 99999999), N'QA', N'Sin', N'Ambito', N'X', CONCAT(CONVERT(NVARCHAR(36), @uPlano), N'@qa.test'), 1, 1, N'x');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uDecAjeno, @tipoId, 600000000 + ABS(CHECKSUM(NEWID()) % 99999999), N'QA', N'Decano', N'Ajeno', N'X', CONCAT(CONVERT(NVARCHAR(36), @uDecAjeno), N'@qa.test'), 1, 1),
+           (@uPlano, @tipoId, 600000000 + ABS(CHECKSUM(NEWID()) % 99999999), N'QA', N'Sin', N'Ambito', N'X', CONCAT(CONVERT(NVARCHAR(36), @uPlano), N'@qa.test'), 1, 1);
     INSERT INTO dbo.Decano (id, usuario) VALUES (@decAjeno, @uDecAjeno);
     INSERT INTO dbo.Facultad (id, nombre, institucion, decano, estado)
     VALUES (NEWID(), CONCAT(N'QA Facultad Ajena ', SUBSTRING(CONVERT(NVARCHAR(36), NEWID()), 1, 8)), @idInstitucion, @decAjeno, 1);
@@ -152,8 +152,8 @@ BEGIN TRY
         THROW 56173, 'TEST FAILED T-136-01: un decano ajeno vio docentes filtrando por otra facultad.', 1;
     -- Ajuste HU136: docentes sin vinculo activo (retirados de todos sus programas) solo para el administrador
     DECLARE @dSinVinculo UNIQUEIDENTIFIER = NEWID(), @uSinVinculo UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uSinVinculo, @tipoId, 913600001, N'Retirado', N'Qa', N'Docente', N'', N'retirado.hu136@test.local', 1, 1, N'HashBackend_Hu136');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uSinVinculo, @tipoId, 913600001, N'Retirado', N'Qa', N'Docente', N'', N'retirado.hu136@test.local', 1, 1);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@dSinVinculo, @uSinVinculo);
     INSERT INTO dbo.DocentePrograma (id, docente, programa, estado, fechaVinculacionUtc)
     VALUES (NEWID(), @dSinVinculo, @idProgramaDocente, 0, SYSUTCDATETIME());

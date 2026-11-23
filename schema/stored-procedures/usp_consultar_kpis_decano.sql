@@ -13,6 +13,8 @@ GO
 -- Lo que no puede calcularse es NULL; nunca un valor por defecto.
 -- CIERRE-W3I: columnas nuevas AL FINAL: totalCoordinadores (coordinadores activos de la facultad) y totalDocentes (docentes con vinculo
 -- activo en algun programa de la facultad, contados una sola vez aunque esten en varios programas).
+-- BD-7 (2026-11-22): columna AL FINAL horasPeriodo = base real del porcentaje (ATA D2): porcentajeAusentismo = 100 x horasFalta / horasPeriodo. La etiqueta
+-- de la interfaz debe decir 'X h de falta sobre Y h del periodo' con horasPeriodo; horasDictadas es solo lo dictado hasta hoy.
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_kpis_decano]
 (
@@ -101,7 +103,8 @@ BEGIN
         horasDictadas = @horasDictadas,
         horasFalta = @horasFalta,
         totalCoordinadores = @coordinadores,
-        totalDocentes = @docentes
+        totalDocentes = @docentes,
+        horasPeriodo = @horasPeriodo
     FROM dbo.uv_facultad f
     LEFT JOIN dbo.uv_periodo_academico pa ON pa.id = @idPeriodo
     WHERE f.id = @idFacultad;

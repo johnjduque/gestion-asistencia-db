@@ -8,7 +8,7 @@ SET NOCOUNT ON;
 SET XACT_ABORT OFF;
 
 -- ATA P1 (docs/contracts/ADDENDUM_ATA_ASISTENCIA_TOMAS_AVISOS.md, seccion C): aviso de falta por sesion, un correo por estudiante y sesion.
---   ATA_P1_C00_OBJETOS             tabla AvisoFaltaSesion, parametros AVISO_FALTA_SESION, plantilla FALTA_ASISTENCIA_SESION_ESTUDIANTE y los 3 SP con EXECUTE para el rol runtime.
+--   ATA_P1_C00_OBJETOS             tabla AvisoFaltaSesion, parametros AVISO_FALTA_SESION y los 3 SP con EXECUTE para el rol runtime.
 --   ATA_P1_C01_SESIONES_PENDIENTES solo la sesion terminada, con tomas cerradas, no cancelada, dentro del atraso maximo y sin aviso previo; el lote limita.
 --   ATA_P1_C02_FALTAS_POR_TOMA     una fila por (estudiante con SJC, toma en SJC); sin AN, sin registro ni matricula retirada.
 --   ATA_P1_C03_REGISTRAR_IDEMPOTENTE la marca se escribe una vez; la segunda llamada es exito sin escritura; la sesion sale de las pendientes.
@@ -29,15 +29,11 @@ IF OBJECT_ID(N'dbo.AvisoFaltaSesion', N'U') IS NULL
    OR dbo.ufn_obtener_parametro_int(NULL, 'AVISO_FALTA_SESION', 'HORAS_MAXIMAS_ATRASO') <> 24
    OR LOWER(CAST(dbo.ufn_obtener_parametro('AVISO_FALTA_SESION', 'HABILITADO') AS NVARCHAR(10))) <> N'true'
    OR EXISTS (SELECT 1 FROM dbo.CatalogoParametroEdicion e INNER JOIN dbo.CatalogoParametro p ON p.id = e.parametro WHERE p.grupo = 'AVISO_FALTA_SESION' AND e.esEditable = 1)
-   OR NOT EXISTS (SELECT 1 FROM dbo.PlantillaNotificacion WHERE tipo = 'FALTA_ASISTENCIA_SESION_ESTUDIANTE' AND idioma = 'es' AND version = 1 AND activa = 1
-                  AND asunto = N'Registro de inasistencia: {asignatura} ({fecha})' AND cuerpo LIKE N'%{detalleFaltas}%{fechaLimiteReclamo}%{enlaceReclamo}%')
-   OR (SELECT COUNT(*) FROM dbo.PlantillaNotificacionMarcador WHERE tipo = 'FALTA_ASISTENCIA_SESION_ESTUDIANTE'
-       AND marcador IN ('estudiante', 'asignatura', 'grupo', 'fecha', 'horaInicio', 'horaFin', 'detalleFaltas', 'fechaLimiteReclamo', 'enlaceReclamo')) <> 9
    OR EXISTS (SELECT 1 FROM (VALUES (N'usp_consultar_sesiones_pendientes_aviso_falta'), (N'usp_consultar_faltas_sesion_aviso'), (N'usp_registrar_aviso_falta_sesion')) s(nombre)
               WHERE NOT EXISTS (SELECT 1 FROM sys.database_permissions dp INNER JOIN sys.database_principals pr ON pr.principal_id = dp.grantee_principal_id
                                 WHERE dp.major_id = OBJECT_ID(N'dbo.' + s.nombre, N'P') AND dp.permission_name = N'EXECUTE' AND dp.state IN ('G', 'W')
                                   AND pr.name = N'rol_asistencias_runtime'))
-    THROW 59100, 'TEST FAILED ATA_P1_C00_OBJETOS: faltan la tabla, los parametros (no editables), la plantilla con 9 marcadores o los permisos de los 3 SP del aviso de falta por sesion.', 1;
+    THROW 59100, 'TEST FAILED ATA_P1_C00_OBJETOS: faltan la tabla, los parametros (no editables), o los permisos de los 3 SP del aviso de falta por sesion.', 1;
 PRINT 'TEST_PASS:ATA_P1_C00_OBJETOS';
 GO
 
@@ -70,11 +66,11 @@ BEGIN TRY
     DECLARE @tag NVARCHAR(12) = LEFT(REPLACE(CONVERT(NVARCHAR(36), NEWID()), N'-', N''), 12);
     CREATE TABLE #ataEst (n INT, idUsuario UNIQUEIDENTIFIER, idEstudiante UNIQUEIDENTIFIER, idEG UNIQUEIDENTIFIER, idAsistencia UNIQUEIDENTIFIER);
     INSERT INTO #ataEst (n, idUsuario, idEstudiante, idEG, idAsistencia) SELECT v.n, NEWID(), NEWID(), NEWID(), NEWID() FROM (VALUES (1),(2),(3),(4),(5)) v(n);
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uD, @tipoCC, 989000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Titular', N'Aviso', N'Doc', N'P1', CONCAT(N'ata.av.d.', @tag, N'@test.local'), 1, 1, N'HashBackend_ATA');
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uD, @tipoCC, 989000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Titular', N'Aviso', N'Doc', N'P1', CONCAT(N'ata.av.d.', @tag, N'@test.local'), 1, 1);
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
     SELECT e.idUsuario, @tipoCC, 990000000 + e.n * 10000 + ABS(CHECKSUM(NEWID()) % 9999), CONCAT(N'Aviso', e.n), N'Falta', N'Est', N'P1',
-           CONCAT(N'ata.av.e', e.n, N'.', @tag, N'@test.local'), 1, 1, N'HashBackend_ATA'
+           CONCAT(N'ata.av.e', e.n, N'.', @tag, N'@test.local'), 1, 1
     FROM #ataEst e;
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d, @uD);
     INSERT INTO dbo.Estudiante (id, usuario) SELECT idEstudiante, idUsuario FROM #ataEst;

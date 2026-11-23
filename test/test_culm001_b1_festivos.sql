@@ -105,10 +105,10 @@ BEGIN TRY
     DECLARE @tag NVARCHAR(12) = LEFT(REPLACE(CONVERT(NVARCHAR(36), NEWID()), N'-', N''), 12);
     DECLARE @uD1 UNIQUEIDENTIFIER = NEWID(), @d1 UNIQUEIDENTIFIER = NEWID(), @uE1 UNIQUEIDENTIFIER = NEWID(), @e1 UNIQUEIDENTIFIER = NEWID();
     DECLARE @uAdminOtro UNIQUEIDENTIFIER = NEWID(), @instOtra UNIQUEIDENTIFIER = NEWID();
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uD1, @tipoCC, 986000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Festivo', N'Culm', N'Fabio', N'B1', CONCAT(N'culm1.fd1.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULM1'),
-           (@uE1, @tipoCC, 987000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Festivo', N'Culm', N'Flor', N'B1', CONCAT(N'culm1.fe1.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULM1'),
-           (@uAdminOtro, @tipoCC, 988000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Admin', N'Otra', N'Olga', N'B1', CONCAT(N'culm1.adm.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULM1');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uD1, @tipoCC, 986000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Festivo', N'Culm', N'Fabio', N'B1', CONCAT(N'culm1.fd1.', @tag, N'@test.local'), 1, 1),
+           (@uE1, @tipoCC, 987000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Festivo', N'Culm', N'Flor', N'B1', CONCAT(N'culm1.fe1.', @tag, N'@test.local'), 1, 1),
+           (@uAdminOtro, @tipoCC, 988000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Admin', N'Otra', N'Olga', N'B1', CONCAT(N'culm1.adm.', @tag, N'@test.local'), 1, 1);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d1, @uD1);
     INSERT INTO dbo.Estudiante (id, usuario) VALUES (@e1, @uE1);
     INSERT INTO dbo.Institucion (id, nombre, estado) VALUES (@instOtra, CONCAT(N'CULM1 Institucion ', @tag), 1);
@@ -308,11 +308,18 @@ BEGIN TRY
     PRINT 'TEST_PASS:CULM001_B1_FES_03_RECARGA_DESACTIVA_SIN_REVERTIR';
 
     -- ========================================================================================================
-    -- B1-FES-09: precarga (grupo + horario) en periodo futuro con festivos (2027-03-15..2027-03-31)
+    -- B1-FES-09: precarga (grupo + horario) en periodo futuro con festivos (2090-03-13..2090-03-29)
     -- ========================================================================================================
+    -- Festivos propios del test en 2090 (no dependen de la fecha del dia ni del calendario real; se revierten con el ROLLBACK final):
+    -- lunes 20, jueves 23 y viernes 24 de marzo (A, B, C) y 12 de febrero (D) de 2090 para las pruebas FES-09 a FES-13.
+    INSERT INTO dbo.DiaFestivo (fecha, nombre, fuente, estaActivo, fechaCargaUtc, idCorrelacionCarga)
+    VALUES ('2090-03-20', N'CULM1 Festivo A', N'CALCULO_LOCAL', 1, SYSUTCDATETIME(), NEWID()),
+           ('2090-03-23', N'CULM1 Festivo B', N'CALCULO_LOCAL', 1, SYSUTCDATETIME(), NEWID()),
+           ('2090-03-24', N'CULM1 Festivo C', N'CALCULO_LOCAL', 1, SYSUTCDATETIME(), NEWID()),
+           ('2090-02-12', N'CULM1 Festivo D', N'CALCULO_LOCAL', 1, SYSUTCDATETIME(), NEWID());
     DECLARE @per3 UNIQUEIDENTIFIER = NEWID(), @g3 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.PeriodoAcademico (id, institucion, nombre, codigo, fechaInicio, fechaFin, anio)
-    VALUES (@per3, @idInstitucion, N'CULM1 periodo precarga festivos', 3200000 + ABS(CHECKSUM(NEWID()) % 700000), '2027-03-15', '2027-03-31', 2027);
+    VALUES (@per3, @idInstitucion, N'CULM1 periodo precarga festivos', 3200000 + ABS(CHECKSUM(NEWID()) % 700000), '2090-03-13', '2090-03-29', 2090);
     INSERT INTO dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron,
         cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)
     VALUES (@g3, @idAsig, @per3, 941000 + ABS(CHECKSUM(NEWID()) % 58999), N'CULM1 Grupo precarga festivos', 30, 0, 0, 0, @d1);
@@ -323,11 +330,11 @@ BEGIN TRY
        OR (SELECT COUNT(*) FROM dbo.Sesion WHERE grupo = @g3) <> 17
        OR (SELECT COUNT(*) FROM dbo.uv_sesion_estado WHERE idGrupo = @g3 AND estaCancelada = 1 AND codigoTipoCancelacion = N'FESTIVO') <> 3
        OR EXISTS (SELECT 1 FROM dbo.uv_sesion_estado v WHERE v.idGrupo = @g3 AND v.estaCancelada = 1
-                  AND CAST((v.fechaHoraInicio AT TIME ZONE 'UTC') AT TIME ZONE @zona AS DATE) NOT IN ('2027-03-22', '2027-03-25', '2027-03-26'))
+                  AND CAST((v.fechaHoraInicio AT TIME ZONE 'UTC') AT TIME ZONE @zona AS DATE) NOT IN ('2090-03-20', '2090-03-23', '2090-03-24'))
         THROW 57290, 'TEST FAILED CULM001_B1_FES_09: la precarga debe crear 17 sesiones y cancelar en la misma transaccion las de 22, 25 y 26 de marzo.', 1;
     TRUNCATE TABLE #culm1Precarga;
     -- El horario deja de tener lunes: la sesion futura cancelada del lunes 22 se borra junto con su SesionCancelacion
-    DECLARE @sLunes22 UNIQUEIDENTIFIER = (SELECT s.id FROM dbo.Sesion s WHERE s.grupo = @g3 AND CAST((s.fechaHoraInicio AT TIME ZONE 'UTC') AT TIME ZONE @zona AS DATE) = '2027-03-22');
+    DECLARE @sLunes22 UNIQUEIDENTIFIER = (SELECT s.id FROM dbo.Sesion s WHERE s.grupo = @g3 AND CAST((s.fechaHoraInicio AT TIME ZONE 'UTC') AT TIME ZONE @zona AS DATE) = '2090-03-20');
     DELETE h FROM dbo.Horario h JOIN dbo.uv_dia d ON d.id = h.dia WHERE h.grupo = @g3 AND d.codigo = N'LU';
     SET @corr = NEWID();
     INSERT INTO #culm1Precarga EXEC dbo.usp_precargar_sesiones_grupo @idGrupo = @g3, @idCorrelacion = @corr, @idUsuarioEjecutor = @uD1;
@@ -344,7 +351,7 @@ BEGIN TRY
     -- ========================================================================================================
     DECLARE @per4 UNIQUEIDENTIFIER = NEWID(), @g4 UNIQUEIDENTIFIER = NEWID(), @eg4 UNIQUEIDENTIFIER = NEWID();
     INSERT INTO dbo.PeriodoAcademico (id, institucion, nombre, codigo, fechaInicio, fechaFin, anio)
-    VALUES (@per4, @idInstitucion, N'CULM1 periodo aplicar festivos', 3200000 + ABS(CHECKSUM(NEWID()) % 700000), '2026-10-01', '2027-04-30', 2026);
+    VALUES (@per4, @idInstitucion, N'CULM1 periodo aplicar festivos', 3200000 + ABS(CHECKSUM(NEWID()) % 700000), '2026-10-01', '2090-04-30', 2026);
     INSERT INTO dbo.Grupo (id, asignatura, periodoAcademico, codigo, nombre, cantidadEstudiantes, cantidadEstudiantesFinalizaron,
         cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)
     VALUES (@g4, @idAsig, @per4, 941000 + ABS(CHECKSUM(NEWID()) % 58999), N'CULM1 Grupo aplicar festivos', 30, 0, 0, 0, @d1);
@@ -352,18 +359,18 @@ BEGIN TRY
     DECLARE @sFutFest UNIQUEIDENTIFIER = NEWID(), @sFutFestAsis UNIQUEIDENTIFIER = NEWID(), @sPasFest UNIQUEIDENTIFIER = NEWID();
     DECLARE @sFutNormal UNIQUEIDENTIFIER = NEWID(), @sNocheAntes UNIQUEIDENTIFIER = NEWID(), @sMadrugada UNIQUEIDENTIFIER = NEWID();
     INSERT dbo.Sesion (id, nombre, numero, codigo, numeroSemana, grupo, fechaHoraInicio, fechaHoraFin, procedenciaTemporal)
-    VALUES -- 2027-03-22 (San Jose, futuro) 08:00-10:00 Bogota = 13:00-15:00 UTC, sin asistencia => se cancela
-           (@sFutFest,     N'CULM1-FES10 futura festivo',      1, N'CULMF1', 1, @g4, '2027-03-22T13:00:00', '2027-03-22T15:00:00', N'UTC_V2'),
-           -- 2027-03-25 (Jueves Santo, futuro) con asistencia => no se toca, se reporta
-           (@sFutFestAsis, N'CULM1-FES10 futura festivo asis', 2, N'CULMF2', 1, @g4, '2027-03-25T13:00:00', '2027-03-25T15:00:00', N'UTC_V2'),
+    VALUES -- 2090-03-20 (festivo A, futuro) 08:00-10:00 Bogota = 13:00-15:00 UTC, sin asistencia => se cancela
+           (@sFutFest,     N'CULM1-FES10 futura festivo',      1, N'CULMF1', 1, @g4, '2090-03-20T13:00:00', '2090-03-20T15:00:00', N'UTC_V2'),
+           -- 2090-03-23 (festivo B, futuro) con asistencia => no se toca, se reporta
+           (@sFutFestAsis, N'CULM1-FES10 futura festivo asis', 2, N'CULMF2', 1, @g4, '2090-03-23T13:00:00', '2090-03-23T15:00:00', N'UTC_V2'),
            -- 2026-10-12 (Dia de la Raza, pasado) sin asistencia => no se toca con @soloFuturas = 1
            (@sPasFest,     N'CULM1-FES10 pasada festivo',      3, N'CULMF3', 1, @g4, '2026-10-12T13:00:00', '2026-10-12T15:00:00', N'UTC_V2'),
-           -- 2027-03-23 (dia normal) => no se cancela
-           (@sFutNormal,   N'CULM1-FES10 futura normal',       4, N'CULMF4', 1, @g4, '2027-03-23T13:00:00', '2027-03-23T15:00:00', N'UTC_V2'),
-           -- B1-FES-13: 2027-03-21 19:00-21:00 Bogota = 2027-03-22 00:00-02:00 UTC (dia del festivo en UTC) => NO se cancela
-           (@sNocheAntes,  N'CULM1-FES13 noche antes',         5, N'CULMF5', 1, @g4, '2027-03-22T00:00:00', '2027-03-22T02:00:00', N'UTC_V2'),
-           -- B1-FES-13: 2027-03-26 06:00 Bogota (Viernes Santo) = 11:00 UTC => SI se cancela
-           (@sMadrugada,   N'CULM1-FES13 madrugada festivo',   6, N'CULMF6', 1, @g4, '2027-03-26T11:00:00', '2027-03-26T12:00:00', N'UTC_V2');
+           -- 2090-03-21 (dia normal) => no se cancela
+           (@sFutNormal,   N'CULM1-FES10 futura normal',       4, N'CULMF4', 1, @g4, '2090-03-21T13:00:00', '2090-03-21T15:00:00', N'UTC_V2'),
+           -- B1-FES-13: 2090-03-19 19:00-21:00 Bogota = 2090-03-20 00:00-02:00 UTC (dia del festivo en UTC) => NO se cancela
+           (@sNocheAntes,  N'CULM1-FES13 noche antes',         5, N'CULMF5', 1, @g4, '2090-03-20T00:00:00', '2090-03-20T02:00:00', N'UTC_V2'),
+           -- B1-FES-13: 2090-03-24 06:00 Bogota (festivo C) = 11:00 UTC => SI se cancela
+           (@sMadrugada,   N'CULM1-FES13 madrugada festivo',   6, N'CULMF6', 1, @g4, '2090-03-24T11:00:00', '2090-03-24T12:00:00', N'UTC_V2');
     INSERT dbo.Asistencia (id, estudianteGrupo, sesion) VALUES (NEWID(), @eg4, @sFutFestAsis);
 
     -- RBAC y ambito: docente (SEC_001), administrador de otra institucion (SEC_002)
@@ -383,8 +390,8 @@ BEGIN TRY
                    AND sesionesCanceladas = 2 AND sesionesConAsistencia = 1)
         THROW 57301, 'TEST FAILED CULM001_B1_FES_10: aplicar festivos debe cancelar 2 sesiones futuras sin asistencia y reportar 1 con asistencia (FES_008).', 1;
     IF NOT EXISTS (SELECT 1 FROM dbo.SesionCancelacion sc JOIN dbo.DiaFestivo df ON df.id = sc.diaFestivo
-                   WHERE sc.sesion = @sFutFest AND df.fecha = '2027-03-22' AND sc.usuarioEjecutor = @uAdmin AND sc.motivo = CONCAT(@prefijo, N'San José'))
-       OR NOT EXISTS (SELECT 1 FROM dbo.SesionCancelacion sc JOIN dbo.DiaFestivo df ON df.id = sc.diaFestivo WHERE sc.sesion = @sMadrugada AND df.fecha = '2027-03-26')
+                   WHERE sc.sesion = @sFutFest AND df.fecha = '2090-03-20' AND sc.usuarioEjecutor = @uAdmin AND sc.motivo = CONCAT(@prefijo, N'CULM1 Festivo A'))
+       OR NOT EXISTS (SELECT 1 FROM dbo.SesionCancelacion sc JOIN dbo.DiaFestivo df ON df.id = sc.diaFestivo WHERE sc.sesion = @sMadrugada AND df.fecha = '2090-03-24')
        OR EXISTS (SELECT 1 FROM dbo.SesionCancelacion WHERE sesion IN (@sFutFestAsis, @sPasFest, @sFutNormal, @sNocheAntes))
         THROW 57302, 'TEST FAILED CULM001_B1_FES_10_13: solo deben cancelarse la futura en festivo y la de las 06:00 locales del festivo (no la de 19:00 local del dia anterior, ni la pasada, ni la que tiene asistencia).', 1;
     TRUNCATE TABLE #culm1AplGrupo;
@@ -399,8 +406,8 @@ BEGIN TRY
 
     -- B1-FES-12: sesiones en festivo que no se cancelaron por tener asistencia
     SET @corr = NEWID();
-    INSERT INTO #culm1SesFest EXEC dbo.usp_consultar_sesiones_festivo_con_asistencia_paginado @idUsuarioEjecutor = @uAdmin, @idCorrelacion = @corr, @anio = 2027;
-    IF NOT EXISTS (SELECT 1 FROM #culm1SesFest WHERE idSesion = @sFutFestAsis AND idGrupo = @g4 AND fecha = '2027-03-25' AND nombreFestivo = N'Jueves Santo'
+    INSERT INTO #culm1SesFest EXEC dbo.usp_consultar_sesiones_festivo_con_asistencia_paginado @idUsuarioEjecutor = @uAdmin, @idCorrelacion = @corr, @anio = 2090;
+    IF NOT EXISTS (SELECT 1 FROM #culm1SesFest WHERE idSesion = @sFutFestAsis AND idGrupo = @g4 AND fecha = '2090-03-23' AND nombreFestivo = N'CULM1 Festivo B'
                    AND totalRegistrosAsistencia = 1 AND nombreGrupo IS NOT NULL AND nombreAsignatura IS NOT NULL AND nombreDocente LIKE N'%Fabio%')
        OR EXISTS (SELECT 1 FROM #culm1SesFest WHERE idGrupo IN (@g1, @g3, @g4) AND idSesion <> @sFutFestAsis)
        OR EXISTS (SELECT 1 FROM #culm1SesFest WHERE totalRegistros <> (SELECT COUNT(*) FROM #culm1SesFest))
@@ -408,7 +415,7 @@ BEGIN TRY
     TRUNCATE TABLE #culm1SesFest;
     SET @err = NULL;
     BEGIN TRY
-        INSERT INTO #culm1SesFest EXEC dbo.usp_consultar_sesiones_festivo_con_asistencia_paginado @idUsuarioEjecutor = @uAdminOtro, @idCorrelacion = @corr, @anio = 2027;
+        INSERT INTO #culm1SesFest EXEC dbo.usp_consultar_sesiones_festivo_con_asistencia_paginado @idUsuarioEjecutor = @uAdminOtro, @idCorrelacion = @corr, @anio = 2090;
     END TRY
     BEGIN CATCH SET @err = ERROR_MESSAGE(); END CATCH;
     IF @err IS NOT NULL OR EXISTS (SELECT 1 FROM #culm1SesFest WHERE idGrupo IN (@g1, @g3, @g4))
@@ -419,7 +426,7 @@ BEGIN TRY
     -- B1-FES-11: aplicar por periodo / anio; filtros FES_006; periodo inexistente FES_007; otra institucion SEC_002
     -- ========================================================================================================
     SET @corr = NEWID();
-    INSERT INTO #culm1AplPeriodo EXEC dbo.usp_aplicar_festivos_periodo @idPeriodoAcademico = @per4, @anio = 2027, @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdmin;
+    INSERT INTO #culm1AplPeriodo EXEC dbo.usp_aplicar_festivos_periodo @idPeriodoAcademico = @per4, @anio = 2090, @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdmin;
     INSERT INTO #culm1AplPeriodo EXEC dbo.usp_aplicar_festivos_periodo @idPeriodoAcademico = NULL, @anio = NULL, @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdmin;
     IF (SELECT COUNT(*) FROM #culm1AplPeriodo WHERE estadoResultado = 0 AND mensajeTecnicoResultado LIKE N'DBCODE=FES[_]006|%' AND gruposProcesados IS NULL) <> 2
         THROW 57310, 'TEST FAILED CULM001_B1_FES_11: con ambos filtros o con ninguno debe responder FES_006.', 1;
@@ -438,7 +445,7 @@ BEGIN TRY
         cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)
     VALUES (@g5, @idAsig, @per4, 941000 + ABS(CHECKSUM(NEWID()) % 58999), N'CULM1 Grupo aplicar periodo', 30, 0, 0, 0, @d1);
     INSERT dbo.Sesion (id, nombre, numero, codigo, numeroSemana, grupo, fechaHoraInicio, fechaHoraFin, procedenciaTemporal)
-    VALUES (@sG5, N'CULM1-FES11 periodo', 1, N'CULMG5', 1, @g5, '2027-01-11T13:00:00', '2027-01-11T15:00:00', N'UTC_V2');
+    VALUES (@sG5, N'CULM1-FES11 periodo', 1, N'CULMG5', 1, @g5, '2090-02-12T13:00:00', '2090-02-12T15:00:00', N'UTC_V2');
     SET @corr = NEWID();
     INSERT INTO #culm1AplPeriodo EXEC dbo.usp_aplicar_festivos_periodo @idPeriodoAcademico = @per4, @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdmin;
     IF NOT EXISTS (SELECT 1 FROM #culm1AplPeriodo WHERE estadoResultado = 1 AND mensajeTecnicoResultado LIKE N'DBCODE=FES[_]008|%'
@@ -446,14 +453,14 @@ BEGIN TRY
        OR NOT EXISTS (SELECT 1 FROM dbo.SesionCancelacion WHERE sesion = @sG5)
         THROW 57312, 'TEST FAILED CULM001_B1_FES_11: aplicar por periodo debe procesar sus 2 grupos (1 cancelada nueva, 1 con asistencia).', 1;
     TRUNCATE TABLE #culm1AplPeriodo;
-    -- Por anio (grupos de la institucion del administrador cuyos periodos se cruzan con 2027) y automatico (job)
+    -- Por anio (grupos de la institucion del administrador cuyos periodos se cruzan con 2090) y automatico (job)
     SET @corr = NEWID();
-    INSERT INTO #culm1AplPeriodo EXEC dbo.usp_aplicar_festivos_periodo @anio = 2027, @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdmin;
-    INSERT INTO #culm1AplPeriodo EXEC dbo.usp_aplicar_festivos_automatico @anio = 2027, @idCorrelacion = @corr;
-    IF (SELECT COUNT(*) FROM #culm1AplPeriodo WHERE estadoResultado = 1 AND gruposProcesados >= 4 AND sesionesCanceladas = 0 AND sesionesConAsistencia >= 1) <> 2
+    INSERT INTO #culm1AplPeriodo EXEC dbo.usp_aplicar_festivos_periodo @anio = 2090, @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdmin;
+    INSERT INTO #culm1AplPeriodo EXEC dbo.usp_aplicar_festivos_automatico @anio = 2090, @idCorrelacion = @corr;
+    IF (SELECT COUNT(*) FROM #culm1AplPeriodo WHERE estadoResultado = 1 AND gruposProcesados >= 3 AND sesionesCanceladas = 0 AND sesionesConAsistencia >= 1) <> 2
         THROW 57313, 'TEST FAILED CULM001_B1_FES_11: aplicar por anio y el automatico deben procesar los grupos del anio sin cancelaciones nuevas.', 1;
     TRUNCATE TABLE #culm1AplPeriodo;
-    INSERT INTO #culm1AplPeriodo EXEC dbo.usp_aplicar_festivos_periodo @anio = 2027, @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdminOtro;
+    INSERT INTO #culm1AplPeriodo EXEC dbo.usp_aplicar_festivos_periodo @anio = 2090, @idCorrelacion = @corr, @idUsuarioEjecutor = @uAdminOtro;
     IF NOT EXISTS (SELECT 1 FROM #culm1AplPeriodo WHERE estadoResultado = 1 AND gruposProcesados = 0)
         THROW 57314, 'TEST FAILED CULM001_B1_FES_11: un administrador de otra institucion no procesa grupos ajenos.', 1;
     TRUNCATE TABLE #culm1AplPeriodo;
@@ -461,7 +468,7 @@ BEGIN TRY
 
     -- Invariante: toda cancelacion automatica tiene festivo; ninguna sesion con asistencia quedo cancelada por festivo
     IF EXISTS (SELECT 1 FROM dbo.SesionCancelacion sc JOIN dbo.TipoCancelacionSesion t ON t.id = sc.tipoCancelacion
-               WHERE (t.esAutomatica = 1 AND sc.diaFestivo IS NULL) OR (t.esAutomatica = 0 AND sc.diaFestivo IS NOT NULL))
+               WHERE (t.esAutomatica = 1 AND (sc.diaFestivo IS NULL AND sc.recesoAcademico IS NULL OR sc.diaFestivo IS NOT NULL AND sc.recesoAcademico IS NOT NULL)) OR (t.esAutomatica = 0 AND (sc.diaFestivo IS NOT NULL OR sc.recesoAcademico IS NOT NULL)))
        OR EXISTS (SELECT 1 FROM dbo.SesionCancelacion sc JOIN dbo.TipoCancelacionSesion t ON t.id = sc.tipoCancelacion
                   WHERE t.esAutomatica = 1 AND EXISTS (SELECT 1 FROM dbo.Asistencia a WHERE a.sesion = sc.sesion)
                     AND sc.idCorrelacion IN (SELECT idCorrelacion FROM dbo.SesionCancelacion x JOIN dbo.Sesion s ON s.id = x.sesion WHERE s.grupo IN (@g1, @g3, @g4, @g5)))

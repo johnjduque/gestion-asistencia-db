@@ -38,6 +38,7 @@ AS
 
     DECLARE @idNuevoSesion   UNIQUEIDENTIFIER = NEWID();
     DECLARE @numeroSiguiente INT = 1;
+    DECLARE @numeroSemana    INT;          -- BD-5: semana del periodo en que cae la sesion (no su numero de orden)
     DECLARE @codigoSesion    NVARCHAR(50);
     DECLARE @idEstadoPendiente UNIQUEIDENTIFIER;
 
@@ -165,6 +166,19 @@ BEGIN
             FROM [dbo].[Sesion] WITH (UPDLOCK, HOLDLOCK)
             WHERE grupo = @idGrupoDefecto;
 
+            -- BD-5: numeroSemana = semana del PERIODO (bloques de 7 dias desde fechaInicio, como el generador: SES-GEN-01 B2b) segun la fecha
+            -- LOCAL institucional del inicio de la sesion; antes se escribia el numero de orden de la sesion (una extraordinaria del 5-dic
+            -- salia en la semana 11 en vez de la 18). Minimo 1 (una fecha anterior al inicio del periodo cae en la semana 1).
+            SELECT @numeroSemana = IIF(DATEDIFF(DAY, pa.fechaInicio, f.fechaLocal) < 0, 1, DATEDIFF(DAY, pa.fechaInicio, f.fechaLocal) / 7 + 1)
+            FROM dbo.Grupo g
+            INNER JOIN dbo.PeriodoAcademico pa ON pa.id = g.periodoAcademico
+            CROSS APPLY (SELECT zona = COALESCE((SELECT TOP 1 valor FROM dbo.CatalogoParametro
+                                                 WHERE grupo = 'TIEMPO' AND clave = 'ZONA_HORARIA_SQLSERVER' AND estaActivo = 1),
+                                                'SA Pacific Standard Time')) z
+            CROSS APPLY (SELECT fechaLocal = CAST(CAST(@fechaHoraInicio AS DATETIME2) AT TIME ZONE 'UTC' AT TIME ZONE z.zona AS DATE)) f
+            WHERE g.id = @idGrupoDefecto;
+            SET @numeroSemana = COALESCE(@numeroSemana, @numeroSiguiente);
+
             SET @codigoSesion = CASE
                 WHEN @numeroSiguiente < 100 THEN CONCAT('SES-', RIGHT('0' + CAST(@numeroSiguiente AS VARCHAR(10)), 2))
                 ELSE CONCAT('SES-', CAST(@numeroSiguiente AS VARCHAR(10)))
@@ -180,7 +194,7 @@ BEGIN
                 CASE WHEN @nombreDefecto IS NOT NULL AND @nombreDefecto <> '' THEN @nombreDefecto ELSE CONCAT('Sesión #', @numeroSiguiente) END,
                 @numeroSiguiente,
                 @codigoSesion,
-                @numeroSiguiente,
+                @numeroSemana,
                 @idGrupoDefecto,
                 @fechaHoraInicio,
                 @fechaHoraFin,

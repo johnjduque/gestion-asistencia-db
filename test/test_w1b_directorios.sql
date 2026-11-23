@@ -42,10 +42,10 @@ BEGIN TRY
     DECLARE @uDecA UNIQUEIDENTIFIER = NEWID(), @decA UNIQUEIDENTIFIER = NEWID(), @facA UNIQUEIDENTIFIER = NEWID();
     DECLARE @uDecB UNIQUEIDENTIFIER = NEWID(), @decB UNIQUEIDENTIFIER = NEWID(), @facB UNIQUEIDENTIFIER = NEWID();
     DECLARE @uDecSin UNIQUEIDENTIFIER = NEWID(), @decSin UNIQUEIDENTIFIER = NEWID();
-    INSERT dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uDecA, @tipoCC, 915000001, N'DecanoA', N'Qa', N'Decano', N'W1b', N'decano.a.qa.w1b@uco.edu.co', 1, 1, @hash),
-           (@uDecB, @tipoCC, 915000002, N'DecanoB', N'Qa', N'Decano', N'W1b', N'decano.b.qa.w1b@uco.edu.co', 1, 1, @hash),
-           (@uDecSin, @tipoCC, 915000003, N'DecanoSin', N'Qa', N'Decano', N'W1b', N'decano.sin.qa.w1b@uco.edu.co', 1, 1, @hash);
+    INSERT dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uDecA, @tipoCC, 915000001, N'DecanoA', N'Qa', N'Decano', N'W1b', N'decano.a.qa.w1b@uco.edu.co', 1, 1),
+           (@uDecB, @tipoCC, 915000002, N'DecanoB', N'Qa', N'Decano', N'W1b', N'decano.b.qa.w1b@uco.edu.co', 1, 1),
+           (@uDecSin, @tipoCC, 915000003, N'DecanoSin', N'Qa', N'Decano', N'W1b', N'decano.sin.qa.w1b@uco.edu.co', 1, 1);
     INSERT dbo.Decano (id, usuario) VALUES (@decA, @uDecA), (@decB, @uDecB), (@decSin, @uDecSin);
     INSERT dbo.Facultad (id, nombre, institucion, decano, estado)
     VALUES (@facA, N'QA W1B Facultad A', @inst, @decA, 1), (@facB, N'QA W1B Facultad B', @inst, @decB, 1);
@@ -55,11 +55,11 @@ BEGIN TRY
     DECLARE @uCa2 UNIQUEIDENTIFIER = NEWID(), @ca2 UNIQUEIDENTIFIER = NEWID();
     DECLARE @uCa3 UNIQUEIDENTIFIER = NEWID(), @ca3 UNIQUEIDENTIFIER = NEWID(), @pa3 UNIQUEIDENTIFIER = NEWID();
     DECLARE @uCb1 UNIQUEIDENTIFIER = NEWID(), @cb1 UNIQUEIDENTIFIER = NEWID(), @pb1 UNIQUEIDENTIFIER = NEWID();
-    INSERT dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uCa1, @tipoCC, 915000011, N'Alfa', N'Uno', N'Carla', N'Maria', N'coord.a1.qa.w1b@uco.edu.co', 1, 1, @hash),
-           (@uCa2, @tipoCC, 915000012, N'Beta', N'Dos', N'Pedro', N'', N'coord.a2.qa.w1b@uco.edu.co', 1, 1, @hash),
-           (@uCa3, @tipoCC, 915000013, N'Gamma', N'Tres', N'Luis', N'Eduardo', N'coord.a3.qa.w1b@uco.edu.co', 1, 1, @hash),
-           (@uCb1, @tipoCC, 915000014, N'Delta', N'Cuatro', N'Sofia', N'', N'coord.b1.qa.w1b@uco.edu.co', 1, 1, @hash);
+    INSERT dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uCa1, @tipoCC, 915000011, N'Alfa', N'Uno', N'Carla', N'Maria', N'coord.a1.qa.w1b@uco.edu.co', 1, 1),
+           (@uCa2, @tipoCC, 915000012, N'Beta', N'Dos', N'Pedro', N'', N'coord.a2.qa.w1b@uco.edu.co', 1, 1),
+           (@uCa3, @tipoCC, 915000013, N'Gamma', N'Tres', N'Luis', N'Eduardo', N'coord.a3.qa.w1b@uco.edu.co', 1, 1),
+           (@uCb1, @tipoCC, 915000014, N'Delta', N'Cuatro', N'Sofia', N'', N'coord.b1.qa.w1b@uco.edu.co', 1, 1);
     INSERT dbo.Coordinador (id, usuario, estado, facultad)
     VALUES (@ca1, @uCa1, 1, @facA), (@ca2, @uCa2, 1, @facA), (@ca3, @uCa3, 0, @facA), (@cb1, @uCb1, 1, @facB);
     INSERT dbo.Programa (id, facultad, tipoDePrograma, nombre, coordinador, estado)

@@ -620,7 +620,7 @@ La base de datos cuenta con **14 funciones escalares** divididas en utilidades d
 
 1. **`dbo.ufn_clasificar_permanencia`**: Clasifica la permanencia del estudiante (REGULAR, RIESGO, PERDIDA) a partir del porcentaje de inasistencia y los umbrales de `CatalogoParametro` (HU070).
 2. **`dbo.ufn_obtener_detalle_error`**: Construye la cadena contractual del canal técnico de error en formato `DBCODE=<catalog-code>|<technical-detail>`.
-3. **`dbo.ufn_obtener_estado_estudiante_grupo`**: Devuelve el nombre del estado de la matrícula de un estudiante en un grupo (`NO INSCRITO` si no existe). Sin uso hoy; se conserva para el flujo de límite de faltas.
+3. **`dbo.ufn_obtener_estado_estudiante_grupo`** (retirada en la migración 70, AUD-BD M-7): devolvía el nombre del estado de la matrícula de un estudiante en un grupo; no tenía usos.
 4. **`dbo.ufn_obtener_mensaje_desde_plantilla`**: Reemplaza marcadores de posición `{0}`, `{1}` en plantillas de mensajes del catálogo.
 5. **`dbo.ufn_obtener_parametro`**: Obtiene el valor genérico en texto de un parámetro desde `CatalogoParametro` según su clave.
 6. **`dbo.ufn_obtener_parametro_guid`**: Obtiene el valor de un parámetro del sistema convertido al tipo de dato `UNIQUEIDENTIFIER`.

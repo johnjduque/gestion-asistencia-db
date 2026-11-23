@@ -73,50 +73,58 @@ if (Test-Path "$schemaDir\triggers") {
     }
 }
 
-# 2. Aplicar Funciones
-Write-Host "`nAplicando Funciones..." -ForegroundColor Yellow
-Get-ChildItem -Path "$schemaDir\functions" -Filter "*.sql" -Recurse | Sort-Object Name | ForEach-Object {
-    Execute-Sql-File -LocalFilePath $_.FullName
+# Aplica un conjunto de archivos resolviendo dependencias entre ellos: reintenta los que fallan mientras haya avance.
+# El orden de Sort-Object depende de la cultura del sistema (Windows y Linux ordenan distinto '.' y '_'), asi que el
+# orden alfabetico no garantiza que una funcion o vista exista antes que quien la usa.
+function Apply-Sql-Files-With-Dependencies {
+    param (
+        [System.IO.FileInfo[]]$Files,
+        [string]$Kind
+    )
+    $pending = [System.Collections.Generic.List[System.IO.FileInfo]]::new()
+    foreach ($f in ($Files | Sort-Object Name)) { $pending.Add($f) }
+
+    $maxPasses = 15
+    $pass = 1
+    $progressMade = $true
+
+    while ($pending.Count -gt 0 -and $progressMade -and $pass -le $maxPasses) {
+        $progressMade = $false
+        $failedThisPass = [System.Collections.Generic.List[System.IO.FileInfo]]::new()
+        foreach ($file in $pending) {
+            $relativePath = $file.FullName.Substring($schemaDir.Length).Replace('\', '/')
+            $containerPath = "/tmp/schema$relativePath"
+            $sqlResult = docker exec $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$Password" -C -b -i $containerPath 2>&1
+            if ($LASTEXITCODE -ne 0 -or $sqlResult -match "Msg \d+, Level \d+") {
+                $failedThisPass.Add($file)
+            }
+            else {
+                $progressMade = $true
+            }
+        }
+        $pending = $failedThisPass
+        $pass++
+    }
+
+    if ($pending.Count -gt 0) {
+        Write-Host "`n[ERROR] No se pudieron aplicar las siguientes $Kind debido a errores reales o dependencias circulares:" -ForegroundColor Red
+        foreach ($file in $pending) {
+            Write-Host "  - $($file.Name)" -ForegroundColor Red
+            Execute-Sql-File -LocalFilePath $file.FullName
+        }
+    }
+    else {
+        Write-Host "Todas las $Kind aplicadas correctamente!" -ForegroundColor Green
+    }
 }
+
+# 2. Aplicar Funciones (resolviendo dependencias: una TVF en linea valida al crearse las funciones que usa)
+Write-Host "`nAplicando Funciones (Resolviendo dependencias dinamicamente)..." -ForegroundColor Yellow
+Apply-Sql-Files-With-Dependencies -Files (Get-ChildItem -Path "$schemaDir\functions" -Filter "*.sql" -Recurse) -Kind "funciones"
 
 # 3. Aplicar Vistas (Optimizadas dinámicamente)
 Write-Host "`nAplicando Vistas (Resolviendo dependencias dinamicamente)..." -ForegroundColor Yellow
-$views = Get-ChildItem -Path "$schemaDir\views" -Filter "*.sql" -Recurse
-$pendingViews = [System.Collections.Generic.List[System.IO.FileInfo]]::new()
-foreach ($v in $views) { $pendingViews.Add($v) }
-
-$maxPasses = 15
-$pass = 1
-$progressMade = $true
-
-while ($pendingViews.Count -gt 0 -and $progressMade -and $pass -le $maxPasses) {
-    $progressMade = $false
-    $failedThisPass = [System.Collections.Generic.List[System.IO.FileInfo]]::new()
-    foreach ($viewFile in $pendingViews) {
-        $relativePath = $viewFile.FullName.Substring($schemaDir.Length).Replace('\', '/')
-        $containerPath = "/tmp/schema$relativePath"
-        $sqlResult = docker exec $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$Password" -C -b -i $containerPath 2>&1
-        if ($LASTEXITCODE -ne 0 -or $sqlResult -match "Msg \d+, Level \d+") {
-            $failedThisPass.Add($viewFile)
-        }
-        else {
-            $progressMade = $true
-        }
-    }
-    $pendingViews = $failedThisPass
-    $pass++
-}
-
-if ($pendingViews.Count -gt 0) {
-    Write-Host "`n[ERROR] No se pudieron aplicar las siguientes vistas debido a errores reales o dependencias circulares:" -ForegroundColor Red
-    foreach ($viewFile in $pendingViews) {
-        Write-Host "  - $($viewFile.Name)" -ForegroundColor Red
-        Execute-Sql-File -LocalFilePath $viewFile.FullName
-    }
-}
-else {
-    Write-Host "Todas las vistas aplicadas correctamente!" -ForegroundColor Green
-}
+Apply-Sql-Files-With-Dependencies -Files (Get-ChildItem -Path "$schemaDir\views" -Filter "*.sql" -Recurse) -Kind "vistas"
 
 # 4. Aplicar Procedimientos Almacenados (soporta internos, externos, etc.)
 Write-Host "`nAplicando Procedimientos Almacenados..." -ForegroundColor Yellow

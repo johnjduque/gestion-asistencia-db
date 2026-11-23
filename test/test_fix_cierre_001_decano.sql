@@ -38,8 +38,8 @@ BEGIN TRANSACTION;
 BEGIN TRY
     -- ======================================================= Alta de decano
     DECLARE @uOtro UNIQUEIDENTIFIER = NEWID(), @decOtro UNIQUEIDENTIFIER = NEWID(), @facQa UNIQUEIDENTIFIER = NEWID();
-    INSERT dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uOtro, @tipoCC, 917000001, N'Previo', N'Qa', N'Decano', N'Fix001', N'decano.previo.qa.fix001@uco.edu.co', 1, 1, @hash);
+    INSERT dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uOtro, @tipoCC, 917000001, N'Previo', N'Qa', N'Decano', N'Fix001', N'decano.previo.qa.fix001@uco.edu.co', 1, 1);
     INSERT dbo.Decano (id, usuario) VALUES (@decOtro, @uOtro);
     INSERT dbo.Facultad (id, nombre, institucion, decano, estado) VALUES (@facQa, N'QA Fix001 Facultad Exacta', @inst, @decOtro, 1);
 

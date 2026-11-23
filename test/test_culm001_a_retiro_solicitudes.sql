@@ -38,9 +38,6 @@ IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name LIKE N'FK[_]SolicitudIngres
 IF EXISTS (SELECT 1 FROM dbo.CatalogoMensajeUsuario WHERE codigo LIKE 'SIG[_]0%' OR codigo LIKE 'SIG[_]1%' OR codigo = 'ERR_SOLICITUD_MATRICULA_NO_IMPLEMENTADA')
    OR EXISTS (SELECT 1 FROM dbo.CatalogoMensajeTecnico WHERE codigo LIKE 'SIG[_]0%' OR codigo LIKE 'SIG[_]1%' OR codigo = 'ERR_SOLICITUD_MATRICULA_NO_IMPLEMENTADA')
     THROW 57102, 'TEST FAILED: T-01 no deben quedar mensajes SIG_* ni ERR_SOLICITUD_MATRICULA_NO_IMPLEMENTADA.', 1;
-IF EXISTS (SELECT 1 FROM dbo.PlantillaNotificacion WHERE tipo LIKE 'SOLICITUD[_]INGRESO[_]%')
-   OR EXISTS (SELECT 1 FROM dbo.PlantillaNotificacionMarcador WHERE tipo LIKE 'SOLICITUD[_]INGRESO[_]%')
-    THROW 57103, 'TEST FAILED: T-01 no deben quedar plantillas ni marcadores SOLICITUD_INGRESO_*.', 1;
 IF EXISTS (SELECT 1 FROM dbo.Estado WHERE codigo = 'E')
    OR NOT EXISTS (SELECT 1 FROM dbo.Estado WHERE codigo = 'X' AND id = 'D6E2F3A4-5B6C-4D7E-9F80-A12B3C4D5E6F')
     THROW 57104, 'TEST FAILED: T-01 el estado E (en espera) se retira y el estado X (retirada) se conserva.', 1;
@@ -113,10 +110,10 @@ CREATE TABLE #m (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHA
 
 BEGIN TRANSACTION;
 BEGIN TRY
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@u2, @tipoCC, @numE2, N'Dos', N'Culm', N'Est', N'A', LOWER(@correoE2), 1, 1, N'HashBackend_Culm001A'),
-           (@uCoord, @tipoCC, @base + 3, N'Coord', N'Culm', N'Coor', N'A', CONCAT(N'culm001a.coord.', @sufijo, N'@test.local'), 1, 1, N'HashBackend_Culm001A'),
-           (@uDoc2, @tipoCC, @base + 4, N'Doc', N'Culm', N'Doce', N'A', CONCAT(N'culm001a.doc2.', @sufijo, N'@test.local'), 1, 1, N'HashBackend_Culm001A');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@u2, @tipoCC, @numE2, N'Dos', N'Culm', N'Est', N'A', LOWER(@correoE2), 1, 1),
+           (@uCoord, @tipoCC, @base + 3, N'Coord', N'Culm', N'Coor', N'A', CONCAT(N'culm001a.coord.', @sufijo, N'@test.local'), 1, 1),
+           (@uDoc2, @tipoCC, @base + 4, N'Doc', N'Culm', N'Doce', N'A', CONCAT(N'culm001a.doc2.', @sufijo, N'@test.local'), 1, 1);
     INSERT INTO dbo.Estudiante (id, usuario) VALUES (@e2, @u2);
     INSERT INTO dbo.Coordinador (id, usuario, facultad) VALUES (@coord, @uCoord, @facultad);
     INSERT INTO dbo.Docente (id, usuario) VALUES (@doc2, @uDoc2);
@@ -242,9 +239,9 @@ BEGIN TRY
         cantidadEstudiantesCancelaronVoluntadPropia, cantidadEstudiantesCancelaronAutomaticamente, docente)
     SELECT @g, g.asignatura, g.periodoAcademico, 600000 + ABS(CHECKSUM(NEWID()) % 300000), N'Grupo QA CULM001A T12B', 5, 0, 0, 0, g.docente
     FROM dbo.Grupo g WHERE g.id = @base;
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@u1, @tipoCC, @num, N'Uno', N'T12b', N'Est', N'A', CONCAT(N'culm001a.t12b.1.', @num, N'@test.local'), 1, 1, N'HashBackend_T12b'),
-           (@u2, @tipoCC, @num + 1, N'Dos', N'T12b', N'Est', N'A', CONCAT(N'culm001a.t12b.2.', @num, N'@test.local'), 1, 1, N'HashBackend_T12b');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@u1, @tipoCC, @num, N'Uno', N'T12b', N'Est', N'A', CONCAT(N'culm001a.t12b.1.', @num, N'@test.local'), 1, 1),
+           (@u2, @tipoCC, @num + 1, N'Dos', N'T12b', N'Est', N'A', CONCAT(N'culm001a.t12b.2.', @num, N'@test.local'), 1, 1);
     INSERT INTO dbo.Estudiante (id, usuario) VALUES (@e1, @u1), (@e2, @u2);
     INSERT INTO dbo.EstudianteGrupo (id, estado, estudiante, grupo) VALUES (@eg1, @estI, @e1, @g);
 
@@ -466,8 +463,8 @@ CREATE TABLE #v (idCorrelacion UNIQUEIDENTIFIER, mensajeUsuarioResultado NVARCHA
 
 BEGIN TRANSACTION;
 BEGIN TRY
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@u, @tipoCC, @num, N'Uno', N'T12d', N'Est', N'A', CONCAT(N'culm001a.t12d.', @num, N'@test.local'), 1, 1, N'HashBackend_T12d');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@u, @tipoCC, @num, N'Uno', N'T12d', N'Est', N'A', CONCAT(N'culm001a.t12d.', @num, N'@test.local'), 1, 1);
     INSERT INTO dbo.Estudiante (id, usuario) VALUES (@e, @u);
     INSERT INTO dbo.EstudianteGrupo (id, estado, estudiante, grupo) VALUES (@eg, @estI, @e, @grupo);
     UPDATE dbo.TokenMatriculaGrupo SET estado = @estadoCerrada WHERE grupo = @grupo AND estado = @estadoActiva;

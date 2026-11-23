@@ -9,6 +9,9 @@ BEGIN TRANSACTION;
 BEGIN TRY
 :r /tmp/test/fixtures/culm001_b2nm_asignatura_compartida.sql
     DECLARE @c UNIQUEIDENTIFIER = NEWID();
+    -- DEC-077: el responsable del grupo es B (para B2NM-18). Se escribe aqui porque los rechazos por THROW de B2NM-20/06 dejan la
+    -- transaccion sin poder escribir.
+    UPDATE dbo.Grupo SET programaResponsable = @progB WHERE id = @grupoG;
 
     -- B2NM-01/03: G tiene 2 programas en uv_grupo_programa y 1 fila en uv_grupo / 3 matriculas en uv_estudiante_grupo
     IF (SELECT COUNT(*) FROM dbo.uv_grupo_programa WHERE idGrupo = @grupoG) <> 2 THROW 53851, 'TEST FAILED: B2NM-01 uv_grupo_programa debe tener 2 filas para G.', 1;
@@ -59,7 +62,8 @@ BEGIN TRY
     END CATCH
     IF @coo003 = 0 THROW 53864, 'TEST FAILED: B2NM-06 el directorio con un programa ajeno debe dar COO_003.', 1;
 
-    -- B2NM-18 (O-N7): CA no gestiona un grupo compartido con un programa que no coordina; el titular si
+    -- B2NM-18 (O-N7, revisada por DEC-077): CA no gestiona un grupo compartido cuyo programa responsable es B; el titular si.
+    -- Los casos completos del responsable estan en test_dec076_dec077_creacion_grupo.sql.
     DECLARE @esCoord BIT, @docTitular UNIQUEIDENTIFIER, @mu NVARCHAR(4000), @mt NVARCHAR(4000), @ok BIT;
     EXEC dbo.usp_validar_gestion_grupo_coordinador_o_titular_interno @idGrupo = @grupoG, @idUsuarioEjecutor = @uCA, @idCorrelacion = @c,
         @ejecutorEsCoordinador = @esCoord OUTPUT, @idDocenteTitular = @docTitular OUTPUT, @mensajeUsuarioResultado = @mu OUTPUT, @mensajeTecnicoResultado = @mt OUTPUT, @estadoResultado = @ok OUTPUT;

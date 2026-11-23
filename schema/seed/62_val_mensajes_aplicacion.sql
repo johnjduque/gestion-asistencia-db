@@ -1,4 +1,4 @@
-USE [gestionasistenciadb];
+﻿USE [gestionasistenciadb];
 GO
 SET ANSI_NULLS ON;
 GO
@@ -80,7 +80,7 @@ USING (VALUES
     ('VAL_APP_065', 'VALIDATION_ERROR', 'BAJO', N'El coordinador del programa es obligatorio.'),
     ('VAL_APP_066', 'VALIDATION_ERROR', 'BAJO', N'El estado deseado del programa es obligatorio.'),
     ('VAL_APP_067', 'VALIDATION_ERROR', 'BAJO', N'Cada franja del horario es obligatoria.'),
-    ('VAL_APP_068', 'VALIDATION_ERROR', 'BAJO', N'El campo dias es obligatorio cuando se envía el horario.'),
+    ('VAL_APP_068', 'VALIDATION_ERROR', 'BAJO', N'El campo días es obligatorio cuando se envía el horario.'),
     ('VAL_APP_069', 'VALIDATION_ERROR', 'BAJO', N'El campo {} es obligatorio.'),
     ('VAL_APP_070', 'VALIDATION_ERROR', 'BAJO', N'El campo {} debe usar formato ISO local {}.'),
     ('VAL_APP_071', 'VALIDATION_ERROR', 'BAJO', N'Los datos de la consulta no son válidos.'),
@@ -88,6 +88,7 @@ USING (VALUES
     ('VAL_APP_073', 'VALIDATION_ERROR', 'BAJO', N'El identificador del estudiante es obligatorio.'),
     ('VAL_APP_074', 'VALIDATION_ERROR', 'BAJO', N'El identificador del docente es obligatorio.'),
     ('VAL_APP_075', 'VALIDATION_ERROR', 'BAJO', N'El identificador del programa es obligatorio.'),
+    ('VAL_APP_076', 'VALIDATION_ERROR', 'BAJO', N'El horario del grupo es obligatorio: envía al menos una franja.'),
     ('ACC_APP_001', 'SECURITY_ERROR', 'ALTO', N'El docente autenticado no tiene titularidad sobre el grupo consultado.'),
     ('ACC_APP_002', 'SECURITY_ERROR', 'ALTO', N'El docente autenticado no tiene titularidad sobre el grupo solicitado.'),
     ('ACC_APP_003', 'SECURITY_ERROR', 'ALTO', N'No fue posible resolver el docente autenticado.'),
@@ -198,7 +199,7 @@ USING (VALUES
     ('VAL_APP_065', 'VALIDATION_ERROR', 'BAJO', N'Backend (VALIDATION_ERROR): El coordinador del programa es obligatorio.'),
     ('VAL_APP_066', 'VALIDATION_ERROR', 'BAJO', N'Backend (VALIDATION_ERROR): El estado deseado del programa es obligatorio.'),
     ('VAL_APP_067', 'VALIDATION_ERROR', 'BAJO', N'Backend (respuesta ERR_CAMPO_OBLIGATORIO): Cada franja del horario es obligatoria.'),
-    ('VAL_APP_068', 'VALIDATION_ERROR', 'BAJO', N'Backend (respuesta ERR_CAMPO_OBLIGATORIO): El campo dias es obligatorio cuando se envia el horario.'),
+    ('VAL_APP_068', 'VALIDATION_ERROR', 'BAJO', N'Backend (respuesta ERR_CAMPO_OBLIGATORIO): El campo días es obligatorio cuando se envía el horario.'),
     ('VAL_APP_069', 'VALIDATION_ERROR', 'BAJO', N'Backend (respuesta ERR_CAMPO_OBLIGATORIO): El campo {} es obligatorio.'),
     ('VAL_APP_070', 'VALIDATION_ERROR', 'BAJO', N'Backend (respuesta ERR_FECHA_HORA_INVALIDA): El campo {} debe usar formato ISO local {}.'),
     ('VAL_APP_071', 'VALIDATION_ERROR', 'BAJO', N'Backend (VALIDATION_ERROR): Los datos de la consulta no son validos.'),
@@ -206,6 +207,7 @@ USING (VALUES
     ('VAL_APP_073', 'VALIDATION_ERROR', 'BAJO', N'Backend (VALIDATION_ERROR): El identificador del estudiante es obligatorio.'),
     ('VAL_APP_074', 'VALIDATION_ERROR', 'BAJO', N'Backend (VALIDATION_ERROR): El identificador del docente es obligatorio.'),
     ('VAL_APP_075', 'VALIDATION_ERROR', 'BAJO', N'Backend (VALIDATION_ERROR): El identificador del programa es obligatorio.'),
+    ('VAL_APP_076', 'VALIDATION_ERROR', 'BAJO', N'Backend (VALIDATION_ERROR): El horario del grupo es obligatorio: envía al menos una franja.'),
     ('ACC_APP_001', 'SECURITY_ERROR', 'ALTO', N'Backend (FORBIDDEN): El docente autenticado no tiene titularidad sobre el grupo consultado.'),
     ('ACC_APP_002', 'SECURITY_ERROR', 'ALTO', N'Backend (FORBIDDEN): El docente autenticado no tiene titularidad sobre el grupo solicitado.'),
     ('ACC_APP_003', 'SECURITY_ERROR', 'ALTO', N'Backend (FORBIDDEN): No fue posible resolver el docente autenticado.'),

@@ -11,8 +11,8 @@ GO
 -- Clasificacion: NON_GOLDEN_PATH_EXTENSION, READ_QUERY_RESULTSET sin paginacion (<= cupo del grupo + coordinadores).
 -- Destinatarios del aviso de una sesion creada manualmente por el docente (uv_sesion_manual; una sesion no manual devuelve 0 filas):
 --   * ESTUDIANTE:  matriculas activas (MATRICULA/ESTADO_INSCRITA) del grupo con usuario activo;
---   * COORDINADOR: coordinador(es) activo(s) de TODOS los programas vigentes del grupo (ufn_programas_grupo). Un coordinador de dos
---                  programas del mismo grupo es UNA fila; un grupo mixto devuelve ambos coordinadores.
+--   * COORDINADOR: (DEC-077) el coordinador activo del programa responsable del grupo (ufn_programas_grupo_responsable); en un
+--                  grupo compartido es UNA fila, no una por programa.
 -- CULM-001 / DEC-065 (2): ademas devuelve la fila del DOCENTE titular (tipoDestinatario = 'DOCENTE', al final del orden) para que el backend
 -- le avise la decision del coordinador; el aviso a la coordinacion al crear lo sigue dando la fila COORDINADOR.
 -- Ambito: RBAC DOCENTE + titularidad 'SESION' dentro del SP (THROW 51000 con el mensaje tecnico si falla). El correo es de uso
@@ -94,7 +94,7 @@ BEGIN
         INNER JOIN dbo.uv_docente_identidad di ON di.id = g.idDocente
         INNER JOIN (
             SELECT DISTINCT ci2.idUsuario, ci2.nombreCompleto, ci2.correo
-            FROM dbo.ufn_programas_grupo(
+            FROM dbo.ufn_programas_grupo_responsable(
                      (SELECT s.idGrupo FROM dbo.uv_sesion_manual s WHERE s.idSesion = @idSesionDefecto)) pg
             INNER JOIN dbo.Programa p                    ON p.id = pg.idPrograma
             INNER JOIN dbo.uv_coordinador_identidad ci2  ON ci2.id = p.coordinador

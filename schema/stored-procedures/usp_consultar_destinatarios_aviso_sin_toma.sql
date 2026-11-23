@@ -11,8 +11,8 @@ GO
 -- Clasificacion: NON_GOLDEN_PATH_EXTENSION, comando de sistema (sin usuario). Resultset: una fila por coordinador destinatario del aviso
 -- "el docente no tomo asistencia en la sesion": idSesion, idGrupo, idAsignatura, nombreAsignatura, nombreGrupo, nombreDocente,
 -- fechaHoraInicioUtc, fechaHoraFinUtc, idUsuarioCoordinador, nombreCoordinador, correoCoordinador.
--- Destinatarios: coordinador(es) activo(s) de TODOS los programas vigentes del grupo (ufn_programas_grupo; en un grupo compartido, uno por
--- programa) con usuario activo y correo; una persona que coordina dos de esos programas sale una sola vez.
+-- Destinatarios (DEC-077): el coordinador activo del programa responsable del grupo (ufn_programas_grupo_responsable; en un grupo
+-- compartido, uno solo) con usuario activo y correo.
 -- Una sesion inexistente, cancelada, o con alguna toma devuelve 0 filas (el aviso ya no aplica).
 -- Los correos son de uso interno del NotificacionPort; el backend no los expone ni los registra.
 -- ============================================================================
@@ -45,7 +45,7 @@ BEGIN
     INNER JOIN dbo.uv_docente_identidad di ON di.id = g.idDocente
     CROSS APPLY (
         SELECT DISTINCT ci.idUsuario, ci.nombreCompleto, ci.correo
-        FROM dbo.ufn_programas_grupo(se.idGrupo) pg
+        FROM dbo.ufn_programas_grupo_responsable(se.idGrupo) pg
         INNER JOIN dbo.Programa p                   ON p.id = pg.idPrograma
         INNER JOIN dbo.uv_coordinador_identidad ci  ON ci.id = p.coordinador
                                                    AND ci.estaActivoRolCoordinador = 1 AND ci.estaActivoUsuario = 1

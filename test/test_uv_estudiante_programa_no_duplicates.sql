@@ -20,8 +20,8 @@ BEGIN TRY
     DECLARE @grupo2 UNIQUEIDENTIFIER = NEWID(), @grupo3 UNIQUEIDENTIFIER = NEWID();
     DECLARE @codigo INT = (SELECT ISNULL(MAX(codigo), 0) + 1000 FROM dbo.Grupo);
 
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@usuario, @tipo, 2100000001, N'Multigrupo', N'', N'Prueba', N'', N'multigrupo.prueba@fixture.invalid', 1, 1, N'FIXTURE_DISABLED_ACCOUNT');
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@usuario, @tipo, 2100000001, N'Multigrupo', N'', N'Prueba', N'', N'multigrupo.prueba@fixture.invalid', 1, 1);
     INSERT INTO dbo.Estudiante (id, usuario) VALUES (@estudiante, @usuario);
     INSERT INTO dbo.EstudiantePrograma (id, estudiante, programa) VALUES (@ep, @estudiante, @programa);
 

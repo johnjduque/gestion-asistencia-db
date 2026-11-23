@@ -87,12 +87,12 @@ BEGIN TRY
     DECLARE @tag NVARCHAR(12) = LEFT(REPLACE(CONVERT(NVARCHAR(36), NEWID()), N'-', N''), 12);
     CREATE TABLE #b2qE (n INT, idUsuario UNIQUEIDENTIFIER, idEstudiante UNIQUEIDENTIFIER, idEG UNIQUEIDENTIFIER);
     INSERT INTO #b2qE (n, idUsuario, idEstudiante, idEG) SELECT v.n, NEWID(), NEWID(), NEWID() FROM (VALUES (1),(2),(3),(4),(5),(6),(7),(8),(9)) v(n);
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
-    VALUES (@uD1, @tipoCC, 974000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Titular', N'CulmB', N'Quique', N'B2', CONCAT(N'culmb2q.d1.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULMB2'),
-           (@uD2, @tipoCC, 975000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Otro', N'CulmB', N'Quintin', N'B2', CONCAT(N'culmb2q.d2.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULMB2');
-    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado, password)
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
+    VALUES (@uD1, @tipoCC, 974000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Titular', N'CulmB', N'Quique', N'B2', CONCAT(N'culmb2q.d1.', @tag, N'@test.local'), 1, 1),
+           (@uD2, @tipoCC, 975000000 + ABS(CHECKSUM(NEWID()) % 999999), N'Otro', N'CulmB', N'Quintin', N'B2', CONCAT(N'culmb2q.d2.', @tag, N'@test.local'), 1, 1);
+    INSERT INTO dbo.Usuario (id, tipoIdIdentificacion, numeroIdentificacion, primerApellido, segundoApellido, primerNombre, segundoNombre, correo, correoConfirmado, estado)
     SELECT e.idUsuario, @tipoCC, 976000000 + e.n * 10000 + ABS(CHECKSUM(NEWID()) % 9999), CONCAT(N'Qr', e.n), N'CulmB', N'Est', N'B2',
-           CONCAT(N'culmb2q.e', e.n, N'.', @tag, N'@test.local'), 1, 1, N'HashBackend_CULMB2'
+           CONCAT(N'culmb2q.e', e.n, N'.', @tag, N'@test.local'), 1, 1
     FROM #b2qE e;
     INSERT INTO dbo.Docente (id, usuario) VALUES (@d1, @uD1), (@d2, @uD2);
     INSERT INTO dbo.Estudiante (id, usuario) SELECT idEstudiante, idUsuario FROM #b2qE;
@@ -233,6 +233,10 @@ BEGIN TRY
        OR (SELECT COUNT(*) FROM #b2qR WHERE mt LIKE N'DBCODE=AQR[_]008|%' AND yaRegistrado = 1 AND idToma = @tA) <> 2
        OR (SELECT COUNT(*) FROM dbo.DetalleAsistencia da INNER JOIN dbo.Asistencia a ON a.id = da.asistencia INNER JOIN #b2qE e ON e.idEG = a.estudianteGrupo
            WHERE e.n = 3 AND a.sesion = @sA) <> 1
+       -- la fechaRegistroUtc de cada respuesta es la del detalle propio (lectura por PK, sin recorrer los detalles de la toma)
+       OR (SELECT COUNT(*) FROM #b2qR r WHERE r.fechaRegistroUtc = (SELECT da.fechaRegistroUtc FROM dbo.DetalleAsistencia da
+           INNER JOIN dbo.Asistencia a ON a.id = da.asistencia INNER JOIN #b2qE e ON e.idEG = a.estudianteGrupo
+           WHERE e.n = 3 AND a.sesion = @sA AND da.toma = @tA)) <> 3
         THROW 57440, 'TEST FAILED CULM001_B2_QR_04: tres registros del mismo estudiante deben dejar un solo detalle (AQR_009 + 2 x AQR_008).', 1;
     TRUNCATE TABLE #b2qR;
     SET @json = CONCAT(N'[{"idEstudiante":"', @e4, N'","estado":"EX"}]');
