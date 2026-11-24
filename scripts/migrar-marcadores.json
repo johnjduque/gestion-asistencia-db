@@ -530,6 +530,9 @@
       { "objeto": "dbo.usp_validar_ejecutor_administrador_periodo_interno" },
       { "objeto": "dbo.usp_crear_receso_academico", "contiene": "usp_validar_ejecutor_administrador_periodo_interno" },
       { "objeto": "dbo.usp_retirar_receso_academico", "contiene": "usp_validar_ejecutor_administrador_periodo_interno" }
+    ],
+    "76_perf_detalle_asistencia_cobertura": [
+      { "indice": "dbo.DetalleAsistencia.IX_DetalleAsistencia_Asistencia_Cobertura" }
     ]
   }
 }
