@@ -70,7 +70,8 @@ BEGIN
                 FROM    dbo.uv_resumen_asistencia_estudiante_grupo r
                 WHERE   EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo_programa egp INNER JOIN dbo.uv_programa p ON p.id = egp.idPrograma WHERE egp.id = r.idEstudianteGrupo AND p.idInstitucion = @idInstitucion) AND r.idPeriodoAcademico = @idPeriodo AND r.codigoEstadoEstudiante = N'A'
                 GROUP BY r.idEstudiante
-             ) x;
+             ) x
+        OPTION (NO_PERFORMANCE_SPOOL); -- 2026-11-24: sin esta opcion el plan re-evalua las horas por matricula con un spool (~240 s con 6.3 mil matriculas; ~3 s con ella)
 
         SELECT  @sesiones = ISNULL(SUM(r.sesionesEjecutadas), 0),
                 @faltas = ISNULL(SUM(r.faltasSinJustaCausa), 0),
@@ -79,7 +80,8 @@ BEGIN
                 @horasFalta = ISNULL(SUM(r.horasFalta), 0),
                 @horasPeriodo = ISNULL(SUM(r.horasPeriodo), 0)
         FROM    dbo.uv_resumen_asistencia_estudiante_grupo r
-        WHERE   EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo_programa egp INNER JOIN dbo.uv_programa p ON p.id = egp.idPrograma WHERE egp.id = r.idEstudianteGrupo AND p.idInstitucion = @idInstitucion) AND r.idPeriodoAcademico = @idPeriodo AND r.codigoEstadoEstudiante = N'A';
+        WHERE   EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo_programa egp INNER JOIN dbo.uv_programa p ON p.id = egp.idPrograma WHERE egp.id = r.idEstudianteGrupo AND p.idInstitucion = @idInstitucion) AND r.idPeriodoAcademico = @idPeriodo AND r.codigoEstadoEstudiante = N'A'
+        OPTION (NO_PERFORMANCE_SPOOL);
 
         SELECT  @vencidas = ISNULL(SUM(IIF(c.estaVencida = 1, 1, 0)), 0),
                 @conRegistro = ISNULL(SUM(IIF(c.estaVencida = 1 AND c.tieneRegistroAsistencia = 1, 1, 0)), 0)
