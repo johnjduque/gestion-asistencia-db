@@ -100,6 +100,7 @@ BEGIN
            OR CHARINDEX(@filtro, CONVERT(NVARCHAR(20), u.numeroIdentificacion)) > 0
            OR CHARINDEX(@filtro, u.correo) > 0)
     ORDER BY pe.porcentajeInasistencia DESC, u.nombreCompleto ASC, pe.idEstudiante ASC
-    OFFSET @offset ROWS FETCH NEXT @tamanoPagina ROWS ONLY;
+    OFFSET @offset ROWS FETCH NEXT @tamanoPagina ROWS ONLY
+    OPTION (RECOMPILE); -- @idPrograma/@idPeriodo se resuelven en los pasos 1 y 4 y los filtros son opcionales: sin RECOMPILE ~240 s con 5000 estudiantes
 END;
 GO

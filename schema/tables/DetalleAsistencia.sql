@@ -103,3 +103,10 @@ GO
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.DetalleAsistencia') AND name = 'IX_DetalleAsistencia_razonCausa')
     CREATE NONCLUSTERED INDEX IX_DetalleAsistencia_razonCausa ON dbo.DetalleAsistencia (razonCausa);
 GO
+
+-- PERF (2026-11-24): indice cubriente para el OUTER APPLY por cabecera de uv_asistencia_sesion_horas (WHERE da.asistencia = a.id leyendo
+-- razonCausa y asistio). Sin el, el plan escaneaba DetalleAsistencia una vez por fila de asistencia (13 s en uv_resumen_asistencia_estudiante_grupo
+-- con 6.3 mil matriculas; 0.3 s con el indice). Sin cambio de resultados.
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.DetalleAsistencia') AND name = 'IX_DetalleAsistencia_Asistencia_Cobertura')
+    CREATE NONCLUSTERED INDEX IX_DetalleAsistencia_Asistencia_Cobertura ON dbo.DetalleAsistencia (asistencia) INCLUDE (razonCausa, asistio);
+GO

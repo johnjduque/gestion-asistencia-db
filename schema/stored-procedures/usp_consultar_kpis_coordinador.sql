@@ -48,7 +48,8 @@ BEGIN
                 FROM    dbo.uv_resumen_asistencia_estudiante_programa_grupo r
                 WHERE   r.idPrograma = @idPrograma AND r.idPeriodoAcademico = @idPeriodo AND r.codigoEstadoEstudiante = N'A'
                 GROUP BY r.idEstudiante
-             ) x;
+             ) x
+        OPTION (RECOMPILE); -- @idPrograma/@idPeriodo se resuelven en los pasos 1 y 2: sin RECOMPILE el plan cacheado queda mal (~130 s con 5000 estudiantes)
 
         SELECT  @programadas = COUNT(*),
                 @vencidas = ISNULL(SUM(IIF(c.estaVencida = 1, 1, 0)), 0),
@@ -56,14 +57,16 @@ BEGIN
                 @sinRegistro = ISNULL(SUM(IIF(c.estaVencida = 1 AND c.tieneRegistroAsistencia = 0, 1, 0)), 0),
                 @sinProcedencia = ISNULL(SUM(IIF(c.procedenciaIndeterminada = 1, 1, 0)), 0)
         FROM    dbo.uv_cumplimiento_sesion_grupo c
-        WHERE   EXISTS (SELECT 1 FROM dbo.uv_grupo_programa gp WHERE gp.idGrupo = c.idGrupo AND gp.idPrograma = @idPrograma) AND c.idPeriodoAcademico = @idPeriodo;
+        WHERE   EXISTS (SELECT 1 FROM dbo.uv_grupo_programa gp WHERE gp.idGrupo = c.idGrupo AND gp.idPrograma = @idPrograma) AND c.idPeriodoAcademico = @idPeriodo
+        OPTION (RECOMPILE);
 
         SELECT  @grupos = COUNT(*),
                 @cupo = ISNULL(SUM(g.capacidadMaximaPermitida), 0),
                 @matriculados = ISNULL(SUM(g.estudiantesActivos), 0)
         FROM    dbo.uv_grupo g
         WHERE   EXISTS (SELECT 1 FROM dbo.uv_grupo_programa gp WHERE gp.idGrupo = g.id AND gp.idPrograma = @idPrograma)
-                AND g.idPeriodoAcademico = @idPeriodo AND g.grupoEstaHablitado = 1;
+                AND g.idPeriodoAcademico = @idPeriodo AND g.grupoEstaHablitado = 1
+        OPTION (RECOMPILE);
     END
 
     -- PASO 4: Consulta y retorno de resultados
