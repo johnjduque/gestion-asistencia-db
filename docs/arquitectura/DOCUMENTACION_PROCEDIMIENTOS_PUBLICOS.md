@@ -547,3 +547,15 @@ Migración `58_hu074_estado_asignatura_reglas_up|down.sql`. Work item: `docs/wor
 | `dbo.usp_consultar_asignaturas_plan_paginado` (malla) | Sin cambio: muestra las inactivas con `estaActivaAsignatura = 0` (reflejo de `Asignatura.estado`) para que el coordinador las reactive | sin cambio | sin cambio |
 
 Los grupos existentes no cambian al inactivar. El modelo no tiene baja lógica de `Grupo`: cuentan todos los grupos del período vigente o futuro.
+
+## Addendum SKILLS-BD lote 3 (2026-11-25): parámetros, usuarios e identidad
+
+Misma firma, mismo resultset y mismos códigos; prueba `test/test_skills_lote3_caracterizacion.sql` más las de dominio de cada SP.
+
+| SP | Cambio en el lote 3 |
+| :--- | :--- |
+| `usp_consultar_perfil_usuario` | Vínculos leídos por `uv_estudiante_identidad`/`uv_estudiante_programa`, `uv_docente_programa`, `uv_coordinador_identidad`, `uv_decano_identidad`, `uv_facultad`, `uv_programa` y `uv_administrador` (antes, tablas base); `TRY/CATCH` que relanza (lectura) |
+| `usp_consultar_reenvio_activacion_cuenta` | Usuario destino por `uv_usuario_autenticacion` y última emisión por la vista nueva `uv_token_verificacion_correo` (solo `id`, `idUsuario` y `fechaEmisionUtc`; nunca el hash); `IF` con `BEGIN/END`; `TRY/CATCH` que relanza (el rechazo sigue siendo `THROW 51000`) |
+| `usp_corregir_identidad_usuario` | Ámbito del coordinador, del administrador y del decano por vistas `uv_*` (la fila del usuario se sigue leyendo con `UPDLOCK, HOLDLOCK` en `dbo.Usuario`); `correo` y `numeroIdentificacion` devueltos desde `uv_usuario`; `IF` con `BEGIN/END` |
+| `usp_vincular_identidad_externa`, `usp_revocar_identidad_externa` | `DECLARE` del `CATCH` movidos a la cabecera; `IF` con `BEGIN/END`. Las lecturas de `IdentidadExterna` y `Usuario` son con bloqueo y siguen en la tabla |
+| `usp_sincronizar_mensaje_usuario` | `IF` con `BEGIN/END`; la fecha nueva se relee con `UPDLOCK, HOLDLOCK` (la fila ya está bloqueada; `uv_mensaje_usuario` filtra los mensajes inactivos y no sirve para esta relectura) |

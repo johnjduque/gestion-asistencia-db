@@ -504,3 +504,18 @@ Decisión D3 de John: los 16 núcleos con prefijo `usp_internal_` pasan a la con
 Contrato de error de los núcleos corregidos: un rechazo de negocio deja `@estadoResultado = 1` con el código en `@codigoRechazo` (resolvers) o `@estadoResultado = 0` con el mensaje del catálogo (resto, igual que antes). Un error no controlado devuelve `@estadoResultado = 0` con `SYS_001` y `ufn_obtener_detalle_error`; si dejó condenada la transacción del llamador (`XACT_STATE() = -1`), el CATCH relanza el error original, así que el llamador con `XACT_ABORT ON` ve el mismo error que antes del lote. Los llamadores revisan `@estadoInterno = 0` y lo relanzan a su CATCH con `THROW 52521..52532`. Los "solo nombre" se corrigen por completo en su lote de dominio.
 
 Internos de identidad y contacto corregidos en el lote (mismo nombre): `usp_actualizar_nombres_usuario_interno`, `usp_registrar_auditoria_identidad_interno` (triplete OUTPUT opcional, TRY/CATCH) y `usp_consultar_contacto_notificacion_interno` (`@idCorrelacion` y triplete opcionales; lee `uv_usuario` con `estaActivoUsuario = 1`; mismo resultset).
+
+## Addendum SKILLS-BD lote 3 (2026-11-25): parámetros, usuarios e identidad
+
+Mismo nombre, misma firma y mismo comportamiento; prueba `test/test_skills_lote3_caracterizacion.sql` (`SKL3_*`).
+
+| Interno | Cambio en el lote 3 |
+| :--- | :--- |
+| `usp_actualizar_datos_usuario_interno` | `PASO n`; mensajes y `SYS_001` con `@idCorrelacionDefecto`. La unicidad del correo sigue leyendo `dbo.Usuario` con `UPDLOCK, HOLDLOCK` |
+| `usp_cambiar_estado_usuario_interno` | `PASO n`; mensajes con `@idCorrelacionDefecto` |
+| `usp_corregir_documento_usuario_interno` | `PASO n`; mensajes con `@idCorrelacionDefecto`. Las dos lecturas de `dbo.Usuario` son con bloqueo (se conservan en la tabla) |
+| `usp_corregir_identidad_usuario_interno` | Respuesta inicial, `PASO n`, `IF` con `BEGIN/END`, correo actual desde `uv_usuario_autenticacion` y `TRY/CATCH` con `SYS_001`. Con una transacción abierta (`XACT_STATE() <> 0`) relanza el error original para que su dueño la revierta: el fallo de la auditoría sigue saliendo como `THROW 52531` |
+| `usp_validar_id_correlacion_esta_presente_interno` | `DECLARE` e inicialización en la cabecera |
+| `usp_validar_titularidad_jerarquica_interno` | Rama `INSTITUCION` por `uv_administrador` (antes, la tabla `Administrador`) |
+| `usp_validar_perfil_existe_por_codigo_interno`, `usp_validar_tipo_identificacion_exista_por_id_interno`, `usp_validar_unicidad_usuario_interno`, `usp_validar_usuario_existe_por_id_interno` | Ya cumplían; el lote solo agrega su prueba directa (`SKL3_R04`) |
+| `usp_obtener_mensaje_catalogo`, `usp_establecer_contexto_usuario_ejecutor` | Utilidades transversales: corregidas con la firma heredada (excepción E8). El primero gana `@estadoResultado` OUTPUT opcional al final |

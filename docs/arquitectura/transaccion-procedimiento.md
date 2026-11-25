@@ -11,7 +11,7 @@ Contiene la documentación oficial de:
 2. **55 Vistas (Views)**: Vistas de catálogo, vistas de proyección de identidad y vistas autorizadas por seguridad RBAC dinámicas (`uv_auth_*`).
 3. **15 Funciones (Functions)**: Funciones auxiliares de validación, consulta de parámetros y lectura de `SESSION_CONTEXT`.
 
-> **Inventario vigente (SKILLS-BD lote 2, recontado el 2026-11-25, migración 78):** `schema/` contiene **306 procedimientos** (208 públicos y 98 `_interno`: los 16 núcleos `usp_internal_*` se renombraron a `usp_*_interno`, decisión D3), **106 vistas** (13 `uv_auth_*`), **30 funciones**, **75 tablas** y **1 trigger**. El conteo histórico que sigue se conserva como trazabilidad.
+> **Inventario vigente (SKILLS-BD lote 3, recontado el 2026-11-25):** `schema/` contiene **306 procedimientos** (208 públicos y 98 `_interno`: en el lote 2 los 16 núcleos `usp_internal_*` se renombraron a `usp_*_interno`, decisión D3, migración 78), **107 vistas** (13 `uv_auth_*`; el lote 3 agregó `uv_token_verificacion_correo`), **30 funciones**, **75 tablas** y **1 trigger**. El conteo histórico que sigue se conserva como trazabilidad.
 >
 > **Inventario REC5 (2026-10-29, histórico):** `schema/` contiene hoy **173 procedimientos** (106 públicos y 67 `_interno`, recontados el 2026-11-05: HU159 agregó `usp_corregir_identidad_usuario` y los internos `usp_corregir_documento_usuario_interno`, `usp_corregir_identidad_usuario_interno` y `usp_registrar_auditoria_identidad_interno`; antes 169, recontados el 2026-11-04: por la regla de John, los catálogos base son de solo consulta y se eliminaron los SP de escritura de tipos de documento (HU153), tipos de programa (HU154) y áreas (HU151/HU152), 7 públicos y 7 internos, migración `migrations/11_catalogos_solo_consulta_up.sql`; antes 183, con HU061/HU147/HU153/HU172 y P5, que agregaron 4 públicos y 2 internos, más los cambios SES de develop; antes 176, recontados el 2026-11-02 con HU112/HU128/HU143/HU157; antes 170, recontados el 2026-11-01 con NOTIF-002A e IDENT-001; F1 agregó `usp_guardar_horarios_grupo` y su núcleo `usp_guardar_horarios_grupo_interno`; F3 agregó `usp_consultar_oferta_creacion_grupo_docente`; F2 agregó `usp_precargar_sesiones_grupo` y su núcleo `usp_precargar_sesiones_grupo_interno`; ambos SP de grupo comparten `usp_validar_gestion_grupo_coordinador_o_titular_interno`; HU112/HU128/HU143/HU157 agregaron 5 consultas públicas y el interno compartido `usp_validar_consulta_paginada_interno`), **67 vistas** (13 `uv_auth_*`; HU005/HU016 agregó `uv_categoria_justificacion`) y **16 funciones** (HU159 agregó `ufn_obtener_identidad_usuario_json`). HU025 descartada eliminó el stub de prerrequisitos, y el 2026-10-29 se eliminaron 15 SP y 3 funciones sin uso (`migrations/08_eliminar_codigo_sin_uso_up.sql`), y el 2026-10-30 `usp_validar_grupo_exista_para_docente_interno` (`migrations/09_eliminar_validar_grupo_docente_up.sql`); sus fichas quedan marcadas como ELIMINADO. Este documento conserva las fichas originales de los 57 SP base. El resto está documentado en:
 > - `especificacion_sp_endpoints.md`: endpoint y rol de cada SP público (Addendum REC5);
@@ -243,10 +243,11 @@ Contiene la documentación oficial de:
 - **Propósito de Negocio:** Configura en la sesión de SQL Server (`SESSION_CONTEXT`) la identidad y rol del usuario ejecutor para la evaluación de vistas autorizadas `uv_auth_*`.
 - **Entidades del MER Involucradas:** `SESSION_CONTEXT`.
 - **Flujo Paso a Paso (Paso Reactivo Atómico):**
-  1. Recibir `@idUsuarioEjecutor` y `@codigoPerfil`.
-  2. Ejecutar `EXEC sp_set_session_context` para las claves `idUsuarioEjecutor` y `codigoPerfil`.
+  1. Recibir `@p_idUsuario` (`NULL` limpia el contexto).
+  2. Ejecutar `EXEC sp_set_session_context` para la clave `idUsuarioEjecutor` (modificable).
 - **Reglas de Negocio y Validaciones Específicas:**
-  * Utilizado por la capa de aplicación antes de consultar vistas autorizadas.
+  * Utilizado por las consultas paginadas antes de leer vistas autorizadas.
+  * SKILLS-BD lote 3 (2026-11-25): `PASO n` y `TRY/CATCH` que relanza el error al llamador; el parámetro conserva el nombre `@p_idUsuario` (excepción E8).
 - **Estado Resultante en la BD:** `SESSION_CONTEXT` de la conexión actualizado.
 
 ---

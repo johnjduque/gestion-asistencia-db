@@ -87,6 +87,18 @@ Origen: auditoría y plan por lotes del 2026-11-25. Las decisiones son de John (
 
 Las lecturas con bloqueo (`UPDLOCK, HOLDLOCK`) de las filas que se van a escribir dentro de la misma transacción (tomas, tokens de matrícula, matrículas) siguen en la tabla: es la excepción de lecturas con bloqueo que ya recogen los skills. En el mismo grupo queda el job `usp_cerrar_tomas_vencidas`: busca las tomas candidatas en `dbo.TomaAsistencia` con `READPAST` para saltar las que otra transacción tiene bloqueadas (una vista no admite esa pista sobre la tabla base de forma fiable).
 
+## E8. Utilidades transversales con la firma heredada
+
+**Reglas afectadas:** prefijo `id` / nombres de parámetros sin `p_`, triplete OUTPUT y `CATCH` con `SYS_001` por `usp_obtener_mensaje_catalogo`.
+
+**Por qué:** `usp_obtener_mensaje_catalogo` (parámetros `@p_codigo`, `@p_param1..3`) lo llaman por nombre casi todos los SP, y `usp_establecer_contexto_usuario_ejecutor` (`@p_idUsuario`) lo llaman por nombre 12 consultas y las pruebas de RBAC. Renombrar sus parámetros obligaría a tocar cientos de SP a la vez, justo lo que el plan por lotes evita, sin cambiar nada de su comportamiento. Además `usp_obtener_mensaje_catalogo` es quien resuelve `SYS_001` para los demás: su `CATCH` no puede llamarse a sí mismo.
+
+**Condiciones (lote 3, 2026-11-25):**
+- los dos SP se corrigieron en todo lo demás: `DECLARE` en la cabecera, sin `ISNULL`, `PASO n`, `IF` con `BEGIN/END` y `TRY/CATCH`;
+- `usp_obtener_mensaje_catalogo` completa el triplete con `@estadoResultado BIT = NULL OUTPUT` opcional al final (los llamadores no cambian); en su `CATCH` arma los textos de reserva con `DBCODE=SYS_001|` y `ufn_obtener_detalle_error`, deja `@estadoResultado = 0` y relanza si la transacción del llamador quedó condenada;
+- `usp_establecer_contexto_usuario_ejecutor` no devuelve resultset ni triplete (es un helper de `SESSION_CONTEXT`): su `CATCH` relanza el error al llamador, que lo traduce a `SYS_001`;
+- `test/test_skills_lote3_caracterizacion.sql` (`SKL3_N01_ESTRUCTURA`) falla si alguien cambia estas firmas.
+
 ## Lo que ya no es excepción
 
 - **Familia `usp_internal_*`:** renombrada a `usp_..._interno` en el lote 2 (decisión de John, D3). La migración 78 retira los nombres viejos.
