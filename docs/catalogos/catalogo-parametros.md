@@ -56,3 +56,21 @@ Ninguno es editable desde la pantalla de parámetros (sin fila en `CatalogoParam
 
 Ninguno es editable desde la pantalla de parámetros (sin fila en `CatalogoParametroEdicion`).
 
+
+### Migración 77: parámetros técnicos que dejan de ser editables (`migrations/77_parametros_tecnicos_no_editables_up.sql`)
+
+Clasificación negocio vs técnico del 2026-11-24. Estos 11 parámetros conservan su valor y su fila en `CatalogoParametroEdicion` (rango, regla cruzada y presentación), pero quedan con `esEditable = 0`. El administrador los ve en solo lectura y `usp_actualizar_parametro` los rechaza con `PRM_003`. Los cambia TI por semilla o migración.
+
+| Grupo | Clave | Por qué es técnico |
+| --- | --- | --- |
+| ASISTENCIA_QR | LIMITE_ESTUDIANTE_POR_MINUTO | Límite de tasa antiabuso |
+| ASISTENCIA_QR | LIMITE_IP_POR_MINUTO | Límite de tasa antiabuso |
+| ASISTENCIA_QR | LIMITE_FALLIDOS_IP_POR_MINUTO | Límite de tasa antiabuso |
+| ASISTENCIA_QR | LIMITE_TOKEN_POR_MINUTO | Límite de tasa antiabuso |
+| MATRICULA_QR | LIMITE_IP_POR_MINUTO | Límite de tasa antiabuso |
+| MATRICULA_QR | LIMITE_REGISTROS_TOKEN_POR_MINUTO | Límite de tasa antiabuso |
+| ARCHIVOS | LIMITE_SUBIDAS_POR_MINUTO | Límite de tasa antiabuso |
+| FESTIVOS | PROVEEDOR_PRINCIPAL | Configuración de la integración externa |
+| FESTIVOS | TIMEOUT_SEGUNDOS | Configuración de la integración externa |
+| FESTIVOS | MINIMO_POR_ANIO | Validación de cordura de la carga anual |
+| FESTIVOS | MAXIMO_POR_ANIO | Validación de cordura de la carga anual |
