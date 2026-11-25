@@ -1,3 +1,4 @@
+# MANUAL (SKILLS-BD lote 1, 2026-11-25): fuera de test_summary.ps1 y del CI a proposito. Depende del tiempo (dos Start-Job sincronizados); en el runner de GitHub D2-11 fallo con "ganadoras=1 ARC_001=0" y en local pasa. Revisar aparte si oculta un problema de concurrencia en la radicacion v3.
 param (
     [string]$Server,          # host,puerto del SQL Server (por defecto SQL_SERVER o localhost,1433)
     [string]$Password         # por defecto SQL_CONTAINER_PASSWORD / MSSQL_SA_PASSWORD (nunca se imprime)

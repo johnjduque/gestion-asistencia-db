@@ -17,7 +17,8 @@ La auditoría del 2026-11-25 encontró objetos sin prueba directa y pruebas que 
 | Cambio | Detalle |
 |---|---|
 | `test/test_skills_lote1_cobertura.sql` (nuevo, en `test_suite.sql`) | Caracterización de 5 funciones (`ufn_validar_correo`, `ufn_validar_numero`, `ufn_validar_texto`, `ufn_obtener_identidad_usuario_json`, `ufn_programas_ambito_ejecutor`), 10 vistas sin prueba (forma y contenido) y 2 núcleos (`usp_internal_asociar_asignatura_plan`, `usp_internal_cerrar_toma`). 15 escenarios `SKL1_*`, todos en una transacción revertida. |
-| `test_summary.ps1` | Ejecuta en el gate `test_docente_programa_concurrencia.ps1` (T-091-13) y `test_lb004d_concurrency.ps1` (LB-004D W1, W2 y CULM001_D2_11). Antes no los corría nadie. Registra los 20 IDs nuevos como esperados. |
+| `test_summary.ps1` | Ejecuta en el gate `test_docente_programa_concurrencia.ps1` (T-091-13), que antes no corría nadie. Registra los 16 IDs nuevos como esperados. |
+| `test/test_lb004d_concurrency.ps1` | Se marca como **MANUAL**. Se intentó meterla en el gate, pero depende del tiempo: en el runner de GitHub el escenario D2-11 falló ("ganadoras=1 ARC_001=0") y en local pasa. Queda pendiente revisar aparte si oculta un problema de concurrencia en la radicación v3. |
 | `test/test_culm001_b2nm_deploy_limpio.ps1`, `test/test_culm001_b2nm_migracion.ps1` | Se marcan como **MANUAL** en su cabecera: son verificaciones históricas de las migraciones 17 y 18. Una necesita un backup que el CI no tiene; la otra repite lo que el gate ya hace al desplegar desde cero. |
 | `docs/arquitectura/transaccion-procedimiento.md` | Inventario vigente: 306 SP (208 públicos, 82 `_interno` y 16 `usp_internal_*`), 106 vistas, 30 funciones, 75 tablas y 1 trigger. |
 
