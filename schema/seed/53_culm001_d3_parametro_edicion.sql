@@ -11,6 +11,9 @@ GO
 -- entran cuando esos paquetes siembran su parametro y se vuelve a desplegar). Los parametros que NO aparecen aqui (RED,
 -- TIEMPO, URL y secretos de festivos, estados, lotes, URL base del frontend, codigos de razon, etc.) no tienen fila y por tanto
 -- no son editables. Los grupos de PARAMETROS/GRUPOS_NO_EDITABLES tampoco lo son aunque tuvieran fila.
+-- Migracion 77 (2026-11-24, clasificacion negocio vs tecnico): los limites de tasa de ASISTENCIA_QR, MATRICULA_QR y ARCHIVOS y la
+-- configuracion de la integracion de FESTIVOS (proveedor, tiempo de espera, minimo y maximo por anio) quedan con esEditable = 0: conservan
+-- su fila (rango, regla cruzada y presentacion) pero el administrador no los edita.
 -- Re-desplegar actualiza la regla y la presentacion (son codigo), nunca el valor del parametro.
 MERGE INTO [dbo].[CatalogoParametroEdicion] AS Target
 USING (
@@ -35,9 +38,9 @@ USING (
             N'Tolerancia del código QR de matrícula', N'Segundos en que el código anterior sigue siendo válido tras rotar.', N'segundos', N'Matrícula por QR', 30),
         ('MATRICULA_QR',  'DURACION_MAXIMA_MINUTOS',              1, 5,      240,     NULL,                 NULL, NULL,
             N'Duración máxima de la ventana de matrícula', N'Minutos máximos que puede estar abierta una ventana de matrícula por QR.', N'minutos', N'Matrícula por QR', 40),
-        ('MATRICULA_QR',  'LIMITE_IP_POR_MINUTO',                 1, 5,      1000,    NULL,                 NULL, NULL,
+        ('MATRICULA_QR',  'LIMITE_IP_POR_MINUTO',                 0, 5,      1000,    NULL,                 NULL, NULL,
             N'Límite por IP en matrícula', N'Solicitudes por minuto permitidas desde una misma IP al validar o usar el código de matrícula.', N'por minuto', N'Matrícula por QR', 50),
-        ('MATRICULA_QR',  'LIMITE_REGISTROS_TOKEN_POR_MINUTO',    1, 1,      200,     NULL,                 NULL, NULL,
+        ('MATRICULA_QR',  'LIMITE_REGISTROS_TOKEN_POR_MINUTO',    0, 1,      200,     NULL,                 NULL, NULL,
             N'Límite de registros por código', N'Matrículas por minuto permitidas con un mismo código QR.', N'por minuto', N'Matrícula por QR', 60),
         ('ASISTENCIA_QR', 'HABILITADA',                           1, NULL,   NULL,    N'true,false',        NULL, NULL,
             N'Asistencia por QR habilitada', N'Permite o suspende el registro de asistencia por código QR o PIN.', NULL, N'Asistencia por QR', 10),
@@ -45,29 +48,29 @@ USING (
             N'Rotación del código QR de asistencia', N'Cada cuántos segundos cambia el código QR de asistencia.', N'segundos', N'Asistencia por QR', 20),
         ('ASISTENCIA_QR', 'TOLERANCIA_SEGUNDOS',                  1, 0,      300,     NULL,                 NULL, NULL,
             N'Tolerancia del código QR de asistencia', N'Segundos en que el código anterior sigue siendo válido tras rotar.', N'segundos', N'Asistencia por QR', 30),
-        ('ASISTENCIA_QR', 'LIMITE_IP_POR_MINUTO',                 1, 5,      1000,    NULL,                 NULL, NULL,
+        ('ASISTENCIA_QR', 'LIMITE_IP_POR_MINUTO',                 0, 5,      1000,    NULL,                 NULL, NULL,
             N'Límite por IP en asistencia', N'Solicitudes por minuto permitidas desde una misma IP al registrar asistencia por QR.', N'por minuto', N'Asistencia por QR', 40),
-        ('ASISTENCIA_QR', 'LIMITE_FALLIDOS_IP_POR_MINUTO',        1, 50,     5000,    NULL,                 NULL, NULL,
+        ('ASISTENCIA_QR', 'LIMITE_FALLIDOS_IP_POR_MINUTO',        0, 50,     5000,    NULL,                 NULL, NULL,
             N'Límite de intentos fallidos por IP', N'Intentos fallidos por minuto permitidos desde una misma IP antes de bloquearla.', N'por minuto', N'Asistencia por QR', 50),
-        ('ASISTENCIA_QR', 'LIMITE_TOKEN_POR_MINUTO',              1, 10,     2000,    NULL,                 NULL, NULL,
+        ('ASISTENCIA_QR', 'LIMITE_TOKEN_POR_MINUTO',              0, 10,     2000,    NULL,                 NULL, NULL,
             N'Límite por código de asistencia', N'Registros por minuto permitidos con un mismo código QR de asistencia.', N'por minuto', N'Asistencia por QR', 60),
-        ('ASISTENCIA_QR', 'LIMITE_ESTUDIANTE_POR_MINUTO',         1, 1,      60,      NULL,                 NULL, NULL,
+        ('ASISTENCIA_QR', 'LIMITE_ESTUDIANTE_POR_MINUTO',         0, 1,      60,      NULL,                 NULL, NULL,
             N'Límite por estudiante', N'Intentos por minuto permitidos a un mismo estudiante al registrar asistencia por QR.', N'por minuto', N'Asistencia por QR', 70),
         ('FESTIVOS',      'HABILITADO',                           1, NULL,   NULL,    N'true,false',        NULL, NULL,
             N'Carga automática de festivos', N'Activa o suspende el job que carga los días festivos y cancela las sesiones de esos días.', NULL, N'Días festivos', 10),
-        ('FESTIVOS',      'PROVEEDOR_PRINCIPAL',                  1, NULL,   NULL,    N'CALENDARIOS_NACIONALES,FERIADOS_IO,CALCULO_LOCAL', NULL, NULL,
+        ('FESTIVOS',      'PROVEEDOR_PRINCIPAL',                  0, NULL,   NULL,    N'CALENDARIOS_NACIONALES,FERIADOS_IO,CALCULO_LOCAL', NULL, NULL,
             N'Proveedor principal de festivos', N'Fuente que se consulta primero para obtener los festivos del año.', NULL, N'Días festivos', 20),
-        ('FESTIVOS',      'TIMEOUT_SEGUNDOS',                     1, 1,      60,      NULL,                 NULL, NULL,
+        ('FESTIVOS',      'TIMEOUT_SEGUNDOS',                     0, 1,      60,      NULL,                 NULL, NULL,
             N'Tiempo de espera del proveedor', N'Segundos máximos de espera al consultar el proveedor de festivos.', N'segundos', N'Días festivos', 30),
         ('FESTIVOS',      'ANIOS_ADELANTE',                       1, 0,      3,       NULL,                 NULL, NULL,
             N'Años por adelantado', N'Cuántos años futuros se cargan además del año actual.', N'años', N'Días festivos', 40),
-        ('FESTIVOS',      'MINIMO_POR_ANIO',                      1, 10,     30,      NULL,                 'FESTIVOS', 'MAXIMO_POR_ANIO',
+        ('FESTIVOS',      'MINIMO_POR_ANIO',                      0, 10,     30,      NULL,                 'FESTIVOS', 'MAXIMO_POR_ANIO',
             N'Mínimo de festivos por año', N'Cantidad mínima de festivos para considerar válida una carga anual. Debe ser menor que el máximo.', N'festivos', N'Días festivos', 50),
-        ('FESTIVOS',      'MAXIMO_POR_ANIO',                      1, 10,     40,      NULL,                 NULL, NULL,
+        ('FESTIVOS',      'MAXIMO_POR_ANIO',                      0, 10,     40,      NULL,                 NULL, NULL,
             N'Máximo de festivos por año', N'Cantidad máxima de festivos para considerar válida una carga anual.', N'festivos', N'Días festivos', 60),
         ('ARCHIVO',       'TAMANIO_MAXIMO_BYTES',                 1, 262144, 5242880, NULL,                 NULL, NULL,
             N'Tamaño máximo de un soporte', N'Bytes máximos de cada archivo de soporte de un reclamo. No supera el límite de carga del servidor.', N'bytes', N'Soportes', 10),
-        ('ARCHIVOS',      'LIMITE_SUBIDAS_POR_MINUTO',            1, 1,      60,      NULL,                 NULL, NULL,
+        ('ARCHIVOS',      'LIMITE_SUBIDAS_POR_MINUTO',            0, 1,      60,      NULL,                 NULL, NULL,
             N'Límite de subidas por minuto', N'Archivos por minuto que puede subir un mismo usuario.', N'por minuto', N'Soportes', 20),
         ('ARCHIVOS',      'MAXIMO_SOPORTES_POR_RECLAMO',          1, 1,      10,      NULL,                 NULL, NULL,
             N'Máximo de soportes por reclamo', N'Cantidad máxima de archivos de soporte en un mismo reclamo.', N'soportes', N'Soportes', 30)

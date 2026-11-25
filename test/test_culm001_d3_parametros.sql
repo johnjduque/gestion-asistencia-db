@@ -48,6 +48,14 @@ IF NOT EXISTS (SELECT 1 FROM dbo.CatalogoParametroEdicion e INNER JOIN dbo.Catal
    OR NOT EXISTS (SELECT 1 FROM dbo.CatalogoParametroEdicion e INNER JOIN dbo.CatalogoParametro p ON p.id = e.parametro WHERE e.esEditable = 1 AND p.grupo = 'MATRICULA_QR' AND p.clave = 'HABILITADA' AND e.valoresPermitidos = N'true,false')
    OR EXISTS (SELECT 1 FROM dbo.CatalogoParametroEdicion e INNER JOIN dbo.CatalogoParametro p ON p.id = e.parametro WHERE e.esEditable = 1 AND p.grupo IN ('RED', 'TIEMPO'))
     THROW 57306, 'TEST FAILED CULM001_D3_15: la lista blanca inicial no incluye ASISTENCIA/TOLERANCIA_MINUTOS [0,60] o MATRICULA_QR/HABILITADA {true,false}.', 1;
+-- Migracion 77: los 11 parametros tecnicos (limites de tasa QR/archivos e integracion de festivos) conservan su fila pero no son editables
+IF (SELECT COUNT(*) FROM dbo.CatalogoParametroEdicion e INNER JOIN dbo.CatalogoParametro p ON p.id = e.parametro
+    INNER JOIN (VALUES ('ASISTENCIA_QR', 'LIMITE_ESTUDIANTE_POR_MINUTO'), ('ASISTENCIA_QR', 'LIMITE_IP_POR_MINUTO'), ('ASISTENCIA_QR', 'LIMITE_FALLIDOS_IP_POR_MINUTO'),
+                       ('ASISTENCIA_QR', 'LIMITE_TOKEN_POR_MINUTO'), ('MATRICULA_QR', 'LIMITE_IP_POR_MINUTO'), ('MATRICULA_QR', 'LIMITE_REGISTROS_TOKEN_POR_MINUTO'),
+                       ('ARCHIVOS', 'LIMITE_SUBIDAS_POR_MINUTO'), ('FESTIVOS', 'PROVEEDOR_PRINCIPAL'), ('FESTIVOS', 'TIMEOUT_SEGUNDOS'),
+                       ('FESTIVOS', 'MINIMO_POR_ANIO'), ('FESTIVOS', 'MAXIMO_POR_ANIO')) v (grupo, clave) ON v.grupo = p.grupo AND v.clave = p.clave
+    WHERE e.esEditable = 0) <> 11
+    THROW 57307, 'TEST FAILED CULM001_D3_15: los 11 parametros tecnicos de la migracion 77 deben tener fila con esEditable = 0.', 1;
 PRINT 'TEST_PASS:CULM001_D3_15_LISTA_BLANCA_COHERENTE';
 GO
 
@@ -79,6 +87,9 @@ BEGIN TRY
     UPDATE dbo.CatalogoParametro SET valor = N'20' WHERE id = @pPer;
     UPDATE dbo.CatalogoParametro SET valor = N'15' WHERE id = @pMin;
     UPDATE dbo.CatalogoParametro SET valor = N'25' WHERE id = @pMax;
+    -- FESTIVOS MINIMO/MAXIMO_POR_ANIO ya no son editables (migracion 77), pero son el par con regla cruzada simetrica que usan D3-07 y D3-18:
+    -- se habilitan solo dentro de esta transaccion (se revierte)
+    UPDATE dbo.CatalogoParametroEdicion SET esEditable = 1 WHERE parametro IN (@pMin, @pMax);
     UPDATE dbo.CatalogoParametro SET valor = N'true' WHERE id = @pHab;
     UPDATE dbo.CatalogoParametro SET valor = N'5' WHERE id = @pDias;
     SELECT @f = fechaModificacion FROM dbo.CatalogoParametro WHERE id = @pTol;

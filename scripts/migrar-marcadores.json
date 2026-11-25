@@ -533,6 +533,9 @@
     ],
     "76_perf_detalle_asistencia_cobertura": [
       { "indice": "dbo.DetalleAsistencia.IX_DetalleAsistencia_Asistencia_Cobertura" }
+    ],
+    "77_parametros_tecnicos_no_editables": [
+      { "tabla": "dbo.CatalogoParametroEdicion", "donde": "esEditable = 0 AND parametro IN (SELECT id FROM dbo.CatalogoParametro WHERE grupo = 'ASISTENCIA_QR' AND clave = 'LIMITE_FALLIDOS_IP_POR_MINUTO')" }
     ]
   }
 }
