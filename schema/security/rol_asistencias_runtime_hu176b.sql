@@ -7,7 +7,7 @@ GO
 
 -- HU176B: permisos de ejecucion de la matricula por QR/PIN rotativo.
 -- Solo EXECUTE sobre los SP publicos; sin DML directo sobre dbo.TokenMatriculaGrupo. Aditivo e idempotente.
--- Los usp_internal_* (resolver, rotar, matricular) son internos y NO se conceden.
+-- Los usp_*_interno (resolver, rotar, matricular) son internos y NO se conceden.
 IF DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime') IS NULL
     CREATE ROLE [rol_asistencias_runtime] AUTHORIZATION [dbo];
 GO

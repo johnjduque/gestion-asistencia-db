@@ -182,7 +182,6 @@
     ],
     "20_culm001_d1_plazo_justificacion": [
       { "objeto": "dbo.ufn_calcular_fecha_limite_justificacion" },
-      { "objeto": "dbo.usp_internal_validar_plazo_justificacion" },
       { "objeto": "dbo.uv_sesion_estudiante_reclamo" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'REV_020'" },
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'REV_025'" }
@@ -384,7 +383,7 @@
       { "tabla": "dbo.CatalogoMensajeUsuario", "donde": "codigo = 'CAL_001'" }
     ],
     "53_ata_nueva_toma_cierra_anterior": [
-      { "objeto": "dbo.usp_internal_cerrar_toma" }
+      { "objeto": "dbo.usp_abrir_toma_asistencia", "contiene": "idTomaCerradaAnterior" }
     ],
     "54_ata_faltas_reclamables_estudiante": [
       { "objeto": "dbo.uv_falta_reclamable_estudiante" },
@@ -536,6 +535,11 @@
     ],
     "77_parametros_tecnicos_no_editables": [
       { "tabla": "dbo.CatalogoParametroEdicion", "donde": "esEditable = 0 AND parametro IN (SELECT id FROM dbo.CatalogoParametro WHERE grupo = 'ASISTENCIA_QR' AND clave = 'LIMITE_FALLIDOS_IP_POR_MINUTO')" }
+    ],
+    "78_skills_lote2_renombre_internos": [
+      { "objeto": "dbo.usp_cerrar_toma_interno" },
+      { "objeto": "dbo.usp_cerrar_toma_asistencia", "contiene": "usp_cerrar_toma_interno" },
+      { "objeto": "dbo.usp_registrar_estudiante_en_grupo_interno", "contiene": "usp_reactivar_matricula_retirada_interno" }
     ]
   }
 }

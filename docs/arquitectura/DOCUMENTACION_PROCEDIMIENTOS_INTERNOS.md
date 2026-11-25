@@ -454,7 +454,7 @@ Todos los procedimientos listados en esta documentación han sido compilados y p
 - **Propósito**: Un período queda CERRADO cuando `usp_ejecutar_cierre_masivo_periodo` lo cierra con éxito (`PeriodoAcademico.fechaCierreUtc` no nula, migración 49). Este núcleo rechaza con `PER_008` (nombre del período) cualquier toma, lote o reclamo de una sesión de un período cerrado. Que el período haya terminado por fecha (`uv_periodo_academico.estado = CERRADO`) no lo cierra.
 - **Parámetros de Entrada**: `@idSesion UNIQUEIDENTIFIER`, `@idCorrelacion UNIQUEIDENTIFIER`. **Salida**: triplete estándar; en éxito no toca los mensajes ni `@estadoResultado`.
 - **Códigos de Catálogo Consumidos**: `PER_008`.
-- **Consumidores**: `usp_validar_sesion_ventana_registro_interno` (PASO 2.7: abrir toma o QR, lotes por toma y por sesión, registro por token), `usp_cerrar_toma_asistencia`, `usp_internal_radicar_solicitud_revision` (v2, v3 y v4), `usp_radicar_solicitud_revision_asistencia` (v1), `usp_resolver_solicitud_revision_asistencia` (solo reclamos pendientes) y `usp_retirar_solicitud_revision_asistencia`. No lo usa `usp_cerrar_tomas_vencidas` (el job sigue cerrando tomas abiertas).
+- **Consumidores**: `usp_validar_sesion_ventana_registro_interno` (PASO 2.7: abrir toma o QR, lotes por toma y por sesión, registro por token), `usp_cerrar_toma_asistencia`, `usp_radicar_solicitud_revision_interno` (v2, v3 y v4), `usp_radicar_solicitud_revision_asistencia` (v1), `usp_resolver_solicitud_revision_asistencia` (solo reclamos pendientes) y `usp_retirar_solicitud_revision_asistencia`. No lo usa `usp_cerrar_tomas_vencidas` (el job sigue cerrando tomas abiertas).
 - **Permisos**: sin `EXECUTE` para `rol_asistencias_runtime`. Sin escrituras ni transacciones.
 - **Work item**: `docs/work-items/VAL-pendientes-john/PLAN.md`.
 
@@ -477,3 +477,30 @@ Todos los procedimientos listados en esta documentación han sido compilados y p
 - **Invocado por**: `usp_crear_receso_academico`, `usp_retirar_receso_academico`.
 - **Códigos de Catálogo Consumidos**: `GEN_002`, más los de `usp_validar_id_correlacion_esta_presente_interno` y `usp_resolver_institucion_gestor_periodo_interno` (`SEC_001`, `PER_005`).
 - Sin transacción propia ni `TRY/CATCH`; migración 75.
+
+## Addendum SKILLS-BD lote 2 (2026-11-25): núcleos `usp_internal_*` renombrados a `usp_*_interno`
+
+Decisión D3 de John: los 16 núcleos con prefijo `usp_internal_` pasan a la convención `usp_<nombre>_interno`. La migración 78 (`78_skills_lote2_renombre_internos`) retira los nombres viejos; `deploy_schema.ps1` despliega los nuevos, los llamadores y los `DENY EXECUTE` del runtime. Ningún núcleo tiene `EXECUTE` para `rol_asistencias_runtime`.
+
+| Nombre anterior | Nombre nuevo | Cambio en el lote 2 |
+| :--- | :--- | :--- |
+| `usp_internal_aplicar_festivos_grupo` | `usp_aplicar_festivos_grupo_interno` | solo nombre |
+| `usp_internal_aplicar_festivos_grupos` | `usp_aplicar_festivos_grupos_interno` | triplete OUTPUT, sin cursor (WHILE por `MIN(id)`), lecturas por vistas, TRY/CATCH con `SYS_001` |
+| `usp_internal_asegurar_estudiante_programa_grupo` | `usp_asegurar_estudiante_programa_grupo_interno` | salida única, TRY/CATCH con `SYS_001` (firma sin cambio) |
+| `usp_internal_asociar_asignatura_plan` | `usp_asociar_asignatura_plan_interno` | sin `COALESCE`, catálogos por vistas, TRY/CATCH con `SYS_001` (firma sin cambio) |
+| `usp_internal_cancelar_sesiones_receso` | `usp_cancelar_sesiones_receso_interno` | solo nombre |
+| `usp_internal_cargar_dias_festivos` | `usp_cargar_dias_festivos_interno` | solo nombre |
+| `usp_internal_cerrar_toma` | `usp_cerrar_toma_interno` | + triplete OUTPUT, catálogos por vistas, TRY/CATCH con `SYS_001` |
+| `usp_internal_marcar_ausentes_toma` | `usp_marcar_ausentes_toma_interno` | + `@idCorrelacion` y triplete OUTPUT, catálogos por vistas, TRY/CATCH con `SYS_001` |
+| `usp_internal_matricular_por_token` | `usp_matricular_por_token_interno` | nombre y llamadas a los núcleos renombrados (con triplete) |
+| `usp_internal_radicar_solicitud_revision` | `usp_radicar_solicitud_revision_interno` | solo nombre |
+| `usp_internal_reactivar_matricula_retirada` | `usp_reactivar_matricula_retirada_interno` | solo nombre |
+| `usp_internal_resolver_token_asistencia` | `usp_resolver_token_asistencia_interno` | + `@idCorrelacion` (opcional) y triplete OUTPUT, TRY/CATCH (excepción E7: lee tablas) |
+| `usp_internal_resolver_token_matricula` | `usp_resolver_token_matricula_interno` | + `@idCorrelacion` (opcional) y triplete OUTPUT, TRY/CATCH |
+| `usp_internal_rotar_token_asistencia` | `usp_rotar_token_asistencia_interno` | PASO n, sesión por `uv_toma_asistencia`, TRY/CATCH con `SYS_001` |
+| `usp_internal_rotar_token_matricula` | `usp_rotar_token_matricula_interno` | DECLARE en la cabecera, titularidad por `uv_grupo`/`uv_docente_identidad`, PASO n |
+| `usp_internal_validar_plazo_justificacion` | `usp_validar_plazo_justificacion_interno` | solo nombre |
+
+Contrato de error de los núcleos corregidos: un rechazo de negocio deja `@estadoResultado = 1` con el código en `@codigoRechazo` (resolvers) o `@estadoResultado = 0` con el mensaje del catálogo (resto, igual que antes). Un error no controlado devuelve `@estadoResultado = 0` con `SYS_001` y `ufn_obtener_detalle_error`; si dejó condenada la transacción del llamador (`XACT_STATE() = -1`), el CATCH relanza el error original, así que el llamador con `XACT_ABORT ON` ve el mismo error que antes del lote. Los llamadores revisan `@estadoInterno = 0` y lo relanzan a su CATCH con `THROW 52521..52532`. Los "solo nombre" se corrigen por completo en su lote de dominio.
+
+Internos de identidad y contacto corregidos en el lote (mismo nombre): `usp_actualizar_nombres_usuario_interno`, `usp_registrar_auditoria_identidad_interno` (triplete OUTPUT opcional, TRY/CATCH) y `usp_consultar_contacto_notificacion_interno` (`@idCorrelacion` y triplete opcionales; lee `uv_usuario` con `estaActivoUsuario = 1`; mismo resultset).

@@ -16,6 +16,10 @@ SET QUOTED_IDENTIFIER ON;
 GO
 BEGIN TRANSACTION;
 GO
+-- SKILLS-BD lote 2: la 21 (y la 20) usan los nombres usp_internal_* que retiro la migracion 78; su down los recrea dentro de esta
+-- transaccion para que los scripts viejos corran tal como son.
+:r $(MIGDIR)/78_skills_lote2_renombre_internos_down.sql
+GO
 :r $(MIGDIR)/21_culm001_d2_soportes_categoria_up.sql
 GO
 IF OBJECT_ID(N'dbo.usp_radicar_solicitud_revision_asistencia_v3', N'P') IS NULL

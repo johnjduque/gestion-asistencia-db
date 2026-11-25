@@ -9,10 +9,10 @@ GO
 -- usp_registrar_estudiante_en_grupo_interno (HU050 manual y HU176B QR/PIN)
 --
 -- Requiere transaccion del llamador; no la abre ni la confirma. Sus dos llamadores publicos la abren
--- (usp_registrar_estudiante_en_grupo y usp_internal_matricular_por_token) y revierten su savepoint de negocio ante un
+-- (usp_registrar_estudiante_en_grupo y usp_matricular_por_token_interno) y revierten su savepoint de negocio ante un
 -- rechazo posterior a la escritura (docs/arquitectura/transaccion-procedimiento.md, internos compuestos).
 -- CULM-001 A.1 (DEC-009): PASO 3.8 reactiva la matricula RETIRADA del estudiante en el grupo (misma fila, I -> estado
--- destino) mediante usp_internal_reactivar_matricula_retirada; sin matricula retirada sigue el alta normal. La regla de
+-- destino) mediante usp_reactivar_matricula_retirada_interno; sin matricula retirada sigue el alta normal. La regla de
 -- inscripcion en el programa (componente ESP) es comun a los dos caminos y vive solo aqui.
 -- El estado por defecto ('' o el parametro) se resuelve con MATRICULA/ESTADO_INSCRITA (sin literal quemado).
 -- ============================================================================
@@ -121,7 +121,7 @@ BEGIN
         IF @estadoResultado = 1
         BEGIN
             DECLARE @idProgramaAsegurado UNIQUEIDENTIFIER;
-            EXEC dbo.usp_internal_asegurar_estudiante_programa_grupo
+            EXEC dbo.usp_asegurar_estudiante_programa_grupo_interno
                 @idEstudiante = @idEstudianteDefecto,
                 @idGrupo = @idGrupoDefecto,
                 @idProgramaElegido = @idProgramaElegido,
@@ -135,7 +135,7 @@ BEGIN
         -- PASO 3.8 (CULM-001 A.1, DEC-009): reactivar la matricula retirada (misma fila) si existe.
         IF @estadoResultado = 1
         BEGIN
-            EXEC dbo.usp_internal_reactivar_matricula_retirada
+            EXEC dbo.usp_reactivar_matricula_retirada_interno
                 @idEstudiante = @idEstudianteDefecto,
                 @idGrupo = @idGrupoDefecto,
                 @idCorrelacion = @idCorrelacionDefecto,

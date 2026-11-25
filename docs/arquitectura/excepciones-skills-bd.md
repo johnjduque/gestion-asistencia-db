@@ -74,6 +74,19 @@ Origen: auditoría y plan por lotes del 2026-11-25. Las decisiones son de John (
 
 **Regla afectada:** ninguna directamente. Los 38 SP con hash en `docs/contracts/*.sha256` o en `test_golden_path_immutability.sql` se corrigen en el lote 14 sin cambiar su firma ni su resultset, y se regeneran sus manifiestos.
 
+## E7. Búsqueda del token QR de asistencia en la tabla
+
+**Regla afectada:** `consultas-a-vistas` (las lecturas van a vistas `uv_*`).
+
+**Por qué:** `usp_resolver_token_asistencia_interno` busca el token por `tokenHash`/`tokenHashAnterior` (o PIN) en `dbo.TokenAsistenciaToma` y la toma y la sesión en `dbo.TomaAsistencia` y `dbo.Sesion`. Ninguna vista expone `tokenHash`, y no se debe publicar: el rol de runtime recibe `SELECT` sobre todas las `uv_%`, así que una vista con el hash lo dejaría legible desde el backend. Además `uv_toma_asistencia` y la vista del token calculan totales por grupo que harían más lento el registro QR concurrente (40 estudiantes a la vez).
+
+**Condiciones:**
+- solo lectura, sin `UPDLOCK` (`READ COMMITTED`), y solo de las columnas que identifican el token, la toma, la sesión y el grupo;
+- el resultado sale por OUTPUT a su único llamador (`usp_registrar_asistencia_por_token`), que valida titularidad, ventana y RBAC como antes;
+- cualquier token desconocido, cerrado o vencido devuelve el mismo `AQR_001` (no revela si existió).
+
+Las lecturas con bloqueo (`UPDLOCK, HOLDLOCK`) de las filas que se van a escribir dentro de la misma transacción (tomas, tokens de matrícula, matrículas) siguen en la tabla: es la excepción de lecturas con bloqueo que ya recogen los skills. En el mismo grupo queda el job `usp_cerrar_tomas_vencidas`: busca las tomas candidatas en `dbo.TomaAsistencia` con `READPAST` para saltar las que otra transacción tiene bloqueadas (una vista no admite esa pista sobre la tabla base de forma fiable).
+
 ## Lo que ya no es excepción
 
-- **Familia `usp_internal_*`:** se renombra a `usp_..._interno` en el lote 2 (decisión de John, D3).
+- **Familia `usp_internal_*`:** renombrada a `usp_..._interno` en el lote 2 (decisión de John, D3). La migración 78 retira los nombres viejos.

@@ -7,7 +7,7 @@ GO
 
 -- CULM-001 B.1 (CONTRACT §2.13): permisos de ejecucion de la sesion cancelada (HU047), los dias festivos y la
 -- generacion de sesiones v2. Solo EXECUTE sobre los SP publicos; sin DML directo sobre SesionCancelacion, DiaFestivo ni
--- CargaDiaFestivo. Aditivo e idempotente. Los nucleos usp_internal_* NO se conceden.
+-- CargaDiaFestivo. Aditivo e idempotente. Los nucleos usp_*_interno NO se conceden.
 -- Las vistas nuevas (uv_sesion_estado, uv_dia_festivo, uv_carga_dia_festivo, uv_tipo_cancelacion_sesion) las cubre el
 -- bucle uv_* de rol_asistencias_runtime.sql cuando deploy_schema.ps1 aplica la seguridad despues de las vistas; el
 -- GRANT SELECT explicito de abajo cubre las vistas creadas por la migracion 15 fuera de ese despliegue.

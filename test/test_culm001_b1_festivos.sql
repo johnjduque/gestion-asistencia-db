@@ -17,8 +17,8 @@ PRINT 'TEST START: test_culm001_b1_festivos (CULM-001 B.1)';
 
 IF OBJECT_ID(N'dbo.DiaFestivo', N'U') IS NULL OR OBJECT_ID(N'dbo.CargaDiaFestivo', N'U') IS NULL
    OR OBJECT_ID(N'dbo.uv_dia_festivo', N'V') IS NULL OR OBJECT_ID(N'dbo.uv_carga_dia_festivo', N'V') IS NULL
-   OR OBJECT_ID(N'dbo.usp_internal_cargar_dias_festivos', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_cargar_dias_festivos', N'P') IS NULL
-   OR OBJECT_ID(N'dbo.usp_cargar_dias_festivos_automatico', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_internal_aplicar_festivos_grupo', N'P') IS NULL
+   OR OBJECT_ID(N'dbo.usp_cargar_dias_festivos_interno', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_cargar_dias_festivos', N'P') IS NULL
+   OR OBJECT_ID(N'dbo.usp_cargar_dias_festivos_automatico', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_aplicar_festivos_grupo_interno', N'P') IS NULL
    OR OBJECT_ID(N'dbo.usp_aplicar_festivos_grupo', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_aplicar_festivos_periodo', N'P') IS NULL
    OR OBJECT_ID(N'dbo.usp_aplicar_festivos_automatico', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_consultar_sesiones_festivo_con_asistencia_paginado', N'P') IS NULL
    OR OBJECT_ID(N'dbo.usp_consultar_dias_festivos', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_consultar_carga_festivos_anio', N'P') IS NULL

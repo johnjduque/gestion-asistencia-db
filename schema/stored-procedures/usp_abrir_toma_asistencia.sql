@@ -14,7 +14,7 @@ GO
 --
 -- El docente titular abre una toma MANUAL o QR en una sesion dentro de la ventana [inicio - ASISTENCIA/TOLERANCIA_MINUTOS,
 -- fin + ASISTENCIA/MARGEN_RETARDO_MINUTOS). Como maximo TOMA_ASISTENCIA/MAXIMO_TOMAS_POR_SESION (TOM_004, sin cerrar nada). ATA D9: si la
--- sesion tiene una toma abierta, esta se cierra con usp_internal_cerrar_toma (@marcarAusentes NULL => segun el modo) en la misma
+-- sesion tiene una toma abierta, esta se cierra con usp_cerrar_toma_interno (@marcarAusentes NULL => segun el modo) en la misma
 -- transaccion y se abre la siguiente (TOM_003 ya no se emite; se conserva en el catalogo). Orden: titularidad, modo, ventana, TOM_004,
 -- cierre de la anterior, insercion. El modo se resuelve contra ModoTomaAsistencia.codigo (TOM_002); el estado ABIERTA por la bandera
 -- estaAbierta = 1. Bloqueos: Sesion (ventana) -> TomaAsistencia -> TokenAsistenciaToma. Las ramas de rechazo no escriben y
@@ -62,6 +62,10 @@ AS
     DECLARE @ventanaCierre     DATETIME2(0);
     DECLARE @horasToma         DECIMAL(12,6);
     DECLARE @p1 NVARCHAR(500), @p2 NVARCHAR(500);
+    DECLARE @mensajeUsuarioInterno   NVARCHAR(4000);  -- SKILLS-BD lote 2: triplete de usp_cerrar_toma_interno
+    DECLARE @mensajeTecnicoInterno   NVARCHAR(4000);
+    DECLARE @estadoInterno           BIT;
+    DECLARE @mensajeErrorInterno     NVARCHAR(2048);
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
@@ -166,10 +170,18 @@ BEGIN
                         SELECT @numeroAnterior = t.numero, @idGrupo = s.grupo
                         FROM dbo.TomaAsistencia t INNER JOIN dbo.Sesion s ON s.id = t.sesion
                         WHERE t.id = @idTomaAbierta;
-                        EXEC dbo.usp_internal_cerrar_toma
+                        EXEC dbo.usp_cerrar_toma_interno
                             @idToma = @idTomaAbierta, @idSesion = @idSesionDefecto, @idGrupo = @idGrupo, @marcarAusentes = NULL,
                             @idCorrelacion = @idCorrelacionDefecto, @totalAusentesMarcados = @marcadosAnterior OUTPUT,
-                            @fechaCierreUtc = @fechaCierreAnterior OUTPUT;
+                            @fechaCierreUtc = @fechaCierreAnterior OUTPUT,
+                            @mensajeUsuarioResultado = @mensajeUsuarioInterno OUTPUT,
+                            @mensajeTecnicoResultado = @mensajeTecnicoInterno OUTPUT,
+                            @estadoResultado = @estadoInterno OUTPUT;
+                        IF @estadoInterno = 0
+                        BEGIN
+                            SET @mensajeErrorInterno = LEFT(@mensajeTecnicoInterno, 2048);
+                            THROW 52522, @mensajeErrorInterno, 1;
+                        END
                     END
 
                     SET @idToma = NEWID();

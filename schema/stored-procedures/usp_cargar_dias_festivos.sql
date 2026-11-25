@@ -10,7 +10,7 @@ GO
 -- Clasificacion: NON_GOLDEN_PATH_EXTENSION, comando con tupla canonica + anio, totalFestivos, festivosInsertados,
 -- festivosActualizados, festivosDesactivados (NULL si estadoResultado = 0).
 -- RBAC ADMINISTRADOR; la validacion y la escritura (transaccion propia o savepoint) las hace
--- usp_internal_cargar_dias_festivos. Los festivos son nacionales: no dependen de la institucion del administrador.
+-- usp_cargar_dias_festivos_interno. Los festivos son nacionales: no dependen de la institucion del administrador.
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_cargar_dias_festivos]
 (
@@ -62,7 +62,7 @@ BEGIN
 
         IF @estadoResultado = 1
         BEGIN
-            EXEC dbo.usp_internal_cargar_dias_festivos
+            EXEC dbo.usp_cargar_dias_festivos_interno
                 @anio = @anio,
                 @festivosJSON = @festivosJSON,
                 @fuente = @fuente,

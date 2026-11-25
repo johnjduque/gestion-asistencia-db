@@ -6,7 +6,7 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 -- DEC-081: permisos del rol runtime sobre el receso academico del periodo. Aditivo e idempotente (no modifica rol_asistencias_runtime.sql).
--- Los nucleos usp_validar_receso_academico_interno y usp_internal_cancelar_sesiones_receso NO se conceden (encadenamiento de propiedad).
+-- Los nucleos usp_validar_receso_academico_interno y usp_cancelar_sesiones_receso_interno NO se conceden (encadenamiento de propiedad).
 IF DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime') IS NULL
     CREATE ROLE [rol_asistencias_runtime] AUTHORIZATION [dbo];
 GO

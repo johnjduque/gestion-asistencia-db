@@ -6,7 +6,8 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 -- ============================================================================
--- usp_internal_cargar_dias_festivos (CULM-001 B.1; CONTRACT §2.7.4) — nucleo, sin EXECUTE para el rol runtime.
+-- usp_cargar_dias_festivos_interno (CULM-001 B.1; CONTRACT §2.7.4) — nucleo, sin EXECUTE para el rol runtime.
+-- SKILLS-BD lote 2 (2026-11-25): antes usp_internal_cargar_dias_festivos (renombrado, D3); el cuerpo se corrige en su lote de dominio.
 --
 -- Carga (o recarga) los festivos de un anio recibidos del backend: la BD nunca llama a internet.
 --   @festivosJSON = [{"fecha":"YYYY-MM-DD","nombre":"..."}] con exactamente esas 2 claves por elemento.
@@ -23,7 +24,7 @@ GO
 -- fechaCargaUtc es estrictamente creciente por anio (si coincide con la ultima carga se toma el segundo siguiente)
 -- para que uv_carga_dia_festivo.esUltimaCargaAnio sea determinista.
 -- ============================================================================
-CREATE OR ALTER PROCEDURE [dbo].[usp_internal_cargar_dias_festivos]
+CREATE OR ALTER PROCEDURE [dbo].[usp_cargar_dias_festivos_interno]
 (
     @anio                     INT,
     @festivosJSON             NVARCHAR(MAX),

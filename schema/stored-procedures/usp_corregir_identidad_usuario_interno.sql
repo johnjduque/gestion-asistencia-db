@@ -41,6 +41,10 @@ AS
     DECLARE @identidadAnterior NVARCHAR(MAX) = dbo.ufn_obtener_identidad_usuario_json(@idUsuario);
     DECLARE @correoActual      NVARCHAR(100) = (SELECT u.correo FROM dbo.Usuario u WHERE u.id = @idUsuario);
     DECLARE @documentoCambiado BIT = 0;
+    DECLARE @mensajeUsuarioInterno   NVARCHAR(4000);  -- SKILLS-BD lote 2: triplete del nucleo interno
+    DECLARE @mensajeTecnicoInterno   NVARCHAR(4000);
+    DECLARE @estadoInterno           BIT;
+    DECLARE @mensajeErrorInterno     NVARCHAR(2048);
 BEGIN
     SET NOCOUNT ON;
 
@@ -94,7 +98,14 @@ BEGIN
             @idRecurso = @idRecurso,
             @ruta = @rutaAuditoria,
             @idUsuarioEjecutor = @idUsuarioEjecutor,
-            @idCorrelacion = @idCorrelacion;
+            @idCorrelacion = @idCorrelacion,
+            @mensajeUsuarioResultado = @mensajeUsuarioInterno OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoInterno OUTPUT,
+            @estadoResultado = @estadoInterno OUTPUT;
+        IF @estadoInterno = 0
+        BEGIN
+            SET @mensajeErrorInterno = LEFT(@mensajeTecnicoInterno, 2048);
+            THROW 52531, @mensajeErrorInterno, 1;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'IDE_002',

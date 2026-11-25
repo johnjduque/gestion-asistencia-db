@@ -6,7 +6,8 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 -- ============================================================================
--- usp_internal_radicar_solicitud_revision  (CULM-001 D.2, HU014/HU015; CONTRACT §3.2, DEC-044 (3))
+-- usp_radicar_solicitud_revision_interno  (CULM-001 D.2, HU014/HU015; CONTRACT §3.2, DEC-044 (3))
+-- SKILLS-BD lote 2 (2026-11-25): antes usp_internal_radicar_solicitud_revision (renombrado, D3); el cuerpo se corrige en su lote de dominio.
 --
 -- Nucleo interno COMUN de la radicacion de un reclamo: NO se concede a ningun rol. Lo invocan
 -- usp_radicar_solicitud_revision_asistencia_v2 (un solo soporte) y _v3 (de 0 a ARCHIVOS/MAXIMO_SOPORTES_POR_RECLAMO) con
@@ -19,7 +20,7 @@ GO
 --   -> PC (reclamo por toma, solo con @idToma; v2 y v3 no lo informan): toma de la sesion (TOM_001), SJC del estudiante en
 --      esa toma con cabecera y detalle bloqueados (REV_026) y sin otra solicitud no retirada de la toma (REV_027)
 --   -> periodo abierto (VAL-pendientes-john PRU-15: PER_008 si el cierre masivo ya cerro el periodo de la sesion)
---   -> plazo de excusas (usp_internal_validar_plazo_justificacion, D.1: REV_020 / REV_025; por sesion, igual para sus tomas)
+--   -> plazo de excusas (usp_validar_plazo_justificacion_interno, D.1: REV_020 / REV_025; por sesion, igual para sus tomas)
 --   -> categoria por codigo o por nombre (REV_021)
 --   -> JSON valido (arreglo de GUID) y GUID distintos (GEN_002 / REV_024)
 --   -> cantidad <= ARCHIVOS/MAXIMO_SOPORTES_POR_RECLAMO (REV_023)
@@ -32,7 +33,7 @@ GO
 -- Ownership transaccional: transaccion propia si @@TRANCOUNT = 0, si no SAVE TRANSACTION (solo se revierte lo escrito).
 -- En @estadoResultado = 1 con reejecucion idempotente no se escribe nada.
 -- ============================================================================
-CREATE OR ALTER PROCEDURE [dbo].[usp_internal_radicar_solicitud_revision]
+CREATE OR ALTER PROCEDURE [dbo].[usp_radicar_solicitud_revision_interno]
 (
     @idEstudiante             UNIQUEIDENTIFIER,
     @idSesion                 UNIQUEIDENTIFIER,
@@ -313,7 +314,7 @@ BEGIN
         -- PASO 11: Plazo de excusas (D.1). Solo cuando NO es la reejecucion idempotente de una radicacion ya exitosa.
         IF @estadoResultado = 1 AND @esReintento = 0
         BEGIN
-            EXEC dbo.usp_internal_validar_plazo_justificacion
+            EXEC dbo.usp_validar_plazo_justificacion_interno
                 @idSesion = @idSesionDefecto,
                 @idCorrelacion = @idCorrelacionDefecto,
                 @fechaLimiteUtc = @fechaLimiteUtc OUTPUT,

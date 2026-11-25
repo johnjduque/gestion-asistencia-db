@@ -6,7 +6,8 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 -- ============================================================================
--- usp_internal_reactivar_matricula_retirada (CULM-001 A.1, DEC-009; CONTRACT §2.3)
+-- usp_reactivar_matricula_retirada_interno (CULM-001 A.1, DEC-009; CONTRACT §2.3)
+-- SKILLS-BD lote 2 (2026-11-25): antes usp_internal_reactivar_matricula_retirada (renombrado, D3); el cuerpo se corrige en su lote de dominio.
 --
 -- Interno (sin GRANT al runtime). Lo llama usp_registrar_estudiante_en_grupo_interno (PASO 3.8), al que llegan las dos
 -- vias de matricula que quedan: la manual del docente titular (HU050) y la de QR/PIN (HU176B). Regla INT-HU-01: si el
@@ -19,7 +20,7 @@ GO
 --   * No inscribe en el programa: esa regla la aplica una sola vez el bloque comun del interno.
 --   * Transaccion propia si @@TRANCOUNT = 0; si no, savepoint sp_reactivar_matricula. @@TRANCOUNT sale igual que entra.
 -- ============================================================================
-CREATE OR ALTER PROCEDURE [dbo].[usp_internal_reactivar_matricula_retirada]
+CREATE OR ALTER PROCEDURE [dbo].[usp_reactivar_matricula_retirada_interno]
 (
     @idEstudiante            UNIQUEIDENTIFIER,
     @idGrupo                 UNIQUEIDENTIFIER,

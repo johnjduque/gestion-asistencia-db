@@ -21,8 +21,8 @@ BEGIN TRY
         THROW 56201, 'TEST FAILED HU176B-V00: SP usp_abrir_ventana_matricula_grupo no existe.', 1;
     IF OBJECT_ID(N'dbo.usp_validar_token_matricula_publico', N'P') IS NULL
         THROW 56202, 'TEST FAILED HU176B-V00: SP usp_validar_token_matricula_publico no existe.', 1;
-    IF OBJECT_ID(N'dbo.usp_internal_resolver_token_matricula', N'P') IS NULL
-        THROW 56203, 'TEST FAILED HU176B-V00: SP usp_internal_resolver_token_matricula no existe.', 1;
+    IF OBJECT_ID(N'dbo.usp_resolver_token_matricula_interno', N'P') IS NULL
+        THROW 56203, 'TEST FAILED HU176B-V00: SP usp_resolver_token_matricula_interno no existe.', 1;
     IF (SELECT COUNT(*) FROM dbo.CatalogoMensajeUsuario WHERE codigo IN ('MQR_001','MQR_002','MQR_003','MQR_004','MQR_005','MQR_006','MQR_007') AND estaActivo = 1) <> 7
        OR (SELECT COUNT(*) FROM dbo.CatalogoMensajeTecnico WHERE codigo IN ('MQR_001','MQR_002','MQR_003','MQR_004','MQR_005','MQR_006','MQR_007') AND estaActivo = 1) <> 7
         THROW 56204, 'TEST FAILED HU176B-M01: faltan mensajes MQR_001..MQR_007 (usuario/tecnico).', 1;
@@ -174,9 +174,9 @@ BEGIN TRY
     IF EXISTS (SELECT 1 FROM sys.database_permissions p
         INNER JOIN sys.database_principals r ON r.principal_id = p.grantee_principal_id AND r.name = N'rol_asistencias_runtime'
         WHERE p.permission_name = 'EXECUTE' AND p.state_desc = 'GRANT'
-          AND p.major_id IN (OBJECT_ID(N'dbo.usp_internal_resolver_token_matricula'), OBJECT_ID(N'dbo.usp_internal_rotar_token_matricula'),
-                             OBJECT_ID(N'dbo.usp_internal_matricular_por_token')))
-        THROW 56262, 'TEST FAILED V-04: el rol runtime no debe ejecutar los usp_internal_* de HU176B.', 1;
+          AND p.major_id IN (OBJECT_ID(N'dbo.usp_resolver_token_matricula_interno'), OBJECT_ID(N'dbo.usp_rotar_token_matricula_interno'),
+                             OBJECT_ID(N'dbo.usp_matricular_por_token_interno')))
+        THROW 56262, 'TEST FAILED V-04: el rol runtime no debe ejecutar los usp_*_interno de HU176B.', 1;
     IF EXISTS (SELECT 1 FROM sys.database_permissions p
         INNER JOIN sys.database_principals r ON r.principal_id = p.grantee_principal_id AND r.name = N'rol_asistencias_runtime'
         WHERE p.major_id = OBJECT_ID(N'dbo.TokenMatriculaGrupo') AND p.permission_name IN ('SELECT','INSERT','UPDATE','DELETE') AND p.state_desc = 'GRANT')

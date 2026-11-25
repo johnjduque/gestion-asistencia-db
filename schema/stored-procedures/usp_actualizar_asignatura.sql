@@ -5,6 +5,8 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
+-- usp_actualizar_asignatura: actualiza el catalogo de la asignatura y el semestre/caracter de su vinculo en el plan indicado.
+-- SKILLS-BD lote 2 (2026-11-25): IF con BEGIN/END, PASO 5/6 y XACT_STATE() en el CATCH (sin cambio de firma ni de resultset).
 CREATE OR ALTER PROCEDURE [dbo].[usp_actualizar_asignatura]
 (
     @idAsignatura       UNIQUEIDENTIFIER,
@@ -145,13 +147,17 @@ BEGIN
             FROM dbo.uv_semestre_plan_estudio spe
             WHERE spe.idPlanEstudio = @idPlanEstudio AND spe.numeroSemestre = @semestreNumero;
             IF @idSpeNuevo IS NULL
+            BEGIN
                 SET @codigoRechazo = 'PLA_004';
+            END
         END
         IF @estadoResultado = 1 AND @codigoRechazo IS NULL AND NULLIF(TRIM(@codigoCaracter), N'') IS NOT NULL
         BEGIN
             SELECT @idCaracterNuevo = c.id FROM dbo.uv_caracter_asignatura_plan c WHERE c.codigo = TRIM(@codigoCaracter) AND c.estaActivo = 1;
             IF @idCaracterNuevo IS NULL
+            BEGIN
                 SET @codigoRechazo = 'ASI_007';
+            END
         END
 
         -- PASO 4.2: los datos de catalogo de una asignatura compartida solo los cambia quien coordina todos sus programas (ASI_006)
@@ -170,7 +176,9 @@ BEGIN
                AND EXISTS (SELECT 1 FROM dbo.uv_asignatura_plan_estudio v
                            WHERE v.idAsignatura = @idAsignaturaDefecto AND v.estaActivoVinculo = 1
                              AND NOT EXISTS (SELECT 1 FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutor) cp WHERE cp.idPrograma = v.idPrograma))
+            BEGIN
                 SET @codigoRechazo = 'ASI_006';
+            END
         END
 
         -- PASO 4.3: un vinculo (inactivo) ya ocupa el semestre destino -> ASI_003
@@ -179,7 +187,9 @@ BEGIN
                        WHERE ape.idAsignatura = @idAsignaturaDefecto AND ape.idSemestrePlanEstudio = @idSpeNuevo)
            AND NOT EXISTS (SELECT 1 FROM dbo.uv_asignatura_plan_estudio ape2
                            WHERE ape2.idAsignatura = @idAsignaturaDefecto AND ape2.idSemestrePlanEstudio = @idSpeNuevo AND ape2.estaActivoVinculo = 1)
+        BEGIN
             SET @codigoRechazo = 'ASI_003';
+        END
 
         IF @estadoResultado = 1 AND @codigoRechazo IS NOT NULL
         BEGIN
@@ -189,6 +199,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 5: escritura del catalogo y del vinculo en la transaccion propia
         IF @estadoResultado = 1
         BEGIN
             IF @@TRANCOUNT = 0
@@ -198,6 +209,7 @@ BEGIN
             END
 
             IF @cambiaCatalogo = 1
+            BEGIN
                 UPDATE dbo.Asignatura
                 SET codigo = CASE WHEN @codigoDefecto IS NOT NULL AND @codigoDefecto <> '' THEN @codigoDefecto ELSE codigo END,
                     nombre = CASE WHEN @nombreDefecto IS NOT NULL AND @nombreDefecto <> '' THEN @nombreDefecto ELSE nombre END,
@@ -206,6 +218,7 @@ BEGIN
                     area = CASE WHEN @idAreaResolved IS NOT NULL THEN @idAreaResolved ELSE area END,
                     componente = CASE WHEN @idComponenteResolved IS NOT NULL THEN @idComponenteResolved ELSE componente END
                 WHERE id = @idAsignaturaDefecto;
+            END
 
             -- La MISMA fila de la tabla puente cambia de semestre / caracter (no se crea otra: la asignatura de un solo plan sigue 1:1)
             UPDATE ape
@@ -222,12 +235,19 @@ BEGIN
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
             SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-            IF @transaccionPropia = 1 COMMIT TRANSACTION;
+            IF @transaccionPropia = 1
+            BEGIN
+                COMMIT TRANSACTION;
+            END
         END
 
     END TRY
     BEGIN CATCH
-        IF @@TRANCOUNT > 0 AND @transaccionPropia = 1 ROLLBACK TRANSACTION;
+        -- PASO 6: error no controlado (SYS_001); revierte solo la transaccion propia
+        IF @transaccionPropia = 1 AND XACT_STATE() <> 0
+        BEGIN
+            ROLLBACK TRANSACTION;
+        END
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,

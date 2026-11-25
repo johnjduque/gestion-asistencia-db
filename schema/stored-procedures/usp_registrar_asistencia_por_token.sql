@@ -63,6 +63,10 @@ AS
     DECLARE @numeroToma        SMALLINT;
     DECLARE @codigoMensaje     VARCHAR(20);
     DECLARE @p1 NVARCHAR(500), @p2 NVARCHAR(500);
+    DECLARE @mensajeUsuarioInterno   NVARCHAR(4000);  -- SKILLS-BD lote 2: triplete del nucleo interno
+    DECLARE @mensajeTecnicoInterno   NVARCHAR(4000);
+    DECLARE @estadoInterno           BIT;
+    DECLARE @mensajeErrorInterno     NVARCHAR(2048);
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
@@ -91,10 +95,17 @@ BEGIN
         BEGIN
             SELECT @idEstudiante = e.id FROM dbo.Estudiante e WHERE e.usuario = @idUsuarioEjecutorDefecto;
 
-            EXEC dbo.usp_internal_resolver_token_asistencia
-                @tokenHash = @tokenHash, @pin = @pin,
+            EXEC dbo.usp_resolver_token_asistencia_interno
+                @tokenHash = @tokenHash, @pin = @pin, @idCorrelacion = @idCorrelacionDefecto,
                 @idTokenAsistencia = @idTokenAsistencia OUTPUT, @idToma = @idToma OUTPUT, @idSesion = @idSesion OUTPUT,
-                @idGrupo = @idGrupo OUTPUT, @codigoRechazo = @codigoRechazo OUTPUT;
+                @idGrupo = @idGrupo OUTPUT, @codigoRechazo = @codigoRechazo OUTPUT,
+                @mensajeUsuarioResultado = @mensajeUsuarioInterno OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoInterno OUTPUT,
+                @estadoResultado = @estadoInterno OUTPUT;
+            IF @estadoInterno = 0
+            BEGIN
+                SET @mensajeErrorInterno = LEFT(@mensajeTecnicoInterno, 2048);
+                THROW 52524, @mensajeErrorInterno, 1;
+            END
 
             IF @codigoRechazo IS NOT NULL
             BEGIN

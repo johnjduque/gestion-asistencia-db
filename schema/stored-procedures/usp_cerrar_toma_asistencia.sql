@@ -12,10 +12,10 @@ GO
 -- totalAusentesMarcados, totalFaltantes, yaEstabaCerrada (NULL si estadoResultado = 0).
 --
 -- El docente titular cierra una toma (no exige ventana para cerrar). Ya cerrada: exito idempotente TOM_011
--- (yaEstabaCerrada = 1, sin escrituras). Si no: el cierre lo hace usp_internal_cerrar_toma (ATA D9, compartido con
+-- (yaEstabaCerrada = 1, sin escrituras). Si no: el cierre lo hace usp_cerrar_toma_interno (ATA D9, compartido con
 -- usp_abrir_toma_asistencia): cierra el token QR activo de la toma; con @marcarAusentes = 1 (NULL =>
 -- ModoTomaAsistencia.marcaAusentesAlCerrar: 1 en MANUAL y en QR segun el seed 35) y la ventana con margen todavia abierta, inserta SJC a las
--- matriculas activas sin detalle en la toma (usp_internal_marcar_ausentes_toma); vencida la ventana se cierra sin marcar.
+-- matriculas activas sin detalle en la toma (usp_marcar_ausentes_toma_interno); vencida la ventana se cierra sin marcar.
 -- totalFaltantes = filas de uv_faltantes_toma despues del cierre. Bloqueos: Sesion -> TomaAsistencia -> TokenAsistenciaToma.
 -- Exito TOM_009.
 -- VAL-pendientes-john PRU-15: una toma de una sesion de un periodo cerrado por el cierre masivo no se cierra a mano (PER_008, despues
@@ -50,6 +50,10 @@ AS
     DECLARE @totalFaltantes    INT;
     DECLARE @yaEstabaCerrada   BIT = 0;
     DECLARE @p1 NVARCHAR(500), @p2 NVARCHAR(500);
+    DECLARE @mensajeUsuarioInterno   NVARCHAR(4000);  -- SKILLS-BD lote 2: triplete de usp_cerrar_toma_interno
+    DECLARE @mensajeTecnicoInterno   NVARCHAR(4000);
+    DECLARE @estadoInterno           BIT;
+    DECLARE @mensajeErrorInterno     NVARCHAR(2048);
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
@@ -132,9 +136,16 @@ BEGIN
             END
             ELSE
             BEGIN
-                EXEC dbo.usp_internal_cerrar_toma
+                EXEC dbo.usp_cerrar_toma_interno
                     @idToma = @idTomaDefecto, @idSesion = @idSesion, @idGrupo = @idGrupo, @marcarAusentes = @marcarAusentes,
-                    @idCorrelacion = @idCorrelacionDefecto, @totalAusentesMarcados = @totalMarcados OUTPUT, @fechaCierreUtc = @fechaCierre OUTPUT;
+                    @idCorrelacion = @idCorrelacionDefecto, @totalAusentesMarcados = @totalMarcados OUTPUT, @fechaCierreUtc = @fechaCierre OUTPUT,
+                    @mensajeUsuarioResultado = @mensajeUsuarioInterno OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoInterno OUTPUT,
+                    @estadoResultado = @estadoInterno OUTPUT;
+                IF @estadoInterno = 0
+                BEGIN
+                    SET @mensajeErrorInterno = LEFT(@mensajeTecnicoInterno, 2048);
+                    THROW 52522, @mensajeErrorInterno, 1;
+                END
 
                 SET @p1 = CONVERT(NVARCHAR(20), @totalMarcados);
                 SET @p2 = CONVERT(NVARCHAR(36), @idTomaDefecto);
