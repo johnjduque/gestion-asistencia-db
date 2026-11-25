@@ -826,6 +826,16 @@ try {
 catch {
     $resultFailures += "PARAM_MIG77_RUNNER $($_.Exception.Message)"
 }
+# SKILLS-BD lote 2: migracion 78 (retiro de los usp_internal_*, up/down/up y up desde el estado anterior) en test/test_skills_lote2_migracion_78.ps1.
+try {
+    $skl2Mig78Output = @(& (Join-Path $PSScriptRoot 'test/test_skills_lote2_migracion_78.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $skl2Mig78Output) { Write-Host $line }
+    if ($skl2Mig78Output -contains 'TEST_PASS:SKL2_MIG78_UP_DOWN_UP') { $clientPassed += 'SKL2_MIG78_UP_DOWN_UP' }
+    else { $resultFailures += 'SKL2_MIG78_UP_DOWN_UP not reported by test_skills_lote2_migracion_78.ps1' }
+}
+catch {
+    $resultFailures += "SKL2_MIG78_RUNNER $($_.Exception.Message)"
+}
 # SKILLS-BD lote 1 (2026-11-25): pruebas de concurrencia real que antes solo se corrian a mano.
 #   T-091-13: dos vinculos simultaneos del mismo (docente, programa) => uno OK y otro DOC_006 (test/test_docente_programa_concurrencia.ps1).
 #   test/test_lb004d_concurrency.ps1 queda MANUAL: depende del tiempo y en el runner de GitHub fallo D2-11 de forma intermitente.
@@ -1333,6 +1343,9 @@ $criticalIds = @(
     'SKL1_F05_PROGRAMAS_AMBITO_EJECUTOR', 'SKL1_V01_CATALOGOS_REFLEJAN_TABLA', 'SKL1_V02_FORMA_VISTAS', 'SKL1_V03_AUDITORIA_EVENTO',
     'SKL1_V04_ESTADISTICA_GRUPO', 'SKL1_V05_ESTUDIANTE_GRUPO_PROGRAMA', 'SKL1_V06_FACULTAD_RESUMEN', 'SKL1_S01_ASOCIAR_RECHAZOS',
     'SKL1_S02_ASOCIAR_INSERTA_Y_REACTIVA', 'SKL1_S03_CERRAR_TOMA', 'SKL1_TRANCOUNT_ZERO',
+    # SKILLS-BD lote 2 2026-11-25 (test/test_skills_lote2_caracterizacion.sql; migracion 78 en test/test_skills_lote2_migracion_78.ps1)
+    'SKL2_N01_NOMBRES_INTERNOS', 'SKL2_R01_RESOLVER_TOKEN_ASISTENCIA', 'SKL2_R02_RESOLVER_TOKEN_MATRICULA', 'SKL2_R03_RESUMEN_SESIONES_DOCENTE',
+    'SKL2_R04_RADICAR_V4_SIN_TOMA', 'SKL2_R05_CONTACTO_NOTIFICACION', 'SKL2_R06_RECHAZOS_LECTURA', 'SKL2_TRANCOUNT_ZERO', 'SKL2_MIG78_UP_DOWN_UP',
     'T-091-13',
     # P3 fase F5 (migracion 71 en test/test_p3_f5_notificaciones_migracion_71.ps1)
     'P3F5_MIG71_UP_DOWN_UP',

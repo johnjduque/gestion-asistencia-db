@@ -10,7 +10,7 @@ GO
 --
 -- Clasificacion: NON_GOLDEN_PATH_EXTENSION, comando con tupla canonica + idTokenAsistencia, idToma, idGrupo, idDocenteEmisor,
 -- fechaRotacionUtc, fechaExpiracionUtc, rotado (NULL si estadoResultado = 0).
--- Rotacion MANUAL del docente titular (@forzar = 1) sobre usp_internal_rotar_token_asistencia. RBAC DOCENTE (SEC_001),
+-- Rotacion MANUAL del docente titular (@forzar = 1) sobre usp_rotar_token_asistencia_interno. RBAC DOCENTE (SEC_001),
 -- toma existente (TOM_001), titularidad sobre su sesion (SEC_002). Transaccion propia o savepoint; las ramas de rechazo no
 -- escriben.
 -- ============================================================================
@@ -97,7 +97,7 @@ BEGIN
                 SET @savepointCreado = 1;
             END
 
-            EXEC dbo.usp_internal_rotar_token_asistencia
+            EXEC dbo.usp_rotar_token_asistencia_interno
                 @idCorrelacion = @idCorrelacionDefecto, @idToma = @idTomaDefecto, @tokenHash = @tokenHash, @pin = @pin,
                 @forzar = 1, @idUsuarioManual = @idUsuarioEjecutorDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,

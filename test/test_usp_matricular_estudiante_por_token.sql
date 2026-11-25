@@ -26,8 +26,8 @@ BEGIN TRY
         THROW 56402, 'TEST FAILED HU176B-M00: SP usp_matricular_estudiante_por_token no existe.', 1;
     IF OBJECT_ID(N'dbo.usp_registrar_estudiante_por_token_publico', N'P') IS NULL
         THROW 56405, 'TEST FAILED HU176B-M00: SP usp_registrar_estudiante_por_token_publico no existe (CONTRACT A2).', 1;
-    IF OBJECT_ID(N'dbo.usp_internal_resolver_token_matricula', N'P') IS NULL
-        THROW 56403, 'TEST FAILED HU176B-M00: SP usp_internal_resolver_token_matricula no existe.', 1;
+    IF OBJECT_ID(N'dbo.usp_resolver_token_matricula_interno', N'P') IS NULL
+        THROW 56403, 'TEST FAILED HU176B-M00: SP usp_resolver_token_matricula_interno no existe.', 1;
     IF dbo.ufn_obtener_parametro('MATRICULA_QR', 'ESTADO_MATRICULA') = N''
         THROW 56404, 'TEST FAILED HU176B-M01: parametro MATRICULA_QR/ESTADO_MATRICULA ausente.', 1;
 

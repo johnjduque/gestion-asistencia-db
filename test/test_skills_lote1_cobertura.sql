@@ -20,11 +20,11 @@ GO
 --   SKL1_V04_ESTADISTICA_GRUPO           uv_estadistica_grupo: totales del grupo de la fixture (3 matriculas activas) y de un grupo sin matriculas (0)
 --   SKL1_V05_ESTUDIANTE_GRUPO_PROGRAMA   uv_estudiante_grupo_programa: solo las matriculas cuyo estudiante esta vinculado al programa del grupo
 --   SKL1_V06_FACULTAD_RESUMEN            uv_facultad_resumen: totalProgramas = programas de la facultad en uv_programa; vistas base sin filtro de sesion
---   SKL1_S01_ASOCIAR_RECHAZOS            usp_internal_asociar_asignatura_plan: PLA_004 (semestre fuera del plan), ASI_007 (caracter inexistente),
+--   SKL1_S01_ASOCIAR_RECHAZOS            usp_asociar_asignatura_plan_interno: PLA_004 (semestre fuera del plan), ASI_007 (caracter inexistente),
 --                                        ASI_003 (vinculo activo ya existente); ningun rechazo escribe
---   SKL1_S02_ASOCIAR_INSERTA_Y_REACTIVA  usp_internal_asociar_asignatura_plan: inserta un vinculo nuevo con el caracter por defecto y reactiva
+--   SKL1_S02_ASOCIAR_INSERTA_Y_REACTIVA  usp_asociar_asignatura_plan_interno: inserta un vinculo nuevo con el caracter por defecto y reactiva
 --                                        (misma fila) un vinculo inactivo del mismo semestre
---   SKL1_S03_CERRAR_TOMA                 usp_internal_cerrar_toma: cierra la toma abierta, su token y marca ausentes (3) cuando se pide
+--   SKL1_S03_CERRAR_TOMA                 usp_cerrar_toma_interno: cierra la toma abierta, su token y marca ausentes (3) cuando se pide
 --   SKL1_TRANCOUNT_ZERO                  al terminar no queda transaccion abierta
 SET NOCOUNT ON;
 SET XACT_ABORT OFF;
@@ -168,15 +168,15 @@ BEGIN TRY
     -- ===================================================================== S01
     DECLARE @mu NVARCHAR(4000), @mt NVARCHAR(4000), @ok BIT, @corr UNIQUEIDENTIFIER = NEWID();
     DECLARE @vinculos INT = (SELECT COUNT(*) FROM dbo.AsignaturaPlanEstudio WHERE asignatura = @asigOPT);
-    EXEC dbo.usp_internal_asociar_asignatura_plan @idAsignatura = @asigOPT, @idPlanEstudio = @planB, @semestreNumero = 99,
+    EXEC dbo.usp_asociar_asignatura_plan_interno @idAsignatura = @asigOPT, @idPlanEstudio = @planB, @semestreNumero = 99,
          @codigoCaracter = NULL, @idCorrelacion = @corr, @mensajeUsuarioResultado = @mu OUTPUT, @mensajeTecnicoResultado = @mt OUTPUT, @estadoResultado = @ok OUTPUT;
     IF @ok <> 0 OR @mt NOT LIKE N'DBCODE=PLA[_]004|%' OR @mt NOT LIKE CONCAT(N'%Correlacion: ', @corr)
         THROW 54121, 'TEST FAILED: SKL1_S01_ASOCIAR_RECHAZOS (PLA_004)', 1;
-    EXEC dbo.usp_internal_asociar_asignatura_plan @idAsignatura = @asigOPT, @idPlanEstudio = @planB, @semestreNumero = 7,
+    EXEC dbo.usp_asociar_asignatura_plan_interno @idAsignatura = @asigOPT, @idPlanEstudio = @planB, @semestreNumero = 7,
          @codigoCaracter = N'ZZZ', @idCorrelacion = @corr, @mensajeUsuarioResultado = @mu OUTPUT, @mensajeTecnicoResultado = @mt OUTPUT, @estadoResultado = @ok OUTPUT;
     IF @ok <> 0 OR @mt NOT LIKE N'DBCODE=ASI[_]007|%'
         THROW 54122, 'TEST FAILED: SKL1_S01_ASOCIAR_RECHAZOS (ASI_007)', 1;
-    EXEC dbo.usp_internal_asociar_asignatura_plan @idAsignatura = @asigOPT, @idPlanEstudio = @planB, @semestreNumero = 7,
+    EXEC dbo.usp_asociar_asignatura_plan_interno @idAsignatura = @asigOPT, @idPlanEstudio = @planB, @semestreNumero = 7,
          @codigoCaracter = N'OPT', @idCorrelacion = @corr, @mensajeUsuarioResultado = @mu OUTPUT, @mensajeTecnicoResultado = @mt OUTPUT, @estadoResultado = @ok OUTPUT;
     IF @ok <> 0 OR @mt NOT LIKE N'DBCODE=ASI[_]003|%'
        OR (SELECT COUNT(*) FROM dbo.AsignaturaPlanEstudio WHERE asignatura = @asigOPT) <> @vinculos
@@ -187,14 +187,14 @@ BEGIN TRY
     DECLARE @asigNueva UNIQUEIDENTIFIER = NEWID();
     DECLARE @caracterDefecto NVARCHAR(3) = CAST(dbo.ufn_obtener_parametro('ASIGNATURA_PLAN', 'CARACTER_DEFECTO') AS NVARCHAR(3));
     INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, estado) VALUES (@asigNueva, N'SKL1-NUEVA', N'SKL1 Nueva', 2, @area, @comp, 1);
-    EXEC dbo.usp_internal_asociar_asignatura_plan @idAsignatura = @asigNueva, @idPlanEstudio = @planB, @semestreNumero = 7,
+    EXEC dbo.usp_asociar_asignatura_plan_interno @idAsignatura = @asigNueva, @idPlanEstudio = @planB, @semestreNumero = 7,
          @codigoCaracter = NULL, @idCorrelacion = @corr, @mensajeUsuarioResultado = @mu OUTPUT, @mensajeTecnicoResultado = @mt OUTPUT, @estadoResultado = @ok OUTPUT;
     IF @ok <> 1 OR NOT EXISTS (SELECT 1 FROM dbo.AsignaturaPlanEstudio ape INNER JOIN dbo.CaracterAsignaturaPlan c ON c.id = ape.caracter
                                WHERE ape.asignatura = @asigNueva AND ape.semestrePlanEstudio = @speB AND ape.estaActivo = 1 AND c.codigo = @caracterDefecto)
         THROW 54124, 'TEST FAILED: SKL1_S02_ASOCIAR_INSERTA_Y_REACTIVA (insercion)', 1;
     DECLARE @idVinculoB UNIQUEIDENTIFIER = (SELECT id FROM dbo.AsignaturaPlanEstudio WHERE asignatura = @asigOPT AND semestrePlanEstudio = @speB);
     UPDATE dbo.AsignaturaPlanEstudio SET estaActivo = 0, fechaDesvinculacionUtc = SYSUTCDATETIME() WHERE id = @idVinculoB;
-    EXEC dbo.usp_internal_asociar_asignatura_plan @idAsignatura = @asigOPT, @idPlanEstudio = @planB, @semestreNumero = 7,
+    EXEC dbo.usp_asociar_asignatura_plan_interno @idAsignatura = @asigOPT, @idPlanEstudio = @planB, @semestreNumero = 7,
          @codigoCaracter = N'OPT', @idCorrelacion = @corr, @mensajeUsuarioResultado = @mu OUTPUT, @mensajeTecnicoResultado = @mt OUTPUT, @estadoResultado = @ok OUTPUT;
     IF @ok <> 1 OR NOT EXISTS (SELECT 1 FROM dbo.AsignaturaPlanEstudio WHERE id = @idVinculoB AND estaActivo = 1 AND fechaDesvinculacionUtc IS NULL)
        OR (SELECT COUNT(*) FROM dbo.AsignaturaPlanEstudio WHERE asignatura = @asigOPT) <> @vinculos
@@ -216,9 +216,10 @@ BEGIN TRY
         SET @msg = CONCAT('TEST FAILED: SKL1_S03_CERRAR_TOMA (no se pudo abrir la toma) ', (SELECT TOP 1 mt FROM #skl1Toma));
         THROW 54131, @msg, 1;
     END
-    EXEC dbo.usp_internal_cerrar_toma @idToma = @idToma, @idSesion = @sesion, @idGrupo = @grupoG, @marcarAusentes = 1, @idCorrelacion = @corr,
-         @totalAusentesMarcados = @total OUTPUT, @fechaCierreUtc = @fechaCierre OUTPUT;
-    IF @total <> 3 OR @fechaCierre IS NULL
+    EXEC dbo.usp_cerrar_toma_interno @idToma = @idToma, @idSesion = @sesion, @idGrupo = @grupoG, @marcarAusentes = 1, @idCorrelacion = @corr,
+         @totalAusentesMarcados = @total OUTPUT, @fechaCierreUtc = @fechaCierre OUTPUT,
+         @mensajeUsuarioResultado = @mu OUTPUT, @mensajeTecnicoResultado = @mt OUTPUT, @estadoResultado = @ok OUTPUT;
+    IF @ok <> 1 OR @total <> 3 OR @fechaCierre IS NULL
        OR NOT EXISTS (SELECT 1 FROM dbo.TomaAsistencia t INNER JOIN dbo.EstadoTomaAsistencia e ON e.id = t.estado
                       WHERE t.id = @idToma AND e.estaAbierta = 0 AND t.fechaCierreUtc = @fechaCierre AND t.fechaCierreUtc >= t.fechaAperturaUtc
                         AND t.totalAusentesMarcados = 3 AND t.idCorrelacionCierre = @corr)

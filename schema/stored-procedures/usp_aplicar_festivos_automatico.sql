@@ -30,6 +30,10 @@ AS
 
     DECLARE @gruposProcesados INT = 0, @canceladas INT = 0, @conAsistencia INT = 0, @gruposConError INT = 0;
     DECLARE @p1 NVARCHAR(500), @p2 NVARCHAR(500), @mensajeUsuarioExito NVARCHAR(4000);
+    DECLARE @mensajeUsuarioInterno   NVARCHAR(4000);  -- SKILLS-BD lote 2: triplete del nucleo interno
+    DECLARE @mensajeTecnicoInterno   NVARCHAR(4000);
+    DECLARE @estadoInterno           BIT;
+    DECLARE @mensajeErrorInterno     NVARCHAR(2048);
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
@@ -64,7 +68,7 @@ BEGIN
 
         IF @estadoResultado = 1
         BEGIN
-            EXEC dbo.usp_internal_aplicar_festivos_grupos
+            EXEC dbo.usp_aplicar_festivos_grupos_interno
                 @idPeriodoAcademico = NULL,
                 @anio = @anio,
                 @idUsuarioAdministrador = NULL,
@@ -73,7 +77,15 @@ BEGIN
                 @gruposProcesados = @gruposProcesados OUTPUT,
                 @sesionesCanceladas = @canceladas OUTPUT,
                 @sesionesConAsistencia = @conAsistencia OUTPUT,
-                @gruposConError = @gruposConError OUTPUT;
+                @gruposConError = @gruposConError OUTPUT,
+                @mensajeUsuarioResultado = @mensajeUsuarioInterno OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoInterno OUTPUT,
+                @estadoResultado = @estadoInterno OUTPUT;
+            IF @estadoInterno = 0
+            BEGIN
+                SET @mensajeErrorInterno = LEFT(@mensajeTecnicoInterno, 2048);
+                THROW 52527, @mensajeErrorInterno, 1;
+            END
 
             IF @gruposConError > 0
             BEGIN

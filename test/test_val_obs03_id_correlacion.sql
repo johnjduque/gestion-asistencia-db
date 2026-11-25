@@ -31,13 +31,8 @@ GO
 IF OBJECT_ID('tempdb..#obs03Lista') IS NOT NULL DROP TABLE #obs03Lista;
 CREATE TABLE #obs03Lista (nombre SYSNAME COLLATE DATABASE_DEFAULT PRIMARY KEY, clase VARCHAR(20) COLLATE DATABASE_DEFAULT NOT NULL);
 INSERT INTO #obs03Lista (nombre, clase) VALUES
-    ('usp_actualizar_nombres_usuario_interno',               'NUCLEO_MUTANTE'),
-    ('usp_internal_marcar_ausentes_toma',                    'NUCLEO_MUTANTE'),
-    ('usp_internal_resolver_token_matricula',                'NUCLEO_MUTANTE'),
     ('usp_establecer_contexto_usuario_ejecutor',             'CONTEXTO_SESION'),
-    ('usp_consultar_contacto_notificacion_interno',          'LECTURA'),
     ('usp_consultar_ventanas_matricula_por_rotar',           'LECTURA'),
-    ('usp_internal_resolver_token_asistencia',               'LECTURA'),
     ('usp_obtener_mensaje_catalogo',                         'LECTURA'),
     ('usp_resolver_periodo_kpi_facultad_interno',            'LECTURA'),
     ('usp_resolver_periodo_kpi_institucion_interno',         'LECTURA'),

@@ -6,7 +6,8 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 -- ============================================================================
--- usp_internal_cancelar_sesiones_receso (DEC-081) — nucleo, sin EXECUTE para el rol runtime.
+-- usp_cancelar_sesiones_receso_interno (DEC-081) — nucleo, sin EXECUTE para el rol runtime.
+-- SKILLS-BD lote 2 (2026-11-25): antes usp_internal_cancelar_sesiones_receso (renombrado, D3); el cuerpo se corrige en su lote de dominio.
 --
 -- Marca como canceladas por RECESO las sesiones cuya fecha LOCAL (TIEMPO/ZONA_HORARIA_SQLSERVER) es un dia de receso activo del
 -- periodo de su grupo. No abre transaccion: la controla el llamador (usp_crear_receso_academico, la precarga o la generacion v2).
@@ -19,7 +20,7 @@ GO
 --     (recortado a 500). usuarioEjecutor puede ser NULL (generacion automatica): el origen lo da recesoAcademico.
 -- Bloqueo: dbo.Sesion WITH (UPDLOCK, HOLDLOCK) sobre las candidatas antes de escribir (mismo orden que los festivos).
 -- ============================================================================
-CREATE OR ALTER PROCEDURE [dbo].[usp_internal_cancelar_sesiones_receso]
+CREATE OR ALTER PROCEDURE [dbo].[usp_cancelar_sesiones_receso_interno]
 (
     @idGrupo                  UNIQUEIDENTIFIER = NULL,
     @idReceso                 UNIQUEIDENTIFIER = NULL,

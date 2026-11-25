@@ -8,7 +8,7 @@ GO
 -- BD-4 (decision del responsable 2026-11-22): la matricula manual del docente solo procede con un programa COMUN entre el estudiante y el
 -- grupo (igual criterio que la matricula por QR, DEC-078). Validador interno de solo lectura, sin transaccion propia; lo llama
 -- usp_registrar_estudiante_en_grupo antes de escribir nada. Reglas, en este orden (un estudiante que aun no existe, o que existe sin ningun
--- vinculo en dbo.EstudiantePrograma, no se restringe: queda vinculado al programa del grupo en usp_internal_asegurar_estudiante_programa_grupo):
+-- vinculo en dbo.EstudiantePrograma, no se restringe: queda vinculado al programa del grupo en usp_asegurar_estudiante_programa_grupo_interno):
 --   (1) @idProgramaElegido informado y ajeno al grupo (ufn_programas_grupo): EST_006.
 --   (2) el estudiante tiene vinculos pero ninguno es programa del grupo: EST_010.
 --   (3) @idProgramaElegido informado y que no es uno de los programas del estudiante: EST_011.

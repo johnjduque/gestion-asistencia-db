@@ -29,7 +29,7 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
     BEGIN TRY
-        EXEC dbo.usp_internal_cargar_dias_festivos
+        EXEC dbo.usp_cargar_dias_festivos_interno
             @anio = @anio,
             @festivosJSON = @festivosJSON,
             @fuente = @fuente,

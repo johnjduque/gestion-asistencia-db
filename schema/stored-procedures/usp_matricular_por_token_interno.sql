@@ -16,7 +16,9 @@ GO
 --     matricula es el parametro MATRICULA_QR/ESTADO_MATRICULA (sin literal quemado), validado ANTES de escribir.
 --   * Atomico: la expiracion perezosa de la ventana persiste; el trabajo de negocio se revierte hasta su savepoint ante
 --     cualquier falla posterior a la escritura.
-CREATE OR ALTER PROCEDURE [dbo].[usp_internal_matricular_por_token]
+-- SKILLS-BD lote 2 (2026-11-25): antes usp_internal_matricular_por_token (renombrado, D3); llama a los nucleos renombrados
+-- con el triplete OUTPUT. El cuerpo se corrige en su lote de dominio.
+CREATE OR ALTER PROCEDURE [dbo].[usp_matricular_por_token_interno]
 (
     @idCorrelacion            UNIQUEIDENTIFIER,
     @tokenHash                VARBINARY(32),
@@ -55,6 +57,10 @@ AS
     DECLARE @idUsuarioTarget    UNIQUEIDENTIFIER = NULL;
     DECLARE @idEstudianteTarget UNIQUEIDENTIFIER = NULL;
     DECLARE @correoNormalizado  NVARCHAR(100)    = LOWER(TRIM(@correo));
+    DECLARE @mensajeUsuarioInterno   NVARCHAR(4000);  -- SKILLS-BD lote 2: triplete del nucleo interno
+    DECLARE @mensajeTecnicoInterno   NVARCHAR(4000);
+    DECLARE @estadoInterno           BIT;
+    DECLARE @mensajeErrorInterno     NVARCHAR(2048);
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;   -- AUD-BD M-6: un error no capturado condena la transaccion; el CATCH ya maneja XACT_STATE() = -1 (THROW si no es propia)
@@ -87,10 +93,17 @@ BEGIN
         -- PASO 2: resolver la ventana (UPDLOCK). Puede escribir solo la expiracion perezosa.
         IF @estadoResultado = 1
         BEGIN
-            EXEC dbo.usp_internal_resolver_token_matricula
-                @tokenHash = @tokenHash, @pin = @pin,
+            EXEC dbo.usp_resolver_token_matricula_interno
+                @tokenHash = @tokenHash, @pin = @pin, @idCorrelacion = @idCorrelacionDefecto,
                 @idVentana = @idVentana OUTPUT, @idGrupo = @idGrupo OUTPUT,
-                @idDocenteEmisor = @idDocenteEmisor OUTPUT, @codigoRechazo = @codigoRechazo OUTPUT;
+                @idDocenteEmisor = @idDocenteEmisor OUTPUT, @codigoRechazo = @codigoRechazo OUTPUT,
+                @mensajeUsuarioResultado = @mensajeUsuarioInterno OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoInterno OUTPUT,
+                @estadoResultado = @estadoInterno OUTPUT;
+            IF @estadoInterno = 0
+            BEGIN
+                SET @mensajeErrorInterno = LEFT(@mensajeTecnicoInterno, 2048);
+                THROW 52526, @mensajeErrorInterno, 1;
+            END
         END
 
         -- PASO 3: validaciones sin escritura
@@ -166,8 +179,8 @@ BEGIN
             SET @codigoRechazo = 'EST_006';
         -- Revision final P3 (decision 2026-11-22, igual que la matricula manual BD-4): un estudiante EXISTENTE con vinculos en EstudiantePrograma solo se
         -- matricula con un programa comun con el grupo. Ninguno comun: EST_010; programa de la ventana o elegido que no es suyo: EST_011; un unico programa
-        -- comun y ninguno fijado: se usa ese; varios y ninguno fijado: MQR_008. Nunca se crea un vinculo nuevo a quien ya tiene programas (usp_internal_asegurar_
-        -- estudiante_programa_grupo devuelve el existente). Estudiante nuevo o sin ningun vinculo: sin cambio (elige entre los programas del grupo).
+        -- comun y ninguno fijado: se usa ese; varios y ninguno fijado: MQR_008. Nunca se crea un vinculo nuevo a quien ya tiene programas (usp_asegurar_estudiante_programa_grupo_interno
+        -- devuelve el existente). Estudiante nuevo o sin ningun vinculo: sin cambio (elige entre los programas del grupo).
         IF @estadoResultado = 1 AND @codigoRechazo IS NULL AND @idEstudianteTarget IS NOT NULL
            AND EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep WHERE ep.estudiante = @idEstudianteTarget)
         BEGIN

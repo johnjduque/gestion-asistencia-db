@@ -130,10 +130,10 @@ BEGIN TRY
        OR NOT EXISTS (SELECT 1 FROM dbo.EstudiantePrograma WHERE estudiante = @e6 AND programa = @programa)
         THROW 53956, 'TEST FAILED: RI-04 BAS reactivar debe inscribir en el programa (R7).', 1;
     -- La regla vive en un solo sitio: el SP de reactivacion no inscribe en el programa ni conoce el componente ESP.
-    IF OBJECT_ID('dbo.usp_internal_reactivar_matricula_retirada', 'P') IS NULL
-       OR OBJECT_DEFINITION(OBJECT_ID('dbo.usp_internal_reactivar_matricula_retirada')) LIKE '%EstudiantePrograma%'
-       OR OBJECT_DEFINITION(OBJECT_ID('dbo.usp_internal_reactivar_matricula_retirada')) LIKE '%''ESP''%'
-        THROW 53957, 'TEST FAILED: RI-04 usp_internal_reactivar_matricula_retirada no debe contener la regla ESP.', 1;
+    IF OBJECT_ID('dbo.usp_reactivar_matricula_retirada_interno', 'P') IS NULL
+       OR OBJECT_DEFINITION(OBJECT_ID('dbo.usp_reactivar_matricula_retirada_interno')) LIKE '%EstudiantePrograma%'
+       OR OBJECT_DEFINITION(OBJECT_ID('dbo.usp_reactivar_matricula_retirada_interno')) LIKE '%''ESP''%'
+        THROW 53957, 'TEST FAILED: RI-04 usp_reactivar_matricula_retirada_interno no debe contener la regla ESP.', 1;
     PRINT 'TEST_PASS:HU008_RI04_REACTIVACION_REGLA_ESP';
 
     IF @@TRANCOUNT <> 1 THROW 53998, 'TEST FAILED: el objeto altero el nivel de transaccion del llamador.', 1;

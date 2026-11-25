@@ -19,7 +19,7 @@ GO
 --   * CULM-001 D.1 (HU026B): el plazo de excusas se valida DESPUES de la reejecucion idempotente por correlacion y antes de
 --     cualquier escritura (REV_020 vencido, REV_025 sin parametros). `fecha` es la fecha LOCAL de radicacion.
 --   * CULM-001 D.2 (HU014/HU015, TD-060; CONTRACT §3.2, DEC-044 (3)): firma y resultset SIN CAMBIO (4 columnas), pero la logica vive
---     ahora en usp_internal_radicar_solicitud_revision (compartida con usp_radicar_solicitud_revision_asistencia_v3): arma
+--     ahora en usp_radicar_solicitud_revision_interno (compartida con usp_radicar_solicitud_revision_asistencia_v3): arma
 --     ["@idArchivoSoporte"] (o NULL), guarda la categoria (REV_021 si no existe en CategoriaJustificacion) y exige soporte segun
 --     la categoria (REV_022: MED, ACA y LAB). Los estados de soporte salen de parametros (TD-061).
 --
@@ -67,7 +67,7 @@ BEGIN
             SET @savepointCreado = 1;
         END
 
-        EXEC dbo.usp_internal_radicar_solicitud_revision
+        EXEC dbo.usp_radicar_solicitud_revision_interno
             @idEstudiante = @idEstudiante,
             @idSesion = @idSesion,
             @categoria = @categoria,
@@ -96,7 +96,7 @@ BEGIN
                 ROLLBACK TRANSACTION;
             END
         END
-        -- Con savepoint (transaccion del llamador) no se revierte aqui: usp_internal_radicar_solicitud_revision ya revierte a su propio
+        -- Con savepoint (transaccion del llamador) no se revierte aqui: usp_radicar_solicitud_revision_interno ya revierte a su propio
         -- savepoint lo que escribio si fallo, y un rechazo previo a las escrituras no deja nada que deshacer (ROLLBACK esta
         -- prohibido dentro de un INSERT-EXEC del llamador, Msg 3915).
     END TRY

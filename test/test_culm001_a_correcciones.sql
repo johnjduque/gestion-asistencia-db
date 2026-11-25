@@ -578,7 +578,7 @@ BEGIN TRY
                               OBJECT_ID(N'dbo.usp_cambiar_estado_decano'), OBJECT_ID(N'dbo.usp_buscar_estudiante_por_documento_grupo'))) <> 8
        OR EXISTS (SELECT 1 FROM sys.database_permissions dp
                   WHERE dp.grantee_principal_id = DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime') AND dp.state IN ('G', 'W')
-                    AND dp.major_id IN (OBJECT_ID(N'dbo.usp_validar_solape_sesion_interno'), OBJECT_ID(N'dbo.usp_internal_reactivar_matricula_retirada')))
+                    AND dp.major_id IN (OBJECT_ID(N'dbo.usp_validar_solape_sesion_interno'), OBJECT_ID(N'dbo.usp_reactivar_matricula_retirada_interno')))
         THROW 58154, 'TEST FAILED: A2-T-14 EXECUTE del runtime sobre los 8 SP publicos nuevos y ninguno sobre los internos.', 1;
     PRINT 'TEST_PASS:CULM001A2_T14_GRANTS';
 

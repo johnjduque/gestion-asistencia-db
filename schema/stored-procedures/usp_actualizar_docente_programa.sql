@@ -49,6 +49,10 @@ AS
     DECLARE @transaccionPropia          BIT = 0;
     DECLARE @savepointCreado            BIT = 0;
 
+    DECLARE @mensajeUsuarioInterno   NVARCHAR(4000);  -- SKILLS-BD lote 2: triplete del nucleo interno
+    DECLARE @mensajeTecnicoInterno   NVARCHAR(4000);
+    DECLARE @estadoInterno           BIT;
+    DECLARE @mensajeErrorInterno     NVARCHAR(2048);
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
@@ -172,9 +176,18 @@ BEGIN
             END
 
             IF @pn IS NOT NULL OR @sn IS NOT NULL OR @pa IS NOT NULL OR @sa IS NOT NULL
+            BEGIN
                 EXEC dbo.usp_actualizar_nombres_usuario_interno
                     @idUsuario = @idUsuarioDocente, @primerNombre = @pn, @segundoNombre = @sn,
-                    @primerApellido = @pa, @segundoApellido = @sa;
+                    @primerApellido = @pa, @segundoApellido = @sa, @idCorrelacion = @idCorrelacionDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioInterno OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoInterno OUTPUT,
+                    @estadoResultado = @estadoInterno OUTPUT;
+                IF @estadoInterno = 0
+                BEGIN
+                    SET @mensajeErrorInterno = LEFT(@mensajeTecnicoInterno, 2048);
+                    THROW 52529, @mensajeErrorInterno, 1;
+                END
+            END
 
             IF @documentoCambiado = 1
             BEGIN
@@ -198,7 +211,14 @@ BEGIN
                     @idRecurso = @idDocenteDefecto,
                     @ruta = N'/api/v1/coordinador/docentes/{idDocente}',
                     @idUsuarioEjecutor = @idUsuarioEjecutorDefecto,
-                    @idCorrelacion = @idCorrelacionDefecto;
+                    @idCorrelacion = @idCorrelacionDefecto,
+                    @mensajeUsuarioResultado = @mensajeUsuarioInterno OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoInterno OUTPUT,
+                    @estadoResultado = @estadoInterno OUTPUT;
+                IF @estadoInterno = 0
+                BEGIN
+                    SET @mensajeErrorInterno = LEFT(@mensajeTecnicoInterno, 2048);
+                    THROW 52530, @mensajeErrorInterno, 1;
+                END
             END
 
             EXEC dbo.usp_obtener_mensaje_catalogo

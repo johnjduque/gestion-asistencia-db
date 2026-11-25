@@ -183,7 +183,7 @@ BEGIN TRY
 
     -- ------------------------------------------------------------------ M-6
     IF EXISTS (
-        SELECT 1 FROM (VALUES (N'usp_abrir_ventana_matricula_grupo'), (N'usp_clasificar_procedencia_sesion'), (N'usp_confirmar_verificacion_correo'), (N'usp_emitir_token_verificacion_correo'), (N'usp_registrar_asistencias_sesion'), (N'usp_internal_matricular_por_token'), (N'usp_internal_rotar_token_matricula')) s (nombre)
+        SELECT 1 FROM (VALUES (N'usp_abrir_ventana_matricula_grupo'), (N'usp_clasificar_procedencia_sesion'), (N'usp_confirmar_verificacion_correo'), (N'usp_emitir_token_verificacion_correo'), (N'usp_registrar_asistencias_sesion'), (N'usp_matricular_por_token_interno'), (N'usp_rotar_token_matricula_interno')) s (nombre)
         WHERE CHARINDEX(N'SET XACT_ABORT ON', OBJECT_DEFINITION(OBJECT_ID(N'dbo.' + s.nombre))) = 0
            OR CHARINDEX(N'XACT_STATE()', OBJECT_DEFINITION(OBJECT_ID(N'dbo.' + s.nombre))) = 0
            OR CHARINDEX(N'THROW;', OBJECT_DEFINITION(OBJECT_ID(N'dbo.' + s.nombre))) = 0)

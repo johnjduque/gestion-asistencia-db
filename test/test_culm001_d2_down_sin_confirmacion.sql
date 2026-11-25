@@ -9,6 +9,9 @@ SET QUOTED_IDENTIFIER ON;
 GO
 BEGIN TRANSACTION;
 GO
+-- SKILLS-BD lote 2: el down de la 78 recrea los nombres usp_internal_* que usan los scripts viejos (dentro de la transaccion)
+:r $(MIGDIR)/78_skills_lote2_renombre_internos_down.sql
+GO
 :r $(MIGDIR)/21_culm001_d2_soportes_categoria_up.sql
 GO
 :r $(MIGDIR)/fixtures/culm001_d2_fixture.sql

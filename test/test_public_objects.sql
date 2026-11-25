@@ -158,7 +158,7 @@ PRINT 'TEST_PASS:HU018_HU019_SEG_01';
 GO
 
 -- PC puntos de control (PC_SEG_01): los SP publicos nuevos tienen EXECUTE y la vista del estudiante por toma SELECT para
--- rol_asistencias_runtime; el nucleo usp_internal_radicar_solicitud_revision sigue sin concederse (encadenamiento de propiedad).
+-- rol_asistencias_runtime; el nucleo usp_radicar_solicitud_revision_interno sigue sin concederse (encadenamiento de propiedad).
 DECLARE @pcFaltantes NVARCHAR(MAX) = (
     SELECT STRING_AGG(o.nombre, N',')
     FROM (VALUES (N'usp_radicar_solicitud_revision_asistencia_v4', N'EXECUTE'), (N'usp_consultar_resumen_tomas_sesion', N'EXECUTE'),
@@ -173,9 +173,9 @@ BEGIN
     THROW 51962, @pcFallo, 1;
 END
 IF EXISTS (SELECT 1 FROM sys.database_permissions dp
-           WHERE dp.major_id = OBJECT_ID(N'dbo.usp_internal_radicar_solicitud_revision') AND dp.permission_name = N'EXECUTE' AND dp.state IN ('G', 'W')
+           WHERE dp.major_id = OBJECT_ID(N'dbo.usp_radicar_solicitud_revision_interno') AND dp.permission_name = N'EXECUTE' AND dp.state IN ('G', 'W')
              AND dp.grantee_principal_id = DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime'))
-    THROW 51963, 'TEST FAILED: PC_SEG_01 usp_internal_radicar_solicitud_revision no debe tener EXECUTE para el rol runtime.', 1;
+    THROW 51963, 'TEST FAILED: PC_SEG_01 usp_radicar_solicitud_revision_interno no debe tener EXECUTE para el rol runtime.', 1;
 PRINT 'TEST_PASS:PC_SEG_01';
 GO
 
@@ -224,7 +224,7 @@ PRINT 'TEST_PASS:CULM001_MRG_SEG_01';
 GO
 
 -- CULM-001 B.1 (CONTRACT §2.13, B1-SEG-01): los SP publicos de B.1 tienen EXECUTE para rol_asistencias_runtime;
--- los nucleos usp_internal_* no; las vistas nuevas de B.1 tienen SELECT.
+-- los nucleos usp_*_interno no; las vistas nuevas de B.1 tienen SELECT.
 DECLARE @b1Faltantes NVARCHAR(MAX) = (
     SELECT STRING_AGG(o.nombre, N',')
     FROM (VALUES (N'usp_cancelar_sesion'), (N'usp_consultar_destinatarios_sesion_cancelada'), (N'usp_cargar_dias_festivos'),
@@ -242,12 +242,12 @@ BEGIN
 END
 IF EXISTS (
     SELECT 1 FROM sys.database_permissions dp
-    WHERE dp.major_id IN (OBJECT_ID(N'dbo.usp_internal_cargar_dias_festivos'), OBJECT_ID(N'dbo.usp_internal_aplicar_festivos_grupo'),
-                          OBJECT_ID(N'dbo.usp_internal_aplicar_festivos_grupos'))
+    WHERE dp.major_id IN (OBJECT_ID(N'dbo.usp_cargar_dias_festivos_interno'), OBJECT_ID(N'dbo.usp_aplicar_festivos_grupo_interno'),
+                          OBJECT_ID(N'dbo.usp_aplicar_festivos_grupos_interno'))
       AND dp.permission_name = N'EXECUTE' AND dp.state IN ('G', 'W')
       AND dp.grantee_principal_id = DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime'))
-   OR OBJECT_ID(N'dbo.usp_internal_cargar_dias_festivos', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_internal_aplicar_festivos_grupo', N'P') IS NULL
-    THROW 51917, 'TEST FAILED: CULM001_B1_SEG_01 un nucleo usp_internal_* de B.1 falta o tiene EXECUTE para el rol runtime.', 1;
+   OR OBJECT_ID(N'dbo.usp_cargar_dias_festivos_interno', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_aplicar_festivos_grupo_interno', N'P') IS NULL
+    THROW 51917, 'TEST FAILED: CULM001_B1_SEG_01 un nucleo usp_*_interno de B.1 falta o tiene EXECUTE para el rol runtime.', 1;
 IF EXISTS (
     SELECT 1 FROM (VALUES (N'uv_sesion_estado'), (N'uv_dia_festivo'), (N'uv_carga_dia_festivo'), (N'uv_tipo_cancelacion_sesion')) v(nombre)
     WHERE NOT EXISTS (
@@ -259,7 +259,7 @@ PRINT 'TEST_PASS:CULM001_B1_SEG_01_PERMISOS';
 GO
 
 -- CULM-001 B.2 (CONTRACT §2.13, B2-SEG-01): los SP publicos de B.2 tienen EXECUTE para rol_asistencias_runtime; los nucleos
--- usp_internal_* no; las vistas nuevas de B.2 tienen SELECT. (usp_registrar_asistencia_estudiante_autonomo se retiro en CULM-001 D.7.)
+-- usp_*_interno no; las vistas nuevas de B.2 tienen SELECT. (usp_registrar_asistencia_estudiante_autonomo se retiro en CULM-001 D.7.)
 DECLARE @b2Faltantes NVARCHAR(MAX) = (
     SELECT STRING_AGG(o.nombre, N',')
     FROM (VALUES (N'usp_abrir_toma_asistencia'), (N'usp_cerrar_toma_asistencia'), (N'usp_cerrar_tomas_vencidas'), (N'usp_registrar_asistencias_toma'),
@@ -280,13 +280,13 @@ BEGIN
 END
 IF EXISTS (
     SELECT 1 FROM sys.database_permissions dp
-    WHERE dp.major_id IN (OBJECT_ID(N'dbo.usp_internal_marcar_ausentes_toma'), OBJECT_ID(N'dbo.usp_internal_rotar_token_asistencia'),
-                          OBJECT_ID(N'dbo.usp_internal_resolver_token_asistencia'), OBJECT_ID(N'dbo.usp_sincronizar_asistencia_estudiante_interno'))
+    WHERE dp.major_id IN (OBJECT_ID(N'dbo.usp_marcar_ausentes_toma_interno'), OBJECT_ID(N'dbo.usp_rotar_token_asistencia_interno'),
+                          OBJECT_ID(N'dbo.usp_resolver_token_asistencia_interno'), OBJECT_ID(N'dbo.usp_sincronizar_asistencia_estudiante_interno'))
       AND dp.permission_name = N'EXECUTE' AND dp.state IN ('G', 'W')
       AND dp.grantee_principal_id = DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime'))
-   OR OBJECT_ID(N'dbo.usp_internal_marcar_ausentes_toma', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_internal_rotar_token_asistencia', N'P') IS NULL
-   OR OBJECT_ID(N'dbo.usp_internal_resolver_token_asistencia', N'P') IS NULL
-    THROW 51920, 'TEST FAILED: CULM001_B2_SEG_01 un nucleo usp_internal_* de B.2 falta o tiene EXECUTE para el rol runtime.', 1;
+   OR OBJECT_ID(N'dbo.usp_marcar_ausentes_toma_interno', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_rotar_token_asistencia_interno', N'P') IS NULL
+   OR OBJECT_ID(N'dbo.usp_resolver_token_asistencia_interno', N'P') IS NULL
+    THROW 51920, 'TEST FAILED: CULM001_B2_SEG_01 un nucleo usp_*_interno de B.2 falta o tiene EXECUTE para el rol runtime.', 1;
 IF EXISTS (
     SELECT 1 FROM (VALUES (N'uv_toma_asistencia'), (N'uv_token_asistencia_toma'), (N'uv_detalle_asistencia_v2'), (N'uv_asistencia_sesion_horas'),
                           (N'uv_faltantes_toma'), (N'uv_modo_toma_asistencia'), (N'uv_estado_toma_asistencia')) v(nombre)

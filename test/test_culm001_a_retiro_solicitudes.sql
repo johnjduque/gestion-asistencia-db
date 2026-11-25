@@ -46,8 +46,8 @@ IF dbo.ufn_obtener_parametro('MATRICULA', 'ESTADO_RETIRADA') <> N'I'
    OR NOT EXISTS (SELECT 1 FROM dbo.CatalogoParametro WHERE grupo = 'MATRICULA' AND clave = 'ESTADO_RETIRADA' AND valor = N'I')
    OR NOT EXISTS (SELECT 1 FROM dbo.CatalogoParametro WHERE grupo = 'MATRICULA' AND clave = 'ESTADO_INSCRITA' AND valor = N'A')
     THROW 57105, 'TEST FAILED: T-01 parametros MATRICULA/ESTADO_RETIRADA = I y MATRICULA/ESTADO_INSCRITA = A.', 1;
-IF OBJECT_ID(N'dbo.usp_internal_reactivar_matricula_retirada', N'P') IS NULL
-    THROW 57106, 'TEST FAILED: T-01 falta el SP interno usp_internal_reactivar_matricula_retirada.', 1;
+IF OBJECT_ID(N'dbo.usp_reactivar_matricula_retirada_interno', N'P') IS NULL
+    THROW 57106, 'TEST FAILED: T-01 falta el SP interno usp_reactivar_matricula_retirada_interno.', 1;
 PRINT 'TEST_PASS:CULM001A_T01_OBJETOS_RETIRADOS';
 GO
 
@@ -215,7 +215,7 @@ DROP TABLE IF EXISTS #m;
 GO
 
 -- ---------------------------------------------------------------------------
--- T-12b: usp_internal_reactivar_matricula_retirada llamado directamente con @@TRANCOUNT = 0 (sale en 0) y con
+-- T-12b: usp_reactivar_matricula_retirada_interno llamado directamente con @@TRANCOUNT = 0 (sale en 0) y con
 -- @@TRANCOUNT = 1 (sale en 1), en un caso feliz, uno con cupo lleno BAJO BLOQUEO (regla 6) y uno sin matricula
 -- retirada. Fixtures confirmadas (se necesita @@TRANCOUNT = 0) y limpiadas en todos los caminos.
 -- ---------------------------------------------------------------------------
@@ -246,7 +246,7 @@ BEGIN TRY
     INSERT INTO dbo.EstudianteGrupo (id, estado, estudiante, grupo) VALUES (@eg1, @estI, @e1, @g);
 
     -- (1) @@TRANCOUNT = 0, caso feliz: misma fila I -> A, sale en 0.
-    EXEC dbo.usp_internal_reactivar_matricula_retirada @idEstudiante = @e1, @idGrupo = @g, @idCorrelacion = @corr,
+    EXEC dbo.usp_reactivar_matricula_retirada_interno @idEstudiante = @e1, @idGrupo = @g, @idCorrelacion = @corr,
         @codigoEstadoDestino = @destino, @mensajeUsuarioResultado = @mu OUTPUT, @mensajeTecnicoResultado = @mt OUTPUT,
         @estadoResultado = @ok OUTPUT, @reactivada = @reactivada OUTPUT;
     IF @@TRANCOUNT <> 0 SET @fallo = 'T-12b(1) con @@TRANCOUNT = 0 debe salir en 0.';
@@ -258,7 +258,7 @@ BEGIN TRY
     -- (2) @@TRANCOUNT = 0, sin matricula retirada (E1 ya esta en A): @reactivada = 0, exito, sin escrituras.
     IF @fallo IS NULL
     BEGIN
-        EXEC dbo.usp_internal_reactivar_matricula_retirada @idEstudiante = @e2, @idGrupo = @g, @idCorrelacion = @corr,
+        EXEC dbo.usp_reactivar_matricula_retirada_interno @idEstudiante = @e2, @idGrupo = @g, @idCorrelacion = @corr,
             @codigoEstadoDestino = @destino, @mensajeUsuarioResultado = @mu OUTPUT, @mensajeTecnicoResultado = @mt OUTPUT,
             @estadoResultado = @ok OUTPUT, @reactivada = @reactivada OUTPUT;
         IF @@TRANCOUNT <> 0 OR @ok <> 1 OR @reactivada <> 0 OR EXISTS (SELECT 1 FROM dbo.EstudianteGrupo WHERE estudiante = @e2)
@@ -271,7 +271,7 @@ BEGIN TRY
         UPDATE dbo.EstudianteGrupo SET estado = @estI WHERE id = @eg1;
         INSERT INTO dbo.EstudianteGrupo (id, estado, estudiante, grupo) VALUES (@eg2, @estA, @e2, @g);
         UPDATE dbo.Grupo SET cantidadEstudiantes = 1 WHERE id = @g;
-        EXEC dbo.usp_internal_reactivar_matricula_retirada @idEstudiante = @e1, @idGrupo = @g, @idCorrelacion = @corr,
+        EXEC dbo.usp_reactivar_matricula_retirada_interno @idEstudiante = @e1, @idGrupo = @g, @idCorrelacion = @corr,
             @codigoEstadoDestino = @destino, @mensajeUsuarioResultado = @mu OUTPUT, @mensajeTecnicoResultado = @mt OUTPUT,
             @estadoResultado = @ok OUTPUT, @reactivada = @reactivada OUTPUT;
         IF @@TRANCOUNT <> 0 OR @ok <> 0 OR @reactivada <> 0 OR @mt NOT LIKE N'DBCODE=ERR[_]CUPO[_]SUPERADO|%'
@@ -283,7 +283,7 @@ BEGIN TRY
     IF @fallo IS NULL
     BEGIN
         BEGIN TRANSACTION;
-        EXEC dbo.usp_internal_reactivar_matricula_retirada @idEstudiante = @e1, @idGrupo = @g, @idCorrelacion = @corr,
+        EXEC dbo.usp_reactivar_matricula_retirada_interno @idEstudiante = @e1, @idGrupo = @g, @idCorrelacion = @corr,
             @codigoEstadoDestino = @destino, @mensajeUsuarioResultado = @mu OUTPUT, @mensajeTecnicoResultado = @mt OUTPUT,
             @estadoResultado = @ok OUTPUT, @reactivada = @reactivada OUTPUT;
         IF @@TRANCOUNT <> 1 OR XACT_STATE() <> 1 OR @ok <> 0 OR @reactivada <> 0
@@ -291,7 +291,7 @@ BEGIN TRY
         IF @fallo IS NULL
         BEGIN
             UPDATE dbo.Grupo SET cantidadEstudiantes = 5 WHERE id = @g;
-            EXEC dbo.usp_internal_reactivar_matricula_retirada @idEstudiante = @e1, @idGrupo = @g, @idCorrelacion = @corr,
+            EXEC dbo.usp_reactivar_matricula_retirada_interno @idEstudiante = @e1, @idGrupo = @g, @idCorrelacion = @corr,
                 @codigoEstadoDestino = @destino, @mensajeUsuarioResultado = @mu OUTPUT, @mensajeTecnicoResultado = @mt OUTPUT,
                 @estadoResultado = @ok OUTPUT, @reactivada = @reactivada OUTPUT;
             IF @@TRANCOUNT <> 1 OR @ok <> 1 OR @reactivada <> 1 OR NOT EXISTS (SELECT 1 FROM dbo.EstudianteGrupo WHERE id = @eg1 AND estado = @estA)
@@ -303,7 +303,7 @@ BEGIN TRY
     -- (5) Codigo destino inexistente: GEN_001, sin escrituras.
     IF @fallo IS NULL
     BEGIN
-        EXEC dbo.usp_internal_reactivar_matricula_retirada @idEstudiante = @e1, @idGrupo = @g, @idCorrelacion = @corr,
+        EXEC dbo.usp_reactivar_matricula_retirada_interno @idEstudiante = @e1, @idGrupo = @g, @idCorrelacion = @corr,
             @codigoEstadoDestino = N'ZZ', @mensajeUsuarioResultado = @mu OUTPUT, @mensajeTecnicoResultado = @mt OUTPUT,
             @estadoResultado = @ok OUTPUT, @reactivada = @reactivada OUTPUT;
         IF @@TRANCOUNT <> 0 OR @ok <> 0 OR @reactivada <> 0 OR @mt NOT LIKE N'DBCODE=GEN[_]001|%'

@@ -14,7 +14,7 @@ GO
 -- pertenece a un grupo de un periodo cerrado. Que el periodo haya terminado por fecha (uv_periodo_academico.estado = CERRADO) NO lo
 -- cierra: entre fechaFin y el cierre masivo se pueden terminar reclamos y correcciones.
 -- Consumidores: usp_validar_sesion_ventana_registro_interno (abrir toma, abrir QR, lotes por toma y por sesion, registro por token),
--- usp_cerrar_toma_asistencia, usp_internal_radicar_solicitud_revision (v2, v3 y v4), usp_radicar_solicitud_revision_asistencia (v1),
+-- usp_cerrar_toma_asistencia, usp_radicar_solicitud_revision_interno (v2, v3 y v4), usp_radicar_solicitud_revision_asistencia (v1),
 -- usp_resolver_solicitud_revision_asistencia y usp_retirar_solicitud_revision_asistencia.
 -- Una sesion inexistente no se rechaza aqui (la existencia la valida el llamador). Sin escrituras ni transacciones; en exito deja
 -- intactos los mensajes y @estadoResultado. No recibe GRANT del runtime.
