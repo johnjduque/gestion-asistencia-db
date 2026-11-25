@@ -29,6 +29,8 @@ PRINT '======================================================================';
 -- HU074 (migracion 58): activar o inactivar asignaturas (ASI_009..ASI_012, @estaActivaDeseada idempotente, bordes de fecha) y efecto
 -- del estado en grupos, planes y ofertas
 :r /tmp/test/test_hu074_estado_asignatura.sql
+-- SKILLS-BD lote 1 (2026-11-25): caracterizacion de 5 funciones, 10 vistas y 2 nucleos usp_internal_* sin prueba directa
+:r /tmp/test/test_skills_lote1_cobertura.sql
 :r /tmp/test/test_reactive_academic.sql
 :r /tmp/test/test_mass_period_close.sql
 :r /tmp/test/test_usp_registrar_estudiante_en_grupo_usuario_no_existente.sql
