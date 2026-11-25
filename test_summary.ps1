@@ -826,6 +826,29 @@ try {
 catch {
     $resultFailures += "PARAM_MIG77_RUNNER $($_.Exception.Message)"
 }
+# SKILLS-BD lote 1 (2026-11-25): pruebas de concurrencia real que antes solo se corrian a mano.
+#   T-091-13: dos vinculos simultaneos del mismo (docente, programa) => uno OK y otro DOC_006 (test/test_docente_programa_concurrencia.ps1).
+#   LB-004D: radicacion y soporte concurrentes con dos conexiones (test/test_lb004d_concurrency.ps1; servidor SQL_SERVER o localhost,1433).
+try {
+    $docConcOutput = @(& (Join-Path $PSScriptRoot 'test/test_docente_programa_concurrencia.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $docConcOutput) { Write-Host $line }
+    if ($docConcOutput -contains 'TEST_PASS:T-091-13') { $clientPassed += 'T-091-13' }
+    else { $resultFailures += 'T-091-13 not reported by test_docente_programa_concurrencia.ps1' }
+}
+catch {
+    $resultFailures += "DOCENTE_PROGRAMA_CONCURRENCIA_RUNNER $($_.Exception.Message)"
+}
+try {
+    $lb004dConcOutput = @(& (Join-Path $PSScriptRoot 'test/test_lb004d_concurrency.ps1') -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $lb004dConcOutput) { Write-Host $line }
+    foreach ($id in @('LB004D_W1_CONCURRENT_IDEMPOTENT', 'LB004D_W2_CONCURRENT_SINGLE_WINNER', 'LB004D_CONCURRENCY_FIXTURE_CLEANED', 'CULM001_D2_11_CONCURRENCIA_V3')) {
+        if ($lb004dConcOutput -contains "TEST_PASS:$id") { $clientPassed += $id }
+        else { $resultFailures += "$id not reported by test_lb004d_concurrency.ps1" }
+    }
+}
+catch {
+    $resultFailures += "LB004D_CONCURRENCY_RUNNER $($_.Exception.Message)"
+}
 # SES-GEN-01: migracion 64 (up/down/up) en test/test_ses_gen_01_migracion.ps1.
 try {
     $sesGenMigOutput = @(& (Join-Path $PSScriptRoot 'test/test_ses_gen_01_migracion.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
@@ -1316,6 +1339,12 @@ $criticalIds = @(
     # Regresion P3 2026-11-22 (test/test_p3_regresion_2026_11_22.sql)
     'P3R_D1_01_ADMIN_PROGRAMAS_SOLO_VINCULADOS', 'P3R_D1_02_ADMIN_SIN_VINCULO_SIN_PROGRAMAS', 'P3R_D1_03_ADMIN_FILTRO_FACULTAD_VINCULADA',
     'P3R_D1_04_DECANO_SOLO_VINCULADOS', 'P3R_D2_01_MENSAJE_ESTADO_CANCELADA', 'P3R_TRANCOUNT_ZERO', 'P3R_MIG72_UP_DOWN_UP', 'DEC081_MIG75_UP_DOWN_UP', 'PARAM_MIG77_UP_DOWN_UP',
+    # SKILLS-BD lote 1 2026-11-25 (test/test_skills_lote1_cobertura.sql)
+    'SKL1_F01_VALIDAR_CORREO', 'SKL1_F02_VALIDAR_NUMERO', 'SKL1_F03_VALIDAR_TEXTO', 'SKL1_F04_IDENTIDAD_USUARIO_JSON',
+    'SKL1_F05_PROGRAMAS_AMBITO_EJECUTOR', 'SKL1_V01_CATALOGOS_REFLEJAN_TABLA', 'SKL1_V02_FORMA_VISTAS', 'SKL1_V03_AUDITORIA_EVENTO',
+    'SKL1_V04_ESTADISTICA_GRUPO', 'SKL1_V05_ESTUDIANTE_GRUPO_PROGRAMA', 'SKL1_V06_FACULTAD_RESUMEN', 'SKL1_S01_ASOCIAR_RECHAZOS',
+    'SKL1_S02_ASOCIAR_INSERTA_Y_REACTIVA', 'SKL1_S03_CERRAR_TOMA', 'SKL1_TRANCOUNT_ZERO',
+    'T-091-13', 'LB004D_W1_CONCURRENT_IDEMPOTENT', 'LB004D_W2_CONCURRENT_SINGLE_WINNER', 'LB004D_CONCURRENCY_FIXTURE_CLEANED', 'CULM001_D2_11_CONCURRENCIA_V3',
     # P3 fase F5 (migracion 71 en test/test_p3_f5_notificaciones_migracion_71.ps1)
     'P3F5_MIG71_UP_DOWN_UP',
     # AUD-BD M-9: ids que las pruebas ya emitian y el resumen no exigia (todos pasan en una corrida completa del gate; scripts/check-test-summary-parity.ps1)

@@ -1,3 +1,4 @@
+# MANUAL (SKILLS-BD lote 1, 2026-11-25): fuera de test_summary.ps1 y del CI a proposito: verificacion historica de las migraciones 17 y 18; necesita un backup COPY_ONLY del esquema A+B que el CI no tiene.
 # CULM-001 B2NM (B2NM-12, DEC-025): secuencia completa de las migraciones 17 y 18 sobre una BD PROPIA restaurada desde un backup COPY_ONLY del
 # esquema A+B. Nunca toca la BD compartida. Credenciales: se leen de .env en cada ejecucion (no se escriben en ningun archivo).
 # Uso: .\test\test_culm001_b2nm_migracion.ps1 -Backup /var/opt/mssql/data/b2nm_copy.bak [-Database gestionasistenciadb_b2nm_mig]
