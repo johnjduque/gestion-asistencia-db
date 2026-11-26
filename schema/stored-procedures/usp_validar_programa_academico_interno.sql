@@ -13,6 +13,8 @@ GO
 -- concurrentes con el mismo coordinador (regla 1 a 1).
 -- @idPrograma = NULL en el alta; en la edicion se excluye al propio programa de las reglas de unicidad.
 -- =============================================================================
+-- SKILLS-BD lote 4 (2026-11-25): PASO n, TRY/CATCH (relanza dentro de transaccion; si no, SYS_001) y lectura del
+-- coordinador actual por uv_programa (antes, la tabla). Las lecturas con UPDLOCK/HOLDLOCK siguen sobre la tabla.
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_programa_academico_interno]
 (
     @idPrograma              UNIQUEIDENTIFIER = NULL,
@@ -40,98 +42,117 @@ BEGIN
     SET @mensajeTecnicoResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     SET @estadoResultado = 1;
 
-    IF @estadoResultado = 1 AND (@nombreDef IS NULL OR @nombreDef = '' OR LEN(@nombreDef) > 50)
-    BEGIN
-        SET @msgP1 = CAST('nombre' AS NVARCHAR(500));
+    BEGIN TRY
+        -- PASO 1: nombre obligatorio (GEN_002) y unico en la facultad (PROG_003)
+        IF @estadoResultado = 1 AND (@nombreDef IS NULL OR @nombreDef = '' OR LEN(@nombreDef) > 50)
+        BEGIN
+            SET @msgP1 = CAST('nombre' AS NVARCHAR(500));
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'GEN_002',
+                @p_param1 = @msgP1,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
+        IF @estadoResultado = 1 AND EXISTS (SELECT 1 FROM dbo.uv_programa p WHERE p.idFacultad = @idFacultad AND LOWER(p.nombrePrograma) = LOWER(@nombreDef) AND (@idPrograma IS NULL OR p.id <> @idPrograma))
+        BEGIN
+            SET @msgP1 = CAST(@nombreDef AS NVARCHAR(500));
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'PROG_003',
+                @p_param1 = @msgP1,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
+        -- PASO 2: catalogos tipo de programa (PROG_004), modalidad y jornada (PROG_006)
+        IF @estadoResultado = 1 AND (@idTipoPrograma IS NULL OR NOT EXISTS (SELECT 1 FROM dbo.uv_tipo_programa t WHERE t.id = @idTipoPrograma AND t.estaActivoTipoPrograma = 1))
+        BEGIN
+            SET @msgP1 = CAST(CONVERT(NVARCHAR(36), @idTipoPrograma) AS NVARCHAR(500));
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'PROG_004',
+                @p_param1 = @msgP1,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
+        IF @estadoResultado = 1 AND (@idModalidad IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.uv_modalidad m WHERE m.id = @idModalidad AND m.estaActivoModalidad = 1))
+        BEGIN
+            SET @msgP1 = CAST(CONVERT(NVARCHAR(36), @idModalidad) AS NVARCHAR(500));
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'PROG_006',
+                @p_param1 = @msgP1,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
+        IF @estadoResultado = 1 AND (@idJornada IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.uv_jornada j WHERE j.id = @idJornada AND j.estaActivoJornada = 1))
+        BEGIN
+            SET @msgP1 = CAST(CONVERT(NVARCHAR(36), @idJornada) AS NVARCHAR(500));
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'PROG_006',
+                @p_param1 = @msgP1,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
+        -- PASO 3: coordinador. Serializa por fila del coordinador y valida existencia, actividad y disponibilidad.
+        -- HU121/HU122: si CAMBIA de coordinador, el nuevo debe tener el rol activo y pertenecer a la facultad
+        -- (Coordinador.facultad); editar el programa con su coordinador actual no exige revalidarlos.
+        IF @idPrograma IS NOT NULL
+        BEGIN
+            SELECT @coordinadorActual = p.idCoordinador FROM dbo.uv_programa p WHERE p.id = @idPrograma;
+        END
+
+        IF @estadoResultado = 1 AND @idCoordinador IS NOT NULL
+        BEGIN
+            SELECT @coordinadorBloqueado = c.id
+            FROM dbo.Coordinador c WITH (UPDLOCK, HOLDLOCK)
+            WHERE c.id = @idCoordinador;
+        END
+
+        IF @estadoResultado = 1 AND (@idCoordinador IS NULL OR @coordinadorBloqueado IS NULL OR NOT EXISTS (SELECT 1 FROM dbo.uv_coordinador_identidad ci WHERE ci.id = @idCoordinador AND ci.estaActivoUsuario = 1) OR ((@coordinadorActual IS NULL OR @coordinadorActual <> @idCoordinador) AND NOT EXISTS (SELECT 1 FROM dbo.uv_coordinador_identidad ci WHERE ci.id = @idCoordinador AND ci.estaActivoRolCoordinador = 1 AND ci.idFacultadCoordinador = @idFacultad)) OR EXISTS (SELECT 1 FROM dbo.Programa pr WITH (UPDLOCK, HOLDLOCK) WHERE pr.coordinador = @idCoordinador AND (@idPrograma IS NULL OR pr.id <> @idPrograma)))
+        BEGIN
+            SET @msgP1 = CAST(CONVERT(NVARCHAR(36), @idCoordinador) AS NVARCHAR(500));
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'PROG_005',
+                @p_param1 = @msgP1,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+    END TRY
+    BEGIN CATCH
+        -- Corre dentro de la transaccion del llamador: si hay transaccion abierta se relanza para que el
+        -- llamador revierta (comportamiento previo, sin TRY); si no, triplete SYS_001.
+        IF XACT_STATE() <> 0
+        BEGIN
+            THROW;
+        END
+
         EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'GEN_002',
-            @p_param1 = @msgP1,
+            @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
         SET @estadoResultado = 0;
-    END
-
-    IF @estadoResultado = 1 AND EXISTS (SELECT 1 FROM dbo.uv_programa p WHERE p.idFacultad = @idFacultad AND LOWER(p.nombrePrograma) = LOWER(@nombreDef) AND (@idPrograma IS NULL OR p.id <> @idPrograma))
-    BEGIN
-        SET @msgP1 = CAST(@nombreDef AS NVARCHAR(500));
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'PROG_003',
-            @p_param1 = @msgP1,
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-    END
-
-    IF @estadoResultado = 1 AND (@idTipoPrograma IS NULL OR NOT EXISTS (SELECT 1 FROM dbo.uv_tipo_programa t WHERE t.id = @idTipoPrograma AND t.estaActivoTipoPrograma = 1))
-    BEGIN
-        SET @msgP1 = CAST(CONVERT(NVARCHAR(36), @idTipoPrograma) AS NVARCHAR(500));
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'PROG_004',
-            @p_param1 = @msgP1,
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-    END
-
-    IF @estadoResultado = 1 AND (@idModalidad IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.uv_modalidad m WHERE m.id = @idModalidad AND m.estaActivoModalidad = 1))
-    BEGIN
-        SET @msgP1 = CAST(CONVERT(NVARCHAR(36), @idModalidad) AS NVARCHAR(500));
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'PROG_006',
-            @p_param1 = @msgP1,
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-    END
-
-    IF @estadoResultado = 1 AND (@idJornada IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.uv_jornada j WHERE j.id = @idJornada AND j.estaActivoJornada = 1))
-    BEGIN
-        SET @msgP1 = CAST(CONVERT(NVARCHAR(36), @idJornada) AS NVARCHAR(500));
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'PROG_006',
-            @p_param1 = @msgP1,
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-    END
-
-    -- Coordinador: serializa por fila del coordinador y valida existencia, actividad y disponibilidad.
-    -- HU121/HU122: si CAMBIA de coordinador, el nuevo debe tener el rol activo y pertenecer a la facultad
-    -- (Coordinador.facultad); editar el programa con su coordinador actual no exige revalidarlos.
-    IF @idPrograma IS NOT NULL
-    BEGIN
-        SELECT @coordinadorActual = pr.coordinador FROM dbo.Programa pr WHERE pr.id = @idPrograma;
-    END
-
-    IF @estadoResultado = 1 AND @idCoordinador IS NOT NULL
-    BEGIN
-        SELECT @coordinadorBloqueado = c.id
-        FROM dbo.Coordinador c WITH (UPDLOCK, HOLDLOCK)
-        WHERE c.id = @idCoordinador;
-    END
-
-    IF @estadoResultado = 1 AND (@idCoordinador IS NULL OR @coordinadorBloqueado IS NULL OR NOT EXISTS (SELECT 1 FROM dbo.uv_coordinador_identidad ci WHERE ci.id = @idCoordinador AND ci.estaActivoUsuario = 1) OR ((@coordinadorActual IS NULL OR @coordinadorActual <> @idCoordinador) AND NOT EXISTS (SELECT 1 FROM dbo.uv_coordinador_identidad ci WHERE ci.id = @idCoordinador AND ci.estaActivoRolCoordinador = 1 AND ci.idFacultadCoordinador = @idFacultad)) OR EXISTS (SELECT 1 FROM dbo.Programa pr WITH (UPDLOCK, HOLDLOCK) WHERE pr.coordinador = @idCoordinador AND (@idPrograma IS NULL OR pr.id <> @idPrograma)))
-    BEGIN
-        SET @msgP1 = CAST(CONVERT(NVARCHAR(36), @idCoordinador) AS NVARCHAR(500));
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'PROG_005',
-            @p_param1 = @msgP1,
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-    END
-
+    END CATCH
 END;
 GO

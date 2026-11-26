@@ -8,6 +8,7 @@ GO
 -- HU121/HU122: valida que el coordinador exista y pertenezca a la facultad indicada.
 -- Devuelve GEN_001 ('Coordinador') tanto si no existe como si es de otra facultad, para no revelar su existencia.
 -- Sin transaccion propia: corre dentro de la fachada publica que la invoca.
+-- SKILLS-BD lote 4 (2026-11-25): PASO n y correlacion por defecto (@idCorrelacionDefecto) en los mensajes; mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_coordinador_de_facultad_interno]
 (
     @idCoordinador           UNIQUEIDENTIFIER,
@@ -18,6 +19,7 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_validar_coordinador_de_facultad_interno]
     @estadoResultado         BIT OUTPUT
 )
 AS
+    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
 BEGIN
     SET NOCOUNT ON;
 
@@ -27,6 +29,7 @@ BEGIN
         @estadoResultado = 1;
 
     BEGIN TRY
+        -- PASO 1: el coordinador existe y es de la facultad (GEN_001 en ambos casos)
         IF @idCoordinador IS NULL OR @idFacultad IS NULL
            OR NOT EXISTS (SELECT 1 FROM dbo.uv_coordinador WHERE id = @idCoordinador AND idFacultad = @idFacultad)
         BEGIN
@@ -36,7 +39,7 @@ BEGIN
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacion);
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
             SET @estadoResultado = 0;
         END
     END TRY
@@ -46,7 +49,7 @@ BEGIN
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacion);
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
         SET @estadoResultado = 0;
     END CATCH
 END;

@@ -559,3 +559,20 @@ Misma firma, mismo resultset y mismos códigos; prueba `test/test_skills_lote3_c
 | `usp_corregir_identidad_usuario` | Ámbito del coordinador, del administrador y del decano por vistas `uv_*` (la fila del usuario se sigue leyendo con `UPDLOCK, HOLDLOCK` en `dbo.Usuario`); `correo` y `numeroIdentificacion` devueltos desde `uv_usuario`; `IF` con `BEGIN/END` |
 | `usp_vincular_identidad_externa`, `usp_revocar_identidad_externa` | `DECLARE` del `CATCH` movidos a la cabecera; `IF` con `BEGIN/END`. Las lecturas de `IdentidadExterna` y `Usuario` son con bloqueo y siguen en la tabla |
 | `usp_sincronizar_mensaje_usuario` | `IF` con `BEGIN/END`; la fecha nueva se relee con `UPDLOCK, HOLDLOCK` (la fila ya está bloqueada; `uv_mensaje_usuario` filtra los mensajes inactivos y no sirve para esta relectura) |
+
+## Addendum SKILLS-BD lote 4 (2026-11-25): decano, facultad, coordinador y programas
+
+Misma firma, mismo resultset y mismos códigos; prueba `test/test_skills_lote4_caracterizacion.sql` más las de dominio de cada SP.
+
+| SP | Cambio en el lote 4 |
+| :--- | :--- |
+| `usp_crear_decano_con_facultad` | Rol de decano por `uv_decano_rol` (antes, la tabla); `IF` con `BEGIN/END` |
+| `usp_cambiar_estado_decano` | Ámbito del administrador por `uv_facultad` y `uv_administrador`; `IF` con `BEGIN/END`. Las lecturas con `UPDLOCK, HOLDLOCK` (`Decano`, `Programa`) siguen en la tabla |
+| `usp_cambiar_estado_coordinador`, `usp_actualizar_coordinador` | `@idCorrelacionDefecto` en mensajes y llamadas internas (el resultset sigue devolviendo el `idCorrelacion` recibido); `DECLARE` del `CATCH` a la cabecera; `IF` con `BEGIN/END` |
+| `usp_actualizar_programa_academico`, `usp_cambiar_estado_programa_academico` | `PASO n` y `SET XACT_ABORT ON` (fachadas que mutan) |
+| `usp_consultar_coordinadores_facultad_paginado` | Búsqueda sin `ISNULL` (un `CHARINDEX` sobre `NULL` no coincide, igual que sobre cadena vacía); `PASO n` y comentario del `CATCH` de lectura |
+| `usp_consultar_estructura_facultad` | Ámbito del decano por `uv_facultad` y `uv_decano_identidad` (antes, las tablas); comentario del `CATCH` de lectura |
+| `usp_consultar_programas_academicos` | `DECLARE` en la cabecera (antes, dentro del `BEGIN`); comentario del `CATCH` de lectura |
+| `usp_consultar_programas_creditos_facultad_paginado` | Vínculos asignatura-plan por `uv_asignatura_plan_estudio` (antes, la tabla puente más `uv_asignatura`; mismas filas porque todas las FK del camino son `NOT NULL`); `PASO n` y comentario del `CATCH` de lectura |
+
+Los `ISNULL` que quedan en estas consultas son sobre agregaciones (`MAX`, `COUNT`, `SUM`), permitidos por la skill.

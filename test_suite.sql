@@ -35,6 +35,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_skills_lote2_caracterizacion.sql
 -- SKILLS-BD lote 3 (2026-11-25): nucleos de usuario, validadores, mensajes, contexto y perfil por rol (parametros, usuarios e identidad)
 :r /tmp/test/test_skills_lote3_caracterizacion.sql
+-- SKILLS-BD lote 4 (2026-11-25): decano, facultad, coordinador y programas (vista uv_decano_rol, nucleos y resolvers)
+:r /tmp/test/test_skills_lote4_caracterizacion.sql
 :r /tmp/test/test_reactive_academic.sql
 :r /tmp/test/test_mass_period_close.sql
 :r /tmp/test/test_usp_registrar_estudiante_en_grupo_usuario_no_existente.sql

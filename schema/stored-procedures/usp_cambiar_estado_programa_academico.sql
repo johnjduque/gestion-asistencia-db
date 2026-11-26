@@ -12,6 +12,7 @@ GO
 -- Salida Canonica: (idCorrelacion, mensajeUsuarioResultado, mensajeTecnicoResultado, estadoResultado)
 -- Fachada: valida correlacion, ejecutor, RBAC y titularidad; la mutacion atomica vive en el interno.
 -- =============================================================================
+-- SKILLS-BD lote 4 (2026-11-25): comentarios PASO n y SET XACT_ABORT ON (fachada mutacional); sin cambios de logica.
 CREATE OR ALTER PROCEDURE [dbo].[usp_cambiar_estado_programa_academico]
 (
     @idPrograma              UNIQUEIDENTIFIER = NULL,
@@ -30,7 +31,10 @@ AS
 
 BEGIN
     SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
     BEGIN TRY
+        -- PASO 1: correlacion y ejecutor obligatorios
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
@@ -50,6 +54,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 2: RBAC DECANO
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_validar_permiso_rbac_usuario_interno
@@ -61,6 +66,7 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
+        -- PASO 3: el programa es de la facultad del decano ejecutor (PROG_001) y titularidad
         IF @estadoResultado = 1
         BEGIN
             SELECT @idFacultadDefecto = p.idFacultad
@@ -95,6 +101,7 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
+        -- PASO 4: estado destino obligatorio
         IF @estadoResultado = 1 AND @estaActivo IS NULL
         BEGIN
             SET @msgP1 = CAST('estaActivo' AS NVARCHAR(500));
@@ -109,6 +116,7 @@ BEGIN
         END
 
 
+        -- PASO 5: reglas y persistencia en el interno
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_cambiar_estado_programa_academico_interno
