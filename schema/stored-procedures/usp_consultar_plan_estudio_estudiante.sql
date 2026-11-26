@@ -21,84 +21,91 @@ GO
 -- Orden: nombrePrograma, inp, numeroSemestre, orden del caracter, nombre de la asignatura. Sin paginacion (a lo sumo
 -- la malla de sus programas). Solo lectura.
 -- ============================================================================
+-- SKILLS-BD lote 7 (2026-11-26): estudiante y vinculos por uv_estudiante_identidad y uv_estudiante_programa (antes, las
+-- tablas) y TRY/CATCH de lectura; mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_plan_estudio_estudiante]
 (
     @idUsuarioEjecutor UNIQUEIDENTIFIER,
     @idCorrelacion     UNIQUEIDENTIFIER
 )
 AS
-
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @codigoInscrita NVARCHAR(10) = CAST(dbo.ufn_obtener_parametro('MATRICULA', 'ESTADO_INSCRITA') AS NVARCHAR(10));
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado BIT = 1;
     DECLARE @idEstudiante UNIQUEIDENTIFIER;
-
 BEGIN
     SET NOCOUNT ON;
 
-    -- PASO 1: correlacion obligatoria
-    EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
-        @idCorrelacion = @idCorrelacionDefecto,
-        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-        @estadoResultado = @estadoResultado OUTPUT;
-
-    -- PASO 2: ejecutor obligatorio (VAL_001)
-    IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'VAL_001', @p_param1 = 'UsuarioEjecutor',
+    BEGIN TRY
+        -- PASO 1: correlacion obligatoria
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
+            @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-    END
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+            @estadoResultado = @estadoResultado OUTPUT;
 
-    IF @estadoResultado = 0
-    BEGIN
-        THROW 51000, @mensajeTecnicoResultado, 1;
-    END
+        -- PASO 2: ejecutor obligatorio (VAL_001)
+        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'VAL_001', @p_param1 = 'UsuarioEjecutor',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
 
-    -- PASO 3: estudiante del ejecutor (sin estudiante, 0 filas)
-    SET @idEstudiante = (SELECT TOP 1 e.id FROM dbo.Estudiante e WHERE e.usuario = @idUsuarioEjecutor);
+        IF @estadoResultado = 0
+        BEGIN
+            THROW 51000, @mensajeTecnicoResultado, 1;
+        END
 
-    -- PASO 4: semestres y asignaturas de los planes activos de sus programas
-    SELECT
-        idPrograma              = sp.idPrograma,
-        nombrePrograma          = sp.nombrePrograma,
-        idPlanEstudio           = sp.idPlanEstudio,
-        inpPlanEstudio          = sp.inp,
-        idSemestrePlanEstudio   = sp.id,
-        numeroSemestre          = sp.numeroSemestre,
-        idAsignaturaPlanEstudio = v.idAsignaturaPlanEstudio,
-        idAsignatura            = v.idAsignatura,
-        codigoAsignatura        = v.codigoAsignatura,
-        nombreAsignatura        = v.nombreAsignatura,
-        creditos                = v.credito,
-        codigoComponente        = CAST(v.codigoComponente AS NVARCHAR(3)),
-        nombreComponente        = v.nombreComponente,
-        codigoCaracter          = CAST(v.codigoCaracter AS NVARCHAR(3)),
-        nombreCaracter          = CAST(v.nombreCaracter AS NVARCHAR(50)),
-        cursando                = CAST(IIF(cur.idGrupo IS NULL, 0, 1) AS BIT),
-        idGrupoCursando         = cur.idGrupo,
-        nombreGrupoCursando     = cur.nombreGrupo
-    FROM dbo.uv_semestre_plan_estudio sp
-    INNER JOIN dbo.uv_plan_estudio pe
-        ON pe.id = sp.idPlanEstudio AND pe.estaActivoPlanEstudio = 1
-    LEFT JOIN dbo.uv_asignatura_plan_estudio v
-        ON v.idSemestrePlanEstudio = sp.id AND v.estaActivoVinculo = 1 AND v.estaActivaAsignatura = 1
-    OUTER APPLY (SELECT TOP 1 idGrupo = eg.idGrupo, nombreGrupo = eg.nombreGrupo
-                 FROM dbo.uv_estudiante_grupo eg
-                 INNER JOIN dbo.uv_grupo g ON g.id = eg.idGrupo
-                 WHERE eg.idEstudiante = @idEstudiante
-                   AND eg.codigoEstadoEstudiante = @codigoInscrita
-                   AND g.idAsignatura = v.idAsignatura
-                 ORDER BY eg.codigoGrupo ASC, eg.idGrupo ASC) cur
-    WHERE @idEstudiante IS NOT NULL
-      AND EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep WHERE ep.estudiante = @idEstudiante AND ep.programa = sp.idPrograma)
-    ORDER BY sp.nombrePrograma ASC, sp.idPrograma ASC, sp.inp ASC, sp.idPlanEstudio ASC, sp.numeroSemestre ASC, sp.id ASC,
-             v.ordenCaracter ASC, v.nombreAsignatura ASC, v.idAsignatura ASC;
+        -- PASO 3: estudiante del ejecutor (sin estudiante, 0 filas)
+        SET @idEstudiante = (SELECT TOP 1 e.id FROM dbo.uv_estudiante_identidad e WHERE e.idUsuario = @idUsuarioEjecutor);
+
+        -- PASO 4: semestres y asignaturas de los planes activos de sus programas
+        SELECT
+            idPrograma              = sp.idPrograma,
+            nombrePrograma          = sp.nombrePrograma,
+            idPlanEstudio           = sp.idPlanEstudio,
+            inpPlanEstudio          = sp.inp,
+            idSemestrePlanEstudio   = sp.id,
+            numeroSemestre          = sp.numeroSemestre,
+            idAsignaturaPlanEstudio = v.idAsignaturaPlanEstudio,
+            idAsignatura            = v.idAsignatura,
+            codigoAsignatura        = v.codigoAsignatura,
+            nombreAsignatura        = v.nombreAsignatura,
+            creditos                = v.credito,
+            codigoComponente        = CAST(v.codigoComponente AS NVARCHAR(3)),
+            nombreComponente        = v.nombreComponente,
+            codigoCaracter          = CAST(v.codigoCaracter AS NVARCHAR(3)),
+            nombreCaracter          = CAST(v.nombreCaracter AS NVARCHAR(50)),
+            cursando                = CAST(IIF(cur.idGrupo IS NULL, 0, 1) AS BIT),
+            idGrupoCursando         = cur.idGrupo,
+            nombreGrupoCursando     = cur.nombreGrupo
+        FROM dbo.uv_semestre_plan_estudio sp
+        INNER JOIN dbo.uv_plan_estudio pe
+            ON pe.id = sp.idPlanEstudio AND pe.estaActivoPlanEstudio = 1
+        LEFT JOIN dbo.uv_asignatura_plan_estudio v
+            ON v.idSemestrePlanEstudio = sp.id AND v.estaActivoVinculo = 1 AND v.estaActivaAsignatura = 1
+        OUTER APPLY (SELECT TOP 1 idGrupo = eg.idGrupo, nombreGrupo = eg.nombreGrupo
+                     FROM dbo.uv_estudiante_grupo eg
+                     INNER JOIN dbo.uv_grupo g ON g.id = eg.idGrupo
+                     WHERE eg.idEstudiante = @idEstudiante
+                       AND eg.codigoEstadoEstudiante = @codigoInscrita
+                       AND g.idAsignatura = v.idAsignatura
+                     ORDER BY eg.codigoGrupo ASC, eg.idGrupo ASC) cur
+        WHERE @idEstudiante IS NOT NULL
+          AND EXISTS (SELECT 1 FROM dbo.uv_estudiante_programa ep WHERE ep.idEstudiante = @idEstudiante AND ep.idPrograma = sp.idPrograma)
+        ORDER BY sp.nombrePrograma ASC, sp.idPrograma ASC, sp.inp ASC, sp.idPlanEstudio ASC, sp.numeroSemestre ASC, sp.id ASC,
+                 v.ordenCaracter ASC, v.nombreAsignatura ASC, v.idAsignatura ASC;
+    END TRY
+    BEGIN CATCH
+        -- PASO 5: consulta de lectura (READ_QUERY_RESULTSET): el error, incluido el rechazo de validacion,
+        -- se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
+        THROW;
+    END CATCH
 END;
 GO

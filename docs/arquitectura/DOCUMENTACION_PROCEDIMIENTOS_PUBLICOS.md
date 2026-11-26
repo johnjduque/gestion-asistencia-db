@@ -612,3 +612,21 @@ Misma firma, mismo resultset y mismos códigos; prueba `test/test_skills_lote6_c
 | `usp_buscar_asignaturas_paginado`, `usp_consultar_componentes_formacion` | Comentario del `CATCH` de lectura (y `PASO n` en el primero) |
 
 Los `ISNULL`/`COALESCE` que quedan en este grupo son sobre agregaciones (`MAX`, `SUM`), permitidos por la skill.
+
+## Addendum SKILLS-BD lote 7 (2026-11-26): estudiantes y matrícula en grupo
+
+Misma firma, mismo resultset y mismos códigos; prueba `test/test_skills_lote7_caracterizacion.sql` más las de dominio de cada SP.
+
+| SP | Cambio en el lote 7 |
+| :--- | :--- |
+| `usp_registrar_estudiante_en_grupo` | `DECLARE` de los pasos a la cabecera (asignados con `SET` en su paso); usuario, estudiante y tipo de identificación por `uv_usuario`, `uv_estudiante_identidad` y `uv_tipo_identificacion` (antes, las tablas); `IF` con `BEGIN/END` |
+| `usp_retirar_estudiante_grupo` | Estados por `uv_estado_estudiante_grupo`; docente y periodo por `uv_docente_identidad` y `uv_periodo_academico`. El bloqueo `UPDLOCK, HOLDLOCK` sigue sobre las tablas `Grupo` y `EstudianteGrupo` |
+| `usp_abrir_ventana_matricula_grupo` | Titular por `uv_grupo`/`uv_docente_identidad` (antes, las tablas); `DECLARE` en la cabecera. El token sigue leyéndose con bloqueo en la tabla |
+| `usp_cerrar_ventana_matricula_grupo` | `PASO n`, `DECLARE` en la cabecera, `IF` con `BEGIN/END` y `SET XACT_ABORT ON` (fachada que muta y no lo tenía) |
+| `usp_actualizar_semestre_estudiante_programa` | Vínculo y semestres por `uv_estudiante_programa` y `uv_semestre` (antes, las tablas); `PASO n` |
+| `usp_buscar_estudiante_por_documento_grupo`, `usp_consultar_destinatarios_retiro_estudiante_grupo`, `usp_consultar_estudiantes_grupo_ambito_paginado`, `usp_consultar_directorio_estudiantes_paginado` | Ámbito, grupo, docente y estudiante por vistas `uv_*` (antes, las tablas); `DECLARE` en la cabecera, `PASO n` y `TRY/CATCH` de lectura |
+| `usp_consultar_estudiante_facultad_detalle`, `usp_consultar_estudiantes_facultad_paginado` | Facultad del decano por `uv_facultad`/`uv_decano_identidad` (antes, las tablas); `TRY/CATCH` de lectura |
+| `usp_consultar_horas_programadas_estudiante`, `usp_consultar_plan_estudio_estudiante` | Estudiante y vínculos por `uv_estudiante_identidad` y `uv_estudiante_programa`; `TRY/CATCH` de lectura |
+| `usp_buscar_estudiantes_institucion_paginado`, `usp_consultar_bitacora_estudiante_programa`, `usp_consultar_faltas_reclamables_estudiante`, `usp_consultar_ficha_estudiante_programa`, `usp_consultar_materias_estudiante`, `usp_consultar_ventanas_matricula_por_rotar` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END` y `TRY/CATCH` de lectura que relanza |
+
+Los `ISNULL` que quedan en `usp_consultar_horas_programadas_estudiante` son sobre agregaciones (`SUM`), permitidos por la skill.

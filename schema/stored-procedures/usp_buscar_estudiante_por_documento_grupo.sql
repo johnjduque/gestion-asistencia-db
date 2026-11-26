@@ -23,6 +23,8 @@ GO
 --     '@dominio'; el correo real nunca sale) y codigoEstadoMatriculaGrupo (su matricula en ESE grupo o NULL).
 -- Solo lectura.
 -- ============================================================================
+-- SKILLS-BD lote 7 (2026-11-26): lecturas por uv_grupo, uv_docente_identidad, uv_usuario, uv_estudiante_identidad,
+-- uv_estudiante_programa, uv_estudiante_grupo y uv_programa (antes, las tablas) y TRY/CATCH de lectura; mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_buscar_estudiante_por_documento_grupo]
 (
     @idGrupo              UNIQUEIDENTIFIER,
@@ -41,100 +43,100 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
-    -- PASO 1: correlacion obligatoria
-    EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
-        @idCorrelacion = @idCorrelacionDefecto,
-        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-        @estadoResultado = @estadoResultado OUTPUT;
-
-    -- PASO 2: ejecutor obligatorio (VAL_001)
-    IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'VAL_001', @p_param1 = 'UsuarioEjecutor',
+    BEGIN TRY
+        -- PASO 1: correlacion obligatoria
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
+            @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-    END
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+            @estadoResultado = @estadoResultado OUTPUT;
 
-    -- PASO 3: titularidad del docente ejecutor sobre el grupo (SEC_002)
-    IF @estadoResultado = 1
-       AND NOT EXISTS (SELECT 1 FROM dbo.Grupo g
-                       INNER JOIN dbo.Docente d ON d.id = g.docente
-                       INNER JOIN dbo.Usuario u ON u.id = d.usuario
-                       WHERE g.id = @idGrupo AND d.usuario = @idUsuarioEjecutor AND u.estado = 1)
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'SEC_002',
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-    END
+        -- PASO 2: ejecutor obligatorio (VAL_001)
+        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'VAL_001', @p_param1 = 'UsuarioEjecutor',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
 
-    -- PASO 4: documento obligatorio y positivo (VAL_001)
-    IF @estadoResultado = 1 AND (@idTipoIdentificacion IS NULL OR @numeroIdentificacion IS NULL OR @numeroIdentificacion <= 0)
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'VAL_001', @p_param1 = 'numeroIdentificacion',
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-    END
+        -- PASO 3: titularidad del docente ejecutor sobre el grupo (SEC_002)
+        IF @estadoResultado = 1
+           AND NOT EXISTS (SELECT 1 FROM dbo.uv_grupo g
+                           INNER JOIN dbo.uv_docente_identidad d ON d.id = g.idDocente
+                           WHERE g.id = @idGrupo AND d.idUsuario = @idUsuarioEjecutor AND d.estaActivoUsuario = 1)
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'SEC_002',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
 
-    IF @estadoResultado = 0
-    BEGIN
-        THROW 51000, @mensajeTecnicoResultado, 1;
-    END
+        -- PASO 4: documento obligatorio y positivo (VAL_001)
+        IF @estadoResultado = 1 AND (@idTipoIdentificacion IS NULL OR @numeroIdentificacion IS NULL OR @numeroIdentificacion <= 0)
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'VAL_001', @p_param1 = 'numeroIdentificacion',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
 
-    -- PASO 5: institucion del grupo
-    SELECT @idInstitucionGrupo = f.institucion
-    FROM dbo.Grupo g
-    INNER JOIN dbo.uv_grupo_programa gpx ON gpx.idGrupo = g.id   -- CULM-001 B2NM: vigencia S1
-    INNER JOIN dbo.Programa p ON p.id = gpx.idPrograma
-    INNER JOIN dbo.Facultad f ON f.id = p.facultad
-    WHERE g.id = @idGrupo;
+        IF @estadoResultado = 0
+        BEGIN
+            THROW 51000, @mensajeTecnicoResultado, 1;
+        END
 
-    -- PASO 6: busqueda exacta de un estudiante, con alcance institucional y datos minimos
-    SELECT TOP 1
-        idEstudiante               = e.id,
-        primerNombre               = u.primerNombre,
-        segundoNombre              = u.segundoNombre,
-        primerApellido             = u.primerApellido,
-        segundoApellido            = u.segundoApellido,
-        nombreCompleto             = CAST(CONCAT(LTRIM(RTRIM(CONCAT(u.primerNombre, N' ', u.segundoNombre))), N' ',
-                                         LTRIM(RTRIM(CONCAT(u.primerApellido, N' ', u.segundoApellido)))) AS NVARCHAR(400)),
-        numeroIdentificacion       = u.numeroIdentificacion,
-        correoEnmascarado          = CAST(IIF(CHARINDEX(N'@', u.correo) > 1,
-                                         CONCAT(LEFT(u.correo, 1), N'***', SUBSTRING(u.correo, CHARINDEX(N'@', u.correo), LEN(u.correo))),
-                                         CONCAT(LEFT(u.correo, 1), N'***')) AS NVARCHAR(120)),
-        codigoEstadoMatriculaGrupo = (SELECT TOP 1 es.codigo FROM dbo.EstudianteGrupo eg
-                                      INNER JOIN dbo.uv_estado_estudiante_grupo es ON es.id = eg.estado
-                                      WHERE eg.estudiante = e.id AND eg.grupo = @idGrupo
-                                      ORDER BY eg.id)
-    FROM dbo.Usuario u
-    INNER JOIN dbo.Estudiante e ON e.usuario = u.id
-    WHERE u.tipoIdIdentificacion = @idTipoIdentificacion
-      AND u.numeroIdentificacion = @numeroIdentificacion
-      AND (
-            -- sin vinculos: alta pendiente de matricula (A2-C1)
-            (NOT EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep WHERE ep.estudiante = e.id)
-             AND NOT EXISTS (SELECT 1 FROM dbo.EstudianteGrupo eg WHERE eg.estudiante = e.id))
-            -- algun vinculo en la institucion del grupo
-            OR EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep
-                       INNER JOIN dbo.Programa p ON p.id = ep.programa
-                       INNER JOIN dbo.Facultad f ON f.id = p.facultad
-                       WHERE ep.estudiante = e.id AND f.institucion = @idInstitucionGrupo)
-            OR EXISTS (SELECT 1 FROM dbo.EstudianteGrupo eg
-                       INNER JOIN dbo.Grupo g ON g.id = eg.grupo
-                       INNER JOIN dbo.uv_grupo_programa gpx ON gpx.idGrupo = g.id   -- CULM-001 B2NM: vigencia S1
-                       INNER JOIN dbo.Programa p ON p.id = gpx.idPrograma
-                       INNER JOIN dbo.Facultad f ON f.id = p.facultad
-                       WHERE eg.estudiante = e.id AND f.institucion = @idInstitucionGrupo)
-          )
-    ORDER BY e.id;
+        -- PASO 5: institucion del grupo
+        SELECT @idInstitucionGrupo = p.idInstitucion
+        FROM dbo.uv_grupo_programa gpx   -- CULM-001 B2NM: vigencia S1
+        INNER JOIN dbo.uv_programa p ON p.id = gpx.idPrograma
+        WHERE gpx.idGrupo = @idGrupo;
+
+        -- PASO 6: busqueda exacta de un estudiante, con alcance institucional y datos minimos
+        SELECT TOP 1
+            idEstudiante               = e.id,
+            primerNombre               = u.primerNombre,
+            segundoNombre              = u.segundoNombre,
+            primerApellido             = u.primerApellido,
+            segundoApellido            = u.segundoApellido,
+            nombreCompleto             = CAST(CONCAT(LTRIM(RTRIM(CONCAT(u.primerNombre, N' ', u.segundoNombre))), N' ',
+                                             LTRIM(RTRIM(CONCAT(u.primerApellido, N' ', u.segundoApellido)))) AS NVARCHAR(400)),
+            numeroIdentificacion       = u.numeroIdentificacion,
+            correoEnmascarado          = CAST(IIF(CHARINDEX(N'@', u.correo) > 1,
+                                             CONCAT(LEFT(u.correo, 1), N'***', SUBSTRING(u.correo, CHARINDEX(N'@', u.correo), LEN(u.correo))),
+                                             CONCAT(LEFT(u.correo, 1), N'***')) AS NVARCHAR(120)),
+            codigoEstadoMatriculaGrupo = (SELECT TOP 1 eg.codigoEstadoEstudiante FROM dbo.uv_estudiante_grupo eg
+                                          WHERE eg.idEstudiante = e.id AND eg.idGrupo = @idGrupo
+                                          ORDER BY eg.id)
+        FROM dbo.uv_usuario u
+        INNER JOIN dbo.uv_estudiante_identidad e ON e.idUsuario = u.id
+        WHERE u.idTipoIdentificacion = @idTipoIdentificacion
+          AND u.numeroIdentificacion = @numeroIdentificacion
+          AND (
+                -- sin vinculos: alta pendiente de matricula (A2-C1)
+                (NOT EXISTS (SELECT 1 FROM dbo.uv_estudiante_programa ep WHERE ep.idEstudiante = e.id)
+                 AND NOT EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo eg WHERE eg.idEstudiante = e.id))
+                -- algun vinculo en la institucion del grupo
+                OR EXISTS (SELECT 1 FROM dbo.uv_estudiante_programa ep
+                           INNER JOIN dbo.uv_programa p ON p.id = ep.idPrograma
+                           WHERE ep.idEstudiante = e.id AND p.idInstitucion = @idInstitucionGrupo)
+                OR EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo eg
+                           INNER JOIN dbo.uv_grupo_programa gpx ON gpx.idGrupo = eg.idGrupo   -- CULM-001 B2NM: vigencia S1
+                           INNER JOIN dbo.uv_programa p ON p.id = gpx.idPrograma
+                           WHERE eg.idEstudiante = e.id AND p.idInstitucion = @idInstitucionGrupo)
+              )
+        ORDER BY e.id;
+    END TRY
+    BEGIN CATCH
+        -- PASO 7: consulta de lectura (READ_QUERY_RESULTSET): el error, incluido el rechazo de validacion,
+        -- se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
+        THROW;
+    END CATCH
 END;
 GO

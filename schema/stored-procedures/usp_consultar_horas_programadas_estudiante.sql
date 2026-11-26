@@ -20,63 +20,70 @@ GO
 --   - Un grupo sin sesiones devuelve 0 y 0.
 -- Orden: idGrupo. Solo lectura.
 -- ============================================================================
+-- SKILLS-BD lote 7 (2026-11-26): estudiante por uv_estudiante_identidad (antes, la tabla) y TRY/CATCH de lectura; mismo
+-- resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_horas_programadas_estudiante]
 (
     @idUsuarioEjecutor UNIQUEIDENTIFIER,
     @idCorrelacion     UNIQUEIDENTIFIER
 )
 AS
-
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @codigoInscrita NVARCHAR(10) = CAST(dbo.ufn_obtener_parametro('MATRICULA', 'ESTADO_INSCRITA') AS NVARCHAR(10));
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado BIT = 1;
-
 BEGIN
     SET NOCOUNT ON;
 
-    -- PASO 1: correlacion obligatoria
-    EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
-        @idCorrelacion = @idCorrelacionDefecto,
-        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-        @estadoResultado = @estadoResultado OUTPUT;
-
-    -- PASO 2: ejecutor obligatorio (VAL_001)
-    IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'VAL_001', @p_param1 = 'UsuarioEjecutor',
+    BEGIN TRY
+        -- PASO 1: correlacion obligatoria
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
+            @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-    END
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+            @estadoResultado = @estadoResultado OUTPUT;
 
-    IF @estadoResultado = 0
-    BEGIN
-        THROW 51000, @mensajeTecnicoResultado, 1;
-    END
+        -- PASO 2: ejecutor obligatorio (VAL_001)
+        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'VAL_001', @p_param1 = 'UsuarioEjecutor',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
 
-    -- PASO 3: sesiones y horas programadas de cada grupo con matricula inscrita del estudiante del ejecutor
-    SELECT
-        idEstudianteGrupo   = eg.id,
-        idGrupo             = eg.idGrupo,
-        sesionesProgramadas = ISNULL(pr.sesionesProgramadas, 0),
-        horasProgramadas    = CAST(ISNULL(pr.horasProgramadas, 0) AS DECIMAL(12,6))
-    FROM dbo.Estudiante e
-    INNER JOIN dbo.uv_estudiante_grupo eg ON eg.idEstudiante = e.id
-    LEFT JOIN (
-                SELECT  c.idGrupo,
-                        sesionesProgramadas = COUNT(*),
-                        horasProgramadas = SUM(c.horasSesion)
-                FROM    dbo.uv_cumplimiento_sesion_grupo c
-                GROUP BY c.idGrupo
-              ) pr
-        ON pr.idGrupo = eg.idGrupo
-    WHERE e.usuario = @idUsuarioEjecutor
-      AND eg.codigoEstadoEstudiante = @codigoInscrita
-    ORDER BY eg.idGrupo ASC, eg.id ASC;
+        IF @estadoResultado = 0
+        BEGIN
+            THROW 51000, @mensajeTecnicoResultado, 1;
+        END
+
+        -- PASO 3: sesiones y horas programadas de cada grupo con matricula inscrita del estudiante del ejecutor
+        SELECT
+            idEstudianteGrupo   = eg.id,
+            idGrupo             = eg.idGrupo,
+            sesionesProgramadas = ISNULL(pr.sesionesProgramadas, 0),                          -- ISNULL sobre agregacion (permitido)
+            horasProgramadas    = CAST(ISNULL(pr.horasProgramadas, 0) AS DECIMAL(12,6))   -- ISNULL sobre agregacion (permitido)
+        FROM dbo.uv_estudiante_identidad e
+        INNER JOIN dbo.uv_estudiante_grupo eg ON eg.idEstudiante = e.id
+        LEFT JOIN (
+                    SELECT  c.idGrupo,
+                            sesionesProgramadas = COUNT(*),
+                            horasProgramadas = SUM(c.horasSesion)
+                    FROM    dbo.uv_cumplimiento_sesion_grupo c
+                    GROUP BY c.idGrupo
+                  ) pr
+            ON pr.idGrupo = eg.idGrupo
+        WHERE e.idUsuario = @idUsuarioEjecutor
+          AND eg.codigoEstadoEstudiante = @codigoInscrita
+        ORDER BY eg.idGrupo ASC, eg.id ASC;
+    END TRY
+    BEGIN CATCH
+        -- PASO 4: consulta de lectura (READ_QUERY_RESULTSET): el error, incluido el rechazo de validacion,
+        -- se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
+        THROW;
+    END CATCH
 END;
 GO

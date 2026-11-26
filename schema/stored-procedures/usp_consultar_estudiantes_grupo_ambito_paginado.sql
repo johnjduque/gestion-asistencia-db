@@ -21,6 +21,9 @@ GO
 -- (CHARINDEX, collation de la BD) en el nombre completo o el documento, aplicada ANTES de paginar; totalRegistros cuenta con el filtro.
 -- NULL o vacio = sin filtro (comportamiento anterior). El ambito se valida antes de leer filas, igual que sin busqueda.
 -- ============================================================================
+-- SKILLS-BD lote 7 (2026-11-26): ambito por uv_usuario, uv_grupo, uv_docente_identidad, uv_grupo_programa, uv_programa,
+-- uv_administrador, uv_coordinador_identidad, uv_facultad y uv_decano_identidad (antes, las tablas) y TRY/CATCH de lectura;
+-- mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_estudiantes_grupo_ambito_paginado]
 (
     @idGrupo           UNIQUEIDENTIFIER,
@@ -46,86 +49,91 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
-    -- PASO 1: correlacion obligatoria
-    EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
-        @idCorrelacion = @idCorrelacionDefecto,
-        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-        @estadoResultado = @estadoResultado OUTPUT;
-
-    -- PASO 2: ejecutor obligatorio (VAL_001)
-    IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'VAL_001', @p_param1 = 'UsuarioEjecutor',
+    BEGIN TRY
+        -- PASO 1: correlacion obligatoria
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
+            @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-    END
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+            @estadoResultado = @estadoResultado OUTPUT;
 
-    -- PASO 3: ambito del grupo, antes de leer filas
-    IF @estadoResultado = 1
-    BEGIN
-        SET @ejecutorActivo = IIF(EXISTS (SELECT 1 FROM dbo.Usuario u WHERE u.id = @idUsuarioEjecutor AND u.estado = 1), 1, 0);
-
-        SET @verTodos = IIF(@ejecutorActivo = 1 AND (
-                EXISTS (SELECT 1 FROM dbo.Grupo g INNER JOIN dbo.Docente d ON d.id = g.docente
-                        WHERE g.id = @idGrupo AND d.usuario = @idUsuarioEjecutor)
-             OR EXISTS (SELECT 1 FROM dbo.Grupo g
-                        INNER JOIN dbo.uv_grupo_programa gpx ON gpx.idGrupo = g.id   -- CULM-001 B2NM: vigencia S1
-                        INNER JOIN dbo.Programa p ON p.id = gpx.idPrograma
-                        INNER JOIN dbo.Facultad f ON f.id = p.facultad
-                        INNER JOIN dbo.Administrador ad ON ad.institucion = f.institucion
-                        WHERE g.id = @idGrupo AND ad.usuario = @idUsuarioEjecutor)), 1, 0);
-
-        SET @esCoordinador = IIF(@ejecutorActivo = 1 AND EXISTS (
-                -- CULM-001 B2NM (DEC-020): coordinador de algun programa del grupo, o decano de su facultad.
-                SELECT 1 FROM dbo.Grupo g
-                INNER JOIN dbo.uv_grupo_programa gpa ON gpa.idGrupo = g.id
-                INNER JOIN dbo.Programa p ON p.id = gpa.idPrograma
-                LEFT JOIN dbo.Coordinador c ON c.id = p.coordinador AND c.usuario = @idUsuarioEjecutor AND c.estado = 1
-                LEFT JOIN dbo.Facultad fa ON fa.id = p.facultad
-                LEFT JOIN dbo.Decano dc ON dc.id = fa.decano AND dc.usuario = @idUsuarioEjecutor
-                WHERE g.id = @idGrupo AND (c.id IS NOT NULL OR dc.id IS NOT NULL)), 1, 0);
-
-        IF @verTodos = 0 AND @esCoordinador = 0
+        -- PASO 2: ejecutor obligatorio (VAL_001)
+        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
-                @p_codigo = 'SEC_002',
+                @p_codigo = 'VAL_001', @p_param1 = 'UsuarioEjecutor',
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
             SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
             SET @estadoResultado = 0;
         END
-    END
 
-    IF @estadoResultado = 0
-    BEGIN
-        THROW 51000, @mensajeTecnicoResultado, 1;
-    END
+        -- PASO 3: ambito del grupo, antes de leer filas
+        IF @estadoResultado = 1
+        BEGIN
+            SET @ejecutorActivo = IIF(EXISTS (SELECT 1 FROM dbo.uv_usuario u WHERE u.id = @idUsuarioEjecutor AND u.estaActivoUsuario = 1), 1, 0);
 
-    -- PASO 4: estudiantes del grupo en todos los estados (el coordinador, solo los de sus programas)
-    SELECT
-        id             = eg.id,
-        idEstudiante   = eg.idEstudiante,
-        documento      = CAST(ei.numeroIdentificacion AS NVARCHAR(20)),
-        nombreCompleto = CAST(ei.nombreCompleto AS NVARCHAR(400)),
-        correo         = u.correo,
-        codigoEstado   = eg.codigoEstadoEstudiante,
-        nombreEstado   = eg.nombreEstadoEstudiante,
-        totalRegistros = COUNT(*) OVER()
-    FROM dbo.uv_estudiante_grupo eg
-    INNER JOIN dbo.uv_estudiante_identidad ei ON ei.id = eg.idEstudiante
-    INNER JOIN dbo.uv_usuario u ON u.id = ei.idUsuario
-    WHERE eg.idGrupo = @idGrupo
-      AND (@busquedaFiltro IS NULL
-           OR CHARINDEX(@busquedaFiltro, ei.nombreCompleto) > 0
-           OR CHARINDEX(@busquedaFiltro, CONVERT(NVARCHAR(20), ei.numeroIdentificacion)) > 0)
-      AND (@verTodos = 1
-           OR eg.id IN (SELECT v.idEstudianteGrupo FROM dbo.ufn_estudiantes_grupo_visibles(@idGrupo, @idUsuarioEjecutor) v))   -- CULM-001 B2NM R6
-    ORDER BY ei.nombreCompleto ASC, eg.id ASC
-    OFFSET @offset ROWS
-    FETCH NEXT @tamano ROWS ONLY;
+            SET @verTodos = IIF(@ejecutorActivo = 1 AND (
+                    EXISTS (SELECT 1 FROM dbo.uv_grupo g INNER JOIN dbo.uv_docente_identidad d ON d.id = g.idDocente
+                            WHERE g.id = @idGrupo AND d.idUsuario = @idUsuarioEjecutor)
+                 OR EXISTS (SELECT 1 FROM dbo.uv_grupo_programa gpx   -- CULM-001 B2NM: vigencia S1
+                            INNER JOIN dbo.uv_programa p ON p.id = gpx.idPrograma
+                            INNER JOIN dbo.uv_administrador ad ON ad.idInstitucion = p.idInstitucion
+                            WHERE gpx.idGrupo = @idGrupo AND ad.idUsuario = @idUsuarioEjecutor)), 1, 0);
+
+            SET @esCoordinador = IIF(@ejecutorActivo = 1 AND EXISTS (
+                    -- CULM-001 B2NM (DEC-020): coordinador de algun programa del grupo, o decano de su facultad.
+                    SELECT 1 FROM dbo.uv_grupo_programa gpa
+                    INNER JOIN dbo.uv_programa p ON p.id = gpa.idPrograma
+                    WHERE gpa.idGrupo = @idGrupo
+                      AND (EXISTS (SELECT 1 FROM dbo.uv_coordinador_identidad c
+                                   WHERE c.id = p.idCoordinador AND c.idUsuario = @idUsuarioEjecutor AND c.estaActivoRolCoordinador = 1)
+                           OR EXISTS (SELECT 1 FROM dbo.uv_facultad fa INNER JOIN dbo.uv_decano_identidad dc ON dc.id = fa.idDecano
+                                      WHERE fa.id = p.idFacultad AND dc.idUsuario = @idUsuarioEjecutor))), 1, 0);
+
+            IF @verTodos = 0 AND @esCoordinador = 0
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'SEC_002',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @estadoResultado = 0;
+            END
+        END
+
+        IF @estadoResultado = 0
+        BEGIN
+            THROW 51000, @mensajeTecnicoResultado, 1;
+        END
+
+        -- PASO 4: estudiantes del grupo en todos los estados (el coordinador, solo los de sus programas)
+        SELECT
+            id             = eg.id,
+            idEstudiante   = eg.idEstudiante,
+            documento      = CAST(ei.numeroIdentificacion AS NVARCHAR(20)),
+            nombreCompleto = CAST(ei.nombreCompleto AS NVARCHAR(400)),
+            correo         = u.correo,
+            codigoEstado   = eg.codigoEstadoEstudiante,
+            nombreEstado   = eg.nombreEstadoEstudiante,
+            totalRegistros = COUNT(*) OVER()
+        FROM dbo.uv_estudiante_grupo eg
+        INNER JOIN dbo.uv_estudiante_identidad ei ON ei.id = eg.idEstudiante
+        INNER JOIN dbo.uv_usuario u ON u.id = ei.idUsuario
+        WHERE eg.idGrupo = @idGrupo
+          AND (@busquedaFiltro IS NULL
+               OR CHARINDEX(@busquedaFiltro, ei.nombreCompleto) > 0
+               OR CHARINDEX(@busquedaFiltro, CONVERT(NVARCHAR(20), ei.numeroIdentificacion)) > 0)
+          AND (@verTodos = 1
+               OR eg.id IN (SELECT v.idEstudianteGrupo FROM dbo.ufn_estudiantes_grupo_visibles(@idGrupo, @idUsuarioEjecutor) v))   -- CULM-001 B2NM R6
+        ORDER BY ei.nombreCompleto ASC, eg.id ASC
+        OFFSET @offset ROWS
+        FETCH NEXT @tamano ROWS ONLY;
+    END TRY
+    BEGIN CATCH
+        -- PASO 5: consulta de lectura (READ_QUERY_RESULTSET): el error, incluido el rechazo de validacion,
+        -- se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
+        THROW;
+    END CATCH
 END;
 GO
