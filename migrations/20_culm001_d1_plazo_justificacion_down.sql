@@ -547,6 +547,8 @@ GO
 IF OBJECT_ID(N'dbo.uv_sesion_estudiante_reclamo', N'V') IS NOT NULL DROP VIEW [dbo].[uv_sesion_estudiante_reclamo];
 GO
 IF OBJECT_ID(N'dbo.usp_internal_validar_plazo_justificacion', N'P') IS NOT NULL DROP PROCEDURE [dbo].[usp_internal_validar_plazo_justificacion];
+-- SKILLS-BD lote 16: la migracion 78 renombro este nucleo a usp_validar_plazo_justificacion_interno; se borra tambien el nombre nuevo.
+DROP PROCEDURE IF EXISTS [dbo].[usp_validar_plazo_justificacion_interno];
 GO
 IF OBJECT_ID(N'dbo.ufn_calcular_fecha_limite_justificacion', N'FN') IS NOT NULL DROP FUNCTION [dbo].[ufn_calcular_fecha_limite_justificacion];
 GO

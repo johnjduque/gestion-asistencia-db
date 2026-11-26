@@ -16,8 +16,9 @@ GO
 -- Sesion -> TomaAsistencia; la toma se vuelve a leer bloqueada y, si otra instancia (o el docente) ya la cerro, se omite:
 -- dos pasadas concurrentes nunca cierran la misma toma dos veces. Si el modo marca ausentes (y la sesion no esta cancelada)
 -- inserta SJC a los activos sin registro ANTES de cerrar (permitido aunque la ventana vencio: es el cierre automatico).
--- Un error en una toma no deshace las anteriores: se revierte esa toma, su detalle queda en @mensajeTecnicoResultado (SYS_001 con
--- ufn_obtener_detalle_error) y la pasada sigue con la siguiente.
+-- Un error en una toma no deshace las anteriores: se revierte solo esa toma (no aparece en el resultset y la siguiente pasada la
+-- vuelve a intentar) y la pasada sigue con la siguiente. El CATCH arma SYS_001 por la regla de manejo de errores, pero el job no
+-- devuelve ni registra ese detalle (igual que antes del lote 2; SKILLS-BD lote 16 corrige este comentario).
 -- SKILLS-BD lote 2 (2026-11-25): DECLARE en la cabecera, PASO n, SYS_001 en el CATCH y usp_marcar_ausentes_toma_interno (triplete).
 -- Lecturas a la tabla con bloqueo (excepcion de lecturas con bloqueo): la seleccion de candidatas (PASO 2) conserva su consulta con
 -- READPAST sobre TomaAsistencia para no esperar tomas que otra instancia o el docente tiene bloqueadas (una vista no admite la
@@ -83,6 +84,7 @@ BEGIN
     BEGIN
         SELECT @idToma = idToma, @idSesion = idSesion, @idGrupo = idGrupo FROM @candidatas WHERE n = @i;
         SET @transaccionPropia = 0;
+        SET @estadoResultado = 1;
         BEGIN TRY
             IF @@TRANCOUNT = 0
             BEGIN
@@ -105,8 +107,8 @@ BEGIN
             -- PASO 3.2: cierre (otra instancia o el docente pudo cerrarla ya: se omite)
             IF @abierta = 1
             BEGIN
-                SET @cancelada = 0;
-                SELECT @cancelada = se.estaCancelada FROM dbo.uv_sesion_estado se WHERE se.idSesion = @idSesion;
+                -- SKILLS-BD lote 16: misma regla que antes del lote 2 (EXISTS sobre la cancelacion), por la vista fina de SesionCancelacion
+                SET @cancelada = IIF(EXISTS (SELECT 1 FROM dbo.uv_sesion_cancelacion sc WHERE sc.idSesion = @idSesion), 1, 0);
                 SET @fechaCierre = SYSUTCDATETIME();
                 SET @marcados = 0;
 

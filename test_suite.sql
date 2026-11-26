@@ -57,6 +57,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_skills_lote14_caracterizacion.sql
 -- SKILLS-BD lote 15 (2026-11-26): cobertura de las vistas finas nuevas y de dos internos sin prueba directa (solo pruebas)
 :r /tmp/test/test_skills_lote15_cobertura.sql
+-- SKILLS-BD lote 16 (2026-11-26): correcciones del code review (vistas internas sin SELECT del runtime, mensaje con codigo NULL, SP de token, QR y cierre de tomas)
+:r /tmp/test/test_skills_lote16_correcciones.sql
 :r /tmp/test/test_reactive_academic.sql
 :r /tmp/test/test_mass_period_close.sql
 :r /tmp/test/test_usp_registrar_estudiante_en_grupo_usuario_no_existente.sql

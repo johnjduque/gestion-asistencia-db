@@ -534,7 +534,8 @@
       { "indice": "dbo.DetalleAsistencia.IX_DetalleAsistencia_Asistencia_Cobertura" }
     ],
     "77_parametros_tecnicos_no_editables": [
-      { "tabla": "dbo.CatalogoParametroEdicion", "donde": "esEditable = 0 AND parametro IN (SELECT id FROM dbo.CatalogoParametro WHERE grupo = 'ASISTENCIA_QR' AND clave = 'LIMITE_FALLIDOS_IP_POR_MINUTO')" }
+      { "tabla": "dbo.CatalogoParametroEdicion", "donde": "esEditable = 0 AND parametro IN (SELECT id FROM dbo.CatalogoParametro WHERE grupo = 'ASISTENCIA_QR' AND clave = 'LIMITE_FALLIDOS_IP_POR_MINUTO')" },
+      { "tabla": "dbo.CatalogoParametroEdicion", "donde": "esEditable = 0 AND parametro IN (SELECT id FROM dbo.CatalogoParametro WHERE grupo = 'FESTIVOS' AND clave = 'MAXIMO_POR_ANIO') AND NOT EXISTS (SELECT 1 FROM dbo.CatalogoParametroEdicion e2 INNER JOIN dbo.CatalogoParametro p ON p.id = e2.parametro WHERE e2.esEditable = 1 AND ((p.grupo = 'ASISTENCIA_QR' AND p.clave IN ('LIMITE_ESTUDIANTE_POR_MINUTO', 'LIMITE_IP_POR_MINUTO', 'LIMITE_FALLIDOS_IP_POR_MINUTO', 'LIMITE_TOKEN_POR_MINUTO')) OR (p.grupo = 'MATRICULA_QR' AND p.clave IN ('LIMITE_IP_POR_MINUTO', 'LIMITE_REGISTROS_TOKEN_POR_MINUTO')) OR (p.grupo = 'ARCHIVOS' AND p.clave = 'LIMITE_SUBIDAS_POR_MINUTO') OR (p.grupo = 'FESTIVOS' AND p.clave IN ('PROVEEDOR_PRINCIPAL', 'TIMEOUT_SEGUNDOS', 'MINIMO_POR_ANIO', 'MAXIMO_POR_ANIO'))))" }
     ],
     "78_skills_lote2_renombre_internos": [
       { "objeto": "dbo.usp_cerrar_toma_interno" },

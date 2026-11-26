@@ -9,7 +9,7 @@ GO
 --   SKL15_V01_VISTAS_FINAS_COLUMNAS  las 29 vistas finas que crearon los lotes 5-14 existen y exponen exactamente las columnas
 --                                    que leen sus SP (en el mismo orden)
 --   SKL15_V02_VISTAS_FINAS_FILAS     cada vista fina devuelve las mismas filas que su tabla base (no filtra ni duplica)
---   SKL15_V03_VISTAS_FINAS_SECRETOS  ninguna vista fina expone hash de token, PIN ni contrasena (el runtime tiene SELECT sobre uv_%)
+--   SKL15_V03_VISTAS_FINAS_SECRETOS  ninguna vista fina expone hash de token, PIN ni contrasena (desde el lote 16 el runtime tiene DENY SELECT sobre ellas)
 --   SKL15_I01_NOMBRES_USUARIO        usp_actualizar_nombres_usuario_interno: cambia solo los nombres que llegan, no toca correo,
 --                                    documento ni estado, y un usuario inexistente no escribe nada (triplete OK)
 --   SKL15_I02_AUDITORIA_IDENTIDAD    usp_registrar_auditoria_identidad_interno: registra el evento con motivo, identidad anterior y

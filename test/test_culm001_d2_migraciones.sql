@@ -52,6 +52,7 @@ GO
 GO
 IF OBJECT_ID(N'dbo.usp_radicar_solicitud_revision_asistencia_v3', N'P') IS NOT NULL
    OR OBJECT_ID(N'dbo.usp_internal_radicar_solicitud_revision', N'P') IS NOT NULL
+   OR OBJECT_ID(N'dbo.usp_radicar_solicitud_revision_interno', N'P') IS NOT NULL
    OR OBJECT_ID(N'dbo.usp_consultar_configuracion_reclamos', N'P') IS NOT NULL
    OR OBJECT_ID(N'dbo.uv_soporte_reclamo', N'V') IS NOT NULL
    OR COL_LENGTH(N'dbo.SolicitudRevisionAsistencia', N'categoriaJustificacion') IS NOT NULL

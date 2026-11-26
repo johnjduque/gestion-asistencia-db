@@ -14,6 +14,8 @@ GO
 -- Lo llaman casi todos los SP, por eso su firma no cambia: los parametros @p_* se conservan (excepcion E8 de
 -- docs/arquitectura/excepciones-skills-bd.md) y el triplete se completa con @estadoResultado OUTPUT opcional al final.
 -- SKILLS-BD lote 3 (2026-11-25): DECLARE en la cabecera, sin ISNULL, PASO n, TRY/CATCH y @estadoResultado; mismos textos.
+-- SKILLS-BD lote 16 (2026-11-26): un codigo NULL vuelve a resolverse sin leer CatalogoParametro (DBCODE=DESCONOCIDO aunque falte
+-- GENERAL/CADENA_VACIA), como antes del lote 3.
 -- ============================================================================
 -- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): utilidad transversal sin ejecutor propio (la llaman otros SP).
 CREATE OR ALTER PROCEDURE [dbo].[usp_obtener_mensaje_catalogo]
@@ -27,7 +29,7 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_obtener_mensaje_catalogo]
     @severidadResultado        VARCHAR(20) = NULL OUTPUT,
     @estadoResultado           BIT = NULL OUTPUT
 AS
-    DECLARE @codigoLimpio    VARCHAR(100) = dbo.ufn_obtener_parametro_texto(@p_codigo, 'GENERAL', 'CADENA_VACIA');
+    DECLARE @codigoLimpio    VARCHAR(100) = IIF(@p_codigo IS NULL, '', TRIM(@p_codigo));
     DECLARE @rawUsuario      NVARCHAR(4000) = NULL;
     DECLARE @rawTecnico      NVARCHAR(4000) = NULL;
     DECLARE @tipoUsr         VARCHAR(50) = NULL;

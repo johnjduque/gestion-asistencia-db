@@ -22,6 +22,7 @@ GO
 GO
 IF OBJECT_ID(N'dbo.ufn_calcular_fecha_limite_justificacion', N'FN') IS NOT NULL
    OR OBJECT_ID(N'dbo.usp_internal_validar_plazo_justificacion', N'P') IS NOT NULL
+   OR OBJECT_ID(N'dbo.usp_validar_plazo_justificacion_interno', N'P') IS NOT NULL
    OR OBJECT_ID(N'dbo.uv_sesion_estudiante_reclamo', N'V') IS NOT NULL
    OR OBJECT_ID(N'dbo.usp_consultar_sesiones_materia_estudiante', N'P') IS NOT NULL
    OR EXISTS (SELECT 1 FROM dbo.CatalogoMensajeUsuario WHERE codigo IN ('REV_020', 'REV_025'))

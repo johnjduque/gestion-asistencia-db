@@ -102,7 +102,8 @@ BEGIN
             INNER JOIN dbo.uv_estado_estudiante_grupo eeg ON eeg.id = eg.estado
             WHERE eg.estudiante = @idEstudianteDefecto 
               AND eg.grupo = @idGrupo
-              AND eeg.codigo = 'A';
+              AND eeg.codigo = 'A'
+            ORDER BY eg.id;  -- SKILLS-BD lote 16: fila determinista, la misma que elige usp_registrar_asistencia_por_token
 
             IF @idEstudianteGrupo IS NULL
             BEGIN

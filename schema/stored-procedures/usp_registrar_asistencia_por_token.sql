@@ -41,6 +41,7 @@ AS
 
     DECLARE @transaccionPropia      BIT = 0;
     DECLARE @savepointCreado        BIT = 0;
+    DECLARE @escrituraIntentada     BIT = 0;  -- SKILLS-BD lote 16: el nucleo de escritura ya se invoco
     DECLARE @estadoTransaccionCatch INT;
 
     DECLARE @toleranciaMinutos INT = dbo.ufn_obtener_parametro_int(NULL, 'ASISTENCIA', 'TOLERANCIA_MINUTOS');
@@ -162,11 +163,13 @@ BEGIN
 
             -- PASO 7: Matricula activa en el grupo de la toma (AQR_004)
             -- Matricula A del estudiante en el grupo de la toma: un estudiante de otro grupo nunca escribe
+            -- (SKILLS-BD lote 16: TOP 1 con ORDER BY para que la fila elegida sea determinista si hubiera dos matriculas activas)
             IF @estadoResultado = 1 AND @idEstudiante IS NOT NULL
             BEGIN
                 SELECT TOP 1 @idEstudianteGrupo = eg.id
                 FROM dbo.uv_estudiante_grupo_registro eg INNER JOIN dbo.uv_estado_estudiante_grupo e ON e.id = eg.idEstado
-                WHERE eg.idEstudiante = @idEstudiante AND eg.idGrupo = @idGrupo AND e.codigo = @codigoActiva;
+                WHERE eg.idEstudiante = @idEstudiante AND eg.idGrupo = @idGrupo AND e.codigo = @codigoActiva
+                ORDER BY eg.id;
             END
 
             IF @estadoResultado = 1 AND @idEstudianteGrupo IS NULL
@@ -182,6 +185,7 @@ BEGIN
             -- PASO 8: Registrar la asistencia una sola vez (AQR_009) o informar que ya estaba (AQR_008)
             IF @estadoResultado = 1
             BEGIN
+                SET @escrituraIntentada = 1;
                 EXEC dbo.usp_sincronizar_asistencia_estudiante_interno
                     @idEstudiante = @idEstudiante, @idSesion = @idSesion, @codigoEstado = @codigoPresente,
                     @idCorrelacion = @idCorrelacionDefecto,
@@ -216,26 +220,26 @@ BEGIN
                 END
             END
 
-            -- PASO 9: Confirmar o revertir la transaccion propia
+            -- PASO 9: Confirmar o revertir. Un rechazo o fallo de negocio revierte todo lo escrito en este registro (SKILLS-BD lote 16:
+            -- antes se confirmaba lo alcanzado, p. ej. una cabecera Asistencia sin detalle si el nucleo fallaba entre las dos
+            -- escrituras); con transaccion del llamador se vuelve al punto de guardado solo si el nucleo llego a escribir (los rechazos
+            -- previos no escriben, y asi un llamador con INSERT-EXEC no recibe el error 3915 por un rechazo de negocio)
             IF @transaccionPropia = 1
             BEGIN
                 IF XACT_STATE() = 1 AND @estadoResultado = 1
                 BEGIN
                     COMMIT TRANSACTION;
                 END
-                ELSE IF XACT_STATE() <> 0 AND @detalleCreado = 1
-                BEGIN
-                    ROLLBACK TRANSACTION;
-                END
-                ELSE IF XACT_STATE() = 1
-                BEGIN
-                    COMMIT TRANSACTION;
-                END
-                ELSE IF XACT_STATE() = -1
+                ELSE IF XACT_STATE() <> 0
                 BEGIN
                     ROLLBACK TRANSACTION;
                 END
                 SET @transaccionPropia = 0;
+            END
+            ELSE IF @savepointCreado = 1 AND @escrituraIntentada = 1 AND @estadoResultado = 0 AND XACT_STATE() = 1
+            BEGIN
+                ROLLBACK TRANSACTION sp_asistencia_por_token;
+                SET @savepointCreado = 0;
             END
         END
     END TRY

@@ -536,6 +536,8 @@ USE [gestionasistenciadb];
 GO
 IF OBJECT_ID(N'dbo.usp_internal_reactivar_matricula_retirada', N'P') IS NOT NULL
     DROP PROCEDURE [dbo].[usp_internal_reactivar_matricula_retirada];
+-- SKILLS-BD lote 16: la migracion 78 renombro este nucleo a usp_reactivar_matricula_retirada_interno; se borra tambien el nombre nuevo.
+DROP PROCEDURE IF EXISTS [dbo].[usp_reactivar_matricula_retirada_interno];
 GO
 DELETE FROM dbo.CatalogoParametro WHERE grupo = 'MATRICULA' AND clave IN ('ESTADO_RETIRADA', 'ESTADO_INSCRITA');
 GO

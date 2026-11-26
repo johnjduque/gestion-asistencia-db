@@ -791,3 +791,14 @@ La re-auditoría de la rama `refactor/skills-bd` (`informes/AUDITORIA_BD_SKILLS_
 | `usp_establecer_contexto_usuario_ejecutor` | `@p_idUsuario` (nombre heredado, E8) | Utilidad interna de otros SP (E1) | Fija `SESSION_CONTEXT(N'idUsuarioEjecutor')` para las vistas `uv_auth_*` (NULL lo limpia) | Sin resultset ni triplete; su `CATCH` relanza al llamador | Sin GRANT (solo la llaman otros SP) |
 
 Pruebas: cada uno aparece en su prueba de dominio (asignatura y planes, facultad y programas, CULM-001 B2NM y C, HU176B, RBAC); ver la matriz de `test_summary.ps1`.
+
+## Addendum SKILLS-BD lote 16 (2026-11-26): correcciones del code review
+
+Sin cambios de firma ni de resultset. Detalle en `docs/work-items/SKILLS-BD-LOTE-16/PLAN.md`.
+
+| SP | Cambio |
+|---|---|
+| `usp_matricular_estudiante_por_token`, `usp_registrar_estudiante_por_token_publico`, `usp_rotar_token_matricula_grupo`, `usp_rotar_token_matricula_automatico` | Si la transacción del llamador quedó condenada, el `CATCH` relanza el error original (antes del lote 2 no tenían `TRY/CATCH` y el error llegaba igual); en los demás casos responden `SYS_001` |
+| `usp_registrar_asistencia_por_token` | Un fallo después de invocar el núcleo de escritura ya no confirma lo escrito: revierte la transacción propia o vuelve al punto de guardado del llamador. La matrícula activa se elige con `TOP 1 ... ORDER BY eg.id` (igual que `usp_sincronizar_asistencia_estudiante_interno`) |
+| `usp_cerrar_tomas_vencidas` | La cancelación de la sesión se decide con `EXISTS` sobre `uv_sesion_cancelacion` (misma regla que antes del lote 2). El detalle del error de una toma no se devuelve ni se registra (comentario corregido) |
+| `usp_obtener_mensaje_catalogo` | Un código NULL se resuelve como `DESCONOCIDO` sin leer `CatalogoParametro` |

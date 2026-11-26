@@ -49,6 +49,11 @@ Origen: auditoría y plan por lotes del 2026-11-25. Las decisiones son de John (
 **Condiciones:**
 - la validación de rol y ámbito nunca depende de una vista base: se hace con `uv_auth_*`, en un SP público o en el PDP del componente de seguridad;
 - el backend nunca lee tablas, salvo `AuditoriaEvento` (`SELECT, INSERT`, LB-008).
+- las vistas finas que crearon los lotes 2 a 14 para que los SP no lean tablas (`uv_*_registro`, `uv_notificacion_saliente`,
+  `uv_sesion_cancelacion` y demás, 32 en total) son de uso interno: `schema/security/zz_rol_asistencias_runtime_skills_bd_vistas_internas.sql`
+  les pone `DENY SELECT` para `rol_asistencias_runtime` después del grant genérico de `uv_*` (lote 16). Sin eso, el SELECT de la vista
+  pasaría por encima de los `DENY` de tabla (por ejemplo `dbo.ArchivoSoporte`). Los SP las siguen leyendo por encadenamiento de
+  propiedad. Lo prueban `SKL16_S01` y `SKL16_S02` (`test/test_skills_lote16_correcciones.sql`). Una vista interna nueva se agrega a esa lista.
 
 ## E4. ADMINISTRADOR en lecturas transversales y en HU156
 

@@ -46,8 +46,12 @@ GO
 DROP PROCEDURE IF EXISTS dbo.usp_desvincular_asignatura_plan;
 GO
 DROP PROCEDURE IF EXISTS dbo.usp_internal_asegurar_estudiante_programa_grupo;
+-- SKILLS-BD lote 16: la migracion 78 renombro este nucleo a usp_asegurar_estudiante_programa_grupo_interno; se borra tambien el nombre nuevo.
+DROP PROCEDURE IF EXISTS [dbo].[usp_asegurar_estudiante_programa_grupo_interno];
 GO
 DROP PROCEDURE IF EXISTS dbo.usp_internal_asociar_asignatura_plan;
+-- SKILLS-BD lote 16: la migracion 78 renombro este nucleo a usp_asociar_asignatura_plan_interno; se borra tambien el nombre nuevo.
+DROP PROCEDURE IF EXISTS [dbo].[usp_asociar_asignatura_plan_interno];
 GO
 DROP VIEW IF EXISTS dbo.uv_resumen_asistencia_estudiante_programa_grupo;
 GO

@@ -27,10 +27,16 @@ GO
 IF OBJECT_ID(N'dbo.usp_registrar_estudiante_por_token_publico', N'P') IS NOT NULL DROP PROCEDURE dbo.usp_registrar_estudiante_por_token_publico;
 GO
 IF OBJECT_ID(N'dbo.usp_internal_rotar_token_matricula', N'P') IS NOT NULL DROP PROCEDURE dbo.usp_internal_rotar_token_matricula;
+-- SKILLS-BD lote 16: la migracion 78 renombro este nucleo a usp_rotar_token_matricula_interno; se borra tambien el nombre nuevo.
+DROP PROCEDURE IF EXISTS [dbo].[usp_rotar_token_matricula_interno];
 GO
 IF OBJECT_ID(N'dbo.usp_internal_matricular_por_token', N'P') IS NOT NULL DROP PROCEDURE dbo.usp_internal_matricular_por_token;
+-- SKILLS-BD lote 16: la migracion 78 renombro este nucleo a usp_matricular_por_token_interno; se borra tambien el nombre nuevo.
+DROP PROCEDURE IF EXISTS [dbo].[usp_matricular_por_token_interno];
 GO
 IF OBJECT_ID(N'dbo.usp_internal_resolver_token_matricula', N'P') IS NOT NULL DROP PROCEDURE dbo.usp_internal_resolver_token_matricula;
+-- SKILLS-BD lote 16: la migracion 78 renombro este nucleo a usp_resolver_token_matricula_interno; se borra tambien el nombre nuevo.
+DROP PROCEDURE IF EXISTS [dbo].[usp_resolver_token_matricula_interno];
 GO
 IF OBJECT_ID(N'dbo.uv_token_matricula_grupo', N'V') IS NOT NULL DROP VIEW dbo.uv_token_matricula_grupo;
 GO

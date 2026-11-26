@@ -1059,6 +1059,8 @@ GO
 GO
 IF OBJECT_ID(N'dbo.usp_validar_receso_academico_interno', N'P') IS NOT NULL DROP PROCEDURE [dbo].[usp_validar_receso_academico_interno];
 IF OBJECT_ID(N'dbo.usp_internal_cancelar_sesiones_receso', N'P') IS NOT NULL DROP PROCEDURE [dbo].[usp_internal_cancelar_sesiones_receso];
+-- SKILLS-BD lote 16: la migracion 78 renombro este nucleo a usp_cancelar_sesiones_receso_interno; se borra tambien el nombre nuevo.
+DROP PROCEDURE IF EXISTS [dbo].[usp_cancelar_sesiones_receso_interno];
 IF OBJECT_ID(N'dbo.uv_periodo_receso_academico', N'V') IS NOT NULL DROP VIEW [dbo].[uv_periodo_receso_academico];
 GO
 IF COL_LENGTH('dbo.SesionCancelacion', 'recesoAcademico') IS NOT NULL

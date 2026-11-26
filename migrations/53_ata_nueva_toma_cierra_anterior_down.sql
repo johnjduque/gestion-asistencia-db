@@ -449,6 +449,8 @@ END;
 GO
 IF OBJECT_ID(N'dbo.usp_internal_cerrar_toma', N'P') IS NOT NULL
     DROP PROCEDURE [dbo].[usp_internal_cerrar_toma];
+-- SKILLS-BD lote 16: la migracion 78 renombro este nucleo a usp_cerrar_toma_interno; se borra tambien el nombre nuevo.
+DROP PROCEDURE IF EXISTS [dbo].[usp_cerrar_toma_interno];
 GO
 PRINT 'MIGRACION 53 DOWN OK';
 GO

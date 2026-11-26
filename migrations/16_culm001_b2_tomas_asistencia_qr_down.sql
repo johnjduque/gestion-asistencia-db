@@ -3042,13 +3042,19 @@ IF OBJECT_ID(N'dbo.usp_cerrar_toma_asistencia', N'P') IS NOT NULL DROP PROCEDURE
 IF OBJECT_ID(N'dbo.usp_cerrar_tomas_vencidas', N'P') IS NOT NULL DROP PROCEDURE dbo.usp_cerrar_tomas_vencidas;
 IF OBJECT_ID(N'dbo.usp_registrar_asistencias_toma', N'P') IS NOT NULL DROP PROCEDURE dbo.usp_registrar_asistencias_toma;
 IF OBJECT_ID(N'dbo.usp_internal_marcar_ausentes_toma', N'P') IS NOT NULL DROP PROCEDURE dbo.usp_internal_marcar_ausentes_toma;
+-- SKILLS-BD lote 16: la migracion 78 renombro este nucleo a usp_marcar_ausentes_toma_interno; se borra tambien el nombre nuevo.
+DROP PROCEDURE IF EXISTS [dbo].[usp_marcar_ausentes_toma_interno];
 IF OBJECT_ID(N'dbo.usp_abrir_qr_toma', N'P') IS NOT NULL DROP PROCEDURE dbo.usp_abrir_qr_toma;
 IF OBJECT_ID(N'dbo.usp_internal_rotar_token_asistencia', N'P') IS NOT NULL DROP PROCEDURE dbo.usp_internal_rotar_token_asistencia;
+-- SKILLS-BD lote 16: la migracion 78 renombro este nucleo a usp_rotar_token_asistencia_interno; se borra tambien el nombre nuevo.
+DROP PROCEDURE IF EXISTS [dbo].[usp_rotar_token_asistencia_interno];
 IF OBJECT_ID(N'dbo.usp_rotar_token_asistencia_toma', N'P') IS NOT NULL DROP PROCEDURE dbo.usp_rotar_token_asistencia_toma;
 IF OBJECT_ID(N'dbo.usp_rotar_token_asistencia_automatico', N'P') IS NOT NULL DROP PROCEDURE dbo.usp_rotar_token_asistencia_automatico;
 IF OBJECT_ID(N'dbo.usp_consultar_tomas_qr_por_rotar', N'P') IS NOT NULL DROP PROCEDURE dbo.usp_consultar_tomas_qr_por_rotar;
 IF OBJECT_ID(N'dbo.usp_cerrar_qr_toma', N'P') IS NOT NULL DROP PROCEDURE dbo.usp_cerrar_qr_toma;
 IF OBJECT_ID(N'dbo.usp_internal_resolver_token_asistencia', N'P') IS NOT NULL DROP PROCEDURE dbo.usp_internal_resolver_token_asistencia;
+-- SKILLS-BD lote 16: la migracion 78 renombro este nucleo a usp_resolver_token_asistencia_interno; se borra tambien el nombre nuevo.
+DROP PROCEDURE IF EXISTS [dbo].[usp_resolver_token_asistencia_interno];
 IF OBJECT_ID(N'dbo.usp_registrar_asistencia_por_token', N'P') IS NOT NULL DROP PROCEDURE dbo.usp_registrar_asistencia_por_token;
 IF OBJECT_ID(N'dbo.usp_consultar_tomas_sesion', N'P') IS NOT NULL DROP PROCEDURE dbo.usp_consultar_tomas_sesion;
 IF OBJECT_ID(N'dbo.usp_consultar_faltantes_toma_paginado', N'P') IS NOT NULL DROP PROCEDURE dbo.usp_consultar_faltantes_toma_paginado;
