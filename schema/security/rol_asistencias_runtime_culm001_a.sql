@@ -8,7 +8,7 @@ GO
 -- CULM-001 paquete A.2 (CONTRACT §8.2): EXECUTE del runtime sobre los SP PUBLICOS nuevos. Cada SP aplica su ambito
 -- dentro (ADMINISTRADOR institucion, COORDINADOR programas, DOCENTE titularidad, ESTUDIANTE propietario). Ningun
 -- GRANT a internos: usp_validar_solape_sesion_interno queda con DENY, como los demas nucleos *_sesion_interno, y
--- usp_reactivar_matricula_retirada_interno (A.1) sin permiso. Script aditivo e idempotente.
+-- usp_internal_reactivar_matricula_retirada (A.1) sin permiso. Script aditivo e idempotente.
 IF DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime') IS NULL
     CREATE ROLE [rol_asistencias_runtime] AUTHORIZATION [dbo];
 GO

@@ -6,7 +6,7 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 -- CULM-001 C.1 (CONTRACT §2.10): permisos de ejecucion de las alertas de inasistencia, la revision de cancelacion y las audiencias
--- del SSE. Solo EXECUTE sobre los SP publicos (los usp_*_interno y las funciones no se conceden) y SELECT explicito de las
+-- del SSE. Solo EXECUTE sobre los SP publicos (los usp_internal_* y las funciones no se conceden) y SELECT explicito de las
 -- vistas nuevas (el bucle de rol_asistencias_runtime.sql esta congelado). Aditivo e idempotente.
 IF DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime') IS NULL
     CREATE ROLE [rol_asistencias_runtime] AUTHORIZATION [dbo];

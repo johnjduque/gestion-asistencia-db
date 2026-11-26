@@ -44,7 +44,7 @@ GO
 IF OBJECT_ID(N'dbo.PeriodoRecesoAcademico', N'U') IS NULL OR OBJECT_ID(N'dbo.uv_periodo_receso_academico', N'V') IS NULL
    OR OBJECT_ID(N'dbo.usp_crear_receso_academico', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_retirar_receso_academico', N'P') IS NULL
    OR OBJECT_ID(N'dbo.usp_consultar_recesos_periodo', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_consultar_destinatarios_receso_academico', N'P') IS NULL
-   OR OBJECT_ID(N'dbo.usp_validar_receso_academico_interno', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_cancelar_sesiones_receso_interno', N'P') IS NULL
+   OR OBJECT_ID(N'dbo.usp_validar_receso_academico_interno', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_internal_cancelar_sesiones_receso', N'P') IS NULL
    OR COL_LENGTH('dbo.SesionCancelacion', 'recesoAcademico') IS NULL
     THROW 59701, 'TEST FAILED REC_01: faltan objetos del receso academico (tabla, vista, columna o SP).', 1;
 IF NOT EXISTS (SELECT 1 FROM dbo.TipoCancelacionSesion WHERE id = '7C1E0B10-5E51-4C0A-9A01-000000000003' AND codigo = N'RECESO' AND esAutomatica = 1)

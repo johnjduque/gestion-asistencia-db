@@ -10,7 +10,7 @@ GO
 --   SELECT:  uv_asistencia_toma_estudiante (la lee el backend por JPA). uv_asistencia_sesion_horas y uv_toma_asistencia ya
 --            tienen SELECT (rol_asistencias_runtime_culm001_b2.sql). Las vistas uv_* reciben ademas el SELECT generico de
 --            rol_asistencias_runtime.sql; este archivo lo deja explicito para la vista que consume el backend.
--- usp_radicar_solicitud_revision_interno sigue sin concederse (encadenamiento de propiedad).
+-- usp_internal_radicar_solicitud_revision sigue sin concederse (encadenamiento de propiedad).
 IF DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime') IS NULL
     CREATE ROLE [rol_asistencias_runtime] AUTHORIZATION [dbo];
 GO

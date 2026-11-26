@@ -11,8 +11,6 @@ GO
 -- actual), con usp_corregir_documento_usuario_interno; si el documento cambia, el motivo es obligatorio y se audita
 -- CORREGIR_DOCUMENTO_COORDINADOR con los valores anteriores y nuevos.
 -- Devuelve idUsuario para que el backend sincronice la cuenta de identidad (y el username si cambio el documento).
--- SKILLS-BD lote 4 (2026-11-25): correlacion por defecto (@idCorrelacionDefecto) en mensajes y llamadas, DECLARE del
--- CATCH en la cabecera e IF con BEGIN/END; el resultset devuelve el idCorrelacion recibido, como antes.
 CREATE OR ALTER PROCEDURE [dbo].[usp_actualizar_coordinador]
 (
     @idCoordinador      UNIQUEIDENTIFIER,
@@ -29,7 +27,6 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_actualizar_coordinador]
     @motivo                 NVARCHAR(500) = NULL
 )
 AS
-    DECLARE @idCorrelacionDefecto    UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado         BIT = 1;
@@ -44,12 +41,7 @@ AS
     -- Solo se hace ROLLBACK si hubo escritura. Un rechazo de negocio antes de escribir no necesita rollback,
     -- y SQL Server prohibe ROLLBACK dentro de INSERT ... EXEC (3915), que es como se consume este SP en las pruebas.
     DECLARE @mutacionRealizada          BIT = 0;
-    DECLARE @estadoTransaccionCatch     INT;
 
-    DECLARE @mensajeUsuarioInterno   NVARCHAR(4000);  -- SKILLS-BD lote 2: triplete del nucleo interno
-    DECLARE @mensajeTecnicoInterno   NVARCHAR(4000);
-    DECLARE @estadoInterno           BIT;
-    DECLARE @mensajeErrorInterno     NVARCHAR(2048);
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
@@ -57,7 +49,7 @@ BEGIN
     BEGIN TRY
         -- PASO 1: correlacion y ejecutor presentes
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
-            @idCorrelacion = @idCorrelacionDefecto,
+            @idCorrelacion = @idCorrelacion,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
@@ -70,7 +62,7 @@ BEGIN
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacion);
             SET @estadoResultado = 0;
         END
 
@@ -80,7 +72,7 @@ BEGIN
             EXEC dbo.usp_validar_permiso_rbac_usuario_interno
                 @idUsuario = @idUsuarioEjecutor,
                 @codigoPerfilRequerido = 'DECANO',
-                @idCorrelacion = @idCorrelacionDefecto,
+                @idCorrelacion = @idCorrelacion,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
@@ -92,7 +84,7 @@ BEGIN
                 @idUsuario = @idUsuarioEjecutor,
                 @idEntidadPadre = @idFacultad,
                 @tipoEntidadPadre = 'FACULTAD',
-                @idCorrelacion = @idCorrelacionDefecto,
+                @idCorrelacion = @idCorrelacion,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
@@ -104,7 +96,7 @@ BEGIN
             EXEC dbo.usp_validar_coordinador_de_facultad_interno
                 @idCoordinador = @idCoordinador,
                 @idFacultad = @idFacultad,
-                @idCorrelacion = @idCorrelacionDefecto,
+                @idCorrelacion = @idCorrelacion,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
@@ -137,7 +129,7 @@ BEGIN
                 @idTipoIdIdentificacion = @idTipoIdIdentificacion,
                 @numeroIdentificacion = @numeroIdentificacion,
                 @motivo = @motivo,
-                @idCorrelacion = @idCorrelacionDefecto,
+                @idCorrelacion = @idCorrelacion,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT,
@@ -147,29 +139,25 @@ BEGIN
             -- DEC-073: un correo nuevo debe ser institucional (VCE_008); el correo ya guardado no se revalida
             IF @estadoResultado = 1 AND NULLIF(TRIM(@correo), N'') IS NOT NULL
                AND NOT EXISTS (SELECT 1 FROM dbo.uv_usuario WHERE id = @idUsuarioCoordinador AND correo = LOWER(TRIM(@correo)))
-            BEGIN
-                EXEC dbo.usp_validar_correo_institucional_personal_interno
-                    @correo = @correo,
-                    @idCorrelacion = @idCorrelacionDefecto,
-                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-                    @estadoResultado = @estadoResultado OUTPUT;
-            END
+            EXEC dbo.usp_validar_correo_institucional_personal_interno
+                @correo = @correo,
+                @idCorrelacion = @idCorrelacion,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
 
             IF @estadoResultado = 1
-            BEGIN
-                EXEC dbo.usp_actualizar_datos_usuario_interno
-                    @idUsuario = @idUsuarioCoordinador,
-                    @primerNombre = @primerNombre,
-                    @segundoNombre = @segundoNombre,
-                    @primerApellido = @primerApellido,
-                    @segundoApellido = @segundoApellido,
-                    @correo = @correo,
-                    @idCorrelacion = @idCorrelacionDefecto,
-                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-                    @estadoResultado = @estadoResultado OUTPUT;
-            END
+            EXEC dbo.usp_actualizar_datos_usuario_interno
+                @idUsuario = @idUsuarioCoordinador,
+                @primerNombre = @primerNombre,
+                @segundoNombre = @segundoNombre,
+                @primerApellido = @primerApellido,
+                @segundoApellido = @segundoApellido,
+                @correo = @correo,
+                @idCorrelacion = @idCorrelacion,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
 
             IF @estadoResultado = 1 AND @documentoCambiado = 1
             BEGIN
@@ -178,14 +166,13 @@ BEGIN
                     @idTipoIdIdentificacion = @idTipoIdIdentificacion,
                     @numeroIdentificacion = @numeroIdentificacion,
                     @motivo = @motivo,
-                    @idCorrelacion = @idCorrelacionDefecto,
+                    @idCorrelacion = @idCorrelacion,
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                     @estadoResultado = @estadoResultado OUTPUT,
                     @documentoCambiado = @documentoCambiado OUTPUT;
 
                 IF @estadoResultado = 1
-                BEGIN
                     EXEC dbo.usp_registrar_auditoria_identidad_interno
                         @idUsuario = @idUsuarioCoordinador,
                         @identidadAnterior = @identidadAnterior,
@@ -195,16 +182,7 @@ BEGIN
                         @idRecurso = @idCoordinador,
                         @ruta = N'/api/v1/decano/coordinadores/{id}',
                         @idUsuarioEjecutor = @idUsuarioEjecutor,
-                        @idCorrelacion = @idCorrelacionDefecto,
-                        @mensajeUsuarioResultado = @mensajeUsuarioInterno OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoInterno OUTPUT,
-                        @estadoResultado = @estadoInterno OUTPUT;
-                END
-
-                IF @estadoInterno = 0
-                BEGIN
-                    SET @mensajeErrorInterno = LEFT(@mensajeTecnicoInterno, 2048);
-                    THROW 52532, @mensajeErrorInterno, 1;
-                END
+                        @idCorrelacion = @idCorrelacion;
             END
 
             IF @estadoResultado = 1
@@ -217,7 +195,7 @@ BEGIN
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacion);
             END
         END
 
@@ -227,13 +205,9 @@ BEGIN
             IF XACT_STATE() = 1
             BEGIN
                 IF @estadoResultado = 1 OR @mutacionRealizada = 0
-                BEGIN
                     COMMIT TRANSACTION;
-                END
                 ELSE
-                BEGIN
                     ROLLBACK TRANSACTION;
-                END
             END
             ELSE IF XACT_STATE() = -1
             BEGIN
@@ -243,20 +217,16 @@ BEGIN
         ELSE IF @savepointCreado = 1
         BEGIN
             IF XACT_STATE() = 1 AND @estadoResultado = 0 AND @mutacionRealizada = 1
-            BEGIN
                 ROLLBACK TRANSACTION usp_actualizar_coordinador;
-            END
         END
     END TRY
     BEGIN CATCH
-        SET @estadoTransaccionCatch = XACT_STATE();
+        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
 
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
-            BEGIN
                 ROLLBACK TRANSACTION;
-            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN
@@ -274,7 +244,7 @@ BEGIN
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacion);
         SET @estadoResultado = 0;
     END CATCH
 

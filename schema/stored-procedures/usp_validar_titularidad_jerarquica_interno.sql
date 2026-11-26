@@ -18,7 +18,7 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_validar_titularidad_jerarquica_interno]
 AS
     -- @idUsuario es Usuario.id (identidad autenticada), NO Docente.id / Coordinador.id / Decano.id.
     -- Cada rama resuelve el ID de rol hacia Usuario.id mediante uv_docente_identidad / uv_coordinador_identidad /
-    -- uv_decano_identidad. INSTITUCION compara uv_administrador.idUsuario, que ya es Usuario.id (SKILLS-BD lote 3: antes, la tabla).
+    -- uv_decano_identidad. INSTITUCION compara Administrador.usuario, que ya es Usuario.id.
     -- 1. Estandarización e inicialización de variables utilizando funciones de catálogo (Sin ISNULL)
     DECLARE @idCorrelacionDefecto    UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idUsuarioDefecto        UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuario, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
@@ -105,8 +105,8 @@ BEGIN
             ELSE IF @tipoEntidadPadreDefecto = 'INSTITUCION'
             BEGIN
                 IF NOT EXISTS (
-                    SELECT 1 FROM dbo.uv_administrador
-                    WHERE idInstitucion = @idEntidadPadreDefecto AND idUsuario = @idUsuarioDefecto
+                    SELECT 1 FROM dbo.Administrador 
+                    WHERE institucion = @idEntidadPadreDefecto AND usuario = @idUsuarioDefecto
                 )
                 BEGIN
                     EXEC dbo.usp_obtener_mensaje_catalogo

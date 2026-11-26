@@ -10,8 +10,6 @@ GO
 -- EXECUTE al rol de runtime. Crea Usuario ACTIVO (correoConfirmado = 0), Estudiante y la matricula, de forma atomica.
 -- Correo institucional obligatorio (VCE_001). Documento o correo ya registrados: MQR_005. Token invalido: MQR_001.
 -- Resultset: tupla canonica + idEstudiante, idUsuario, idGrupo (extension documentada, CONTRACT §2.5).
--- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): flujo publico por token, sin @idUsuarioEjecutor; el nucleo
--- valida el token, su vigencia y su ambito. SKILLS-BD lote 2 (2026-11-25): TRY/CATCH con SYS_001 y PASO n.
 CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_estudiante_por_token_publico]
 (
     @idCorrelacion         UNIQUEIDENTIFIER,
@@ -40,35 +38,21 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    BEGIN TRY
-        -- PASO 1: registro y matricula con el token o PIN (nucleo con transaccion propia)
-        EXEC dbo.usp_matricular_por_token_interno
-            @idCorrelacion = @idCorrelacionDefecto, @tokenHash = @tokenHash, @pin = @pin,
-            @idUsuarioAutenticado = NULL,
-            @idTipoIdentificacion = @idTipoIdentificacion, @numeroIdentificacion = @numeroIdentificacion,
-            @primerNombre = @primerNombre, @segundoNombre = @segundoNombre,
-            @primerApellido = @primerApellido, @segundoApellido = @segundoApellido,
-            @correo = @correo, @password = @password,
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-            @estadoResultado = @estadoResultado OUTPUT,
-            @idEstudianteResultado = @idEstudianteResultado OUTPUT,
-            @idUsuarioResultado = @idUsuarioResultado OUTPUT,
-            @idGrupoResultado = @idGrupoResultado OUTPUT,
-            @idProgramaElegido = @idPrograma;
-    END TRY
-    BEGIN CATCH
-        -- PASO 2: error no controlado (SYS_001). El nucleo gestiona y revierte su propia transaccion
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'SYS_001',
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-        SELECT @idEstudianteResultado = NULL, @idUsuarioResultado = NULL, @idGrupoResultado = NULL;
-    END CATCH
+    EXEC dbo.usp_internal_matricular_por_token
+        @idCorrelacion = @idCorrelacionDefecto, @tokenHash = @tokenHash, @pin = @pin,
+        @idUsuarioAutenticado = NULL,
+        @idTipoIdentificacion = @idTipoIdentificacion, @numeroIdentificacion = @numeroIdentificacion,
+        @primerNombre = @primerNombre, @segundoNombre = @segundoNombre,
+        @primerApellido = @primerApellido, @segundoApellido = @segundoApellido,
+        @correo = @correo, @password = @password,
+        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+        @estadoResultado = @estadoResultado OUTPUT,
+        @idEstudianteResultado = @idEstudianteResultado OUTPUT,
+        @idUsuarioResultado = @idUsuarioResultado OUTPUT,
+        @idGrupoResultado = @idGrupoResultado OUTPUT,
+        @idProgramaElegido = @idPrograma;
 
-    -- PASO 3: resultset unificado (tupla canonica + extension documentada)
     SELECT
         idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,

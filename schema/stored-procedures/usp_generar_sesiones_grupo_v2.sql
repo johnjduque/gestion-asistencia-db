@@ -13,9 +13,9 @@ GO
 -- Fase 1: INSERT INTO @resultadoGeneracion EXEC dbo.usp_generar_sesiones_grupo (congelado: su texto no cambia ni se
 --         invoca de otra forma). Sus errores de negocio (RBAC, titularidad, horarios, fechas, zona) ocurren antes de su
 --         BEGIN TRANSACTION y no hacen ROLLBACK: su tupla llega intacta y se devuelve tal cual (paridad con el v1).
--- Fase 2: transaccion propia o SAVE TRANSACTION sp_generar_sesiones_v2 -> usp_aplicar_festivos_grupo_interno
+-- Fase 2: transaccion propia o SAVE TRANSACTION sp_generar_sesiones_v2 -> usp_internal_aplicar_festivos_grupo
 --         (@soloFuturas = 0: toda sesion del grupo en festivo nace cancelada; las que tienen asistencia se reportan).
---         DEC-081: luego usp_cancelar_sesiones_receso_interno (dias de receso del periodo; no cambia las columnas del resultado).
+--         DEC-081: luego usp_internal_cancelar_sesiones_receso (dias de receso del periodo; no cambia las columnas del resultado).
 --         Exito: mensaje del SP congelado (GEN_004) + conteos.
 -- CATCH (R2-1): la reversion depende solo de @@TRANCOUNT a la entrada (@trancountEntrada):
 --   * = 0: ROLLBACK si @@TRANCOUNT > 0 y tupla SYS_001 con ufn_obtener_detalle_error (traduce el 3915 del ROLLBACK
@@ -82,7 +82,7 @@ BEGIN
             ELSE
                 SAVE TRANSACTION sp_generar_sesiones_v2;
 
-            EXEC dbo.usp_aplicar_festivos_grupo_interno
+            EXEC dbo.usp_internal_aplicar_festivos_grupo
                 @idGrupo = @idGrupoDefecto,
                 @soloFuturas = 0,
                 @idCorrelacion = @idCorrelacionDefecto,
@@ -98,7 +98,7 @@ BEGIN
 
             -- DEC-081: dias de receso academico del periodo, justo despues de los festivos (un festivo ya aplicado gana)
             IF XACT_STATE() = 1 AND @estadoFase2 = 1
-                EXEC dbo.usp_cancelar_sesiones_receso_interno
+                EXEC dbo.usp_internal_cancelar_sesiones_receso
                     @idGrupo = @idGrupoDefecto,
                     @idReceso = NULL,
                     @soloFuturas = 0,

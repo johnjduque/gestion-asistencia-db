@@ -14,8 +14,6 @@ GO
 --   * El coordinador solo crea asignaturas en planes de su propio programa (PLA_002 si el plan no existe,
 --     SEC_002 por usp_validar_titularidad_jerarquica_interno si el programa no es suyo).
 -- Salida canonica: (idCorrelacion, mensajeUsuarioResultado, mensajeTecnicoResultado, estadoResultado).
--- SKILLS-BD lote 2 (2026-11-25): DECLARE en la cabecera, IF con BEGIN/END, unicidad previa del codigo por uv_asignatura (la de
--- concurrencia del PASO 5 sigue en la tabla con UPDLOCK/HOLDLOCK), XACT_STATE() en el CATCH y nucleo usp_asociar_asignatura_plan_interno.
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_crear_asignatura]
 (
@@ -49,7 +47,6 @@ AS
     DECLARE @idComponenteResolved UNIQUEIDENTIFIER;
     DECLARE @transaccionPropia    BIT = 0;
     DECLARE @idProgramaPlan       UNIQUEIDENTIFIER;
-    DECLARE @codigoRechazoPlan    NVARCHAR(10);
 
     -- Variables locales de respuesta
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -175,7 +172,7 @@ BEGIN
         --         La proteccion de concurrencia (UPDLOCK, HOLDLOCK) se toma dentro de la transaccion del PASO 5.
         IF @estadoResultado = 1
         BEGIN
-            IF EXISTS (SELECT 1 FROM [dbo].[uv_asignatura] WHERE UPPER(TRIM(codigo)) = @codigoDefecto)
+            IF EXISTS (SELECT 1 FROM [dbo].[Asignatura] WHERE UPPER(TRIM(codigo)) = @codigoDefecto)
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
                     @p_codigo = 'ASI_002',
@@ -207,23 +204,18 @@ BEGIN
         --          no necesita ROLLBACK (prohibido bajo INSERT ... EXEC) ni deja el catalogo a medias dentro de una transaccion ajena.
         IF @estadoResultado = 1
         BEGIN
+            DECLARE @codigoRechazoPlan NVARCHAR(10);
             IF NOT EXISTS (SELECT 1 FROM dbo.uv_semestre_plan_estudio sp
                            WHERE sp.idPlanEstudio = @idPlanEstudioDefecto AND sp.numeroSemestre = @semestreNumero)
-            BEGIN
                 SET @codigoRechazoPlan = 'PLA_004';
-            END
             ELSE
             BEGIN
                 SET @codigoCaracterValidar = TRIM(@codigoCaracter);
                 IF @codigoCaracterValidar IS NULL OR @codigoCaracterValidar = N''
-                BEGIN
                     SET @codigoCaracterValidar = CAST(dbo.ufn_obtener_parametro('ASIGNATURA_PLAN', 'CARACTER_DEFECTO') AS NVARCHAR(3));
-                END
                 IF NOT EXISTS (SELECT 1 FROM dbo.uv_caracter_asignatura_plan c
                                WHERE c.estaActivo = 1 AND c.codigo = @codigoCaracterValidar)
-                BEGIN
                     SET @codigoRechazoPlan = 'ASI_007';
-                END
             END
             IF @codigoRechazoPlan IS NOT NULL
             BEGIN
@@ -256,7 +248,7 @@ BEGIN
                 INSERT INTO dbo.Asignatura (id, codigo, nombre, credito, area, componente, estado, horasSemanales)
                 VALUES (@idAsignaturaDefecto, @codigoDefecto, @nombreDefecto, @creditos, @idAreaResolved, @idComponenteResolved, 1, @horasSemanales);
 
-                EXEC dbo.usp_asociar_asignatura_plan_interno
+                EXEC dbo.usp_internal_asociar_asignatura_plan
                     @idAsignatura = @idAsignaturaDefecto,
                     @idPlanEstudio = @idPlanEstudioDefecto,
                     @semestreNumero = @semestreNumero,
@@ -276,25 +268,16 @@ BEGIN
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
                 SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-                IF @transaccionPropia = 1
-                BEGIN
-                    COMMIT TRANSACTION;
-                END
+                IF @transaccionPropia = 1 COMMIT TRANSACTION;
             END
             ELSE IF @transaccionPropia = 1
-            BEGIN
                 ROLLBACK TRANSACTION;
-            END
 
         END
 
     END TRY
     BEGIN CATCH
-        -- PASO 6: error no controlado (SYS_001); revierte solo la transaccion propia
-        IF @transaccionPropia = 1 AND XACT_STATE() <> 0
-        BEGIN
-            ROLLBACK TRANSACTION;
-        END
+        IF @@TRANCOUNT > 0 AND @transaccionPropia = 1 ROLLBACK TRANSACTION;
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,

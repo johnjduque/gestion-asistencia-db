@@ -19,8 +19,6 @@ GO
 --     Usuario.estado pasa a 0 solo si la persona no conserva otro rol activo y vuelve a 1 al reactivar.
 -- SET XACT_ABORT ON; transaccion propia o savepoint; un rechazo de negocio no escribe ni hace ROLLBACK.
 -- ============================================================================
--- SKILLS-BD lote 4 (2026-11-25): ambito por uv_facultad/uv_administrador (antes, las tablas) e IF con BEGIN/END; las
--- lecturas con UPDLOCK/HOLDLOCK (Decano, Programa) siguen sobre la tabla. Mismo comportamiento.
 CREATE OR ALTER PROCEDURE [dbo].[usp_cambiar_estado_decano]
 (
     @idDecano          UNIQUEIDENTIFIER,
@@ -98,15 +96,13 @@ BEGIN
             WHERE d.id = @idDecano
               -- F-A-S03: un decano creado sin facultad aun no pertenece a ninguna institucion y figura en el listado
               -- del administrador; se gestiona igual. Con facultad, alguna debe ser de la institucion del administrador.
-              AND (EXISTS (SELECT 1 FROM dbo.uv_facultad f
-                           INNER JOIN dbo.uv_administrador ad ON ad.idInstitucion = f.idInstitucion
-                           WHERE f.idDecano = d.id AND ad.idUsuario = @idUsuarioEjecutor)
-                   OR NOT EXISTS (SELECT 1 FROM dbo.uv_facultad f WHERE f.idDecano = d.id));
+              AND (EXISTS (SELECT 1 FROM dbo.Facultad f
+                           INNER JOIN dbo.Administrador ad ON ad.institucion = f.institucion
+                           WHERE f.decano = d.id AND ad.usuario = @idUsuarioEjecutor)
+                   OR NOT EXISTS (SELECT 1 FROM dbo.Facultad f WHERE f.decano = d.id));
 
             IF @idUsuarioDecano IS NULL
-            BEGIN
                 SET @codigoRechazo = 'DEC_001';
-            END
             ELSE
             BEGIN
                 SET @estadoDestino = IIF(@estaActivo IS NULL, IIF(@estadoActual = 1, 0, 1), @estaActivo);
@@ -116,13 +112,11 @@ BEGIN
                 BEGIN
                     SELECT TOP 1 @nombrePrograma = p.nombre
                     FROM dbo.Programa p WITH (UPDLOCK, HOLDLOCK)
-                    INNER JOIN dbo.uv_facultad f ON f.id = p.facultad
-                    WHERE f.idDecano = @idDecano AND p.estado = 1;
+                    INNER JOIN dbo.Facultad f ON f.id = p.facultad
+                    WHERE f.decano = @idDecano AND p.estado = 1;
 
                     IF @nombrePrograma IS NOT NULL
-                    BEGIN
                         SET @codigoRechazo = 'DEC_002';
-                    END
                 END
 
                 IF @codigoRechazo IS NULL
@@ -132,9 +126,7 @@ BEGIN
 
                     -- D1: despues del cambio (uv_usuario_perfil ya refleja Decano.estado)
                     IF @estadoDestino = 0
-                    BEGIN
                         SET @personaSinRolesActivos = IIF(dbo.ufn_usuario_tiene_roles_activos(@idUsuarioDecano) = 0, 1, 0);
-                    END
 
                     IF @estadoDestino = 1 OR @personaSinRolesActivos = 1
                     BEGIN
@@ -164,23 +156,15 @@ BEGIN
                 IF XACT_STATE() = 1
                 BEGIN
                     IF @estadoResultado = 1 OR @mutacionRealizada = 0
-                    BEGIN
                         COMMIT TRANSACTION;
-                    END
                     ELSE
-                    BEGIN
                         ROLLBACK TRANSACTION;
-                    END
                 END
                 ELSE IF XACT_STATE() = -1
-                BEGIN
                     ROLLBACK TRANSACTION;
-                END
             END
             ELSE IF @savepointCreado = 1 AND XACT_STATE() = 1 AND @estadoResultado = 0 AND @mutacionRealizada = 1
-            BEGIN
                 ROLLBACK TRANSACTION sp_cambiar_estado_decano;
-            END
         END
 
         -- PASO 4: mensaje de rechazo por catalogo (sin escrituras)
@@ -199,19 +183,13 @@ BEGIN
         IF @transaccionPropia = 1
         BEGIN
             IF @@TRANCOUNT > 0
-            BEGIN
                 ROLLBACK TRANSACTION;
-            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
-        BEGIN
             ROLLBACK TRANSACTION sp_cambiar_estado_decano;
-        END
 
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
-        BEGIN
             THROW;
-        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',

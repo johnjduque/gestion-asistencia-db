@@ -20,7 +20,6 @@ GO
 -- necesite ROLLBACK (prohibido dentro de INSERT ... EXEC). @documentoCambiado = 1 indica que el documento cambia.
 -- El documento es el username del proveedor de identidad: el backend lo sincroniza despues de confirmar en DB.
 -- Sin transaccion propia (corre dentro de la fachada publica).
--- SKILLS-BD lote 3 (2026-11-25): PASO n y correlacion por defecto en los mensajes; mismo comportamiento.
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_corregir_documento_usuario_interno]
 (
@@ -43,11 +42,9 @@ AS
     DECLARE @idTipoDestino     UNIQUEIDENTIFIER;
     DECLARE @numeroDestino     INT;
     DECLARE @codigoRechazo     VARCHAR(100);
-    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
 BEGIN
     SET NOCOUNT ON;
 
-    -- PASO 1: respuesta inicial
     SELECT
         @mensajeUsuarioResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
         @mensajeTecnicoResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
@@ -55,7 +52,6 @@ BEGIN
         @documentoCambiado = 0;
 
     BEGIN TRY
-        -- PASO 2: documento actual con la fila bloqueada (lectura con bloqueo en la tabla) y documento destino
         SELECT @idTipoActual = u.tipoIdIdentificacion, @numeroActual = u.numeroIdentificacion
         FROM dbo.Usuario u WITH (UPDLOCK, HOLDLOCK)
         WHERE u.id = @idUsuario;
@@ -63,18 +59,17 @@ BEGIN
         SET @idTipoDestino = IIF(@idTipoIdIdentificacion IS NULL, @idTipoActual, @idTipoIdIdentificacion);
         SET @numeroDestino = IIF(@numeroIdentificacion IS NULL, @numeroActual, @numeroIdentificacion);
 
-        -- PASO 3: usuario existente (GEN_001)
         IF @idTipoActual IS NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'GEN_001', @p_param1 = 'Usuario',
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacion);
             SET @estadoResultado = 0;
         END
 
-        -- PASO 4: sin cambio de documento => no-op; con cambio: permitido (IDE_003) y motivo (IDE_001)
+        -- Sin cambio de documento: no-op
         IF @estadoResultado = 1 AND (@idTipoDestino <> @idTipoActual OR @numeroDestino <> @numeroActual)
         BEGIN
             SET @codigoRechazo =
@@ -89,16 +84,15 @@ BEGIN
                     @p_codigo = @codigoRechazo,
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacion);
                 SET @estadoResultado = 0;
             END
 
-            -- PASO 5: tipo existente, numero valido (VAL_001) y unico excluyendo al propio usuario (lectura con bloqueo)
             IF @estadoResultado = 1
             BEGIN
                 EXEC dbo.usp_validar_tipo_identificacion_exista_por_id_interno
                     @idTipoId = @idTipoDestino,
-                    @idCorrelacion = @idCorrelacionDefecto,
+                    @idCorrelacion = @idCorrelacion,
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                     @estadoResultado = @estadoResultado OUTPUT;
@@ -110,7 +104,7 @@ BEGIN
                     @p_codigo = 'VAL_001',
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacion);
                 SET @estadoResultado = 0;
             END
 
@@ -123,11 +117,10 @@ BEGIN
                     @p_param1 = @numeroDestino,
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacion);
                 SET @estadoResultado = 0;
             END
 
-            -- PASO 6: escritura (salvo @soloValidar = 1)
             IF @estadoResultado = 1 AND @soloValidar = 0
             BEGIN
                 UPDATE dbo.Usuario
@@ -140,12 +133,11 @@ BEGIN
         END
     END TRY
     BEGIN CATCH
-        -- PASO 7: error no controlado (SYS_001). Sin transaccion propia: la revierte el llamador
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacion);
         SET @estadoResultado = 0;
         SET @documentoCambiado = 0;
     END CATCH

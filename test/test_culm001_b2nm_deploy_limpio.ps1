@@ -1,4 +1,3 @@
-# MANUAL (SKILLS-BD lote 1, 2026-11-25): fuera de test_summary.ps1 y del CI a proposito: verificacion historica de la migracion 18 sobre una BD vacia propia; el gate ya despliega el esquema completo desde cero en cada ejecucion.
 # CULM-001 B2NM (B2NM-16): el esquema de schema/ se despliega sobre una BD VACIA y propia, en el orden de deploy_schema.ps1
 # (tablas -> triggers -> funciones -> vistas -> SP -> seguridad -> semillas), y deja el estado posterior a la migracion 18:
 # sin Asignatura.semestrePlanEstudio ni FK_Asignatura_SemestrePlanEstudio, con la tabla puente y el catalogo de caracter.

@@ -110,7 +110,7 @@ BEGIN
                 SET @savepointCreado = 1;
             END
 
-            EXEC dbo.usp_aplicar_festivos_grupo_interno
+            EXEC dbo.usp_internal_aplicar_festivos_grupo
                 @idGrupo = @idGrupoDefecto,
                 @soloFuturas = @soloFuturasAplicado,
                 @idCorrelacion = @idCorrelacionDefecto,

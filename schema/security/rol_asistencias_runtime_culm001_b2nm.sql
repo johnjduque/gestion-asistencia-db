@@ -19,7 +19,7 @@ INSERT INTO @requeridos VALUES
     (N'usp_asociar_asignatura_plan'), (N'usp_desvincular_asignatura_plan'), (N'usp_consultar_asignaturas_plan_paginado'),
     (N'usp_consultar_asignaturas_asociables_paginado'), (N'usp_consultar_asignaturas_coordinador_paginado'),
     (N'usp_consultar_planes_estudio_programa_paginado'), (N'usp_consultar_grupos_facultad_paginado'), (N'usp_consultar_programas_grupo'),
-    (N'usp_asociar_asignatura_plan_interno'), (N'usp_asegurar_estudiante_programa_grupo_interno');
+    (N'usp_internal_asociar_asignatura_plan'), (N'usp_internal_asegurar_estudiante_programa_grupo');
 DECLARE @faltante SYSNAME = (SELECT TOP 1 nombre FROM @requeridos WHERE OBJECT_ID(CONCAT(N'dbo.', nombre), N'P') IS NULL);
 IF @faltante IS NOT NULL
 BEGIN
@@ -36,8 +36,8 @@ GRANT EXECUTE ON [dbo].[usp_consultar_asignaturas_coordinador_paginado] TO [rol_
 GRANT EXECUTE ON [dbo].[usp_consultar_planes_estudio_programa_paginado] TO [rol_asistencias_runtime];
 GRANT EXECUTE ON [dbo].[usp_consultar_grupos_facultad_paginado] TO [rol_asistencias_runtime];
 GRANT EXECUTE ON [dbo].[usp_consultar_programas_grupo] TO [rol_asistencias_runtime];
-DENY EXECUTE ON [dbo].[usp_asociar_asignatura_plan_interno] TO [rol_asistencias_runtime];
-DENY EXECUTE ON [dbo].[usp_asegurar_estudiante_programa_grupo_interno] TO [rol_asistencias_runtime];
+DENY EXECUTE ON [dbo].[usp_internal_asociar_asignatura_plan] TO [rol_asistencias_runtime];
+DENY EXECUTE ON [dbo].[usp_internal_asegurar_estudiante_programa_grupo] TO [rol_asistencias_runtime];
 GO
 
 DENY INSERT, UPDATE, DELETE ON [dbo].[AsignaturaPlanEstudio] TO [rol_asistencias_runtime];

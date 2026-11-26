@@ -6,7 +6,7 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 -- CULM-001 B.1 (CONTRACT §2.2): cancelacion de una sesion (1:0..1 con dbo.Sesion, que no se modifica: su guard 50004
--- prohibe columnas de estado). La crea usp_cancelar_sesion (tipo manual, HU047) o usp_aplicar_festivos_grupo_interno
+-- prohibe columnas de estado). La crea usp_cancelar_sesion (tipo manual, HU047) o usp_internal_aplicar_festivos_grupo
 -- (tipo automatico FESTIVO, con diaFestivo). usuarioEjecutor NULL solo en cancelaciones automaticas del job.
 -- DEC-081: recesoAcademico (FK a dbo.PeriodoRecesoAcademico) enlaza la cancelacion automatica por un dia de receso (tipo RECESO).
 -- La coherencia tipo automatico <=> diaFestivo NOT NULL la garantizan los SP (invariante INV_SESION_CANCELACION_COHERENTE).

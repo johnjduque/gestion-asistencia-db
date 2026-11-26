@@ -9,7 +9,7 @@ GO
 -- usp_crear_receso_academico (DEC-081) — registra un dia de receso academico en un periodo y CANCELA de inmediato las sesiones de ese
 -- dia en todos los grupos del periodo. Solo el ADMINISTRADOR de la institucion del periodo (usp_resolver_institucion_gestor_periodo_interno:
 -- SEC_001 si no es administrador, PER_005 si no tiene institucion). Un periodo de otra institucion o inexistente responde PER_001.
--- Validaciones y mensajes: usp_validar_receso_academico_interno (REC_003..REC_008). Cancelacion: usp_cancelar_sesiones_receso_interno
+-- Validaciones y mensajes: usp_validar_receso_academico_interno (REC_003..REC_008). Cancelacion: usp_internal_cancelar_sesiones_receso
 -- (@soloFuturas = 1; una sesion con asistencia o toma no se toca y se informa en sesionesConAsistencia).
 --
 -- CONTRATO DE RESULTSETS (comando NON_GOLDEN_PATH_EXTENSION):
@@ -92,7 +92,7 @@ BEGIN
                 INSERT INTO dbo.PeriodoRecesoAcademico (id, periodoAcademico, fecha, motivo, estaActivo, fechaCreacionUtc, usuarioCreador, idCorrelacion)
                 VALUES (@idRecesoNuevo, @idPeriodo, @fecha, @motivoNormalizado, 1, SYSUTCDATETIME(), @idUsuarioEjecutorDefecto, @idCorrelacionDefecto);
 
-                EXEC dbo.usp_cancelar_sesiones_receso_interno
+                EXEC dbo.usp_internal_cancelar_sesiones_receso
                     @idGrupo = NULL, @idReceso = @idRecesoNuevo, @soloFuturas = 1,
                     @idCorrelacion = @idCorrelacionDefecto, @idUsuarioEjecutor = @idUsuarioEjecutorDefecto,
                     @sesionesCanceladas = @sesionesCanceladas OUTPUT, @sesionesConAsistencia = @sesionesConAsistencia OUTPUT,

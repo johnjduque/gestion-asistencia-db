@@ -6,8 +6,7 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 -- ============================================================================
--- usp_validar_plazo_justificacion_interno (CULM-001 D.1, HU026B; CONTRACT §2.2)
--- SKILLS-BD lote 2 (2026-11-25): antes usp_internal_validar_plazo_justificacion (renombrado, D3); el cuerpo se corrige en su lote de dominio.
+-- usp_internal_validar_plazo_justificacion (CULM-001 D.1, HU026B; CONTRACT §2.2)
 --
 -- Nucleo interno: NO se concede a ningun rol. Valida que la radicacion de una excusa este dentro del plazo de la sesion.
 --   * limite NULL (falta ASISTENCIA/DIAS_LIMITE_JUSTIFICACION o TIEMPO/ZONA_HORARIA_SQLSERVER, o la sesion no existe) => REV_025
@@ -16,7 +15,7 @@ GO
 -- SP de radicacion v1 y v2, que deciden el commit o rollback. En exito deja intactos los mensajes y @estadoResultado.
 -- REV_020 informa la ULTIMA fecha local admitida (yyyy-MM-dd); su mensaje tecnico lleva instante, limite y N.
 -- ============================================================================
-CREATE OR ALTER PROCEDURE [dbo].[usp_validar_plazo_justificacion_interno]
+CREATE OR ALTER PROCEDURE [dbo].[usp_internal_validar_plazo_justificacion]
 (
     @idSesion                UNIQUEIDENTIFIER,
     @idCorrelacion           UNIQUEIDENTIFIER,

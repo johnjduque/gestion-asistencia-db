@@ -47,7 +47,7 @@ WHILE @@FETCH_STATUS = 0
 BEGIN
     SET @c = NEWID();
     BEGIN TRANSACTION;
-    EXEC dbo.usp_aplicar_festivos_grupo_interno @idGrupo = @g, @soloFuturas = 0, @idCorrelacion = @c, @idUsuarioEjecutor = @u,
+    EXEC dbo.usp_internal_aplicar_festivos_grupo @idGrupo = @g, @soloFuturas = 0, @idCorrelacion = @c, @idUsuarioEjecutor = @u,
          @sesionesCanceladas = @canc OUTPUT, @sesionesConAsistencia = @conAs OUTPUT,
          @mensajeUsuarioResultado = @mu OUTPUT, @mensajeTecnicoResultado = @mt OUTPUT, @estadoResultado = @ok OUTPUT;
     IF @ok = 1 COMMIT TRANSACTION; ELSE BEGIN ROLLBACK TRANSACTION; PRINT CONCAT(N'festivos 2026-1 fallo: ', @mt); END

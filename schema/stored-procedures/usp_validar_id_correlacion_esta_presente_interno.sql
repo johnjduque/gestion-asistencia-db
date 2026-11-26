@@ -5,7 +5,6 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
--- SKILLS-BD lote 3 (2026-11-25): DECLARE e inicializacion en la cabecera (entre AS y BEGIN); mismo comportamiento.
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_id_correlacion_esta_presente_interno]
 (
     @idCorrelacion           UNIQUEIDENTIFIER,
@@ -14,6 +13,9 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_validar_id_correlacion_esta_presente_intern
     @estadoResultado         BIT OUTPUT
 )
 AS
+BEGIN
+    SET NOCOUNT ON;
+
     -- 1. Estandarización e inicialización de variables utilizando funciones de catálogo (Sin ISNULL)
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
 
@@ -22,9 +24,6 @@ AS
         @mensajeUsuarioResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
         @mensajeTecnicoResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
         @estadoResultado = 1;
-
-BEGIN
-    SET NOCOUNT ON;
 
     BEGIN TRY
 

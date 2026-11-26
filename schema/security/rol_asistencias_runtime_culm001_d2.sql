@@ -6,7 +6,7 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 -- CULM-001 D.2 (CONTRACT §3.2): permisos de varios soportes por reclamo (HU014/HU015). EXECUTE sobre el comando v3 y la consulta de
--- configuracion; SELECT sobre uv_soporte_reclamo. El nucleo usp_radicar_solicitud_revision_interno NO se concede (lo invocan v2 y v3).
+-- configuracion; SELECT sobre uv_soporte_reclamo. El nucleo usp_internal_radicar_solicitud_revision NO se concede (lo invocan v2 y v3).
 -- usp_radicar_solicitud_revision_asistencia_v2 conserva el GRANT de rol_asistencias_runtime_lb004d.sql. Aditivo e idempotente: el bucle
 -- uv_* de rol_asistencias_runtime.sql ya cubre la vista cuando deploy_schema.ps1 aplica la seguridad despues de las vistas; el GRANT
 -- explicito cubre los objetos creados por la migracion 21 fuera de ese despliegue.

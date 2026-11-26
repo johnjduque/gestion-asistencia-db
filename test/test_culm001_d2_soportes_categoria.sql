@@ -335,10 +335,10 @@ BEGIN TRY
     EXEC #d2_expect 'D2_10_R2_COLUMNAS_AL_FINAL', @ok;
     SET @ok = IIF(NOT EXISTS (SELECT 1 FROM sys.sql_modules m
                               WHERE m.object_id IN (OBJECT_ID(N'dbo.usp_consultar_solicitudes_revision_docente'), OBJECT_ID(N'dbo.usp_consultar_archivo_soporte_autorizado'),
-                                                    OBJECT_ID(N'dbo.usp_radicar_solicitud_revision_interno'), OBJECT_ID(N'dbo.usp_radicar_solicitud_revision_asistencia_v2'),
+                                                    OBJECT_ID(N'dbo.usp_internal_radicar_solicitud_revision'), OBJECT_ID(N'dbo.usp_radicar_solicitud_revision_asistencia_v2'),
                                                     OBJECT_ID(N'dbo.usp_radicar_solicitud_revision_asistencia_v3'))
                                 AND (m.definition LIKE N'%''ATTACHED''%' OR m.definition LIKE N'%''DRAFT''%' OR m.definition LIKE N'%''ORPHAN''%'))
-                  AND OBJECT_ID(N'dbo.usp_radicar_solicitud_revision_interno', N'P') IS NOT NULL
+                  AND OBJECT_ID(N'dbo.usp_internal_radicar_solicitud_revision', N'P') IS NOT NULL
                   AND OBJECT_ID(N'dbo.usp_radicar_solicitud_revision_asistencia_v3', N'P') IS NOT NULL, 1, 0);
     EXEC #d2_expect 'D2_10_SIN_LITERALES_DE_ESTADO_TD_061', @ok;
     PRINT 'TEST_PASS:CULM001_D2_10_CONSULTAS';
@@ -400,12 +400,12 @@ BEGIN TRY
 
     -- ---------------------------------------------------------------- D2-16 ningun SP de D.2 usa INSERT ... EXEC
     SET @ok = IIF(NOT EXISTS (SELECT 1 FROM sys.sql_modules m
-                              WHERE m.object_id IN (OBJECT_ID(N'dbo.usp_radicar_solicitud_revision_interno'), OBJECT_ID(N'dbo.usp_radicar_solicitud_revision_asistencia_v2'),
+                              WHERE m.object_id IN (OBJECT_ID(N'dbo.usp_internal_radicar_solicitud_revision'), OBJECT_ID(N'dbo.usp_radicar_solicitud_revision_asistencia_v2'),
                                                     OBJECT_ID(N'dbo.usp_radicar_solicitud_revision_asistencia_v3'))
                                 AND (m.definition LIKE N'%INSERT INTO #%' OR m.definition LIKE N'%INSERT #%'
-                                     OR m.definition LIKE N'%INSERT%EXEC dbo.usp_radicar_solicitud_revision_interno%'
+                                     OR m.definition LIKE N'%INSERT%EXEC dbo.usp_internal_radicar_solicitud_revision%'
                                      OR m.definition LIKE N'%INSERT%EXEC dbo.usp_radicar_solicitud_revision_asistencia_v%'))
-                  AND OBJECT_ID(N'dbo.usp_radicar_solicitud_revision_interno', N'P') IS NOT NULL, 1, 0);
+                  AND OBJECT_ID(N'dbo.usp_internal_radicar_solicitud_revision', N'P') IS NOT NULL, 1, 0);
     EXEC #d2_expect 'D2_16_SIN_INSERT_EXEC', @ok;
     PRINT 'TEST_PASS:CULM001_D2_16_SIN_INSERT_EXEC';
 
@@ -460,9 +460,9 @@ BEGIN TRY
                             AND dp.state IN ('G', 'W') AND dp.grantee_principal_id = DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime'))
                   AND EXISTS (SELECT 1 FROM sys.database_permissions dp WHERE dp.major_id = OBJECT_ID(N'dbo.usp_consultar_configuracion_reclamos') AND dp.permission_name = N'EXECUTE'
                             AND dp.state IN ('G', 'W') AND dp.grantee_principal_id = DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime'))
-                  AND NOT EXISTS (SELECT 1 FROM sys.database_permissions dp WHERE dp.major_id = OBJECT_ID(N'dbo.usp_radicar_solicitud_revision_interno')
+                  AND NOT EXISTS (SELECT 1 FROM sys.database_permissions dp WHERE dp.major_id = OBJECT_ID(N'dbo.usp_internal_radicar_solicitud_revision')
                             AND dp.grantee_principal_id = DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime'))
-                  AND OBJECT_ID(N'dbo.usp_radicar_solicitud_revision_interno', N'P') IS NOT NULL, 1, 0);
+                  AND OBJECT_ID(N'dbo.usp_internal_radicar_solicitud_revision', N'P') IS NOT NULL, 1, 0);
     EXEC #d2_expect 'D2_SEG_PERMISOS', @ok;
     PRINT 'TEST_PASS:CULM001_D2_SEG_PERMISOS';
 END TRY

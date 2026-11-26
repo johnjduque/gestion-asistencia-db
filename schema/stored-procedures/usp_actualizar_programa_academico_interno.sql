@@ -11,7 +11,6 @@ GO
 -- Ambito: edicion atomica del programa: valida (con bloqueo del coordinador) y actualiza nombre, tipo, modalidad, jornada y coordinador.
 -- La transaccion vive aqui (SET XACT_ABORT ON, transaccion propia o savepoint si el llamador ya tiene una).
 -- =============================================================================
--- SKILLS-BD lote 4 (2026-11-25): comentarios PASO n; sin cambios de logica.
 CREATE OR ALTER PROCEDURE [dbo].[usp_actualizar_programa_academico_interno]
 (
     @idPrograma              UNIQUEIDENTIFIER,
@@ -41,14 +40,12 @@ BEGIN
     SET @estadoResultado = 1;
 
     BEGIN TRY
-        -- PASO 1: correlacion obligatoria
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- PASO 2: transaccion propia o savepoint
         IF @estadoResultado = 1
         BEGIN
             IF @@TRANCOUNT = 0
@@ -62,7 +59,6 @@ BEGIN
                 SET @savepointCreado = 1;
             END
 
-            -- PASO 3: reglas de negocio del programa
             EXEC dbo.usp_validar_programa_academico_interno
                 @idPrograma = @idPrograma,
                 @idFacultad = @idFacultad,
@@ -76,7 +72,6 @@ BEGIN
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
 
-            -- PASO 4: persistencia y mensaje
             IF @estadoResultado = 1
             BEGIN
                 UPDATE dbo.Programa
@@ -96,7 +91,7 @@ BEGIN
                 SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
             END
 
-            -- PASO 5: cierre. Una validacion de negocio fallida no escribio nada: se libera la transaccion propia.
+            -- Una validacion de negocio fallida no escribio nada: se libera la transaccion propia.
             IF @estadoResultado = 0 AND @transaccionPropia = 1 AND @@TRANCOUNT > 0
             BEGIN
                 ROLLBACK TRANSACTION;
