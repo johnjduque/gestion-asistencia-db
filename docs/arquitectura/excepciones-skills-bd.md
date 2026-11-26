@@ -115,6 +115,23 @@ Las lecturas con bloqueo (`UPDLOCK, HOLDLOCK`) de las filas que se van a escribi
 - `usp_establecer_contexto_usuario_ejecutor` no devuelve resultset ni triplete (es un helper de `SESSION_CONTEXT`): su `CATCH` relanza el error al llamador, que lo traduce a `SYS_001`;
 - `test/test_skills_lote3_caracterizacion.sql` (`SKL3_N01_ESTRUCTURA`) falla si alguien cambia estas firmas.
 
+## E9. `uv_auth_decano` muestra a los administradores los decanos sin facultad
+
+**Regla afectada:** `vista-consulta-con-validaciones` (las `uv_auth_*` no usan `IS NULL OR` en el filtro de ámbito).
+
+**Por qué:** la institución de un decano no se guarda en `dbo.Decano`: sale de la facultad que dirige (`uv_decano` une `uv_facultad`
+por `idDecano`). La HU178 permite crear un decano sin facultad (`usp_crear_decano` sin `@idFacultad`), y un decano queda sin facultad
+cuando la facultad se reasigna a otro (`usp_actualizar_facultad`). En los dos casos su `idInstitucion` es NULL. El administrador
+necesita verlo en la vista para asignarle una facultad. Quitar `d.idInstitucion IS NULL OR` lo ocultaría y rompería ese flujo.
+Decisión de John (2026-11-26): dejar la vista como está y documentar la excepción.
+
+**Condiciones:**
+- solo aplica a la rama del ADMINISTRADOR; el decano se sigue viendo solo a sí mismo y la vista sigue cerrada sin contexto (fail-closed);
+- el decano sin facultad no tiene ámbito: `uv_auth_facultad` solo le muestra la facultad cuyo `idDecano` es el suyo, así que no ve
+  facultades, programas ni grupos; el caso del administrador que gestiona a un decano sin facultad lo prueba
+  `test/test_culm001_a_correcciones.sql` (F-A-S03);
+- la institución es una sola en la UCO; si algún día hay varias, se necesitará guardar la institución del decano para cerrar este caso.
+
 ## Lo que ya no es excepción
 
 - **Familia `usp_internal_*`:** renombrada a `usp_..._interno` en el lote 2 (decisión de John, D3). La migración 78 retira los nombres viejos.
