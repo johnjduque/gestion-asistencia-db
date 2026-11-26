@@ -16,6 +16,8 @@ GO
 -- BD-7 (2026-11-22): columna AL FINAL horasPeriodo = base real del porcentaje (ATA D2): porcentajeAusentismo = 100 x horasFalta / horasPeriodo. La etiqueta
 -- de la interfaz debe decir 'X h de falta sobre Y h del periodo' con horasPeriodo; horasDictadas es solo lo dictado hasta hoy.
 -- ============================================================================
+-- SKILLS-BD lote 10 (2026-11-26): DECLARE en la cabecera (los que dependen del ambito resuelto se asignan con SET en su paso) y
+-- TRY/CATCH de lectura que relanza. Mismas consultas y mismas pistas de consulta. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_kpis_decano]
 (
     @idUsuarioEjecutor  UNIQUEIDENTIFIER,
@@ -23,92 +25,103 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_kpis_decano]
     @idPeriodoAcademico UNIQUEIDENTIFIER = NULL
 )
 AS
-BEGIN
-    SET NOCOUNT ON;
     DECLARE @idFacultad UNIQUEIDENTIFIER, @idPeriodo UNIQUEIDENTIFIER;
-
-    -- PASO 1: Resolver ambito del ejecutor (usp_resolver_facultad_decano_interno)
-    EXEC dbo.usp_resolver_facultad_decano_interno @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacion, @validarUmbrales = 1, @idFacultad = @idFacultad OUTPUT;
-    -- PASO 2: Resolver ambito del ejecutor (usp_resolver_periodo_kpi_facultad_interno)
-    EXEC dbo.usp_resolver_periodo_kpi_facultad_interno @idFacultad = @idFacultad, @idPeriodoSolicitado = @idPeriodoAcademico, @idPeriodo = @idPeriodo OUTPUT;
-
-    DECLARE @programas INT = (SELECT COUNT(*) FROM dbo.uv_programa p WHERE p.idFacultad = @idFacultad);
     DECLARE @total INT = 0, @regulares INT = 0, @riesgo INT = 0, @perdida INT = 0;
     DECLARE @sesiones INT = 0, @faltas INT = 0;
     DECLARE @tomasDictadas INT = 0, @horasDictadas DECIMAL(12,6) = 0, @horasFalta DECIMAL(12,6) = 0, @horasPeriodo DECIMAL(12,6) = 0;
     DECLARE @grupos INT = 0, @cupo INT = 0, @matriculados INT = 0;
-    DECLARE @coordinadores INT = (SELECT COUNT(DISTINCT c.id) FROM dbo.uv_coordinador c WHERE c.idFacultad = @idFacultad AND c.estaActivoCoordinador = 1);
-    DECLARE @docentes INT = (SELECT COUNT(DISTINCT dp.idDocente) FROM dbo.uv_docente_programa dp WHERE dp.idFacultad = @idFacultad AND dp.estaActivoDocentePrograma = 1);
+    DECLARE @programas INT;
+    DECLARE @coordinadores INT;
+    DECLARE @docentes INT;
+    DECLARE @ausentismo DECIMAL(5,2);
+BEGIN
+    SET NOCOUNT ON;
 
-    -- PASO 3: Calcular los indicadores del periodo
-    IF @idPeriodo IS NOT NULL
-    BEGIN
-        SELECT  @total = COUNT(*),
-                @regulares = ISNULL(SUM(IIF(x.peor = 1, 1, 0)), 0),
-                @riesgo = ISNULL(SUM(IIF(x.peor = 2, 1, 0)), 0),
-                @perdida = ISNULL(SUM(IIF(x.peor = 3, 1, 0)), 0)
-        FROM (
-                SELECT  r.idEstudiante,
-                        peor = MAX(CASE r.codigoPermanencia WHEN N'PERDIDA' THEN 3 WHEN N'RIESGO' THEN 2 ELSE 1 END)
-                FROM    dbo.uv_resumen_asistencia_estudiante_grupo r
-                WHERE   EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo_programa egp INNER JOIN dbo.uv_programa p ON p.id = egp.idPrograma WHERE egp.id = r.idEstudianteGrupo AND p.idFacultad = @idFacultad) AND r.idPeriodoAcademico = @idPeriodo AND r.codigoEstadoEstudiante = N'A'
-                GROUP BY r.idEstudiante
-             ) x
-        OPTION (NO_PERFORMANCE_SPOOL); -- 2026-11-24: sin esta opcion el plan re-evalua las horas por matricula con un spool (~240 s con 6.3 mil matriculas; ~3 s con ella)
+    BEGIN TRY
+        -- PASO 1: Resolver ambito del ejecutor (usp_resolver_facultad_decano_interno)
+        EXEC dbo.usp_resolver_facultad_decano_interno @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacion, @validarUmbrales = 1, @idFacultad = @idFacultad OUTPUT;
+        -- PASO 2: Resolver ambito del ejecutor (usp_resolver_periodo_kpi_facultad_interno)
+        EXEC dbo.usp_resolver_periodo_kpi_facultad_interno @idFacultad = @idFacultad, @idPeriodoSolicitado = @idPeriodoAcademico, @idPeriodo = @idPeriodo OUTPUT;
 
-        SELECT  @sesiones = ISNULL(SUM(r.sesionesEjecutadas), 0),
-                @faltas = ISNULL(SUM(r.faltasSinJustaCausa), 0),
-                @tomasDictadas = ISNULL(SUM(r.tomasDictadas), 0),
-                @horasDictadas = ISNULL(SUM(r.horasDictadas), 0),
-                @horasFalta = ISNULL(SUM(r.horasFalta), 0),
-                @horasPeriodo = ISNULL(SUM(r.horasPeriodo), 0)
-        FROM    dbo.uv_resumen_asistencia_estudiante_grupo r
-        WHERE   EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo_programa egp INNER JOIN dbo.uv_programa p ON p.id = egp.idPrograma WHERE egp.id = r.idEstudianteGrupo AND p.idFacultad = @idFacultad) AND r.idPeriodoAcademico = @idPeriodo AND r.codigoEstadoEstudiante = N'A'
-        OPTION (NO_PERFORMANCE_SPOOL);
+        SET @programas = (SELECT COUNT(*) FROM dbo.uv_programa p WHERE p.idFacultad = @idFacultad);
+        SET @coordinadores = (SELECT COUNT(DISTINCT c.id) FROM dbo.uv_coordinador c WHERE c.idFacultad = @idFacultad AND c.estaActivoCoordinador = 1);
+        SET @docentes = (SELECT COUNT(DISTINCT dp.idDocente) FROM dbo.uv_docente_programa dp WHERE dp.idFacultad = @idFacultad AND dp.estaActivoDocentePrograma = 1);
 
-        SELECT  @grupos = COUNT(*),
-                @cupo = ISNULL(SUM(g.capacidadMaximaPermitida), 0),
-                @matriculados = ISNULL(SUM(g.estudiantesActivos), 0)
-        FROM    dbo.uv_grupo g
-        WHERE   EXISTS (SELECT 1 FROM dbo.uv_grupo_programa gp INNER JOIN dbo.uv_programa p ON p.id = gp.idPrograma
-                        WHERE gp.idGrupo = g.id AND p.idFacultad = @idFacultad) AND g.idPeriodoAcademico = @idPeriodo AND g.grupoEstaHablitado = 1;
-    END
+        -- PASO 3: Calcular los indicadores del periodo (ISNULL sobre agregacion (permitido): SUM sin filas es NULL y el KPI es 0)
+        IF @idPeriodo IS NOT NULL
+        BEGIN
+            SELECT  @total = COUNT(*),
+                    @regulares = ISNULL(SUM(IIF(x.peor = 1, 1, 0)), 0),
+                    @riesgo = ISNULL(SUM(IIF(x.peor = 2, 1, 0)), 0),
+                    @perdida = ISNULL(SUM(IIF(x.peor = 3, 1, 0)), 0)
+            FROM (
+                    SELECT  r.idEstudiante,
+                            peor = MAX(CASE r.codigoPermanencia WHEN N'PERDIDA' THEN 3 WHEN N'RIESGO' THEN 2 ELSE 1 END)
+                    FROM    dbo.uv_resumen_asistencia_estudiante_grupo r
+                    WHERE   EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo_programa egp INNER JOIN dbo.uv_programa p ON p.id = egp.idPrograma WHERE egp.id = r.idEstudianteGrupo AND p.idFacultad = @idFacultad) AND r.idPeriodoAcademico = @idPeriodo AND r.codigoEstadoEstudiante = N'A'
+                    GROUP BY r.idEstudiante
+                 ) x
+            OPTION (NO_PERFORMANCE_SPOOL); -- 2026-11-24: sin esta opcion el plan re-evalua las horas por matricula con un spool (~240 s con 6.3 mil matriculas; ~3 s con ella)
 
-    -- CULM-001 B.2 (CONTRACT §2.9, DEC-012/DEC-024): ausentismo por horas = 100 * Sigma horasFalta / Sigma horasDictadas de las
-    -- matriculas A (antes faltas / sesiones); con sesiones de igual duracion y una toma, identico.
-    -- ATA D2: el denominador es Sigma horasPeriodo (horas de todas las sesiones del periodo, no solo las ya dictadas).
-    DECLARE @ausentismo DECIMAL(5,2) = CAST(IIF(@horasPeriodo = 0, NULL, 100.0 * @horasFalta / @horasPeriodo) AS DECIMAL(5,2));
+            SELECT  @sesiones = ISNULL(SUM(r.sesionesEjecutadas), 0),
+                    @faltas = ISNULL(SUM(r.faltasSinJustaCausa), 0),
+                    @tomasDictadas = ISNULL(SUM(r.tomasDictadas), 0),
+                    @horasDictadas = ISNULL(SUM(r.horasDictadas), 0),
+                    @horasFalta = ISNULL(SUM(r.horasFalta), 0),
+                    @horasPeriodo = ISNULL(SUM(r.horasPeriodo), 0)
+            FROM    dbo.uv_resumen_asistencia_estudiante_grupo r
+            WHERE   EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo_programa egp INNER JOIN dbo.uv_programa p ON p.id = egp.idPrograma WHERE egp.id = r.idEstudianteGrupo AND p.idFacultad = @idFacultad) AND r.idPeriodoAcademico = @idPeriodo AND r.codigoEstadoEstudiante = N'A'
+            OPTION (NO_PERFORMANCE_SPOOL);
 
-    -- PASO 4: Consulta y retorno de resultados
-    SELECT
-        idFacultad = f.id,
-        nombreFacultad = f.nombreFacultad,
-        idPeriodoAcademico = pa.id,
-        nombrePeriodoAcademico = pa.nombre,
-        totalProgramas = @programas,
-        totalEstudiantes = @total,
-        estudiantesRegulares = @regulares,
-        estudiantesRiesgo = @riesgo,
-        estudiantesPerdida = @perdida,
-        tasaRetencion = CAST(IIF(@total = 0, NULL, 100.0 * (@regulares + @riesgo) / @total) AS DECIMAL(5,2)),
-        sesionesEjecutadas = @sesiones,
-        faltasSinJustaCausa = @faltas,
-        porcentajeAusentismo = @ausentismo,
-        porcentajeAsistencia = CAST(IIF(@ausentismo IS NULL, NULL, 100.0 - @ausentismo) AS DECIMAL(5,2)),
-        gruposActivos = @grupos,
-        cupoTotal = @cupo,
-        matriculadosActivos = @matriculados,
-        tasaAforo = CAST(IIF(@cupo = 0, NULL, 100.0 * @matriculados / @cupo) AS DECIMAL(7,2)),
-        umbralAdvertencia = TRY_CAST(NULLIF(TRIM(dbo.ufn_obtener_parametro('ASISTENCIA', 'UMBRAL_ALERTA_ADVERTENCIA')), '') AS DECIMAL(5,2)),
-        umbralPerdida = TRY_CAST(NULLIF(TRIM(dbo.ufn_obtener_parametro('ASISTENCIA', 'UMBRAL_ALERTA_PERDIDA')), '') AS DECIMAL(5,2)),
-        tomasDictadas = @tomasDictadas,
-        horasDictadas = @horasDictadas,
-        horasFalta = @horasFalta,
-        totalCoordinadores = @coordinadores,
-        totalDocentes = @docentes,
-        horasPeriodo = @horasPeriodo
-    FROM dbo.uv_facultad f
-    LEFT JOIN dbo.uv_periodo_academico pa ON pa.id = @idPeriodo
-    WHERE f.id = @idFacultad;
+            SELECT  @grupos = COUNT(*),
+                    @cupo = ISNULL(SUM(g.capacidadMaximaPermitida), 0),
+                    @matriculados = ISNULL(SUM(g.estudiantesActivos), 0)
+            FROM    dbo.uv_grupo g
+            WHERE   EXISTS (SELECT 1 FROM dbo.uv_grupo_programa gp INNER JOIN dbo.uv_programa p ON p.id = gp.idPrograma
+                            WHERE gp.idGrupo = g.id AND p.idFacultad = @idFacultad) AND g.idPeriodoAcademico = @idPeriodo AND g.grupoEstaHablitado = 1;
+        END
+
+        -- CULM-001 B.2 (CONTRACT §2.9, DEC-012/DEC-024): ausentismo por horas = 100 * Sigma horasFalta / Sigma horasDictadas de las
+        -- matriculas A (antes faltas / sesiones); con sesiones de igual duracion y una toma, identico.
+        -- ATA D2: el denominador es Sigma horasPeriodo (horas de todas las sesiones del periodo, no solo las ya dictadas).
+        SET @ausentismo = CAST(IIF(@horasPeriodo = 0, NULL, 100.0 * @horasFalta / @horasPeriodo) AS DECIMAL(5,2));
+
+        -- PASO 4: Consulta y retorno de resultados
+        SELECT
+            idFacultad = f.id,
+            nombreFacultad = f.nombreFacultad,
+            idPeriodoAcademico = pa.id,
+            nombrePeriodoAcademico = pa.nombre,
+            totalProgramas = @programas,
+            totalEstudiantes = @total,
+            estudiantesRegulares = @regulares,
+            estudiantesRiesgo = @riesgo,
+            estudiantesPerdida = @perdida,
+            tasaRetencion = CAST(IIF(@total = 0, NULL, 100.0 * (@regulares + @riesgo) / @total) AS DECIMAL(5,2)),
+            sesionesEjecutadas = @sesiones,
+            faltasSinJustaCausa = @faltas,
+            porcentajeAusentismo = @ausentismo,
+            porcentajeAsistencia = CAST(IIF(@ausentismo IS NULL, NULL, 100.0 - @ausentismo) AS DECIMAL(5,2)),
+            gruposActivos = @grupos,
+            cupoTotal = @cupo,
+            matriculadosActivos = @matriculados,
+            tasaAforo = CAST(IIF(@cupo = 0, NULL, 100.0 * @matriculados / @cupo) AS DECIMAL(7,2)),
+            umbralAdvertencia = TRY_CAST(NULLIF(TRIM(dbo.ufn_obtener_parametro('ASISTENCIA', 'UMBRAL_ALERTA_ADVERTENCIA')), '') AS DECIMAL(5,2)),
+            umbralPerdida = TRY_CAST(NULLIF(TRIM(dbo.ufn_obtener_parametro('ASISTENCIA', 'UMBRAL_ALERTA_PERDIDA')), '') AS DECIMAL(5,2)),
+            tomasDictadas = @tomasDictadas,
+            horasDictadas = @horasDictadas,
+            horasFalta = @horasFalta,
+            totalCoordinadores = @coordinadores,
+            totalDocentes = @docentes,
+            horasPeriodo = @horasPeriodo
+        FROM dbo.uv_facultad f
+        LEFT JOIN dbo.uv_periodo_academico pa ON pa.id = @idPeriodo
+        WHERE f.id = @idFacultad;
+    END TRY
+    BEGIN CATCH
+        -- PASO 5: consulta de lectura (READ_QUERY_RESULTSET): el error, incluido el rechazo de validacion,
+        -- se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
+        THROW;
+    END CATCH
 END;
 GO

@@ -663,3 +663,24 @@ Misma firma, mismo resultset y mismos códigos; prueba `test/test_skills_lote9_c
 | `usp_ejecutar_cierre_masivo_periodo` | `PASO n` numerados, `IF` con `BEGIN/END` (también los `COMMIT` de una línea) y lecturas sin bloqueo por `uv_estado_estudiante_grupo`, `uv_tipo_alerta_inasistencia`, `uv_estado_revision_cancelacion`, `uv_grupo_registro`, `uv_estudiante_grupo_registro` y `uv_revision_cancelacion_registro`. El orden de bloqueos (§2.0) no cambia: `PeriodoAcademico`, `RevisionCancelacion` y `EstudianteGrupo` con `UPDLOCK, HOLDLOCK` y los `UPDATE` siguen en las tablas |
 | `usp_consultar_carga_festivos_anio`, `usp_consultar_dias_festivos`, `usp_consultar_sesiones_festivo_con_asistencia_paginado`, `usp_consultar_destinatarios_receso_academico`, `usp_consultar_recesos_periodo` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END`, lecturas por vistas y `TRY/CATCH` de lectura que relanza |
 
+## Addendum SKILLS-BD lote 10 (2026-11-26): indicadores y consultas
+
+Misma firma, mismos valores en el resultset y mismos códigos; prueba `test/test_skills_lote10_caracterizacion.sql` más las de dominio
+de cada SP (KPI de coordinador, decano e institución, aforo, alerta temprana, alertas, W2A/W2B/W3I/W3M, CULM-001 B.2 y C, puntos de
+control y ATA P1).
+
+| SP | Cambio en el lote 10 |
+| :--- | :--- |
+| `usp_consultar_kpis_coordinador`, `usp_consultar_kpis_decano`, `usp_consultar_kpis_institucion` | `DECLARE` en la cabecera (los que dependen del ámbito resuelto se asignan con `SET` en su paso) y `TRY/CATCH` de lectura que relanza. Mismas consultas y mismas pistas (`OPTION (RECOMPILE)`, `NO_PERFORMANCE_SPOOL`); los `ISNULL` que quedan son sobre `SUM` (permitidos) |
+| `usp_consultar_aforo_grupos_facultad`, `usp_consultar_alerta_temprana_programa`, `usp_consultar_resumen_asistencia_estudiante_programa`, `usp_consultar_resumen_docentes_programa`, `usp_consultar_historial_grupos_docente_programa` | `DECLARE` en la cabecera, `IF` con `BEGIN/END`, sin `ISNULL` sobre columnas o parámetros (condiciones `IS NULL` equivalentes) y `TRY/CATCH` de lectura que relanza. El historial lee el vínculo y el periodo por `uv_docente_programa`/`uv_periodo_academico_fechas` |
+| `usp_consultar_alertas_estudiante`, `usp_consultar_resumen_asistencia_estudiante`, `usp_consultar_resumen_materias_estudiante` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END`, estudiante y matrícula por `uv_estudiante_identidad`/`uv_estudiante_grupo_registro` y `TRY/CATCH` de lectura que relanza |
+| `usp_consultar_matriz_asistencia_grupo_docente_paginado`, `usp_consultar_resumen_asistencia_grupo_docente_paginado`, `usp_consultar_resumen_tomas_sesion` | Igual, sin `ISNULL` sobre columnas de `LEFT JOIN` (`IIF` equivalentes) y transiciones/revisión/sesión por `uv_transicion_revision_cancelacion`, `uv_revision_cancelacion_registro` y `uv_sesion` |
+| `usp_consultar_grupos_pendientes_evaluacion_alertas` | Igual, con grupos, periodos, cortes y matrículas por `uv_grupo_registro`, `uv_periodo_academico_fechas`, `uv_evaluacion_alerta_grupo`, `uv_estudiante_grupo_registro` y `uv_estado_estudiante_grupo` |
+| `usp_consultar_asignaturas_ambito_consolidado`, `usp_consultar_docentes_ambito_consolidado`, `usp_consultar_historial_estudiante`, `usp_consultar_resumen_grupos_docente` | `PASO n` también en el restablecimiento del contexto y en el `CATCH` de lectura (ya relanzaba) |
+| `usp_evaluar_alertas_inasistencia_grupo` | `PASO n`, `IF` con `BEGIN/END`, sin `ISNULL` (condición e `IF` equivalentes) y lecturas sin bloqueo por vistas (catálogos de alerta y revisión, grupo, matrícula e identidad de las novedades). Los `UPDLOCK, HOLDLOCK` y las escrituras siguen en las tablas; el JSON de novedades es el mismo |
+
+En `usp_consultar_resumen_asistencia_grupo_docente_paginado` (`tieneAdvertenciaVigente`, `tienePerdidaVigente`, `requiereAccionDocente`) y
+`usp_consultar_resumen_tomas_sesion` (minutos, estado y tomas ausentes) las columnas que usaban `ISNULL` sobre un `LEFT JOIN` siguen
+sin devolver `NULL`, pero los metadatos del resultset las describen ahora como anulables (así describe SQL Server un `IIF`). Los valores
+no cambian; solo cambia esa marca de los metadatos.
+

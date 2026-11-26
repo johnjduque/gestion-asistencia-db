@@ -608,3 +608,13 @@ Vistas nuevas, delgadas y sin cálculos: `uv_periodo_academico_fechas` (`uv_peri
 `uv_estudiante_grupo_registro` y `uv_revision_cancelacion_registro` (las vistas existentes unen identidad y catálogos). La skill
 prohíbe cambiar la forma de una vista existente, por eso se crearon vistas nuevas.
 
+## Addendum SKILLS-BD lote 10 (2026-11-26): indicadores y consultas
+
+Mismo nombre, misma firma y mismo comportamiento; prueba `test/test_skills_lote10_caracterizacion.sql` (`SKL10_*`).
+
+| Interno | Cambio en el lote 10 |
+| :--- | :--- |
+| `usp_resolver_periodo_kpi_interno`, `usp_resolver_periodo_kpi_facultad_interno`, `usp_resolver_periodo_kpi_institucion_interno` | `DECLARE` en la cabecera, `PASO n` y `TRY/CATCH` que relanza el mismo error (el rechazo `PER_001` sigue saliendo como `THROW 51000`; no tienen triplete) |
+
+Vista nueva, delgada y sin cálculos: `uv_evaluacion_alerta_grupo` (la tabla `EvaluacionAlertaGrupo` no tenía vista).
+

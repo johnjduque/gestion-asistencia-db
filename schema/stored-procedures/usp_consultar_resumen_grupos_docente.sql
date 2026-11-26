@@ -19,6 +19,7 @@ GO
 -- es solo para reutilizar la validacion, esta consulta no pagina. Un docente sin grupos habilitados recibe una fila en cero.
 -- El SESSION_CONTEXT que fija la validacion se restaura siempre (exito y error).
 -- ============================================================================
+-- SKILLS-BD lote 10 (2026-11-26): PASO n tambien en el restablecimiento del contexto y en el CATCH de lectura que relanza. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_resumen_grupos_docente]
 (
     @idUsuarioEjecutor UNIQUEIDENTIFIER,
@@ -53,6 +54,7 @@ BEGIN
         END;
 
         -- PASO 2: Consulta y retorno de resultados (el ambito son los grupos del docente ejecutor)
+        -- ISNULL sobre agregacion (permitido): SUM de un conjunto vacio es NULL y el contrato devuelve 0.
         SELECT
             gruposHabilitados  = COUNT(g.id),
             estudiantesActivos = ISNULL(SUM(g.estudiantesActivos), 0),
@@ -63,9 +65,12 @@ BEGIN
         WHERE g.grupoEstaHablitado = 1
           AND EXISTS (SELECT 1 FROM dbo.uv_docente_identidad di WHERE di.id = g.idDocente AND di.idUsuario = @idUsuario);
 
+        -- PASO 3: Restaurar el contexto de sesion previo
         EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
     END TRY
     BEGIN CATCH
+        -- PASO 4: consulta de lectura (READ_QUERY_RESULTSET): el error, incluido el rechazo de validacion,
+        -- se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
         EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
         THROW;
     END CATCH;
