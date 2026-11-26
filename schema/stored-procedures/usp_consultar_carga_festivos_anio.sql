@@ -13,6 +13,7 @@ GO
 -- fuenteUltimaCarga y fechaUltimaCargaUtc (NULL si no hay carga). THROW 51000 si falta la correlacion o el anio.
 -- ============================================================================
 -- SKILLS-BD lote 9 (2026-11-26): DECLARE en la cabecera, PASO n, IF con BEGIN/END y TRY/CATCH de lectura que relanza (los rechazos siguen saliendo como THROW 51000). Mismo resultado.
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): job del servidor sin @idUsuarioEjecutor; exige @idCorrelacion.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_carga_festivos_anio]
 (
     @anio          INT,

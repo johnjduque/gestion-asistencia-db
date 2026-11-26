@@ -17,6 +17,7 @@ GO
 -- SKILLS-BD lote 10 (2026-11-26): DECLARE en la cabecera, PASO n, IF con BEGIN/END, sin ISNULL (IIF equivalentes), lecturas por
 -- uv_grupo_registro, uv_periodo_academico_fechas, uv_evaluacion_alerta_grupo, uv_estudiante_grupo_registro y uv_estado_estudiante_grupo
 -- (antes, las tablas) y TRY/CATCH de lectura que relanza. Mismo resultado.
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): job del servidor sin @idUsuarioEjecutor; exige @idCorrelacion.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_grupos_pendientes_evaluacion_alertas]
 (
     @idCorrelacion       UNIQUEIDENTIFIER,

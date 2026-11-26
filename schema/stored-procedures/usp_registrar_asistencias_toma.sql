@@ -21,6 +21,8 @@ GO
 -- Todo se valida antes de escribir; el lote es atomico; la ventana se revalida al confirmar. Exito TOM_010.
 -- Bloqueos: Sesion (ventana) -> TomaAsistencia -> EstudianteGrupo -> Asistencia -> DetalleAsistencia.
 -- ============================================================================
+-- SKILLS-BD lote 12 (2026-11-26): PASO n, IF con BEGIN/END y lecturas sin bloqueo por vistas uv_* (antes, las tablas).
+-- Las lecturas con UPDLOCK/HOLDLOCK y las escrituras siguen en las tablas. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_asistencias_toma]
 (
     @idToma            UNIQUEIDENTIFIER,
@@ -62,12 +64,14 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
     BEGIN TRY
+        -- PASO 1: Validar correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
+        -- PASO 2: Validar parametros obligatorios (GEN_002)
         IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_002', @p_param1 = 'idUsuarioEjecutor',
@@ -76,16 +80,20 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 3: Validar perfil del ejecutor (DOCENTE)
         IF @estadoResultado = 1
+        BEGIN
             EXEC dbo.usp_validar_permiso_rbac_usuario_interno
                 @idUsuario = @idUsuarioEjecutorDefecto, @codigoPerfilRequerido = 'DOCENTE', @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
+        END
 
+        -- PASO 4: Toma existente (TOM_001)
         IF @estadoResultado = 1
         BEGIN
-            SELECT @idSesion = t.sesion, @idGrupo = s.grupo
-            FROM dbo.TomaAsistencia t INNER JOIN dbo.Sesion s ON s.id = t.sesion
+            SELECT @idSesion = t.idSesion, @idGrupo = s.idGrupo
+            FROM dbo.uv_toma_asistencia_registro t INNER JOIN dbo.uv_sesion_registro s ON s.id = t.idSesion
             WHERE t.id = @idTomaDefecto;
 
             IF @idSesion IS NULL
@@ -96,13 +104,17 @@ BEGIN
                 SET @estadoResultado = 0;
             END
         END
+        -- PASO 5: Titularidad del docente sobre la sesion
         IF @estadoResultado = 1
+        BEGIN
             EXEC dbo.usp_validar_titularidad_jerarquica_interno
                 @idUsuario = @idUsuarioEjecutorDefecto, @idEntidadPadre = @idSesion, @tipoEntidadPadre = 'SESION',
                 @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
+        END
 
+        -- PASO 6: JSON valido (ATT_001)
         -- Validacion completa del JSON antes de cualquier escritura (mismas reglas del lote congelado)
         IF @estadoResultado = 1
            AND (@asistenciaJSON IS NULL OR ISJSON(@asistenciaJSON, ARRAY) <> 1
@@ -118,6 +130,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 7: Estudiantes del lote (ATT_002)
         IF @estadoResultado = 1
         BEGIN
             INSERT INTO @EstudiantesATrabajar (idEstudiante, estado)
@@ -133,6 +146,7 @@ BEGIN
                 SET @estadoResultado = 0;
             END
         END
+        -- PASO 8: idEstudiante valido (GEN_002)
         IF @estadoResultado = 1
         BEGIN
             SELECT TOP 1 @secuenciaInvalida = secuencia FROM @EstudiantesATrabajar WHERE idEstudiante IS NULL ORDER BY secuencia;
@@ -144,6 +158,7 @@ BEGIN
                 SET @estadoResultado = 0;
             END
         END
+        -- PASO 9: Estado del catalogo cerrado (RC_001)
         IF @estadoResultado = 1
         BEGIN
             SELECT TOP 1 @secuenciaInvalida = secuencia,
@@ -159,6 +174,7 @@ BEGIN
                 SET @estadoResultado = 0;
             END
         END
+        -- PASO 10: Sin estudiantes repetidos (ATT_003)
         IF @estadoResultado = 1
         BEGIN
             SELECT TOP 1 @idEstudianteInvalido = idEstudiante FROM @EstudiantesATrabajar GROUP BY idEstudiante HAVING COUNT(1) > 1 ORDER BY idEstudiante;
@@ -170,14 +186,15 @@ BEGIN
                 SET @estadoResultado = 0;
             END
         END
+        -- PASO 11: Matricula activa de cada estudiante en el grupo (EST_004)
         IF @estadoResultado = 1
         BEGIN
             SELECT TOP 1 @idEstudianteInvalido = et.idEstudiante
             FROM @EstudiantesATrabajar et
             WHERE NOT EXISTS (
-                SELECT 1 FROM dbo.EstudianteGrupo eg
-                INNER JOIN dbo.EstadoEstudianteGrupo eeg ON eeg.id = eg.estado
-                WHERE eg.estudiante = et.idEstudiante AND eg.grupo = @idGrupo AND eeg.codigo = @codigoActiva)
+                SELECT 1 FROM dbo.uv_estudiante_grupo_registro eg
+                INNER JOIN dbo.uv_estado_estudiante_grupo eeg ON eeg.id = eg.idEstado
+                WHERE eg.idEstudiante = et.idEstudiante AND eg.idGrupo = @idGrupo AND eeg.codigo = @codigoActiva)
             ORDER BY et.secuencia;
             IF @idEstudianteInvalido IS NOT NULL
             BEGIN
@@ -188,6 +205,7 @@ BEGIN
             END
         END
 
+        -- PASO 12: Escritura atomica: ventana, bloqueo de la toma, sincronizacion por estudiante y ventana al confirmar (TOM_010)
         -- Escritura atomica: ventana con tolerancia (bloquea Sesion) -> toma -> sincronizacion por estudiante
         IF @estadoResultado = 1
         BEGIN
@@ -209,7 +227,9 @@ BEGIN
                 @toleranciaMinutos = @toleranciaMinutos, @margenMinutos = @margenMinutos;
 
             IF @estadoResultado = 1
+            BEGIN
                 SELECT @idSesion = t.sesion FROM dbo.TomaAsistencia t WITH (UPDLOCK, HOLDLOCK) WHERE t.id = @idTomaDefecto;
+            END
 
             WHILE @iterador <= @totalEstudiantes AND @estadoResultado = 1
             BEGIN
@@ -226,11 +246,13 @@ BEGIN
 
             -- La ventana debe seguir abierta en el punto de confirmacion
             IF @estadoResultado = 1
+            BEGIN
                 EXEC dbo.usp_validar_sesion_ventana_registro_interno
                     @idSesion = @idSesion, @idCorrelacion = @idCorrelacionDefecto,
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                     @estadoResultado = @estadoResultado OUTPUT,
                     @toleranciaMinutos = @toleranciaMinutos, @margenMinutos = @margenMinutos;
+            END
 
             IF @estadoResultado = 1
             BEGIN
@@ -241,30 +263,44 @@ BEGIN
                 SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
             END
 
+            -- PASO 13: Confirmar o revertir la transaccion propia o el punto de guardado
             IF @transaccionPropia = 1
             BEGIN
                 IF XACT_STATE() = 1 AND (@estadoResultado = 1 OR @huboEscritura = 0)
+                BEGIN
                     COMMIT TRANSACTION;
+                END
                 ELSE IF XACT_STATE() <> 0
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
                 SET @transaccionPropia = 0;
             END
             ELSE IF @savepointCreado = 1 AND XACT_STATE() = 1 AND @estadoResultado = 0 AND @huboEscritura = 1
+            BEGIN
                 ROLLBACK TRANSACTION sp_asistencias_toma;
+            END
         END
     END TRY
     BEGIN CATCH
+        -- PASO 14: Error: revertir lo propio, relanzar si la transaccion externa quedo condenada; si no, SYS_001
         SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
             ROLLBACK TRANSACTION sp_asistencias_toma;
+        END
 
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
@@ -272,6 +308,7 @@ BEGIN
         SET @estadoResultado = 0;
     END CATCH
 
+    -- PASO 15: Resultado
     SELECT
         idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,

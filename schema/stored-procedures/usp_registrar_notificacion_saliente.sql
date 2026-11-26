@@ -12,6 +12,7 @@ GO
 -- Salida Canonica: (idCorrelacion, mensajeUsuarioResultado, mensajeTecnicoResultado, estadoResultado)
 -- =============================================================================
 -- SKILLS-BD lote 8 (2026-11-26): DECLARE en la cabecera (los de un paso se asignan con SET en ese paso), PASO n, SET XACT_ABORT ON (fachada que muta), sin COALESCE (un IIF equivalente) y estado por uv_estado_notificacion (antes, la tabla). Mismo resultado.
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): notificaciones y correo: lo invoca el backend sin usuario con perfil; exige @idCorrelacion.
 CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_notificacion_saliente]
 (
     @tipo               NVARCHAR(100)    = NULL,

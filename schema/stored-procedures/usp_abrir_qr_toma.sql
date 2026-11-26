@@ -18,6 +18,8 @@ GO
 -- fin de la sesion + ASISTENCIA/MARGEN_RETARDO_MINUTOS. Bloqueos: Sesion -> TomaAsistencia -> TokenAsistenciaToma.
 -- Exito AQR_012.
 -- ============================================================================
+-- SKILLS-BD lote 12 (2026-11-26): PASO n, IF con BEGIN/END y lecturas sin bloqueo por vistas uv_* (antes, las tablas).
+-- Las lecturas con UPDLOCK/HOLDLOCK y las escrituras siguen en las tablas. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_abrir_qr_toma]
 (
     @idToma            UNIQUEIDENTIFIER,
@@ -55,15 +57,18 @@ AS
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
+    -- PASO 1: Rotacion (60 s por defecto) y tolerancia del token anterior
     SET @rotacionSegundos = IIF(@rotacionSegundos IS NULL OR @rotacionSegundos < 1, 60, @rotacionSegundos);
     SET @toleranciaSegundos = IIF(@toleranciaSegundos IS NULL OR @toleranciaSegundos < 0, 0, @toleranciaSegundos);
     BEGIN TRY
+        -- PASO 2: Validar correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
+        -- PASO 3: Validar parametros obligatorios (GEN_002)
         IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_002', @p_param1 = 'idUsuarioEjecutor',
@@ -72,18 +77,22 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 4: Validar perfil del ejecutor (DOCENTE)
         IF @estadoResultado = 1
+        BEGIN
             EXEC dbo.usp_validar_permiso_rbac_usuario_interno
                 @idUsuario = @idUsuarioEjecutorDefecto, @codigoPerfilRequerido = 'DOCENTE', @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
+        END
 
+        -- PASO 5: Toma existente (TOM_001)
         IF @estadoResultado = 1
         BEGIN
-            SELECT @idSesion = t.sesion, @idGrupo = s.grupo, @usaCodigoQr = m.usaCodigoQr
-            FROM dbo.TomaAsistencia t
-            INNER JOIN dbo.Sesion s ON s.id = t.sesion
-            INNER JOIN dbo.ModoTomaAsistencia m ON m.id = t.modo
+            SELECT @idSesion = t.idSesion, @idGrupo = s.idGrupo, @usaCodigoQr = m.usaCodigoQr
+            FROM dbo.uv_toma_asistencia_registro t
+            INNER JOIN dbo.uv_sesion_registro s ON s.id = t.idSesion
+            INNER JOIN dbo.uv_modo_toma_asistencia m ON m.id = t.idModo
             WHERE t.id = @idTomaDefecto;
 
             IF @idSesion IS NULL
@@ -94,13 +103,17 @@ BEGIN
                 SET @estadoResultado = 0;
             END
         END
+        -- PASO 6: Titularidad del docente sobre la sesion
         IF @estadoResultado = 1
+        BEGIN
             EXEC dbo.usp_validar_titularidad_jerarquica_interno
                 @idUsuario = @idUsuarioEjecutorDefecto, @idEntidadPadre = @idSesion, @tipoEntidadPadre = 'SESION',
                 @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
+        END
 
+        -- PASO 7: Token y PIN validos (GEN_002) y toma con QR (AQR_003)
         -- Hash SHA-256 de 32 bytes y PIN de 6 digitos (los genera el backend)
         IF @estadoResultado = 1
            AND (@tokenHash IS NULL OR DATALENGTH(@tokenHash) <> 32 OR @pin IS NULL OR LEN(@pin) <> 6 OR @pin LIKE N'%[^0-9]%')
@@ -119,9 +132,10 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 8: Transaccion propia o punto de guardado y ventana de registro
         IF @estadoResultado = 1
         BEGIN
-            SELECT @idDocente = d.id FROM dbo.Docente d WHERE d.usuario = @idUsuarioEjecutorDefecto;
+            SELECT @idDocente = d.id FROM dbo.uv_docente_identidad d WHERE d.idUsuario = @idUsuarioEjecutorDefecto;
 
             IF @@TRANCOUNT = 0
             BEGIN
@@ -140,6 +154,7 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT,
                 @toleranciaMinutos = @toleranciaMinutos, @margenMinutos = @margenMinutos;
 
+            -- PASO 9: Bloquear la toma: debe seguir abierta (AQR_005)
             IF @estadoResultado = 1
             BEGIN
                 SELECT @tomaAbierta = IIF(t.fechaCierreUtc IS NULL, 1, 0)
@@ -155,6 +170,7 @@ BEGIN
                 END
             END
 
+            -- PASO 10: PIN y hash unicos entre los tokens activos (AQR_006)
             IF @estadoResultado = 1
             BEGIN
                 SET @ahora = SYSUTCDATETIME();
@@ -173,11 +189,15 @@ BEGIN
                 END
             END
 
+            -- PASO 11: Cerrar el token previo y emitir el nuevo (AQR_012)
             IF @estadoResultado = 1
             BEGIN
                 SELECT @expiracion = CAST(DATEADD(MINUTE, IIF(@margenMinutos IS NULL OR @margenMinutos < 0, 0, @margenMinutos), s.fechaHoraFin) AS DATETIME2(0))
-                FROM dbo.Sesion s WHERE s.id = @idSesion;
-                IF @expiracion <= @ahora SET @expiracion = DATEADD(SECOND, 1, @ahora);
+                FROM dbo.uv_sesion_registro s WHERE s.id = @idSesion;
+                IF @expiracion <= @ahora
+                BEGIN
+                    SET @expiracion = DATEADD(SECOND, 1, @ahora);
+                END
 
                 UPDATE dbo.TokenAsistenciaToma SET fechaCierreUtc = @ahora WHERE toma = @idTomaDefecto AND fechaCierreUtc IS NULL;
 
@@ -193,28 +213,40 @@ BEGIN
                 SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
             END
 
+            -- PASO 12: Confirmar la transaccion propia
             IF @transaccionPropia = 1
             BEGIN
                 IF XACT_STATE() = 1
+                BEGIN
                     COMMIT TRANSACTION;
+                END
                 ELSE IF XACT_STATE() = -1
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
                 SET @transaccionPropia = 0;
             END
         END
     END TRY
     BEGIN CATCH
+        -- PASO 13: Error: revertir lo propio, relanzar si la transaccion externa quedo condenada; si no, SYS_001
         SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
             ROLLBACK TRANSACTION sp_abrir_qr_toma;
+        END
 
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
@@ -222,6 +254,7 @@ BEGIN
         SET @estadoResultado = 0;
     END CATCH
 
+    -- PASO 14: Resultado
     SELECT
         idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,

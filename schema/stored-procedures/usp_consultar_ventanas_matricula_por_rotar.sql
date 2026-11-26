@@ -10,6 +10,7 @@ GO
 -- Acotada por el parametro MATRICULA_QR/LOTE_ROTACION.
 -- READ_QUERY_RESULTSET: NON_GOLDEN_PATH_EXTENSION (ver test/test_contract_closure.sql).
 -- SKILLS-BD lote 7 (2026-11-26): DECLARE en la cabecera, PASO n y TRY/CATCH de lectura; mismo resultado.
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): job del servidor sin @idUsuarioEjecutor; exige @idCorrelacion.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_ventanas_matricula_por_rotar]
 AS
     DECLARE @lote INT = dbo.ufn_obtener_parametro_int(NULL, 'MATRICULA_QR', 'LOTE_ROTACION');

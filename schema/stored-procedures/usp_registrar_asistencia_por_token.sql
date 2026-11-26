@@ -22,6 +22,8 @@ GO
 -- Idempotente por (estudiante, toma): si ya habia detalle responde AQR_008 con yaRegistrado = 1 y no cambia una marca previa
 -- del docente. Exito AQR_009. La red del campus (CIDR), el interruptor y los limites los aplica el backend antes de llamar.
 -- ============================================================================
+-- SKILLS-BD lote 12 (2026-11-26): PASO n, IF con BEGIN/END y lecturas sin bloqueo por vistas uv_* (antes, las tablas), salvo las dos busquedas con FORCESEEK de la fila propia.
+-- Las lecturas con UPDLOCK/HOLDLOCK y las escrituras siguen en las tablas. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_asistencia_por_token]
 (
     @tokenHash         VARBINARY(32) = NULL,
@@ -71,12 +73,14 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
     BEGIN TRY
+        -- PASO 1: Validar correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
+        -- PASO 2: Validar parametros obligatorios (GEN_002)
         IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_002', @p_param1 = 'idUsuarioEjecutor',
@@ -85,15 +89,19 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 3: Validar perfil del ejecutor (ESTUDIANTE)
         IF @estadoResultado = 1
+        BEGIN
             EXEC dbo.usp_validar_permiso_rbac_usuario_interno
                 @idUsuario = @idUsuarioEjecutorDefecto, @codigoPerfilRequerido = 'ESTUDIANTE', @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
+        END
 
+        -- PASO 4: Estudiante del ejecutor y token o PIN vigente (rechazo del nucleo)
         IF @estadoResultado = 1
         BEGIN
-            SELECT @idEstudiante = e.id FROM dbo.Estudiante e WHERE e.usuario = @idUsuarioEjecutorDefecto;
+            SELECT @idEstudiante = e.id FROM dbo.uv_estudiante_identidad e WHERE e.idUsuario = @idUsuarioEjecutorDefecto;
 
             EXEC dbo.usp_resolver_token_asistencia_interno
                 @tokenHash = @tokenHash, @pin = @pin, @idCorrelacion = @idCorrelacionDefecto,
@@ -116,6 +124,7 @@ BEGIN
             END
         END
 
+        -- PASO 5: Transaccion propia o punto de guardado y ventana de registro (bloqueo compartido de la sesion)
         IF @estadoResultado = 1
         BEGIN
             IF @@TRANCOUNT = 0
@@ -137,10 +146,11 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT,
                 @toleranciaMinutos = @toleranciaMinutos, @margenMinutos = @margenMinutos, @bloqueoCompartido = 1;
 
+            -- PASO 6: Toma abierta (AQR_005)
             IF @estadoResultado = 1
             BEGIN
                 SELECT @tomaAbierta = IIF(t.fechaCierreUtc IS NULL, 1, 0), @numeroToma = t.numero
-                FROM dbo.TomaAsistencia t WHERE t.id = @idToma;
+                FROM dbo.uv_toma_asistencia_registro t WHERE t.id = @idToma;
                 IF @tomaAbierta = 0
                 BEGIN
                     EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'AQR_005', @p_param1 = @idToma,
@@ -150,11 +160,14 @@ BEGIN
                 END
             END
 
+            -- PASO 7: Matricula activa en el grupo de la toma (AQR_004)
             -- Matricula A del estudiante en el grupo de la toma: un estudiante de otro grupo nunca escribe
             IF @estadoResultado = 1 AND @idEstudiante IS NOT NULL
+            BEGIN
                 SELECT TOP 1 @idEstudianteGrupo = eg.id
-                FROM dbo.EstudianteGrupo eg INNER JOIN dbo.EstadoEstudianteGrupo e ON e.id = eg.estado
-                WHERE eg.estudiante = @idEstudiante AND eg.grupo = @idGrupo AND e.codigo = @codigoActiva;
+                FROM dbo.uv_estudiante_grupo_registro eg INNER JOIN dbo.uv_estado_estudiante_grupo e ON e.id = eg.idEstado
+                WHERE eg.idEstudiante = @idEstudiante AND eg.idGrupo = @idGrupo AND e.codigo = @codigoActiva;
+            END
 
             IF @estadoResultado = 1 AND @idEstudianteGrupo IS NULL
             BEGIN
@@ -166,6 +179,7 @@ BEGIN
                 SET @estadoResultado = 0;
             END
 
+            -- PASO 8: Registrar la asistencia una sola vez (AQR_009) o informar que ya estaba (AQR_008)
             IF @estadoResultado = 1
             BEGIN
                 EXEC dbo.usp_sincronizar_asistencia_estudiante_interno
@@ -181,7 +195,8 @@ BEGIN
                     SET @yaRegistrado = IIF(@detalleCreado = 1, 0, 1);
                     -- Dos busquedas forzadas por las claves unicas de la fila propia: un join por toma o un recorrido de la PK de
                     -- DetalleAsistencia (plan que el optimizador elige con pocas filas) espera las filas aun sin confirmar de los
-                    -- demas estudiantes y encadena bloqueos con N registros concurrentes.
+                    -- demas estudiantes y encadena bloqueos con N registros concurrentes. SKILLS-BD lote 12: estas dos lecturas siguen en
+                    -- las tablas porque la pista FORCESEEK es parte del control de concurrencia (docs/arquitectura/excepciones-skills-bd.md).
                     SELECT @idAsistenciaPropia = a.id
                     FROM dbo.Asistencia a WITH (FORCESEEK)
                     WHERE a.estudianteGrupo = @idEstudianteGrupo AND a.sesion = @idSesion;
@@ -189,7 +204,7 @@ BEGIN
                     FROM dbo.DetalleAsistencia da WITH (FORCESEEK)
                     WHERE da.asistencia = @idAsistenciaPropia AND da.toma = @idToma;
                     SELECT @nombreAsignatura = g.nombreAsignatura, @nombreGrupo = g.nombre, @numeroSesion = s.numero
-                    FROM dbo.Sesion s INNER JOIN dbo.uv_grupo g ON g.id = s.grupo
+                    FROM dbo.uv_sesion_registro s INNER JOIN dbo.uv_grupo g ON g.id = s.idGrupo
                     WHERE s.id = @idSesion;
 
                     SET @p1 = CONVERT(NVARCHAR(36), @idEstudiante);
@@ -201,32 +216,48 @@ BEGIN
                 END
             END
 
+            -- PASO 9: Confirmar o revertir la transaccion propia
             IF @transaccionPropia = 1
             BEGIN
                 IF XACT_STATE() = 1 AND @estadoResultado = 1
+                BEGIN
                     COMMIT TRANSACTION;
+                END
                 ELSE IF XACT_STATE() <> 0 AND @detalleCreado = 1
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
                 ELSE IF XACT_STATE() = 1
+                BEGIN
                     COMMIT TRANSACTION;
+                END
                 ELSE IF XACT_STATE() = -1
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
                 SET @transaccionPropia = 0;
             END
         END
     END TRY
     BEGIN CATCH
+        -- PASO 10: Error: revertir lo propio, relanzar si la transaccion externa quedo condenada; si no, SYS_001
         SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
             ROLLBACK TRANSACTION sp_asistencia_por_token;
+        END
 
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
@@ -234,6 +265,7 @@ BEGIN
         SET @estadoResultado = 0;
     END CATCH
 
+    -- PASO 11: Resultado
     SELECT
         idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,

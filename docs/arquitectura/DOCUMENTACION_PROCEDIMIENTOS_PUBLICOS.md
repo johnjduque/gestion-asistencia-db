@@ -706,3 +706,23 @@ LB-004D).
 En `usp_consultar_detalle_solicitud_revision_docente` y `usp_consultar_solicitudes_revision_estudiante` la columna `soportesJson` sigue
 sin devolver `NULL` (`'[]'` sin soportes), pero los metadatos del resultset la describen ahora como anulable (así describe SQL Server un
 `IIF`). Los valores no cambian; solo cambia esa marca de los metadatos.
+
+## Addendum SKILLS-BD lote 12 (2026-11-26): tomas y QR
+
+Misma firma, mismo resultset (los metadatos de los 19 SP no cambian) y mismos códigos; los 19 SP ya tenían prueba directa de dominio
+y se corrieron antes y después (CULM-001 B.1 y B.2 tomas y QR, ATA P1, puntos de control, IDENT-001/002, NOTOMA-001, D.7, DEC-076/077,
+MRM, PRU-15, cierre de contrato y auditoría del 2026-11-22).
+
+| SP | Cambio en el lote 12 |
+| :--- | :--- |
+| `usp_consultar_asistencias_toma_paginado`, `usp_consultar_faltantes_toma_paginado`, `usp_consultar_tomas_sesion` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END`, toma, sesión, asistencia, detalle y razón por `uv_toma_asistencia_registro`, `uv_sesion_registro`, `uv_asistencia_registro`, `uv_detalle_asistencia_registro` y `uv_razon_causa`, y `TRY/CATCH` de lectura que relanza |
+| `usp_consultar_tomas_qr_por_rotar`, `usp_consultar_destinatarios_aviso_sin_toma`, `usp_consultar_sesiones_pendientes_aviso_sin_toma` | Igual; programa por `uv_programa`, avisos ya enviados por `uv_aviso_sesion_sin_toma` e `IIF`/`IS NULL` en lugar de `ISNULL` |
+| `usp_consultar_token_verificacion_correo` | `PASO n`, usuario por `uv_usuario` y `TRY/CATCH` de lectura. El token sigue buscándose por su hash en la tabla (excepción E7) |
+| `usp_abrir_qr_toma`, `usp_abrir_toma_asistencia`, `usp_cerrar_qr_toma`, `usp_cerrar_toma_asistencia`, `usp_rotar_token_asistencia_toma`, `usp_registrar_asistencias_toma` | `PASO n`, `IF` con `BEGIN/END` y lecturas sin bloqueo por vistas (toma, sesión, modo, estado, docente y matrícula). Los `UPDLOCK, HOLDLOCK` (sesión, toma, tokens) y las escrituras siguen en las tablas; el `ISNULL` que queda es sobre `MAX` (permitido) |
+| `usp_registrar_asistencia_por_token` | Igual; las dos búsquedas `FORCESEEK` de la fila propia siguen en las tablas (excepción documentada en `excepciones-skills-bd.md`, E7) |
+| `usp_emitir_token_verificacion_correo` | `DECLARE` del `CATCH` a la cabecera, `PASO` en el `CATCH` y usuario por `uv_usuario`. El `UPDATE` con bloqueo y el `INSERT` siguen en la tabla |
+| `usp_registrar_aviso_sesion_sin_toma` | `DECLARE` en la cabecera, `PASO n` y sesión por `uv_sesion_registro`. La lectura con `UPDLOCK, HOLDLOCK` y el `INSERT` siguen en la tabla |
+| `usp_aplicar_festivos_automatico`, `usp_cargar_dias_festivos_automatico`, `usp_rotar_token_asistencia_automatico` | `PASO n` (y en el primero `IIF` en lugar de `ISNULL`) |
+
+Marca `SP_SISTEMA` (excepción E1): el lote 12 la agrega, solo como comentario de cabecera, a los SP de sistema no congelados que aún no
+la tenían, también a los de lotes anteriores (jobs, notificaciones y correo, integraciones y utilidades). No cambia su código.

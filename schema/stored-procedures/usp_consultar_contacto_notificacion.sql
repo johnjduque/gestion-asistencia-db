@@ -16,6 +16,7 @@ GO
 --   Result set 2 (cuando estadoResultado=1): (idUsuario, correo, correoConfirmado)
 -- =============================================================================
 -- SKILLS-BD lote 8 (2026-11-26): DECLARE en la cabecera (los de un paso se asignan con SET en ese paso) y PASO n. Mismo resultado.
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): notificaciones y correo: lo invoca el backend sin usuario con perfil; exige @idCorrelacion.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_contacto_notificacion]
 (
     @usuariosJson  NVARCHAR(MAX)    = NULL,

@@ -13,6 +13,7 @@ GO
 --   * Una cuenta con otra identidad vigente del mismo emisor se rechaza (GEN_003).
 -- El correo recibido solo se guarda como evidencia de la vinculacion inicial; no se usa para resolver el vinculo.
 -- SKILLS-BD lote 3 (2026-11-25): DECLARE en la cabecera e IF con BEGIN/END; mismo comportamiento.
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): integracion externa sin usuario con perfil; exige @idCorrelacion.
 CREATE OR ALTER PROCEDURE [dbo].[usp_vincular_identidad_externa]
 (
     @emisor             NVARCHAR(400),

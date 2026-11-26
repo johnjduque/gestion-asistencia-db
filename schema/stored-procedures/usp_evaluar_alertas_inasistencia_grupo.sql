@@ -20,6 +20,7 @@ GO
 -- SKILLS-BD lote 10 (2026-11-26): PASO n, IF con BEGIN/END, sin ISNULL (condicion e IF equivalentes) y lecturas sin bloqueo por
 -- vistas uv_* (catalogos, grupo, matricula e identidad de las novedades). Los UPDLOCK/HOLDLOCK y las escrituras siguen en las tablas.
 -- Mismo resultado y mismo JSON de novedades.
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): job del servidor sin @idUsuarioEjecutor; exige @idCorrelacion.
 CREATE OR ALTER PROCEDURE [dbo].[usp_evaluar_alertas_inasistencia_grupo]
 (
     @idGrupo           UNIQUEIDENTIFIER,

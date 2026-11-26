@@ -16,6 +16,7 @@ GO
 -- Una sesion cancelada o inexistente devuelve 0 filas. Los correos son de uso interno del NotificacionPort; el backend no los expone ni los registra.
 -- ============================================================================
 -- SKILLS-BD lote 8 (2026-11-26): DECLARE en la cabecera, PASO n, sin ISNULL (un IIF equivalente) y TRY/CATCH de lectura que relanza. Mismo resultado.
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): job del servidor sin @idUsuarioEjecutor; exige @idCorrelacion.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_faltas_sesion_aviso]
 (
     @idSesion      UNIQUEIDENTIFIER,
