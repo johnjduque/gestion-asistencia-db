@@ -8,6 +8,7 @@ GO
 -- HU081: marca un plan de estudios como activo o inactivo (PlanEstudio.estado). Idempotente.
 -- No toca semestres ni asignaturas del plan.
 -- RBAC COORDINADOR + existencia del plan + titularidad PROGRAMA del plan se validan DENTRO del SP.
+-- SKILLS-BD lote 6 (2026-11-26): programa del plan por uv_plan_estudio (antes, la tabla); mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_cambiar_estado_plan_estudio]
 (
     @idPlanEstudio      UNIQUEIDENTIFIER,
@@ -79,7 +80,7 @@ BEGIN
         -- PASO 5: Validacion de negocio (PLA_002)
         IF @estadoResultado = 1
         BEGIN
-            SELECT @idProgramaPlan = pe.programa FROM dbo.PlanEstudio pe WHERE pe.id = @idPlanEstudioDefecto;
+            SELECT @idProgramaPlan = pe.idPrograma FROM dbo.uv_plan_estudio pe WHERE pe.id = @idPlanEstudioDefecto;
             IF @idProgramaPlan IS NULL
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo

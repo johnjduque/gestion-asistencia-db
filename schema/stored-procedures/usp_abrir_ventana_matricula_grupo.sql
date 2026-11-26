@@ -12,6 +12,8 @@ GO
 --   * Fin de la ventana = ahora + MATRICULA_QR/DURACION_MAXIMA_MINUTOS (parametro administrable, CONTRACT A1).
 --   * PIN repetido en el PIN vigente o anterior de otra ventana activa -> MQR_006 sin escrituras (el backend reintenta).
 -- Resultset: tupla canonica + idVentana + fechaExpiracionUtc (extension documentada, CONTRACT §2.3).
+-- SKILLS-BD lote 7 (2026-11-26): titular por uv_grupo/uv_docente_identidad (antes, las tablas), DECLARE en la cabecera (se
+-- asignan con SET en su paso), IF con BEGIN/END. La lectura con UPDLOCK, HOLDLOCK sigue en la tabla. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_abrir_ventana_matricula_grupo]
 (
     @idGrupo           UNIQUEIDENTIFIER,
@@ -37,6 +39,12 @@ AS
     DECLARE @idVentana          UNIQUEIDENTIFIER = NULL;
     DECLARE @fechaExpiracionUtc DATETIME2(0)     = NULL;
     DECLARE @codigoRechazo      VARCHAR(20)      = NULL;
+    DECLARE @estadoActiva       NVARCHAR(10);
+    DECLARE @estadoCerrada      NVARCHAR(10);
+    DECLARE @duracionMinutos    INT;
+    DECLARE @ahora              DATETIME2(0);
+    DECLARE @estadoTransaccionCatch     INT;
+
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;   -- AUD-BD M-6: un error no capturado condena la transaccion; el CATCH ya maneja XACT_STATE() = -1 (THROW si no es propia)
@@ -94,9 +102,9 @@ BEGIN
         IF @estadoResultado = 1
         BEGIN
             SELECT @idDocenteTitular = d.id
-            FROM dbo.Grupo g
-            INNER JOIN dbo.Docente d ON d.id = g.docente
-            WHERE g.id = @idGrupoDefecto AND d.usuario = @idUsuarioEjecutor;
+            FROM dbo.uv_grupo g
+            INNER JOIN dbo.uv_docente_identidad d ON d.id = g.idDocente
+            WHERE g.id = @idGrupoDefecto AND d.idUsuario = @idUsuarioEjecutor;
 
             IF @idDocenteTitular IS NULL
             BEGIN
@@ -136,10 +144,10 @@ BEGIN
         -- PASO 5: escritura atomica
         IF @estadoResultado = 1
         BEGIN
-            DECLARE @estadoActiva  NVARCHAR(10) = CAST(dbo.ufn_obtener_parametro('MATRICULA_QR', 'ESTADO_ACTIVA') AS NVARCHAR(10));
-            DECLARE @estadoCerrada NVARCHAR(10) = CAST(dbo.ufn_obtener_parametro('MATRICULA_QR', 'ESTADO_CERRADA') AS NVARCHAR(10));
-            DECLARE @duracionMinutos INT = dbo.ufn_obtener_parametro_int(NULL, 'MATRICULA_QR', 'DURACION_MAXIMA_MINUTOS');
-            DECLARE @ahora DATETIME2(0) = SYSUTCDATETIME();
+            SET @estadoActiva = CAST(dbo.ufn_obtener_parametro('MATRICULA_QR', 'ESTADO_ACTIVA') AS NVARCHAR(10));
+            SET @estadoCerrada = CAST(dbo.ufn_obtener_parametro('MATRICULA_QR', 'ESTADO_CERRADA') AS NVARCHAR(10));
+            SET @duracionMinutos = dbo.ufn_obtener_parametro_int(NULL, 'MATRICULA_QR', 'DURACION_MAXIMA_MINUTOS');
+            SET @ahora = SYSUTCDATETIME();
 
             SET @conteoTransaccionesInicial = @@TRANCOUNT;
             IF @conteoTransaccionesInicial = 0
@@ -158,7 +166,9 @@ BEGIN
                 SELECT 1 FROM dbo.TokenMatriculaGrupo t WITH (UPDLOCK, HOLDLOCK)
                 WHERE t.estado = @estadoActiva AND t.grupo <> @idGrupoDefecto AND (t.pin = @pin OR t.pinAnterior = @pin)
             )
+            BEGIN
                 SET @codigoRechazo = 'MQR_006';
+            END
 
             IF @codigoRechazo IS NULL
             BEGIN
@@ -196,24 +206,34 @@ BEGIN
             IF @transaccionPropia = 1
             BEGIN
                 IF XACT_STATE() = 1
+                BEGIN
                     COMMIT TRANSACTION;
+                END
                 ELSE IF XACT_STATE() = -1
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
             END
         END
     END TRY
     BEGIN CATCH
-        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+        SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
             ROLLBACK TRANSACTION sp_hu176b_abrir;
+        END
 
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',

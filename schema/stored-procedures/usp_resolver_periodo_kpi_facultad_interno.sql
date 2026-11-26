@@ -10,6 +10,7 @@ GO
 -- HU102/HU103/HU106/HU144 (D7): periodo solicitado (PER_001 si no existe) o, por defecto, el mas reciente con grupos
 -- habilitados de la facultad. Devuelve NULL si la facultad no tiene grupos habilitados (no es un error).
 -- =============================================================================
+-- SKILLS-BD lote 10 (2026-11-26): DECLARE en la cabecera, PASO n y TRY/CATCH que relanza el mismo error. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_resolver_periodo_kpi_facultad_interno]
 (
     @idFacultad          UNIQUEIDENTIFIER,
@@ -17,34 +18,44 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_resolver_periodo_kpi_facultad_interno]
     @idPeriodo           UNIQUEIDENTIFIER OUTPUT
 )
 AS
-BEGIN
-    SET NOCOUNT ON;
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @msgP1 NVARCHAR(500);
-    SET @idPeriodo = NULL;
+BEGIN
+    SET NOCOUNT ON;
 
-    IF @idPeriodoSolicitado IS NOT NULL
-    BEGIN
-        SELECT @idPeriodo = pa.id FROM dbo.uv_periodo_academico pa WHERE pa.id = @idPeriodoSolicitado;
-        IF @idPeriodo IS NULL
+    BEGIN TRY
+        -- PASO 1: Periodo solicitado: debe existir (PER_001)
+        SET @idPeriodo = NULL;
+
+        IF @idPeriodoSolicitado IS NOT NULL
         BEGIN
-            SET @msgP1 = CAST(CONVERT(NVARCHAR(36), @idPeriodoSolicitado) AS NVARCHAR(500));
-            EXEC dbo.usp_obtener_mensaje_catalogo
-                @p_codigo = 'PER_001',
-                @p_param1 = @msgP1,
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-            THROW 51000, @mensajeTecnicoResultado, 1;
+            SELECT @idPeriodo = pa.id FROM dbo.uv_periodo_academico pa WHERE pa.id = @idPeriodoSolicitado;
+            IF @idPeriodo IS NULL
+            BEGIN
+                SET @msgP1 = CAST(CONVERT(NVARCHAR(36), @idPeriodoSolicitado) AS NVARCHAR(500));
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'PER_001',
+                    @p_param1 = @msgP1,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+                THROW 51000, @mensajeTecnicoResultado, 1;
+            END
+            RETURN;
         END
-        RETURN;
-    END
 
-    SELECT TOP 1 @idPeriodo = gp.idPeriodoAcademico
-    FROM dbo.uv_grupo_programa gp
-    INNER JOIN dbo.uv_programa p ON p.id = gp.idPrograma
-    INNER JOIN dbo.uv_periodo_academico pa ON pa.id = gp.idPeriodoAcademico
-    WHERE p.idFacultad = @idFacultad AND gp.grupoEstaHablitado = 1
-    ORDER BY pa.fechaInicio DESC, pa.id ASC;
+        -- PASO 2: Sin periodo solicitado: el mas reciente con grupos habilitados (NULL si no hay)
+        SELECT TOP 1 @idPeriodo = gp.idPeriodoAcademico
+        FROM dbo.uv_grupo_programa gp
+        INNER JOIN dbo.uv_programa p ON p.id = gp.idPrograma
+        INNER JOIN dbo.uv_periodo_academico pa ON pa.id = gp.idPeriodoAcademico
+        WHERE p.idFacultad = @idFacultad AND gp.grupoEstaHablitado = 1
+        ORDER BY pa.fechaInicio DESC, pa.id ASC;
+    END TRY
+    BEGIN CATCH
+        -- PASO 3: el error, incluido el rechazo PER_001 (THROW 51000), se propaga igual al llamador (sin triplete propio,
+        -- como antes).
+        THROW;
+    END CATCH
 END;
 GO

@@ -20,6 +20,8 @@ GO
 --   CULM-001 / DEC-065 (2): un usuario que solo tiene perfil ESTUDIANTE no ve las sesiones extraordinarias pendientes de aprobacion
 --   ni las rechazadas por el coordinador (nunca se le anunciaron); docente, coordinador y demas perfiles las ven (con su estado).
 -- ============================================================================
+-- SKILLS-BD lote 13 (2026-11-26): PASO n, IF con BEGIN/END y solicitud de sesion por uv_solicitud_sesion_registro y
+-- uv_estado_solicitud_sesion (antes, las tablas). Mismas columnas y mismas filas.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_sesiones_grupo_paginado]
 (
     @idUsuarioEjecutor       UNIQUEIDENTIFIER,
@@ -59,14 +61,14 @@ BEGIN
     SET XACT_ABORT ON;
 
     BEGIN TRY
-        -- Paso 1: Validación obligatoria de identificador de correlación
+        -- PASO 1: Validación obligatoria de identificador de correlación
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- Paso 2: Validación obligatoria de usuario ejecutor
+        -- PASO 2: Validación obligatoria de usuario ejecutor
         IF @estadoResultado = 1 AND (@idUsuarioDefecto IS NULL OR @idUsuarioDefecto = @guidVacio)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -78,7 +80,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
-        -- Paso 3: Validación obligatoria de idGrupo
+        -- PASO 3: Validación obligatoria de idGrupo
         IF @estadoResultado = 1 AND (@idGrupoDefecto IS NULL OR @idGrupoDefecto = @guidVacio)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -90,20 +92,23 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- Rechazo de validacion: se propaga al llamador
         IF @estadoResultado = 0
         BEGIN
             THROW 51000, @mensajeTecnicoResultado, 1;
         END
 
-        -- Paso 3.5 (DEC-065 (2)): perfil exclusivamente ESTUDIANTE => se ocultan las sesiones extraordinarias no aprobadas
+        -- PASO 4 (DEC-065 (2)): perfil exclusivamente ESTUDIANTE => se ocultan las sesiones extraordinarias no aprobadas
         IF EXISTS (SELECT 1 FROM dbo.uv_usuario_perfil up WHERE up.idUsuario = @idUsuarioDefecto AND UPPER(up.nombrePerfil) = 'ESTUDIANTE')
            AND NOT EXISTS (SELECT 1 FROM dbo.uv_usuario_perfil up WHERE up.idUsuario = @idUsuarioDefecto AND UPPER(up.nombrePerfil) <> 'ESTUDIANTE')
+        BEGIN
             SET @esSoloEstudiante = 1;
+        END
 
-        -- Paso 4: Establecer identidad temporal en contexto para uv_auth_sesion
+        -- PASO 5: Establecer identidad temporal en contexto para uv_auth_sesion
         EXEC dbo.usp_establecer_contexto_usuario_ejecutor @p_idUsuario = @idUsuarioDefecto;
 
-        -- Paso 5: Consulta optimizada de sesiones sobre la vista securizada
+        -- PASO 6: Consulta optimizada de sesiones sobre la vista securizada
         SELECT
             s.id,
             s.idGrupo,
@@ -130,14 +135,14 @@ BEGIN
           AND (@filtroFechaHasta IS NULL OR s.fechaHoraFin <= @filtroFechaHasta)
           AND (@filtroSemana IS NULL OR s.numeroSemana = @filtroSemana)
           AND (@esSoloEstudiante = 0
-               OR NOT EXISTS (SELECT 1 FROM dbo.SesionSolicitud ssol
-                              INNER JOIN dbo.EstadoSolicitudSesion esol ON esol.id = ssol.idEstado
-                              WHERE ssol.sesion = s.id AND esol.esAprobada = 0))
+               OR NOT EXISTS (SELECT 1 FROM dbo.uv_solicitud_sesion_registro ssol
+                              INNER JOIN dbo.uv_estado_solicitud_sesion esol ON esol.id = ssol.idEstado
+                              WHERE ssol.idSesion = s.id AND esol.esAprobada = 0))
         ORDER BY s.fechaHoraInicio ASC, s.numero ASC, s.id ASC
         OFFSET @offset ROWS
         FETCH NEXT @tamano ROWS ONLY;
 
-        -- Paso 6: Restaurar el contexto previo
+        -- PASO 7: Restaurar el contexto previo
         EXEC sys.sp_set_session_context
             @key = N'idUsuarioEjecutor',
             @value = @contextoPrevio,
@@ -145,6 +150,8 @@ BEGIN
 
     END TRY
     BEGIN CATCH
+        -- PASO 8: consulta de lectura (READ_QUERY_RESULTSET): restaurar el contexto previo y propagar el error al llamador,
+        -- que lo traduce a SYS_001 (sin triplete propio).
         EXEC sys.sp_set_session_context
             @key = N'idUsuarioEjecutor',
             @value = @contextoPrevio,

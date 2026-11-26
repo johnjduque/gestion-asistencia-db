@@ -5,6 +5,7 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
+-- SKILLS-BD lote 13 (2026-11-26): la inicializacion de las salidas pasa de la cabecera al cuerpo (PASO 0). Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_sesion_exista_por_id_interno]
 (
     @idSesion                UNIQUEIDENTIFIER,
@@ -19,15 +20,13 @@ AS
     DECLARE @idSesionDefecto      UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idSesion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
 
     DECLARE @existe BIT = 0;
-
-    -- Inicialización de respuesta desde parámetros del catálogo
-    SELECT 
+BEGIN
+    SET NOCOUNT ON;
+    -- PASO 0: inicializacion de las salidas desde el catalogo (antes, entre AS y BEGIN)
+    SELECT
         @mensajeUsuarioResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
         @mensajeTecnicoResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
         @estadoResultado = 1;
-
-BEGIN
-    SET NOCOUNT ON;
     BEGIN TRY
 
         -- PASO 1: Validación del identificador de correlación obligatorio

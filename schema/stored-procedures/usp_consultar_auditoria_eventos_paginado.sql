@@ -23,6 +23,8 @@ GO
 -- Ambito: solo perfil ADMINISTRADOR (la auditoria es de la plataforma; AuditoriaEvento no tiene institucion).
 -- SESSION_CONTEXT: lo fija el interno de validacion; se captura el previo y SIEMPRE se restaura.
 -- ============================================================================
+-- SKILLS-BD lote 14 (2026-11-26, objeto congelado, decision D5): PASO n enteros (antes 1b), PASO en el CATCH e IIF en lugar de ISNULL sobre los parametros.
+-- Misma firma, mismo resultset y mismos codigos; el hash del manifiesto se actualiza en el mismo commit.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_auditoria_eventos_paginado]
 (
     @idUsuarioEjecutor  UNIQUEIDENTIFIER,
@@ -72,8 +74,8 @@ BEGIN
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- PASO 1b (D.6): filtros excluyentes (AUD_002) y [SUPUESTO-D-16] una sola Institucion activa (AUD_001)
-        IF @estadoResultado = 1 AND ISNULL(@soloAsistencia, 0) = 1 AND ISNULL(@soloAdministracion, 0) = 1
+        -- PASO 2 (D.6): filtros excluyentes (AUD_002) y [SUPUESTO-D-16] una sola Institucion activa (AUD_001)
+        IF @estadoResultado = 1 AND IIF(@soloAsistencia IS NULL, 0, @soloAsistencia) = 1 AND IIF(@soloAdministracion IS NULL, 0, @soloAdministracion) = 1
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'AUD_002',
@@ -98,7 +100,7 @@ BEGIN
             END
         END
 
-        -- PASO 2: Rango de fechas obligatorio (GEN_002)
+        -- PASO 3: Rango de fechas obligatorio (GEN_002)
         IF @estadoResultado = 1 AND (@desdeUtc IS NULL OR @hastaUtc IS NULL)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -115,7 +117,7 @@ BEGIN
             THROW 51000, @mensajeTecnicoResultado, 1;
         END;
 
-        -- PASO 3: Consulta y retorno de resultados
+        -- PASO 4: Consulta y retorno de resultados
         SELECT
             a.id,
             a.occurredAt,
@@ -140,7 +142,7 @@ BEGIN
             a.occurredAt >= @desdeUtc
             AND a.occurredAt < @hastaUtc
             AND (@soloAsistencia = 0 OR a.esAccionAsistencia = 1)
-            AND (ISNULL(@soloAdministracion, 0) = 0 OR (@prefijoAdministracion IS NOT NULL AND LEN(@prefijoAdministracion) > 0
+            AND (IIF(@soloAdministracion IS NULL, 0, @soloAdministracion) = 0 OR (@prefijoAdministracion IS NOT NULL AND LEN(@prefijoAdministracion) > 0
                                                          AND LEFT(a.path, LEN(@prefijoAdministracion)) = @prefijoAdministracion))
             AND (@idCorrelacionEvento IS NULL OR a.correlationId = @idCorrelacionEvento)
             AND (@accionFiltro IS NULL OR a.action = @accionFiltro)
@@ -152,9 +154,12 @@ BEGIN
         OFFSET @offset ROWS
         FETCH NEXT @tamanoPagina ROWS ONLY;
 
+        -- PASO 5: restaurar el contexto de sesion previo
         EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
     END TRY
     BEGIN CATCH
+        -- PASO 6: consulta de lectura (READ_QUERY_RESULTSET): restaurar el contexto previo y propagar el error al llamador,
+        -- que lo traduce a SYS_001 (sin triplete propio).
         EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
         THROW;
     END CATCH;

@@ -9,6 +9,8 @@ GO
 -- Recibe los instantes en UTC (como se guardan en dbo.Sesion). Fail-closed: una zona ausente o desconocida es GEN_001.
 -- Cruzar la medianoche local es SES_028. No abre ni modifica transacciones: lo llaman usp_crear_sesion_interno (siempre) y
 -- usp_actualizar_sesion_interno (solo cuando cambia el horario guardado, para poder renombrar sesiones antiguas).
+-- SKILLS-BD lote 13 (2026-11-26): PASO n, IF con BEGIN/END y TRY/CATCH que relanza el error al llamador (antes, sin TRY:
+-- mismo flujo). Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_sesion_mismo_dia_interno]
 (
     @fechaHoraInicio         DATETIME2,
@@ -24,39 +26,50 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
+    -- PASO 0: inicializacion de las salidas desde el catalogo
     SELECT
         @mensajeUsuarioResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
         @mensajeTecnicoResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
         @estadoResultado         = 1;
 
-    -- Sin instantes no hay nada que comparar: los obligatorios y el orden los valida usp_validar_sesion_operacion_interno.
-    IF @fechaHoraInicio IS NULL OR @fechaHoraFin IS NULL
-        RETURN;
+    BEGIN TRY
+        -- PASO 1: sin instantes no hay nada que comparar: los obligatorios y el orden los valida usp_validar_sesion_operacion_interno.
+        IF @fechaHoraInicio IS NULL OR @fechaHoraFin IS NULL
+        BEGIN
+            RETURN;
+        END
 
-    IF @zonaHoraria IS NULL OR NOT EXISTS (SELECT 1 FROM sys.time_zone_info WHERE [name] = @zonaHoraria)
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'GEN_001',
-            @p_param1 = 'TIEMPO/ZONA_HORARIA_SQLSERVER',
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+        -- PASO 2: zona horaria del catalogo valida (GEN_001)
+        IF @zonaHoraria IS NULL OR NOT EXISTS (SELECT 1 FROM sys.time_zone_info WHERE [name] = @zonaHoraria)
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'GEN_001',
+                @p_param1 = 'TIEMPO/ZONA_HORARIA_SQLSERVER',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-        RETURN;
-    END
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+            RETURN;
+        END
 
-    IF CAST((@fechaHoraInicio AT TIME ZONE 'UTC') AT TIME ZONE @zonaHoraria AS DATE)
-       <> CAST((@fechaHoraFin AT TIME ZONE 'UTC') AT TIME ZONE @zonaHoraria AS DATE)
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'SES_028',
-            @p_param1 = @zonaHoraria,
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+        -- PASO 3: inicio y fin en el mismo dia local (SES_028)
+        IF CAST((@fechaHoraInicio AT TIME ZONE 'UTC') AT TIME ZONE @zonaHoraria AS DATE)
+           <> CAST((@fechaHoraFin AT TIME ZONE 'UTC') AT TIME ZONE @zonaHoraria AS DATE)
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'SES_028',
+                @p_param1 = @zonaHoraria,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-    END
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+    END TRY
+    BEGIN CATCH
+        -- PASO 4: el error se propaga igual al llamador (sin triplete propio, como antes)
+        THROW;
+    END CATCH
 END;
 GO

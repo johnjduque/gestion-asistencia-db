@@ -13,6 +13,8 @@ GO
 -- los grupos con sesiones cuya fecha local (TIEMPO/ZONA_HORARIA_SQLSERVER) cae en el anio. Una transaccion por grupo;
 -- si algun grupo falla el resultado es FES_009. Anio fuera de FESTIVOS/ANIO_MINIMO..ANIO_MAXIMO: FES_001.
 -- ============================================================================
+-- SKILLS-BD lote 12 (2026-11-26): PASO n e IIF en lugar de ISNULL. Mismo resultado.
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): job del servidor sin @idUsuarioEjecutor; exige @idCorrelacion.
 CREATE OR ALTER PROCEDURE [dbo].[usp_aplicar_festivos_automatico]
 (
     @anio          INT,
@@ -38,15 +40,17 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
     BEGIN TRY
+        -- PASO 1: Validar correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
+        -- PASO 2: Anio dentro del rango (FES_001)
         IF @estadoResultado = 1 AND (@anio IS NULL OR @anioMinimo IS NULL OR @anioMaximo IS NULL OR @anio < @anioMinimo OR @anio > @anioMaximo)
         BEGIN
-            SET @p1 = ISNULL(CONVERT(NVARCHAR(20), @anio), N'NULL');
+            SET @p1 = IIF(@anio IS NULL, N'NULL', CONVERT(NVARCHAR(20), @anio));
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'FES_001', @p_param1 = @p1,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
@@ -55,6 +59,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 3: Zona horaria configurada (GEN_001)
         IF @estadoResultado = 1
            AND (@zonaHorariaSqlServer IS NULL OR NOT EXISTS (SELECT 1 FROM sys.time_zone_info WHERE [name] = @zonaHorariaSqlServer))
         BEGIN
@@ -66,6 +71,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 4: Aplicar los festivos a los grupos del anio
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_aplicar_festivos_grupos_interno
@@ -87,6 +93,7 @@ BEGIN
                 THROW 52527, @mensajeErrorInterno, 1;
             END
 
+            -- PASO 5: Mensaje de resultado (FES_009 con errores, FES_008 sin errores)
             IF @gruposConError > 0
             BEGIN
                 SET @p1 = CONVERT(NVARCHAR(20), @gruposConError);
@@ -116,8 +123,11 @@ BEGIN
         END
     END TRY
     BEGIN CATCH
+        -- PASO 6: Error: relanzar si la transaccion externa quedo condenada; si no, SYS_001
         IF XACT_STATE() = -1 AND @@TRANCOUNT > 0
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
@@ -127,6 +137,7 @@ BEGIN
         SET @estadoResultado = 0;
     END CATCH
 
+    -- PASO 7: Resultado
     SELECT
         idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,

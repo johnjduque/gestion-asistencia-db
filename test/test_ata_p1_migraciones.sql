@@ -5,7 +5,7 @@
 --                       sin cuentaParaPeriodo) y devuelven el margen a 30 por defecto (y al valor vigente si seguia en 0)
 --   ATA_MIG_UP1_OK      los up crean el aviso y dejan el margen en 0 (un valor administrado distinto se respeta)
 --   ATA_MIG_DOWN_UP_OK  down -> up -> schema/ deja los mismos textos que el despliegue inicial
---   ATA_MIG_UP2_OK      los up dos veces no cambian nada ni duplican semillas
+--   ATA_MIG_UP2_OK      los up dos veces no cambian nada ni duplican semillas (los 3 SP del aviso se reponen desde schema/, SKILLS-BD lote 8)
 --   ATA_MIG_ROLLBACK_OK la transaccion se revirtio
 :on error exit
 SET NOCOUNT ON;
@@ -85,6 +85,12 @@ GO
 :r $(SCHEMADIR)/stored-procedures/usp_consultar_kpis_decano.sql
 :r $(SCHEMADIR)/stored-procedures/usp_consultar_kpis_institucion.sql
 :r $(SCHEMADIR)/stored-procedures/usp_consultar_consolidado_asistencia_grupos_paginado.sql
+-- SKILLS-BD lote 8: los 3 SP del aviso (creados por la 51) se corrigieron en schema/ (lecturas por uv_aviso_falta_sesion, PASO);
+-- su texto vigente tambien llega por deploy_schema.
+:r $(SCHEMADIR)/views/uv_aviso_falta_sesion.sql
+:r $(SCHEMADIR)/stored-procedures/usp_consultar_sesiones_pendientes_aviso_falta.sql
+:r $(SCHEMADIR)/stored-procedures/usp_consultar_faltas_sesion_aviso.sql
+:r $(SCHEMADIR)/stored-procedures/usp_registrar_aviso_falta_sesion.sql
 GO
 IF EXISTS (SELECT 1 FROM #atamig x INNER JOIN sys.objects o ON o.name = x.k INNER JOIN sys.sql_modules m ON m.object_id = o.object_id
            WHERE o.schema_id = SCHEMA_ID('dbo') AND x.v <> HASHBYTES('SHA2_256', m.definition))
@@ -94,6 +100,11 @@ GO
 :r $(MIGDIR)/50_ata_edicion_tomas_denominador_up.sql
 GO
 :r $(MIGDIR)/51_ata_aviso_falta_sesion_up.sql
+GO
+-- SKILLS-BD lote 8: la 51 repetida vuelve a dejar su texto de los 3 SP del aviso; deploy_schema (que corre despues) los repone.
+:r $(SCHEMADIR)/stored-procedures/usp_consultar_sesiones_pendientes_aviso_falta.sql
+:r $(SCHEMADIR)/stored-procedures/usp_consultar_faltas_sesion_aviso.sql
+:r $(SCHEMADIR)/stored-procedures/usp_registrar_aviso_falta_sesion.sql
 GO
 IF EXISTS (SELECT 1 FROM #atamig x INNER JOIN sys.objects o ON o.name = x.k INNER JOIN sys.sql_modules m ON m.object_id = o.object_id
            WHERE o.schema_id = SCHEMA_ID('dbo') AND x.v <> HASHBYTES('SHA2_256', m.definition))

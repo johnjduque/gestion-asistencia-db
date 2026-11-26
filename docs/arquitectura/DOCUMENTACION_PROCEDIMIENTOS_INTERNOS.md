@@ -546,3 +546,127 @@ Mismo nombre, misma firma y mismo comportamiento; prueba `test/test_skills_lote5
 | `usp_sincronizar_docente_interno` | Unicidad del rol de docente por `uv_docente_identidad` (antes, `dbo.Docente`) |
 | `usp_validar_cupo_disponible_grupo_interno` | `DECLARE` de `@cuposRestantes` en la cabecera |
 | `usp_validar_docente_exista_por_id_interno` | Sin cambios: ya cumplía; queda cubierto por la prueba del lote |
+
+## Addendum SKILLS-BD lote 6 (2026-11-26): asignaturas y planes de estudio
+
+Mismo nombre, misma firma y mismo comportamiento; prueba `test/test_skills_lote6_caracterizacion.sql` (`SKL6_*`).
+
+| Interno | Cambio en el lote 6 |
+| :--- | :--- |
+| `usp_validar_asignatura_activa_interno` | `IF` con `BEGIN/END`; `TRY/CATCH`: dentro de una transacción relanza para que el llamador revierta, sin transacción devuelve `SYS_001`. La lectura con `UPDLOCK, HOLDLOCK` (`@bloquearFila = 1`) sigue en la tabla |
+| `usp_validar_gestion_asignatura_coordinador_interno` | Asignatura, plan y vínculo por `uv_asignatura`, `uv_plan_estudio` y `uv_asignatura_plan_estudio` (antes, las tablas); `IF` con `BEGIN/END` y `PASO n`; mismos códigos (`GEN_002`, `VAL_002`, `PLA_002`, `SEC_002`, `ASI_004`, `ASI_006`) |
+
+## Addendum SKILLS-BD lote 7 (2026-11-26): estudiantes y matrícula en grupo
+
+Mismo nombre, misma firma y mismo comportamiento; prueba `test/test_skills_lote7_caracterizacion.sql` (`SKL7_*`).
+
+| Interno | Cambio en el lote 7 |
+| :--- | :--- |
+| `usp_validar_programa_comun_estudiante_grupo_interno` | Vínculos del estudiante por `uv_estudiante_programa` (antes, la tabla); `PASO n` e `IF` con `BEGIN/END`; mismos códigos (`EST_005`, `EST_006`, `EST_010`) |
+| `usp_validar_estudiante_en_programa_interno` | `DECLARE` en la cabecera, `PASO n` y `TRY/CATCH` que relanza; mismo `THROW` y códigos |
+| `usp_sincronizar_estudiante_interno` | Unicidad del rol por `uv_estudiante_identidad` (antes, la tabla) |
+| `usp_registrar_estudiante_en_programa_interno` | Matrículas, estudiante y vínculo por `uv_estudiante_grupo`, `uv_estudiante_identidad` y la vista nueva `uv_estudiante_programa_semestre` (antes, las tablas) |
+| `usp_registrar_estudiante_en_grupo_interno` | `DECLARE` en la cabecera (asignados con `SET` en su paso) e `IF` con `BEGIN/END` |
+| `usp_reactivar_matricula_retirada_interno` | Búsqueda sin bloqueo por `uv_estudiante_grupo` (antes, la tabla) e `IF` con `BEGIN/END`. Las lecturas con `UPDLOCK, HOLDLOCK` siguen en la tabla |
+| `usp_validar_estudiante_exista_por_id_interno`, `usp_validar_registro_estudiante_en_grupo_interno` | Sin cambio (ya cumplían); quedan cubiertos por la prueba del lote |
+
+Vista nueva `uv_estudiante_programa_semestre` (`id`, `idEstudiante`, `idPrograma`, `semestreActual` de `EstudiantePrograma`): se creó porque
+`uv_estudiante_programa` no expone `semestreActual` y la skill prohíbe cambiar la forma de una vista existente.
+
+## Addendum SKILLS-BD lote 8 (2026-11-26): notificaciones
+
+Mismo nombre, misma firma y mismo comportamiento; prueba `test/test_skills_lote8_caracterizacion.sql` (`SKL8_*`).
+
+| Interno | Cambio en el lote 8 |
+| :--- | :--- |
+| `usp_registrar_notificacion_saliente_interno`, `usp_marcar_notificacion_entregada_interno` | `DECLARE` en la cabecera (los de un paso se asignan con `SET` en ese paso) y `PASO n` |
+| `usp_registrar_fallo_notificacion_interno` | Igual, y los intentos actuales por `uv_notificacion_saliente` (antes, la tabla); mismo backoff `MIN(base * 2^(intentos - 1), max)` |
+| `usp_depurar_notificaciones_salientes_interno` | Igual, y las candidatas a borrar por `uv_notificacion_saliente`; el `DELETE` sigue sobre la tabla |
+| `usp_reservar_notificaciones_salientes_interno` | Estados por `uv_estado_notificacion`; la reserva con `UPDLOCK, READPAST, ROWLOCK` sigue en la tabla. Su `CATCH` relanza el error con el detalle técnico (`51000`), como antes: es un comando con resultset (las filas reservadas) y no tiene triplete |
+| `usp_validar_correo_institucional_personal_interno` | `PASO n`, `IF` con `BEGIN/END` y `TRY/CATCH` (con transacción abierta relanza; sin ella, `SYS_001`) |
+
+Vistas nuevas, delgadas y sin cálculos: `uv_notificacion_saliente`, `uv_estado_notificacion` y `uv_aviso_falta_sesion` (las tablas del
+outbox y de avisos de falta no tenían vista). Las escrituras y las lecturas con bloqueo siguen en las tablas.
+
+## Addendum SKILLS-BD lote 9 (2026-11-26): periodos, festivos y recesos
+
+Mismo nombre, misma firma y mismo comportamiento; prueba `test/test_skills_lote9_caracterizacion.sql` (`SKL9_*`).
+
+| Interno | Cambio en el lote 9 |
+| :--- | :--- |
+| `usp_resolver_institucion_gestor_periodo_interno` | `PASO n` e institución del administrador por `uv_administrador` (con `estaActivaInstitucion = 1`, el mismo filtro que antes) |
+| `usp_validar_fechas_periodo_academico_interno`, `usp_validar_solape_periodo_academico_interno` | `PASO n`, `IF` con `BEGIN/END` y periodos/grupos por `uv_periodo_academico_fechas` y `uv_grupo_registro` (antes, las tablas) |
+| `usp_validar_periodo_abierto_sesion_interno` | `PASO n`, sesión, grupo y periodo por `uv_sesion`, `uv_grupo_registro` y `uv_periodo_academico_fechas`, y `TRY/CATCH` (con transacción abierta relanza; sin ella, `SYS_001`) |
+| `usp_validar_ejecutor_administrador_periodo_interno` | `PASO n`, `IF` con `BEGIN/END` y `TRY/CATCH` (con transacción abierta relanza; sin ella, `SYS_001`) |
+| `usp_validar_receso_academico_interno` | `PASO n`, `IF` con `BEGIN/END` y lecturas por vistas |
+| `usp_aplicar_festivos_grupo_interno`, `usp_cancelar_sesiones_receso_interno` | `PASO n` y lecturas laterales por `uv_receso_academico_registro`, `uv_grupo_registro`, `uv_asistencia_registro`, `uv_toma_asistencia_registro` y `uv_sesion_cancelacion`. El bloqueo de `dbo.Sesion` y las escrituras siguen en las tablas |
+| `usp_cargar_dias_festivos_interno` | `PASO n` y `IIF` en lugar de `ISNULL` sobre variables; los `ISNULL` sobre `SUM`/conteos quedan (agregaciones, permitidos) |
+
+Vistas nuevas, delgadas y sin cálculos: `uv_periodo_academico_fechas` (`uv_periodo_academico` no expone `fechaCierreUtc`),
+`uv_receso_academico_registro` (`uv_periodo_receso_academico` filtra los activos y agrega conteos), `uv_sesion_cancelacion`,
+`uv_asistencia_registro`, `uv_toma_asistencia_registro`, `uv_grupo_registro` (`uv_grupo` calcula estadísticas por grupo),
+`uv_estudiante_grupo_registro` y `uv_revision_cancelacion_registro` (las vistas existentes unen identidad y catálogos). La skill
+prohíbe cambiar la forma de una vista existente, por eso se crearon vistas nuevas.
+
+## Addendum SKILLS-BD lote 10 (2026-11-26): indicadores y consultas
+
+Mismo nombre, misma firma y mismo comportamiento; prueba `test/test_skills_lote10_caracterizacion.sql` (`SKL10_*`).
+
+| Interno | Cambio en el lote 10 |
+| :--- | :--- |
+| `usp_resolver_periodo_kpi_interno`, `usp_resolver_periodo_kpi_facultad_interno`, `usp_resolver_periodo_kpi_institucion_interno` | `DECLARE` en la cabecera, `PASO n` y `TRY/CATCH` que relanza el mismo error (el rechazo `PER_001` sigue saliendo como `THROW 51000`; no tienen triplete) |
+
+Vista nueva, delgada y sin cálculos: `uv_evaluacion_alerta_grupo` (la tabla `EvaluacionAlertaGrupo` no tenía vista).
+
+
+## Addendum SKILLS-BD lote 11 (2026-11-26): revisiones de cancelación y reclamos
+
+Mismo nombre, misma firma y mismo comportamiento; pruebas de dominio de la toma y del reclamo (CULM-001 B.2, puntos de control,
+SES-01, comandos de asistencia).
+
+| Interno | Cambio en el lote 11 |
+| :--- | :--- |
+| `usp_sincronizar_asistencia_estudiante_interno` | La inicialización de las salidas pasa de entre `AS` y `BEGIN` al cuerpo (`PASO 0`, mismos valores), `IF` con `BEGIN/END`, `PASO` en el `CATCH` y lecturas sin bloqueo por vistas (`uv_sesion_registro`, `uv_estado_estudiante_grupo`, `uv_razon_causa`, `uv_docente_identidad`, `uv_grupo_registro`, `uv_modo_toma_asistencia`, `uv_estado_toma_asistencia`). Los `UPDLOCK`/`HOLDLOCK` (`EstudianteGrupo`, `TomaAsistencia`, `Asistencia`, `DetalleAsistencia`) y las escrituras siguen en las tablas |
+
+Vistas nuevas, delgadas y sin cálculos (una tabla cada una, las mismas filas): `uv_solicitud_revision_asistencia_registro`,
+`uv_sesion_registro` (`uv_sesion` une `uv_grupo`), `uv_detalle_asistencia_registro` y `uv_archivo_soporte_registro`.
+`uv_revision_cancelacion_registro` (creada en el lote 9, aún sin publicar en `develop`) agrega al final el resto de columnas de
+`dbo.RevisionCancelacion`; las columnas previas no cambian.
+
+## Addendum SKILLS-BD lote 13 (2026-11-26): sesiones y horarios
+
+Mismo nombre, misma firma y mismo comportamiento. Los cinco internos que no tenían prueba directa quedan fijados por
+`test/test_skills_lote13_caracterizacion.sql` (corrida sobre el código previo antes del cambio); los demás siguen cubiertos por las
+pruebas de dominio de sesiones (SES-01, SES-GEN-01, MRM, DEC-073, CULM-001 B.1, recesos y PRU-15).
+
+| Interno | Cambio en el lote 13 |
+| :--- | :--- |
+| `usp_validar_sesion_exista_por_id_interno`, `usp_validar_estudiante_pertenece_a_grupo_de_sesion_interno`, `usp_guardar_horarios_grupo_interno` | La inicialización de las salidas pasa de entre `AS` y `BEGIN` al cuerpo (`PASO 0`, mismos valores) |
+| `usp_validar_horarios_grupo_interno` | Igual; las franjas se leen por `uv_horario_registro` |
+| `usp_validar_docente_titular_sesion_interno`, `usp_validar_sesion_mismo_dia_interno`, `usp_validar_rango_calendario_interno` | `DECLARE` en la cabecera (uno por variable), `PASO n`, `IF` con `BEGIN/END` y `TRY/CATCH` que relanza el error al llamador (antes no tenían `TRY`: mismo flujo, sin triplete propio) |
+| `usp_validar_coordinador_sesion_interno` | `PASO 0` y la sesión se lee por `uv_sesion_registro` |
+| `usp_validar_solape_sesion_interno` | `PASO 0`, `IF` con `BEGIN/END` y grupo por `uv_grupo_registro`. La lectura con `UPDLOCK, HOLDLOCK` de `dbo.Sesion` sigue en la tabla |
+| `usp_validar_sesion_ventana_registro_interno` | `PASO 0`, `PASO n` enteros (antes 2.5, 2.6 y 2.7), `IF` con `BEGIN/END`, cancelación y solicitud por `uv_sesion_cancelacion`, `uv_solicitud_sesion_registro` y `uv_estado_solicitud_sesion`. Las lecturas con `HOLDLOCK` y `UPDLOCK, HOLDLOCK` de `dbo.Sesion` siguen en la tabla |
+| `usp_precargar_sesiones_grupo_interno` | `PASO 0`, `PASO n`, `IF` con `BEGIN/END`, `IIF` en lugar de `COALESCE` y lecturas sin bloqueo por vistas (`uv_parametro`, `uv_grupo_registro`, `uv_periodo_academico_fechas`, `uv_horario_registro`, `uv_dia`, `uv_sesion_registro`, `uv_asistencia_registro`, `uv_toma_asistencia_registro`, `uv_sesion_procedencia_clasificacion_registro`). El correlativo con `UPDLOCK, HOLDLOCK` y las escrituras siguen en las tablas |
+
+Vistas nuevas, delgadas y sin cálculos (una tabla cada una, las mismas filas): `uv_programa_registro`, `uv_facultad_registro`,
+`uv_solicitud_sesion_registro`, `uv_horario_registro` y `uv_sesion_procedencia_clasificacion_registro`.
+
+## Addendum SKILLS-BD lote 14 (2026-11-26): objetos congelados (decisión D5)
+
+Mismo nombre, misma firma y mismo comportamiento. Son internos con hash en los manifiestos de `docs/contracts/`; el hash se
+actualiza en el mismo commit (`freeze-manifest.ps1 -Mode GeneratePostFreeze` y `-Mode UpdateCulm001D`, `lb004d-manifest.ps1 -Mode
+Generate`). `usp_validar_valor_parametro_externo_interno` y `usp_actualizar_sesion_interno` no tenían prueba directa y quedan fijados
+por `test/test_skills_lote14_caracterizacion.sql` (corrida sobre el código previo antes del cambio).
+
+| Interno | Cambio en el lote 14 |
+| :--- | :--- |
+| `usp_validar_valor_parametro_externo_interno` | `DECLARE` en la cabecera, `PASO 0` (salidas vacías), `PASO n`, `IF` con `BEGIN/END`, parámetro y reglas de edición por `uv_parametro_registro` y `uv_parametro_edicion_registro`, y `TRY/CATCH` que relanza (antes sin `TRY`: mismo flujo) |
+| `usp_validar_plazo_justificacion_interno` | `DECLARE` en la cabecera (uno por variable), `PASO n`, fin de la sesión por `uv_sesion_registro` y `TRY/CATCH` que relanza (antes sin `TRY`: mismo flujo) |
+| `usp_actualizar_sesion_interno`, `usp_crear_sesion_interno` | `PASO n`, `IF` con `BEGIN/END`, `DECLARE` del `CATCH` a la cabecera; sesión, grupo, periodo y zona horaria por `uv_sesion_registro`, `uv_grupo_registro`, `uv_periodo_academico_fechas` y `uv_parametro`, e `IIF` en lugar de `COALESCE` sobre variables (el `COALESCE(MAX(numero), 0)` del correlativo es sobre agregación, permitido). Los `UPDLOCK, HOLDLOCK` de `dbo.Sesion` y las escrituras siguen en las tablas |
+| `usp_matricular_por_token_interno` | `DECLARE` del cuerpo a la cabecera, `PASO n`, `IF` con `BEGIN/END`, `IIF` en lugar de `COALESCE` y lecturas sin bloqueo por vistas (`uv_estudiante_identidad`, `uv_usuario`, `uv_estudiante_grupo_registro`, `uv_estudiante_programa_registro`, `uv_token_matricula_grupo_registro`). El token se sigue resolviendo en `usp_resolver_token_matricula_interno` (E7) y el `UPDATE` del contador sigue en la tabla |
+| `usp_radicar_solicitud_revision_interno` | `DECLARE` de entre `BEGIN` y el cuerpo a la cabecera (entre `AS` y `BEGIN`), `PASO 0`, `IF` con `BEGIN/END` y lecturas sin bloqueo por vistas (estudiante, soportes, toma, sesión, matrícula, asistencia, estado, razón y categoría). Las lecturas con `UPDLOCK, HOLDLOCK` y las escrituras siguen en las tablas |
+
+`usp_validar_sesion_operacion_interno` ya cumplía y no cambia (su hash tampoco).
+
+Vistas nuevas, delgadas y sin cálculos (una tabla cada una, las mismas filas): `uv_administrador_registro`, `uv_asignatura_registro`, `uv_parametro_registro` (todas las filas de `CatalogoParametro`, sin el filtro de activos de `uv_parametro`), `uv_parametro_edicion_registro`, `uv_sincronizacion_parametro_externo_registro` (sin los valores), `uv_estudiante_programa_registro` y `uv_token_matricula_grupo_registro` (sin `tokenHash`, `tokenHashAnterior`, `pin` ni `pinAnterior`, excepción E7).

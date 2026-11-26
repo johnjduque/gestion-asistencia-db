@@ -18,6 +18,8 @@ GO
 -- Institucion activa falla con PRM_012 y sin filas (los parametros no tienen institucion).
 -- SESSION_CONTEXT: lo fija el interno de validacion; se captura el previo y SIEMPRE se restaura.
 -- ============================================================================
+-- SKILLS-BD lote 14 (2026-11-26, objeto congelado, decision D5): PASO en el CATCH e IIF en lugar de ISNULL sobre el parametro.
+-- Misma firma, mismo resultset y mismos codigos; el hash del manifiesto se actualiza en el mismo commit.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_parametros_paginado]
 (
     @idUsuarioEjecutor  UNIQUEIDENTIFIER,
@@ -34,7 +36,7 @@ AS
     DECLARE @idCorrelacionDefecto    UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @grupoFiltro             VARCHAR(100) = NULLIF(TRIM(@grupo), '');
     DECLARE @textoFiltro             NVARCHAR(200) = NULLIF(TRIM(@texto), '');
-    DECLARE @soloEditablesFiltro     BIT = ISNULL(@soloEditables, 1);
+    DECLARE @soloEditablesFiltro     BIT = IIF(@soloEditables IS NULL, 1, @soloEditables);
     DECLARE @contextoPrevio          SQL_VARIANT = SESSION_CONTEXT(N'idUsuarioEjecutor');
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -107,9 +109,12 @@ BEGIN
         OFFSET @offset ROWS
         FETCH NEXT @tamanoPagina ROWS ONLY;
 
+        -- PASO 4: restaurar el contexto de sesion previo
         EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
     END TRY
     BEGIN CATCH
+        -- PASO 5: consulta de lectura (READ_QUERY_RESULTSET): restaurar el contexto previo y propagar el error al llamador,
+        -- que lo traduce a SYS_001 (sin triplete propio).
         EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
         THROW;
     END CATCH;

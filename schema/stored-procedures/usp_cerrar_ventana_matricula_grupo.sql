@@ -7,6 +7,8 @@ GO
 
 -- HU176B: el docente titular cierra la ventana de matricula activa de su grupo. Idempotente: sin ventana activa
 -- responde exito sin cambios. RBAC DOCENTE + titularidad (SEC_002).
+-- SKILLS-BD lote 7 (2026-11-26): PASO n, DECLARE en la cabecera, IF con BEGIN/END y SET XACT_ABORT ON (fachada que muta);
+-- mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_cerrar_ventana_matricula_grupo]
 (
     @idGrupo           UNIQUEIDENTIFIER,
@@ -24,9 +26,15 @@ AS
     DECLARE @conteoTransaccionesInicial INT = 0;
     DECLARE @transaccionPropia          BIT = 0;
     DECLARE @savepointCreado            BIT = 0;
+    DECLARE @estadoActiva               NVARCHAR(10);
+    DECLARE @estadoCerrada              NVARCHAR(10);
+    DECLARE @estadoTransaccionCatch     INT;
+
 BEGIN
     SET NOCOUNT ON;
+    SET XACT_ABORT ON;   -- fachada que muta (igual que usp_abrir_ventana_matricula_grupo): el CATCH ya maneja XACT_STATE() = -1
     BEGIN TRY
+        -- PASO 1: Correlacion y parametros obligatorios (GEN_002)
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
@@ -43,6 +51,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 2: Grupo existente
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_validar_grupo_exista_por_id_interno
@@ -53,6 +62,7 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
+        -- PASO 3: Perfil DOCENTE
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_validar_permiso_rbac_usuario_interno
@@ -64,6 +74,7 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
+        -- PASO 4: Titularidad del docente sobre el grupo
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_validar_titularidad_jerarquica_interno
@@ -76,10 +87,11 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
+        -- PASO 5: Cierre de la ventana activa del grupo (transaccion propia o savepoint)
         IF @estadoResultado = 1
         BEGIN
-            DECLARE @estadoActiva  NVARCHAR(10) = CAST(dbo.ufn_obtener_parametro('MATRICULA_QR', 'ESTADO_ACTIVA') AS NVARCHAR(10));
-            DECLARE @estadoCerrada NVARCHAR(10) = CAST(dbo.ufn_obtener_parametro('MATRICULA_QR', 'ESTADO_CERRADA') AS NVARCHAR(10));
+            SET @estadoActiva = CAST(dbo.ufn_obtener_parametro('MATRICULA_QR', 'ESTADO_ACTIVA') AS NVARCHAR(10));
+            SET @estadoCerrada = CAST(dbo.ufn_obtener_parametro('MATRICULA_QR', 'ESTADO_CERRADA') AS NVARCHAR(10));
 
             SET @conteoTransaccionesInicial = @@TRANCOUNT;
             IF @conteoTransaccionesInicial = 0
@@ -106,24 +118,35 @@ BEGIN
             IF @transaccionPropia = 1
             BEGIN
                 IF XACT_STATE() = 1
+                BEGIN
                     COMMIT TRANSACTION;
+                END
                 ELSE IF XACT_STATE() = -1
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
             END
         END
     END TRY
     BEGIN CATCH
-        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+        -- PASO 6: Error inesperado: revierte lo propio y devuelve SYS_001 (relanza si la transaccion externa quedo condenada)
+        SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
             ROLLBACK TRANSACTION sp_hu176b_cerrar;
+        END
 
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',

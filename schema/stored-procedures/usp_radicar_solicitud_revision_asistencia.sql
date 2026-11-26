@@ -5,6 +5,8 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
+-- SKILLS-BD lote 11 (2026-11-26): IF con BEGIN/END y lecturas por vistas uv_* (sesion, matricula, asistencia y estado; antes, las
+-- tablas). Las escrituras siguen en las tablas. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_radicar_solicitud_revision_asistencia]
 (
     @idEstudiante       UNIQUEIDENTIFIER,
@@ -111,12 +113,14 @@ BEGIN
 
         -- PASO 4.4 (VAL-pendientes-john PRU-15): periodo cerrado por el cierre masivo => PER_008; antes del plazo y de toda escritura.
         IF @estadoResultado = 1
+        BEGIN
             EXEC dbo.usp_validar_periodo_abierto_sesion_interno
                 @idSesion = @idSesionDefecto,
                 @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
+        END
 
         -- PASO 4.5 (CULM-001 D.1, HU026B): plazo de excusas (REV_020 vencido, REV_025 sin parametros); antes de toda escritura.
         IF @estadoResultado = 1
@@ -135,18 +139,18 @@ BEGIN
         BEGIN
             SET @zonaLocal = CAST(dbo.ufn_obtener_parametro_texto(NULL, 'TIEMPO', 'ZONA_HORARIA_SQLSERVER') AS NVARCHAR(128));
             SELECT TOP 1 @idEstudianteGrupo = eg.id
-            FROM dbo.Sesion s
-            INNER JOIN dbo.EstudianteGrupo eg ON eg.grupo = s.grupo
-            WHERE s.id = @idSesionDefecto AND eg.estudiante = @idEstudianteDefecto;
+            FROM dbo.uv_sesion_registro s
+            INNER JOIN dbo.uv_estudiante_grupo_registro eg ON eg.idGrupo = s.idGrupo
+            WHERE s.id = @idSesionDefecto AND eg.idEstudiante = @idEstudianteDefecto;
 
             SELECT TOP 1 @idAsistencia = id
-            FROM dbo.Asistencia
-            WHERE estudianteGrupo = @idEstudianteGrupo AND sesion = @idSesionDefecto;
+            FROM dbo.uv_asistencia_registro
+            WHERE idEstudianteGrupo = @idEstudianteGrupo AND idSesion = @idSesionDefecto;
 
-            SELECT TOP 1 @idEstadoPendiente = id FROM dbo.Estado WHERE codigo IN ('P', 'PEND') ORDER BY id ASC;
+            SELECT TOP 1 @idEstadoPendiente = id FROM dbo.uv_estado WHERE codigo IN ('P', 'PEND') ORDER BY id ASC;
             IF @idEstadoPendiente IS NULL
             BEGIN
-                SELECT TOP 1 @idEstadoPendiente = id FROM dbo.Estado ORDER BY id ASC;
+                SELECT TOP 1 @idEstadoPendiente = id FROM dbo.uv_estado ORDER BY id ASC;
             END
 
             SET @nombreSolicitud = CONCAT('REC-', UPPER(SUBSTRING(CAST(@nuevaSolicitudId AS VARCHAR(36)), 1, 8)));
@@ -189,7 +193,9 @@ BEGIN
     BEGIN CATCH
         -- REC3: solo se revierte si hay una transaccion viva (XACT_STATE <> 0); evita un segundo error en el CATCH.
         IF XACT_STATE() <> 0
+        BEGIN
             ROLLBACK TRANSACTION;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',

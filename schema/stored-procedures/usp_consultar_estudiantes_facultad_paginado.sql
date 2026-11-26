@@ -18,6 +18,8 @@ GO
 -- SESSION_CONTEXT: se captura el previo y SIEMPRE se restaura (exito y error).
 -- MEJORAS-SERGIO-2026-11-18: codigoTipoIdentificacion (sigla del tipo de documento) al final del resultset (cambio aditivo).
 -- ============================================================================
+-- SKILLS-BD lote 7 (2026-11-26): DECLARE en la cabecera, PASO n, facultad del decano por uv_facultad/uv_decano_identidad
+-- (antes, las tablas) y comentario del CATCH de lectura; mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_estudiantes_facultad_paginado]
 (
     @idUsuarioEjecutor  UNIQUEIDENTIFIER,
@@ -29,10 +31,6 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_estudiantes_facultad_paginado]
     @estaActivo         BIT              = NULL
 )
 AS
-BEGIN
-    SET NOCOUNT ON;
-    -- Consulta de solo lectura: sin XACT_ABORT para no invalidar la transaccion del llamador ante un THROW de validacion.
-
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idUsuarioDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @guidVacio            UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(NULL, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
@@ -45,8 +43,12 @@ BEGIN
     DECLARE @estadoResultado BIT = 1;
 
     DECLARE @contextoPrevio SQL_VARIANT = SESSION_CONTEXT(N'idUsuarioEjecutor');
+BEGIN
+    SET NOCOUNT ON;
+    -- Consulta de solo lectura: sin XACT_ABORT para no invalidar la transaccion del llamador ante un THROW de validacion.
 
     BEGIN TRY
+        -- PASO 1: Validar el identificador de correlacion y el ejecutor (VAL_001)
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
@@ -64,6 +66,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 2: Validar la paginacion (PAG_001)
         IF @estadoResultado = 1
            AND (@numeroPagina IS NULL OR @numeroPagina < 1 OR @tamanoPagina IS NULL OR @tamanoPagina < 1
                 OR @tamanoMaximo IS NULL OR @tamanoPagina > @tamanoMaximo)
@@ -78,23 +81,26 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 3: Rechazo de validacion
         IF @estadoResultado = 0
         BEGIN
             THROW 51000, @mensajeTecnicoResultado, 1;
         END
 
+        -- PASO 4: Fijar el contexto del ejecutor para las vistas uv_auth_*
         SET @offset = (@numeroPagina - 1) * @tamanoPagina;
 
         EXEC dbo.usp_establecer_contexto_usuario_ejecutor
             @p_idUsuario = @idUsuarioDefecto;
 
+        -- PASO 5: Consulta y retorno de resultados (estudiantes de la facultad del decano)
         WITH matriculas AS (
             SELECT  e.id, e.idUsuario, e.numeroIdentificacion, e.nombreCompleto, e.estaActivoUsuario,
                     e.idPrograma, e.nombrePrograma, e.idGrupo
             FROM    dbo.uv_auth_estudiante e
             WHERE   e.idFacultad IN (
-                        SELECT f.id FROM dbo.Facultad f INNER JOIN dbo.Decano d ON d.id = f.decano
-                        WHERE d.usuario = @idUsuarioDefecto
+                        SELECT f.id FROM dbo.uv_facultad f INNER JOIN dbo.uv_decano_identidad di ON di.id = f.idDecano
+                        WHERE di.idUsuario = @idUsuarioDefecto
                     )
                AND  (@idPrograma IS NULL OR e.idPrograma = @idPrograma)
         ),
@@ -134,12 +140,15 @@ BEGIN
         OFFSET @offset ROWS
         FETCH NEXT @tamanoPagina ROWS ONLY;
 
+        -- PASO 6: Restaurar el contexto de sesion previo
         EXEC sys.sp_set_session_context
             @key = N'idUsuarioEjecutor',
             @value = @contextoPrevio,
             @read_only = 0;
     END TRY
     BEGIN CATCH
+        -- PASO 7: consulta de lectura (READ_QUERY_RESULTSET): se restaura el contexto y el error, incluido el
+        -- rechazo de validacion, se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
         EXEC sys.sp_set_session_context
             @key = N'idUsuarioEjecutor',
             @value = @contextoPrevio,

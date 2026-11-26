@@ -21,6 +21,7 @@ GO
 --   * Tipo = TipoCancelacionSesion con codigo SESION/CODIGO_TIPO_CANCELACION_FESTIVO (DEC-081: ya no por esAutomatica = 1, hay dos tipos automaticos); motivo = FESTIVOS/PREFIJO_MOTIVO_CANCELACION + nombre.
 -- Bloqueo: dbo.Sesion WITH (UPDLOCK, HOLDLOCK) sobre las candidatas antes de escribir (mismo orden que la ventana).
 -- ============================================================================
+-- SKILLS-BD lote 9 (2026-11-26): festivos, asistencias, tomas y cancelaciones por uv_dia_festivo, uv_asistencia_registro, uv_toma_asistencia_registro y uv_sesion_cancelacion (antes, las tablas). El bloqueo de dbo.Sesion sigue en la tabla. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_aplicar_festivos_grupo_interno]
 (
     @idGrupo                  UNIQUEIDENTIFIER,
@@ -108,16 +109,16 @@ BEGIN
         BEGIN
             INSERT INTO @candidatas (idSesion, idDiaFestivo, fecha, nombreFestivo, tieneAsistencia)
             SELECT  s.id, df.id, df.fecha, df.nombre,
-                    CAST(IIF(EXISTS (SELECT 1 FROM dbo.Asistencia a WHERE a.sesion = s.id)
-                             OR EXISTS (SELECT 1 FROM dbo.TomaAsistencia t WHERE t.sesion = s.id), 1, 0) AS BIT)
+                    CAST(IIF(EXISTS (SELECT 1 FROM dbo.uv_asistencia_registro a WHERE a.idSesion = s.id)
+                             OR EXISTS (SELECT 1 FROM dbo.uv_toma_asistencia_registro t WHERE t.idSesion = s.id), 1, 0) AS BIT)
             FROM    dbo.Sesion s WITH (UPDLOCK, HOLDLOCK)
-            INNER JOIN dbo.DiaFestivo df
+            INNER JOIN dbo.uv_dia_festivo df
             ON      df.estaActivo = 1
             AND     df.fecha = CAST((s.fechaHoraInicio AT TIME ZONE 'UTC') AT TIME ZONE @zonaHorariaSqlServer AS DATE)
             WHERE   s.grupo = @idGrupoDefecto
               AND   s.procedenciaTemporal IS NOT NULL
               AND   (@soloFuturas = 0 OR s.fechaHoraInicio > @ahoraUtc)
-              AND   NOT EXISTS (SELECT 1 FROM dbo.SesionCancelacion sc WHERE sc.sesion = s.id);
+              AND   NOT EXISTS (SELECT 1 FROM dbo.uv_sesion_cancelacion sc WHERE sc.idSesion = s.id);
 
             SET @sesionesConAsistencia = (SELECT COUNT(1) FROM @candidatas WHERE tieneAsistencia = 1);
 

@@ -11,6 +11,8 @@ GO
 -- Ambito: Fachada publica tecnica de registro de notificaciones salientes.
 -- Salida Canonica: (idCorrelacion, mensajeUsuarioResultado, mensajeTecnicoResultado, estadoResultado)
 -- =============================================================================
+-- SKILLS-BD lote 8 (2026-11-26): DECLARE en la cabecera (los de un paso se asignan con SET en ese paso), PASO n, SET XACT_ABORT ON (fachada que muta), sin COALESCE (un IIF equivalente) y estado por uv_estado_notificacion (antes, la tabla). Mismo resultado.
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): notificaciones y correo: lo invoca el backend sin usuario con perfil; exige @idCorrelacion.
 CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_notificacion_saliente]
 (
     @tipo               NVARCHAR(100)    = NULL,
@@ -23,31 +25,36 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_notificacion_saliente]
     @spanId             CHAR(16)         = NULL
 )
 AS
-BEGIN
-    SET NOCOUNT ON;
-
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @tipoDef              VARCHAR(60)      = NULL;
     DECLARE @asuntoDef            NVARCHAR(200)    = NULL;
     DECLARE @mensajeDef           NVARCHAR(4000)   = NULL;
-    DECLARE @datosDef             NVARCHAR(MAX)    = COALESCE(NULLIF(TRIM(@datosJson), N''), N'{}');
-
+    DECLARE @datosDef             NVARCHAR(MAX)    = IIF(NULLIF(TRIM(@datosJson), N'') IS NULL, N'{}', TRIM(@datosJson));
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado         BIT = 1;
+    DECLARE @tipoRaw NVARCHAR(100);
+    DECLARE @asuntoRaw NVARCHAR(400);
+    DECLARE @destTrim NVARCHAR(MAX);
+    DECLARE @countDest INT;
+    DECLARE @hayInvalido BIT;
+    DECLARE @idEstadoPendiente UNIQUEIDENTIFIER;
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
 
     BEGIN TRY
-        -- 1. Validar idCorrelacion
+        -- PASO 1: Validar idCorrelacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- 2. Validar tipo (3..60 caracteres, mayusculas A-Z0-9_)
+        -- PASO 2: Validar tipo (3..60 caracteres, mayusculas A-Z0-9_)
         IF @estadoResultado = 1
         BEGIN
-            DECLARE @tipoRaw NVARCHAR(100) = UPPER(TRIM(@tipo));
+            SET @tipoRaw = UPPER(TRIM(@tipo));
             IF @tipoRaw IS NULL OR LEN(@tipoRaw) < 3 OR LEN(@tipoRaw) > 60 OR @tipoRaw LIKE '%[^A-Z0-9_]%'
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
@@ -63,10 +70,10 @@ BEGIN
             END
         END
 
-        -- 3. Validar asunto (opcional, <= 200 caracteres)
+        -- PASO 3: Validar asunto (opcional, <= 200 caracteres)
         IF @estadoResultado = 1 AND @asunto IS NOT NULL
         BEGIN
-            DECLARE @asuntoRaw NVARCHAR(400) = TRIM(@asunto);
+            SET @asuntoRaw = TRIM(@asunto);
             IF LEN(@asuntoRaw) > 200
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
@@ -82,7 +89,7 @@ BEGIN
             END
         END
 
-        -- 4. Validar mensaje (opcional, <= 4000 caracteres)
+        -- PASO 4: Validar mensaje (opcional, <= 4000 caracteres)
         IF @estadoResultado = 1 AND @mensaje IS NOT NULL
         BEGIN
             IF LEN(@mensaje) > 4000
@@ -100,10 +107,10 @@ BEGIN
             END
         END
 
-        -- 5. Validar destinatariosJson (requerido, JSON arreglo de 1..100 objetos con rol e idUsuario UUID)
+        -- PASO 5: Validar destinatariosJson (requerido, JSON arreglo de 1..100 objetos con rol e idUsuario UUID)
         IF @estadoResultado = 1
         BEGIN
-            DECLARE @destTrim NVARCHAR(MAX) = TRIM(@destinatariosJson);
+            SET @destTrim = TRIM(@destinatariosJson);
             IF @destTrim IS NULL OR @destTrim = N'' OR ISJSON(@destTrim) <> 1 OR LEFT(@destTrim, 1) <> '['
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
@@ -115,8 +122,8 @@ BEGIN
             END
             ELSE
             BEGIN
-                DECLARE @countDest INT = 0;
-                DECLARE @hayInvalido BIT = 0;
+                SET @countDest = 0;
+                SET @hayInvalido = 0;
 
                 SELECT
                     @countDest = COUNT(*),
@@ -143,7 +150,7 @@ BEGIN
             END
         END
 
-        -- 6. Validar datosJson (opcional, JSON objeto, <= 8000 caracteres)
+        -- PASO 6: Validar datosJson (opcional, JSON objeto, <= 8000 caracteres)
         IF @estadoResultado = 1
         BEGIN
             IF ISJSON(@datosDef) <> 1 OR LEFT(TRIM(@datosDef), 1) <> '{' OR LEN(@datosDef) > 8000
@@ -157,11 +164,11 @@ BEGIN
             END
         END
 
-        -- 7. Resolver estado PENDIENTE del catalogo
-        DECLARE @idEstadoPendiente UNIQUEIDENTIFIER = NULL;
+        -- PASO 7: Resolver estado PENDIENTE del catalogo
+        SET @idEstadoPendiente = NULL;
         IF @estadoResultado = 1
         BEGIN
-            SELECT TOP 1 @idEstadoPendiente = id FROM dbo.EstadoNotificacion WHERE codigo = 'PENDIENTE';
+            SELECT TOP 1 @idEstadoPendiente = id FROM dbo.uv_estado_notificacion WHERE codigo = 'PENDIENTE';
             IF @idEstadoPendiente IS NULL
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
@@ -173,7 +180,7 @@ BEGIN
             END
         END
 
-        -- 8. Delegar al procedimiento interno
+        -- PASO 8: Delegar al procedimiento interno
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_registrar_notificacion_saliente_interno
@@ -192,6 +199,7 @@ BEGIN
         END
     END TRY
     BEGIN CATCH
+        -- PASO 9: el interno ya revirtio lo suyo; la fachada no abre transaccion y responde SYS_001
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,

@@ -8,6 +8,9 @@ GO
 -- CULM-001 D.9-a (F-ADM-024): DEC_020 si la persona ya es decano activo (sobre la firma con @idTipoIdIdentificacion de D.5).
 -- FIX-CIERRE-001: la facultad se resuelve por id o por nombre exacto (sin LIKE); una facultad indicada que no existe -> FAC_001 sin crear nada;
 -- sin facultad (id y nombre nulos o vacios) se crea el decano sin facultad (HU178).
+-- SKILLS-BD lote 14 (2026-11-26, objeto congelado, decision D5): DECLARE del cuerpo a la cabecera, PASO en el CATCH, IF con BEGIN/END, IIF en lugar de COALESCE y
+-- estado del rol por uv_decano_rol (antes, la tabla).
+-- Misma firma, mismo resultset y mismos codigos; el hash del manifiesto se actualiza en el mismo commit.
 CREATE OR ALTER PROCEDURE [dbo].[usp_crear_decano]
 (
     @idDecano               UNIQUEIDENTIFIER = NULL,
@@ -41,6 +44,9 @@ AS
     DECLARE @conteoTransaccionesInicial INT = 0;
     DECLARE @transaccionPropia          BIT = 0;
     DECLARE @savepointCreado            BIT = 0;
+    DECLARE @facultadIndicada           NVARCHAR(150);
+    DECLARE @idUsuarioExistente         UNIQUEIDENTIFIER;
+    DECLARE @estadoTransaccionCatch     INT;
 
 BEGIN
     SET NOCOUNT ON;
@@ -92,7 +98,7 @@ BEGIN
            AND (@idFacultad IS NOT NULL OR (@nombreFacultadDef IS NOT NULL AND @nombreFacultadDef <> ''))
            AND (@idFacultadDefecto IS NULL OR NOT EXISTS (SELECT 1 FROM [dbo].[uv_facultad] WHERE id = @idFacultadDefecto))
         BEGIN
-            DECLARE @facultadIndicada NVARCHAR(150) = COALESCE(CONVERT(NVARCHAR(36), @idFacultad), @nombreFacultadDef);
+            SET @facultadIndicada = IIF(@idFacultad IS NULL, @nombreFacultadDef, CONVERT(NVARCHAR(36), @idFacultad));
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'FAC_001',
                 @p_param1 = @facultadIndicada,
@@ -107,12 +113,11 @@ BEGIN
         -- no hay escrituras que revertir y el SP puede invocarse con INSERT ... EXEC sin ROLLBACK interno (DEC-036).
         IF @estadoResultado = 1
         BEGIN
-            DECLARE @idUsuarioExistente UNIQUEIDENTIFIER;
             SELECT TOP 1 @idUsuarioExistente = id
             FROM [dbo].[uv_usuario]
             WHERE correo = LOWER(TRIM(@correo)) OR numeroIdentificacion = CAST(@numeroIdentificacion AS VARCHAR(20));
 
-            IF @idUsuarioExistente IS NOT NULL AND EXISTS (SELECT 1 FROM dbo.Decano d WHERE d.usuario = @idUsuarioExistente AND d.estado = 1)
+            IF @idUsuarioExistente IS NOT NULL AND EXISTS (SELECT 1 FROM dbo.uv_decano_rol d WHERE d.idUsuario = @idUsuarioExistente AND d.estaActivoRolDecano = 1)
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
                     @p_codigo = 'DEC_020',
@@ -177,9 +182,13 @@ BEGIN
             IF XACT_STATE() = 1
             BEGIN
                 IF @estadoResultado = 1
+                BEGIN
                     COMMIT TRANSACTION;
+                END
                 ELSE
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
             END
             ELSE IF XACT_STATE() = -1
             BEGIN
@@ -189,18 +198,23 @@ BEGIN
         ELSE IF @savepointCreado = 1
         BEGIN
             IF XACT_STATE() = 1 AND @estadoResultado = 0
+            BEGIN
                 ROLLBACK TRANSACTION usp_crear_decano;
+            END
             -- XACT_STATE() = -1 con transacción externa: no es propietaria, no se toca (ver PASO 10 del contrato)
         END
 
     END TRY
     BEGIN CATCH
-        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+        -- PASO 6: reversion respetando ownership; transaccion externa condenada se propaga; si no, SYS_001
+        SET @estadoTransaccionCatch = XACT_STATE();
 
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN

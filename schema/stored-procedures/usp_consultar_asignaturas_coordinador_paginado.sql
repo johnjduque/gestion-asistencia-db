@@ -10,6 +10,7 @@ GO
 -- CIERRE-W2A (punto 2): @codigoCaracter opcional (codigo del catalogo CaracterAsignaturaPlan, p. ej. OBL/OPT) filtra en la base.
 -- 1 fila por (asignatura, plan de sus programas). @idPrograma ajeno -> COO_003 (403); sin @idPrograma incluye todos sus programas (S4).
 -- =============================================================================
+-- SKILLS-BD lote 6 (2026-11-26): DECLARE en la cabecera, PASO n, IF con BEGIN/END y TRY/CATCH de lectura; mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_asignaturas_coordinador_paginado]
 (
     @idUsuarioEjecutor UNIQUEIDENTIFIER,
@@ -30,65 +31,81 @@ AS
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado BIT = 1;
     DECLARE @codigoRechazo NVARCHAR(10);
+    DECLARE @patron NVARCHAR(220) = IIF(NULLIF(TRIM(@busqueda), N'') IS NULL, NULL,
+        CONCAT(N'%', REPLACE(REPLACE(REPLACE(UPPER(TRIM(@busqueda)), N'\', N'\\'), N'%', N'\%'), N'_', N'\_'), N'%'));
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
-    EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
-        @idCorrelacion = @idCorrelacionDefecto,
-        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-        @estadoResultado = @estadoResultado OUTPUT;
-    IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
-        SET @codigoRechazo = 'VAL_001';
+    BEGIN TRY
+        -- PASO 1: Validar el identificador de correlacion y el ejecutor
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
+            @idCorrelacion = @idCorrelacionDefecto,
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+            @estadoResultado = @estadoResultado OUTPUT;
+        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
+        BEGIN
+            SET @codigoRechazo = 'VAL_001';
+        END
 
-    IF @codigoRechazo IS NULL AND @estadoResultado = 1 AND @idPrograma IS NOT NULL
-       AND NOT EXISTS (SELECT 1 FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutor) cp WHERE cp.idPrograma = @idPrograma)
-        SET @codigoRechazo = 'COO_003';
+        -- PASO 2: Validar el ambito del ejecutor
+        IF @codigoRechazo IS NULL AND @estadoResultado = 1 AND @idPrograma IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutor) cp WHERE cp.idPrograma = @idPrograma)
+        BEGIN
+            SET @codigoRechazo = 'COO_003';
+        END
 
-    IF @estadoResultado = 0 OR @codigoRechazo IS NOT NULL
-    BEGIN
-        IF @codigoRechazo IS NOT NULL
-            EXEC dbo.usp_obtener_mensaje_catalogo
-                @p_codigo = @codigoRechazo, @p_param1 = N'UsuarioEjecutor',
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        THROW 51000, @mensajeTecnicoResultado, 1;
-    END
+        -- PASO 3: Rechazar con el mensaje del catalogo
+        IF @estadoResultado = 0 OR @codigoRechazo IS NOT NULL
+        BEGIN
+            IF @codigoRechazo IS NOT NULL
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = @codigoRechazo, @p_param1 = N'UsuarioEjecutor',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            END;
+            THROW 51000, @mensajeTecnicoResultado, 1;
+        END
 
-    DECLARE @patron NVARCHAR(220) = IIF(NULLIF(TRIM(@busqueda), N'') IS NULL, NULL,
-        CONCAT(N'%', REPLACE(REPLACE(REPLACE(UPPER(TRIM(@busqueda)), N'\', N'\\'), N'%', N'\%'), N'_', N'\_'), N'%'));
-
-    SELECT
-        idAsignatura          = v.idAsignatura,
-        codigo                = v.codigoAsignatura,
-        nombre                = v.nombreAsignatura,
-        credito               = v.credito,
-        idArea                = v.idArea,
-        nombreArea            = v.nombreArea,
-        idComponente          = v.idComponente,
-        nombreComponente      = v.nombreComponente,
-        idPlanEstudio         = v.idPlanEstudio,
-        inpPlanEstudio        = v.inpPlanEstudio,
-        idPrograma            = v.idPrograma,
-        nombrePrograma        = v.nombrePrograma,
-        idSemestrePlanEstudio = v.idSemestrePlanEstudio,
-        numeroSemestre        = v.numeroSemestre,
-        codigoSemestre        = v.codigoSemestre,
-        codigoCaracter        = v.codigoCaracter,
-        nombreCaracter        = v.nombreCaracter,
-        estaActivoVinculo     = v.estaActivoVinculo,
-        estaActivaAsignatura  = v.estaActivaAsignatura,
-        compartida            = CAST(IIF(v.totalProgramasActivos > 1, 1, 0) AS BIT),
-        horasSemanales        = v.horasSemanales,   -- SES-GEN-01: NULL = sin cargar
-        totalRegistros        = COUNT(*) OVER()
-    FROM dbo.uv_asignatura_plan_estudio v
-    WHERE v.estaActivoVinculo = 1
-      AND v.idPrograma IN (SELECT cp.idPrograma FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutor) cp WHERE @idPrograma IS NULL OR cp.idPrograma = @idPrograma)
-      AND (@estaActiva IS NULL OR v.estaActivaAsignatura = @estaActiva)
-      AND (NULLIF(TRIM(@codigoCaracter), N'') IS NULL OR v.codigoCaracter = TRIM(@codigoCaracter))
-      AND (@patron IS NULL OR UPPER(v.nombreAsignatura) LIKE @patron ESCAPE N'\' OR UPPER(v.codigoAsignatura) LIKE @patron ESCAPE N'\')
-    ORDER BY v.nombrePrograma ASC, v.numeroSemestre ASC, v.nombreAsignatura ASC, v.idAsignatura ASC, v.idPlanEstudio ASC
-    OFFSET @offset ROWS FETCH NEXT @tamano ROWS ONLY;
+        -- PASO 4: Consulta y retorno de resultados
+        SELECT
+            idAsignatura          = v.idAsignatura,
+            codigo                = v.codigoAsignatura,
+            nombre                = v.nombreAsignatura,
+            credito               = v.credito,
+            idArea                = v.idArea,
+            nombreArea            = v.nombreArea,
+            idComponente          = v.idComponente,
+            nombreComponente      = v.nombreComponente,
+            idPlanEstudio         = v.idPlanEstudio,
+            inpPlanEstudio        = v.inpPlanEstudio,
+            idPrograma            = v.idPrograma,
+            nombrePrograma        = v.nombrePrograma,
+            idSemestrePlanEstudio = v.idSemestrePlanEstudio,
+            numeroSemestre        = v.numeroSemestre,
+            codigoSemestre        = v.codigoSemestre,
+            codigoCaracter        = v.codigoCaracter,
+            nombreCaracter        = v.nombreCaracter,
+            estaActivoVinculo     = v.estaActivoVinculo,
+            estaActivaAsignatura  = v.estaActivaAsignatura,
+            compartida            = CAST(IIF(v.totalProgramasActivos > 1, 1, 0) AS BIT),
+            horasSemanales        = v.horasSemanales,   -- SES-GEN-01: NULL = sin cargar
+            totalRegistros        = COUNT(*) OVER()
+        FROM dbo.uv_asignatura_plan_estudio v
+        WHERE v.estaActivoVinculo = 1
+          AND v.idPrograma IN (SELECT cp.idPrograma FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutor) cp WHERE @idPrograma IS NULL OR cp.idPrograma = @idPrograma)
+          AND (@estaActiva IS NULL OR v.estaActivaAsignatura = @estaActiva)
+          AND (NULLIF(TRIM(@codigoCaracter), N'') IS NULL OR v.codigoCaracter = TRIM(@codigoCaracter))
+          AND (@patron IS NULL OR UPPER(v.nombreAsignatura) LIKE @patron ESCAPE N'\' OR UPPER(v.codigoAsignatura) LIKE @patron ESCAPE N'\')
+        ORDER BY v.nombrePrograma ASC, v.numeroSemestre ASC, v.nombreAsignatura ASC, v.idAsignatura ASC, v.idPlanEstudio ASC
+        OFFSET @offset ROWS FETCH NEXT @tamano ROWS ONLY;
+    END TRY
+    BEGIN CATCH
+        -- PASO 5: consulta de lectura (READ_QUERY_RESULTSET): el error, incluido el rechazo de validacion,
+        -- se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
+        THROW;
+    END CATCH
 END;
 GO

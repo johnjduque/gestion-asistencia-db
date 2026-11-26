@@ -29,6 +29,8 @@ GO
 -- Bloqueos (orden de §2.0): RevisionCancelacion -> EstudianteGrupo (UPDLOCK, HOLDLOCK) -> lectura de uv_resumen_* sin pistas ->
 -- Grupo. Transaccion propia o savepoint si hay una externa.
 -- ============================================================================
+-- SKILLS-BD lote 9 (2026-11-26): lecturas sin bloqueo por vistas (las de UPDLOCK y los UPDATE siguen en las tablas), PASO numerados
+-- y BEGIN/END en todos los IF.
 CREATE OR ALTER PROCEDURE [dbo].[usp_ejecutar_cierre_masivo_periodo]
 (
     @codigoPeriodo          NVARCHAR(50),
@@ -81,14 +83,14 @@ BEGIN
     -- REC3 (auditoria BD 2026-10-28): cualquier error o cancelacion del cliente revierte la transaccion completa.
     SET XACT_ABORT ON;
     BEGIN TRY
-        -- PASO 1: Validación de correlación
+        -- PASO 1: Validacion de correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- PASO 1.5: Validación de perfil RBAC del usuario ejecutor si es suministrado
+        -- PASO 2: Validar parametros obligatorios (idUsuarioEjecutor)
         IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -101,6 +103,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 3: Validar perfil ADMINISTRADOR del ejecutor
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_validar_permiso_rbac_usuario_interno
@@ -112,7 +115,7 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
-        -- PASO 2: Buscar período académico objetivo consultando uv_periodo_academico
+        -- PASO 4: Buscar el periodo academico objetivo en uv_periodo_academico
         -- FIX-CIERRE-001: el periodo se resuelve SOLO por el codigo indicado (nombre o codigo numerico). Sin codigo (nulo o vacio) o con un
         -- codigo que no coincide con ningun periodo NO se cierra nada: antes caia al periodo mas reciente y lo cerraba (accion destructiva).
         IF @estadoResultado = 1
@@ -162,17 +165,19 @@ BEGIN
             END
         END
 
-        -- PASO 3: Ejecución transaccional de Cierre Masivo
+        -- PASO 5: Ejecucion transaccional del cierre masivo
         IF @estadoResultado = 1
         BEGIN
-            SELECT TOP 1 @idEstadoActivo = id FROM dbo.EstadoEstudianteGrupo WHERE codigo = @codigoActiva ORDER BY id ASC;
-            SELECT TOP 1 @idEstadoFinalizado = id FROM dbo.EstadoEstudianteGrupo WHERE codigo = @codigoFinalizada ORDER BY id ASC;
-            SELECT TOP 1 @idEstadoCanceladoInasistencia = id FROM dbo.EstadoEstudianteGrupo WHERE codigo = @codigoCancelada ORDER BY id ASC;
+            SELECT TOP 1 @idEstadoActivo = id FROM dbo.uv_estado_estudiante_grupo WHERE codigo = @codigoActiva ORDER BY id ASC;
+            SELECT TOP 1 @idEstadoFinalizado = id FROM dbo.uv_estado_estudiante_grupo WHERE codigo = @codigoFinalizada ORDER BY id ASC;
+            SELECT TOP 1 @idEstadoCanceladoInasistencia = id FROM dbo.uv_estado_estudiante_grupo WHERE codigo = @codigoCancelada ORDER BY id ASC;
 
             -- Umbrales: el motor solo bloquea con los dos validos (O-3)
-            IF EXISTS (SELECT 1 FROM dbo.TipoAlertaInasistencia t WHERE dbo.ufn_umbral_alerta_inasistencia(t.id) IS NULL)
+            IF EXISTS (SELECT 1 FROM dbo.uv_tipo_alerta_inasistencia t WHERE dbo.ufn_umbral_alerta_inasistencia(t.id) IS NULL)
+            BEGIN
                 SET @umbralesValidos = 0;
-            SELECT TOP 1 @umbralPerdida = dbo.ufn_umbral_alerta_inasistencia(t.id) FROM dbo.TipoAlertaInasistencia t WHERE t.creaRevisionCancelacion = 1;
+            END
+            SELECT TOP 1 @umbralPerdida = dbo.ufn_umbral_alerta_inasistencia(t.id) FROM dbo.uv_tipo_alerta_inasistencia t WHERE t.creaRevisionCancelacion = 1;
             SET @motorActivo = IIF(@motorHabilitado = 1 AND @umbralesValidos = 1 AND @umbralPerdida IS NOT NULL, 1, 0);
 
             IF @@TRANCOUNT = 0
@@ -195,23 +200,25 @@ BEGIN
             -- (1) RevisionCancelacion y (2) EstudianteGrupo del periodo, en el orden de bloqueos de §2.0 (N-4)
             SELECT @revisionesPendientes = COUNT(1)
             FROM dbo.RevisionCancelacion r WITH (UPDLOCK, HOLDLOCK)
-            INNER JOIN dbo.EstudianteGrupo eg ON eg.id = r.estudianteGrupo
-            INNER JOIN dbo.Grupo g ON g.id = eg.grupo AND g.periodoAcademico = @idPeriodoTarget
-            INNER JOIN dbo.EstadoRevisionCancelacion es ON es.id = r.estado AND (es.requiereAccionDocente = 1 OR es.requiereAccionResolutor = 1)
-            WHERE eg.estado = @idEstadoActivo;
+            INNER JOIN dbo.uv_estudiante_grupo_registro eg ON eg.id = r.estudianteGrupo
+            INNER JOIN dbo.uv_grupo_registro g ON g.id = eg.idGrupo AND g.idPeriodoAcademico = @idPeriodoTarget
+            INNER JOIN dbo.uv_estado_revision_cancelacion es ON es.id = r.estado AND (es.requiereAccionDocente = 1 OR es.requiereAccionResolutor = 1)
+            WHERE eg.idEstado = @idEstadoActivo;
 
             SELECT @totalEstudiantes = COUNT(eg.id)
             FROM dbo.EstudianteGrupo eg WITH (UPDLOCK, HOLDLOCK)
-            INNER JOIN dbo.Grupo g ON eg.grupo = g.id
-            WHERE g.periodoAcademico = @idPeriodoTarget;
+            INNER JOIN dbo.uv_grupo_registro g ON eg.grupo = g.id
+            WHERE g.idPeriodoAcademico = @idPeriodoTarget;
 
             -- (3) Perdidas por horas sin revision (lectura sin pistas: bloqueos compartidos que no se retienen)
             IF @umbralPerdida IS NOT NULL
+            BEGIN
                 SELECT @perdidasSinRevision = COUNT(1)
                 FROM dbo.uv_resumen_asistencia_estudiante_grupo rs
                 WHERE rs.idPeriodoAcademico = @idPeriodoTarget AND rs.codigoEstadoEstudiante = @codigoActiva
                   AND rs.porcentajeInasistencia >= @umbralPerdida
-                  AND NOT EXISTS (SELECT 1 FROM dbo.RevisionCancelacion r WHERE r.estudianteGrupo = rs.idEstudianteGrupo);
+                  AND NOT EXISTS (SELECT 1 FROM dbo.uv_revision_cancelacion_registro r WHERE r.idEstudianteGrupo = rs.idEstudianteGrupo);
+            END
 
             IF @fechaCierrePeriodoUtc IS NOT NULL
             BEGIN
@@ -224,7 +231,10 @@ BEGIN
                 -- Sin escrituras: se libera con COMMIT (mismo motivo que RCN_012, C-DB-47).
                 IF @transaccionPropia = 1
                 BEGIN
-                    IF XACT_STATE() = 1 COMMIT TRANSACTION;
+                    IF XACT_STATE() = 1
+                    BEGIN
+                        COMMIT TRANSACTION;
+                    END
                     SET @transaccionPropia = 0;
                 END
             END
@@ -243,7 +253,10 @@ BEGIN
                 -- ejecutarse dentro de INSERT ... EXEC (C-DB-47) y SQL Server prohibe ROLLBACK en ese contexto.
                 IF @transaccionPropia = 1
                 BEGIN
-                    IF XACT_STATE() = 1 COMMIT TRANSACTION;
+                    IF XACT_STATE() = 1
+                    BEGIN
+                        COMMIT TRANSACTION;
+                    END
                     SET @transaccionPropia = 0;
                 END
             END
@@ -253,8 +266,8 @@ BEGIN
                 UPDATE eg
                 SET eg.estado = @idEstadoFinalizado
                 FROM dbo.EstudianteGrupo eg
-                INNER JOIN dbo.Grupo g ON eg.grupo = g.id
-                WHERE g.periodoAcademico = @idPeriodoTarget
+                INNER JOIN dbo.uv_grupo_registro g ON eg.grupo = g.id
+                WHERE g.idPeriodoAcademico = @idPeriodoTarget
                   AND eg.estado = @idEstadoActivo;
                 SET @totalFinalizados = @@ROWCOUNT;
 
@@ -262,19 +275,19 @@ BEGIN
                 UPDATE g
                 SET
                     cantidadEstudiantesFinalizaron = (
-                        SELECT COUNT(1) FROM dbo.EstudianteGrupo eg
-                        WHERE eg.grupo = g.id AND eg.estado = @idEstadoFinalizado
+                        SELECT COUNT(1) FROM dbo.uv_estudiante_grupo_registro eg
+                        WHERE eg.idGrupo = g.id AND eg.idEstado = @idEstadoFinalizado
                     ),
                     cantidadEstudiantesCancelaronAutomaticamente = (
-                        SELECT COUNT(1) FROM dbo.EstudianteGrupo eg
-                        WHERE eg.grupo = g.id AND eg.estado = @idEstadoCanceladoInasistencia
+                        SELECT COUNT(1) FROM dbo.uv_estudiante_grupo_registro eg
+                        WHERE eg.idGrupo = g.id AND eg.idEstado = @idEstadoCanceladoInasistencia
                     )
                 FROM dbo.Grupo g
                 WHERE g.periodoAcademico = @idPeriodoTarget;
 
                 SELECT @totalCancelados = COUNT(1)
-                FROM dbo.EstudianteGrupo eg INNER JOIN dbo.Grupo g ON g.id = eg.grupo
-                WHERE g.periodoAcademico = @idPeriodoTarget AND eg.estado = @idEstadoCanceladoInasistencia;
+                FROM dbo.uv_estudiante_grupo_registro eg INNER JOIN dbo.uv_grupo_registro g ON g.id = eg.idGrupo
+                WHERE g.idPeriodoAcademico = @idPeriodoTarget AND eg.idEstado = @idEstadoCanceladoInasistencia;
 
                 -- (4b) PRU-15: el periodo queda CERRADO (rechaza tomas, lotes y reclamos de sus sesiones y un segundo cierre)
                 UPDATE dbo.PeriodoAcademico SET fechaCierreUtc = SYSUTCDATETIME() WHERE id = @idPeriodoTarget;
@@ -305,7 +318,14 @@ BEGIN
 
                 IF @transaccionPropia = 1
                 BEGIN
-                    IF XACT_STATE() = 1 COMMIT TRANSACTION; ELSE IF XACT_STATE() = -1 ROLLBACK TRANSACTION;
+                    IF XACT_STATE() = 1
+                    BEGIN
+                        COMMIT TRANSACTION;
+                    END
+                    ELSE IF XACT_STATE() = -1
+                    BEGIN
+                        ROLLBACK TRANSACTION;
+                    END
                     SET @transaccionPropia = 0;
                 END
 
@@ -321,18 +341,25 @@ BEGIN
 
     END TRY
     BEGIN CATCH
+        -- PASO 6: Manejo de errores
         SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
             ROLLBACK TRANSACTION sp_cierre_masivo;
+        END
 
         -- Con una transaccion externa condenada (XACT_STATE = -1) solo el llamador puede revertirla
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
@@ -343,7 +370,7 @@ BEGIN
         SET @estadoResultado = 0;
     END CATCH
 
-    -- BLOQUE FINAL: Retorno unificado de resultados (una sola fila, N-1)
+    -- PASO 7: Retorno unificado de resultados (una sola fila, N-1)
     SELECT
         idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,

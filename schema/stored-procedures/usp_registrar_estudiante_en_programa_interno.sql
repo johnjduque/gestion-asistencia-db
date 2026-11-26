@@ -5,6 +5,8 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
+-- SKILLS-BD lote 7 (2026-11-26): matriculas, estudiante y vinculo por uv_estudiante_grupo, uv_estudiante_identidad y
+-- uv_estudiante_programa (antes, las tablas); mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_estudiante_en_programa_interno]
 (
     @idEstudiante            UNIQUEIDENTIFIER,
@@ -47,10 +49,10 @@ BEGIN
             -- CULM-001 B2NM (O-B3): la institucion del estudiante sale de cualquiera de sus matriculas (programas del grupo);
             -- sin matriculas se omite la comparacion y se valida solo el programa.
             SELECT TOP 1 @idInstitucionEstudiante = pr0.idInstitucion
-            FROM dbo.EstudianteGrupo eg0
-            CROSS APPLY dbo.ufn_programas_grupo(eg0.grupo) pg0
+            FROM dbo.uv_estudiante_grupo eg0
+            CROSS APPLY dbo.ufn_programas_grupo(eg0.idGrupo) pg0
             INNER JOIN dbo.uv_programa pr0 ON pr0.id = pg0.idPrograma
-            WHERE eg0.estudiante = @idEstudianteDefecto
+            WHERE eg0.idEstudiante = @idEstudianteDefecto
             ORDER BY pr0.idInstitucion;
 
             SELECT TOP 1 
@@ -59,7 +61,7 @@ BEGIN
             FROM dbo.uv_programa 
             WHERE id = @idProgramaDefecto;
 
-            IF @idInstitucionPrograma IS NULL OR NOT EXISTS (SELECT 1 FROM dbo.Estudiante WHERE id = @idEstudianteDefecto)
+            IF @idInstitucionPrograma IS NULL OR NOT EXISTS (SELECT 1 FROM dbo.uv_estudiante_identidad WHERE id = @idEstudianteDefecto)
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
                     @p_codigo = 'GEN_002',
@@ -85,7 +87,7 @@ BEGIN
         END
 
         -- PASO 3: Validación de vinculación previa e inserción en dbo.EstudiantePrograma
-        IF @estadoResultado = 1 AND EXISTS (SELECT 1 FROM dbo.EstudiantePrograma WHERE estudiante = @idEstudianteDefecto AND programa = @idProgramaDefecto)
+        IF @estadoResultado = 1 AND EXISTS (SELECT 1 FROM dbo.uv_estudiante_programa WHERE idEstudiante = @idEstudianteDefecto AND idPrograma = @idProgramaDefecto)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'EST_003',

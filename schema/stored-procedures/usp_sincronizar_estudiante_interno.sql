@@ -5,6 +5,7 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
+-- SKILLS-BD lote 7 (2026-11-26): unicidad del rol por uv_estudiante_identidad (antes, la tabla); mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_sincronizar_estudiante_interno]
 (
     @idUsuario               UNIQUEIDENTIFIER,
@@ -62,7 +63,7 @@ BEGIN
         -- PASO 4: Validar unicidad (que el usuario no esté ya registrado como estudiante)
         IF @estadoResultado = 1
         BEGIN
-            IF EXISTS (SELECT 1 FROM dbo.Estudiante WHERE usuario = @idUsuarioDefecto)
+            IF EXISTS (SELECT 1 FROM dbo.uv_estudiante_identidad WHERE idUsuario = @idUsuarioDefecto)
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
                     @p_codigo = 'VAL_006',

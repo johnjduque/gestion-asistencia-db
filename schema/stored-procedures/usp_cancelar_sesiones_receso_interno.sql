@@ -20,6 +20,7 @@ GO
 --     (recortado a 500). usuarioEjecutor puede ser NULL (generacion automatica): el origen lo da recesoAcademico.
 -- Bloqueo: dbo.Sesion WITH (UPDLOCK, HOLDLOCK) sobre las candidatas antes de escribir (mismo orden que los festivos).
 -- ============================================================================
+-- SKILLS-BD lote 9 (2026-11-26): receso, grupo, asistencias, tomas y cancelaciones por uv_receso_academico_registro, uv_grupo_registro, uv_asistencia_registro, uv_toma_asistencia_registro y uv_sesion_cancelacion (antes, las tablas). El bloqueo de dbo.Sesion sigue en la tabla. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_cancelar_sesiones_receso_interno]
 (
     @idGrupo                  UNIQUEIDENTIFIER = NULL,
@@ -115,11 +116,11 @@ BEGIN
         BEGIN
             INSERT INTO @candidatas (idSesion, idReceso, motivo, tieneAsistencia)
             SELECT  s.id, r.id, r.motivo,
-                    CAST(IIF(EXISTS (SELECT 1 FROM dbo.Asistencia a WHERE a.sesion = s.id)
-                             OR EXISTS (SELECT 1 FROM dbo.TomaAsistencia t WHERE t.sesion = s.id), 1, 0) AS BIT)
-            FROM    dbo.PeriodoRecesoAcademico r
-            INNER JOIN dbo.Grupo g
-            ON      g.periodoAcademico = r.periodoAcademico
+                    CAST(IIF(EXISTS (SELECT 1 FROM dbo.uv_asistencia_registro a WHERE a.idSesion = s.id)
+                             OR EXISTS (SELECT 1 FROM dbo.uv_toma_asistencia_registro t WHERE t.idSesion = s.id), 1, 0) AS BIT)
+            FROM    dbo.uv_receso_academico_registro r
+            INNER JOIN dbo.uv_grupo_registro g
+            ON      g.idPeriodoAcademico = r.idPeriodoAcademico
             INNER JOIN dbo.Sesion s WITH (UPDLOCK, HOLDLOCK)
             ON      s.grupo = g.id
             AND     s.fechaHoraInicio >= DATEADD(DAY, -1, CAST(r.fecha AS DATETIME2))
@@ -130,7 +131,7 @@ BEGIN
               AND   (@idGrupo IS NULL OR g.id = @idGrupo)
               AND   s.procedenciaTemporal IS NOT NULL
               AND   (@soloFuturas = 0 OR s.fechaHoraInicio > @ahoraUtc)
-              AND   NOT EXISTS (SELECT 1 FROM dbo.SesionCancelacion sc WHERE sc.sesion = s.id);
+              AND   NOT EXISTS (SELECT 1 FROM dbo.uv_sesion_cancelacion sc WHERE sc.idSesion = s.id);
 
             SET @sesionesConAsistencia = (SELECT COUNT(1) FROM @candidatas WHERE tieneAsistencia = 1);
 

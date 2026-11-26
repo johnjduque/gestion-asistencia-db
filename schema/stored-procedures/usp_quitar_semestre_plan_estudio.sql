@@ -11,6 +11,8 @@ GO
 --   * El semestre no puede tener asignaturas asociadas, activas o inactivas (PLA_006).
 -- RBAC COORDINADOR + existencia del plan + titularidad PROGRAMA del plan se validan DENTRO del SP.
 -- Concurrencia: la fila del plan se bloquea (UPDLOCK, HOLDLOCK) mientras se evaluan las reglas.
+-- SKILLS-BD lote 6 (2026-11-26): plan, semestres y vinculos por uv_plan_estudio, uv_semestre_plan_estudio y
+-- uv_asignatura_plan_estudio (antes, las tablas); el bloqueo del plan sigue en la tabla. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_quitar_semestre_plan_estudio]
 (
     @idPlanEstudio      UNIQUEIDENTIFIER,
@@ -86,7 +88,7 @@ BEGIN
         -- PASO 5: Validacion de negocio (PLA_002)
         IF @estadoResultado = 1
         BEGIN
-            SELECT @idProgramaPlan = pe.programa FROM dbo.PlanEstudio pe WHERE pe.id = @idPlanEstudioDefecto;
+            SELECT @idProgramaPlan = pe.idPrograma FROM dbo.uv_plan_estudio pe WHERE pe.id = @idPlanEstudioDefecto;
             IF @idProgramaPlan IS NULL
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
@@ -129,20 +131,18 @@ BEGIN
             WHERE pe.id = @idPlanEstudioDefecto;
 
             SELECT @idSemestrePlan = sp.id
-            FROM dbo.SemestrePlanEstudio sp
-            INNER JOIN dbo.Semestre s ON s.id = sp.semestre
-            WHERE sp.planEstudio = @idPlanEstudioDefecto AND s.numero = @numeroSemestre;
+            FROM dbo.uv_semestre_plan_estudio sp
+            WHERE sp.idPlanEstudio = @idPlanEstudioDefecto AND sp.numeroSemestre = @numeroSemestre;
 
-            SELECT @numeroUltimo = MAX(s.numero)
-            FROM dbo.SemestrePlanEstudio sp
-            INNER JOIN dbo.Semestre s ON s.id = sp.semestre
-            WHERE sp.planEstudio = @idPlanEstudioDefecto;
+            SELECT @numeroUltimo = MAX(sp.numeroSemestre)
+            FROM dbo.uv_semestre_plan_estudio sp
+            WHERE sp.idPlanEstudio = @idPlanEstudioDefecto;
 
             SET @codigoRechazo =
                 CASE
                     WHEN @idSemestrePlan IS NULL THEN 'PLA_004'
                     WHEN @numeroSemestre <> @numeroUltimo THEN 'PLA_005'
-                    WHEN EXISTS (SELECT 1 FROM dbo.AsignaturaPlanEstudio ape WHERE ape.semestrePlanEstudio = @idSemestrePlan) THEN 'PLA_006'   -- CULM-001 B2NM: vinculos de la tabla puente (los inactivos tambien bloquean por la FK)
+                    WHEN EXISTS (SELECT 1 FROM dbo.uv_asignatura_plan_estudio v WHERE v.idSemestrePlanEstudio = @idSemestrePlan) THEN 'PLA_006'   -- CULM-001 B2NM: todos los vinculos, activos e inactivos (los inactivos tambien bloquean por la FK)
                 END;
 
             IF @codigoRechazo IS NOT NULL

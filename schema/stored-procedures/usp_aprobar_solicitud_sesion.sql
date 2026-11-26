@@ -22,6 +22,8 @@ GO
 -- Transaccion propia o SAVE TRANSACTION; la fila de dbo.Sesion se bloquea (UPDLOCK, HOLDLOCK) antes de leer la solicitud.
 -- Las ramas de rechazo no escriben: solo confirman la transaccion propia (compatible con INSERT ... EXEC).
 -- ============================================================================
+-- SKILLS-BD lote 13 (2026-11-26): IF con BEGIN/END, PASO en el CATCH y lecturas sin bloqueo por vistas (solicitud, estado y cancelacion por uv_solicitud_sesion_registro, uv_estado_solicitud_sesion y uv_sesion_cancelacion;
+-- antes, las tablas). La lectura con UPDLOCK, HOLDLOCK de dbo.Sesion y las escrituras siguen en las tablas. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_aprobar_solicitud_sesion]
 (
     @idSesion          UNIQUEIDENTIFIER,
@@ -118,16 +120,22 @@ BEGIN
             WHERE s.id = @idSesionDefecto;
 
             SELECT @existeSolicitud = 1, @solicitudFinal = e.esFinal
-            FROM dbo.SesionSolicitud ss
-            INNER JOIN dbo.EstadoSolicitudSesion e ON e.id = ss.idEstado
-            WHERE ss.sesion = @idSesionDefecto;
+            FROM dbo.uv_solicitud_sesion_registro ss
+            INNER JOIN dbo.uv_estado_solicitud_sesion e ON e.id = ss.idEstado
+            WHERE ss.idSesion = @idSesionDefecto;
 
             IF @existeSolicitud = 0
+            BEGIN
                 SET @codigoRechazo = 'SES_025';
+            END
             ELSE IF @solicitudFinal = 1
+            BEGIN
                 SET @codigoRechazo = 'SES_024';
-            ELSE IF EXISTS (SELECT 1 FROM dbo.SesionCancelacion sc WHERE sc.sesion = @idSesionDefecto)
+            END
+            ELSE IF EXISTS (SELECT 1 FROM dbo.uv_sesion_cancelacion sc WHERE sc.idSesion = @idSesionDefecto)
+            BEGIN
                 SET @codigoRechazo = 'SES_011';
+            END
 
             IF @codigoRechazo IS NULL
             BEGIN
@@ -162,26 +170,37 @@ BEGIN
             IF @transaccionPropia = 1
             BEGIN
                 IF XACT_STATE() = 1
+                BEGIN
                     COMMIT TRANSACTION;
+                END
                 ELSE IF XACT_STATE() = -1
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
                 SET @transaccionPropia = 0;
             END
         END
     END TRY
     BEGIN CATCH
+        -- PASO 8: error: revertir lo propio, relanzar si la transaccion externa quedo condenada; si no, SYS_001
         SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
             ROLLBACK TRANSACTION sp_aprobar_solicitud_sesion;
+        END
 
         -- Transaccion externa condenada que no nos pertenece: se propaga al propietario
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',

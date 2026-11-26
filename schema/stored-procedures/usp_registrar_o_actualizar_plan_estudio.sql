@@ -22,6 +22,8 @@ GO
 -- Concurrencia: dbo.PlanEstudio no tiene indice unico de negocio; (programa, inp) se serializa bloqueando la fila del
 -- programa (UPDLOCK, HOLDLOCK) durante la transaccion. No se usa sp_getapplock: impide que
 -- sys.dm_exec_describe_first_result_set_for_object descubra el resultset canonico de 4 columnas.
+-- SKILLS-BD lote 6 (2026-11-26): plan existente y unicidad por uv_plan_estudio (antes, la tabla; siguen bajo el bloqueo del
+-- programa), IF con BEGIN/END y DECLARE del CATCH en la cabecera. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_o_actualizar_plan_estudio]
 (
     @idPlanEstudio     UNIQUEIDENTIFIER,
@@ -51,6 +53,8 @@ AS
     DECLARE @conteoTransaccionesInicial INT = 0;
     DECLARE @transaccionPropia          BIT = 0;
     DECLARE @savepointCreado            BIT = 0;
+    DECLARE @estadoTransaccionCatch     INT;
+
 BEGIN
     SET NOCOUNT ON;
     -- AUD-BD M-6: SIN el ajuste XACT_ABORT en ON, a proposito. Su contrato (PLAN_PUBLIC_ROLLBACK_SAVEPOINT) es revertir solo su savepoint dentro de la
@@ -157,9 +161,9 @@ BEGIN
         BEGIN
             SELECT TOP 1
                 @planExiste = 1,
-                @programaPlanExistente = pe.programa,
+                @programaPlanExistente = pe.idPrograma,
                 @inpPlanExistente = pe.inp
-            FROM dbo.PlanEstudio pe
+            FROM dbo.uv_plan_estudio pe
             WHERE pe.id = @idPlanEstudioDefecto;
 
             -- Un plan de otro programa nunca se modifica ni se confirma
@@ -178,8 +182,8 @@ BEGIN
         IF @estadoResultado = 1
             AND NOT (@planExiste = 1 AND @inpPlanExistente = @inp)
             AND EXISTS (
-                SELECT 1 FROM dbo.PlanEstudio pe
-                WHERE pe.programa = @idProgramaDefecto AND pe.inp = @inp AND pe.id <> @idPlanEstudioDefecto
+                SELECT 1 FROM dbo.uv_plan_estudio pe
+                WHERE pe.idPrograma = @idProgramaDefecto AND pe.inp = @inp AND pe.id <> @idPlanEstudioDefecto
             )
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -227,9 +231,13 @@ BEGIN
             IF XACT_STATE() = 1
             BEGIN
                 IF @estadoResultado = 1
+                BEGIN
                     COMMIT TRANSACTION;
+                END
                 ELSE
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
             END
             ELSE IF XACT_STATE() = -1
             BEGIN
@@ -239,15 +247,19 @@ BEGIN
         ELSE IF @savepointCreado = 1
         BEGIN
             IF XACT_STATE() = 1 AND @estadoResultado = 0
+            BEGIN
                 ROLLBACK TRANSACTION sp_plan_estudio;
+            END
         END
     END TRY
     BEGIN CATCH
-        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+        SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN

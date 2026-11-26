@@ -11,6 +11,8 @@ GO
 -- RBAC COORDINADOR + existencia del plan + titularidad PROGRAMA del plan se validan DENTRO del SP.
 -- Concurrencia: la fila del plan se bloquea (UPDLOCK, HOLDLOCK) para que dos altas simultaneas no
 -- calculen el mismo numero de semestre.
+-- SKILLS-BD lote 6 (2026-11-26): plan y semestres por uv_plan_estudio, uv_semestre_plan_estudio y uv_semestre (antes, las
+-- tablas); el bloqueo UPDLOCK, HOLDLOCK del plan sigue en la tabla. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_agregar_semestre_plan_estudio]
 (
     @idPlanEstudio      UNIQUEIDENTIFIER,
@@ -73,7 +75,7 @@ BEGIN
         -- PASO 4: Validacion de negocio (PLA_002)
         IF @estadoResultado = 1
         BEGIN
-            SELECT @idProgramaPlan = pe.programa FROM dbo.PlanEstudio pe WHERE pe.id = @idPlanEstudioDefecto;
+            SELECT @idProgramaPlan = pe.idPrograma FROM dbo.uv_plan_estudio pe WHERE pe.id = @idPlanEstudioDefecto;
             IF @idProgramaPlan IS NULL
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
@@ -115,12 +117,12 @@ BEGIN
             FROM dbo.PlanEstudio pe WITH (UPDLOCK, HOLDLOCK)
             WHERE pe.id = @idPlanEstudioDefecto;
 
-            SELECT @numeroSiguiente = COALESCE(MAX(s.numero), 0) + 1
-            FROM dbo.SemestrePlanEstudio sp
-            INNER JOIN dbo.Semestre s ON s.id = sp.semestre
-            WHERE sp.planEstudio = @idPlanEstudioDefecto;
+            -- COALESCE sobre agregacion (permitido); el plan ya esta bloqueado, asi que el siguiente numero no cambia
+            SELECT @numeroSiguiente = COALESCE(MAX(sp.numeroSemestre), 0) + 1
+            FROM dbo.uv_semestre_plan_estudio sp
+            WHERE sp.idPlanEstudio = @idPlanEstudioDefecto;
 
-            SELECT @idSemestreSiguiente = s.id FROM dbo.Semestre s WHERE s.numero = @numeroSiguiente;
+            SELECT @idSemestreSiguiente = s.id FROM dbo.uv_semestre s WHERE s.numero = @numeroSiguiente;
 
             IF @idSemestreSiguiente IS NULL
             BEGIN

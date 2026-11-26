@@ -17,6 +17,7 @@ GO
 --   específica consumiendo uv_auth_sesion, uv_asistencia, uv_detalle_asistencia,
 --   uv_estudiante_grupo, uv_estudiante_identidad y uv_usuario.
 -- ============================================================================
+-- SKILLS-BD lote 13 (2026-11-26): PASO n en mayusculas y en el CATCH de lectura que relanza. Mismas columnas y mismas filas.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_asistencias_sesion_paginado]
 (
     @idUsuarioEjecutor       UNIQUEIDENTIFIER,
@@ -53,14 +54,14 @@ BEGIN
     SET XACT_ABORT ON;
 
     BEGIN TRY
-        -- Paso 1: Validación obligatoria de identificador de correlación
+        -- PASO 1: Validación obligatoria de identificador de correlación
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- Paso 2: Validación obligatoria de usuario ejecutor
+        -- PASO 2: Validación obligatoria de usuario ejecutor
         IF @estadoResultado = 1 AND (@idUsuarioDefecto IS NULL OR @idUsuarioDefecto = @guidVacio)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -72,7 +73,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
-        -- Paso 3: Validación obligatoria de idSesion
+        -- PASO 3: Validación obligatoria de idSesion
         IF @estadoResultado = 1 AND (@idSesionDefecto IS NULL OR @idSesionDefecto = @guidVacio)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -84,15 +85,16 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- Rechazo de validacion: se propaga al llamador
         IF @estadoResultado = 0
         BEGIN
             THROW 51000, @mensajeTecnicoResultado, 1;
         END
 
-        -- Paso 4: Establecer identidad temporal en contexto
+        -- PASO 4: Establecer identidad temporal en contexto
         EXEC dbo.usp_establecer_contexto_usuario_ejecutor @p_idUsuario = @idUsuarioDefecto;
 
-        -- Paso 5: Consulta optimizada de asistencia de la sesión
+        -- PASO 5: Consulta optimizada de asistencia de la sesión
         -- CULM-001 B.2 (CONTRACT §2.9): una fila por estudiante y sesion con el estado consolidado de sus tomas
         -- (uv_asistencia_sesion_horas); idDetalleAsistencia/codigoDetalleAsistencia/fechas son los de la ULTIMA toma
         -- (compatibilidad) y se agregan totalTomas, horasAsistidas, horasFalta y horasExcusa al final.
@@ -145,7 +147,7 @@ BEGIN
         OFFSET @offset ROWS
         FETCH NEXT @tamano ROWS ONLY;
 
-        -- Paso 6: Restaurar contexto previo
+        -- PASO 6: Restaurar contexto previo
         EXEC sys.sp_set_session_context
             @key = N'idUsuarioEjecutor',
             @value = @contextoPrevio,
@@ -153,6 +155,8 @@ BEGIN
 
     END TRY
     BEGIN CATCH
+        -- PASO 7: consulta de lectura (READ_QUERY_RESULTSET): restaurar el contexto previo y propagar el error al llamador,
+        -- que lo traduce a SYS_001 (sin triplete propio).
         EXEC sys.sp_set_session_context
             @key = N'idUsuarioEjecutor',
             @value = @contextoPrevio,

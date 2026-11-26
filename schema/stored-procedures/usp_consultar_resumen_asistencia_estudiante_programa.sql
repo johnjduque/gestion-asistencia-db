@@ -8,6 +8,7 @@ GO
 -- ============================================================================
 -- usp_consultar_resumen_asistencia_estudiante_programa (HU069). READ_QUERY_RESULTSET (una fila por matricula). Solo lectura.
 -- ============================================================================
+-- SKILLS-BD lote 10 (2026-11-26): DECLARE en la cabecera y TRY/CATCH de lectura que relanza. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_resumen_asistencia_estudiante_programa]
 (
     @idUsuarioEjecutor  UNIQUEIDENTIFIER,
@@ -17,42 +18,49 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_resumen_asistencia_estudiante_pro
 ,
     @idPrograma UNIQUEIDENTIFIER = NULL)
 AS
-BEGIN
-    SET NOCOUNT ON;
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @msgP1 NVARCHAR(500);
     DECLARE @idPeriodo UNIQUEIDENTIFIER;
+BEGIN
+    SET NOCOUNT ON;
 
-    -- PASO 1: Resolver ambito del ejecutor (usp_resolver_programa_coordinador_interno)
-    EXEC dbo.usp_resolver_programa_coordinador_interno @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacion, @validarUmbrales = 1, @idPrograma = @idPrograma OUTPUT, @idProgramaSolicitado = @idPrograma;
-    -- PASO 2: Validacion de negocio (usp_validar_estudiante_en_programa_interno)
-    EXEC dbo.usp_validar_estudiante_en_programa_interno @idEstudiante = @idEstudiante, @idPrograma = @idPrograma;
-    -- PASO 3: Resolver ambito del ejecutor (usp_resolver_periodo_kpi_interno)
-    EXEC dbo.usp_resolver_periodo_kpi_interno @idPrograma = @idPrograma, @idPeriodoSolicitado = @idPeriodoAcademico, @idPeriodo = @idPeriodo OUTPUT;
+    BEGIN TRY
+        -- PASO 1: Resolver ambito del ejecutor (usp_resolver_programa_coordinador_interno)
+        EXEC dbo.usp_resolver_programa_coordinador_interno @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacion, @validarUmbrales = 1, @idPrograma = @idPrograma OUTPUT, @idProgramaSolicitado = @idPrograma;
+        -- PASO 2: Validacion de negocio (usp_validar_estudiante_en_programa_interno)
+        EXEC dbo.usp_validar_estudiante_en_programa_interno @idEstudiante = @idEstudiante, @idPrograma = @idPrograma;
+        -- PASO 3: Resolver ambito del ejecutor (usp_resolver_periodo_kpi_interno)
+        EXEC dbo.usp_resolver_periodo_kpi_interno @idPrograma = @idPrograma, @idPeriodoSolicitado = @idPeriodoAcademico, @idPeriodo = @idPeriodo OUTPUT;
 
-    -- PASO 4: Consulta y retorno de resultados
-    SELECT
-        idGrupo = g.id,
-        codigoGrupo = g.codigo,
-        idAsignatura = g.idAsignatura,
-        nombreAsignatura = g.nombreAsignatura,
-        codigoEstadoEstudiante = eg.codigoEstadoEstudiante,
-        nombreEstadoEstudiante = eg.nombreEstadoEstudiante,
-        sesionesEjecutadas = r.sesionesEjecutadas,
-        asistencias = r.asistencias,
-        faltasSinJustaCausa = r.faltasSinJustaCausa,
-        excusas = r.excusas,
-        porcentajeInasistencia = r.porcentajeInasistencia,
-        codigoPermanencia = r.codigoPermanencia,
-        -- CULM-001 B.2 (NB-2): asistencias/faltas/excusas cuentan tomas; sesionesEjecutadas cuenta sesiones
-        tomasDictadas = r.tomasDictadas,
-        horasDictadas = r.horasDictadas,
-        horasFalta = r.horasFalta
-    FROM dbo.uv_resumen_asistencia_estudiante_programa_grupo r
-    INNER JOIN dbo.uv_estudiante_grupo eg ON eg.id = r.idEstudianteGrupo
-    INNER JOIN dbo.uv_grupo g ON g.id = r.idGrupo
-    WHERE r.idEstudiante = @idEstudiante AND r.idPrograma = @idPrograma AND r.idPeriodoAcademico = @idPeriodo
-    ORDER BY g.nombreAsignatura ASC, g.codigo ASC, g.id ASC;
+        -- PASO 4: Consulta y retorno de resultados
+        SELECT
+            idGrupo = g.id,
+            codigoGrupo = g.codigo,
+            idAsignatura = g.idAsignatura,
+            nombreAsignatura = g.nombreAsignatura,
+            codigoEstadoEstudiante = eg.codigoEstadoEstudiante,
+            nombreEstadoEstudiante = eg.nombreEstadoEstudiante,
+            sesionesEjecutadas = r.sesionesEjecutadas,
+            asistencias = r.asistencias,
+            faltasSinJustaCausa = r.faltasSinJustaCausa,
+            excusas = r.excusas,
+            porcentajeInasistencia = r.porcentajeInasistencia,
+            codigoPermanencia = r.codigoPermanencia,
+            -- CULM-001 B.2 (NB-2): asistencias/faltas/excusas cuentan tomas; sesionesEjecutadas cuenta sesiones
+            tomasDictadas = r.tomasDictadas,
+            horasDictadas = r.horasDictadas,
+            horasFalta = r.horasFalta
+        FROM dbo.uv_resumen_asistencia_estudiante_programa_grupo r
+        INNER JOIN dbo.uv_estudiante_grupo eg ON eg.id = r.idEstudianteGrupo
+        INNER JOIN dbo.uv_grupo g ON g.id = r.idGrupo
+        WHERE r.idEstudiante = @idEstudiante AND r.idPrograma = @idPrograma AND r.idPeriodoAcademico = @idPeriodo
+        ORDER BY g.nombreAsignatura ASC, g.codigo ASC, g.id ASC;
+    END TRY
+    BEGIN CATCH
+        -- PASO 5: consulta de lectura (READ_QUERY_RESULTSET): el error, incluido el rechazo de validacion,
+        -- se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
+        THROW;
+    END CATCH
 END;
 GO

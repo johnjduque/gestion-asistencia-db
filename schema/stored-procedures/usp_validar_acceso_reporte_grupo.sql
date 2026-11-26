@@ -12,6 +12,8 @@ GO
 -- DEC-025 de /grupos/{id}/*, [SUPUESTO-D-14]). Solo lectura; resultset canonico de 4 columnas.
 -- SESSION_CONTEXT: se captura el previo y SIEMPRE se restaura (exito y error).
 -- =============================================================================
+-- SKILLS-BD lote 14 (2026-11-26, objeto congelado, decision D5): PASO n.
+-- Misma firma, mismo resultset y mismos codigos; el hash del manifiesto se actualiza en el mismo commit.
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_acceso_reporte_grupo]
 (
     @idUsuarioEjecutor UNIQUEIDENTIFIER,
@@ -27,12 +29,14 @@ AS
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
+        -- PASO 1: correlacion obligatoria
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
+        -- PASO 2: ejecutor y grupo obligatorios (VAL_001)
         IF @estadoResultado = 1 AND (@idUsuarioEjecutor IS NULL OR @idGrupo IS NULL)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -42,6 +46,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 3: grupo visible para el ejecutor por uv_auth_grupo (SEC_002) y restaurar el contexto
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_establecer_contexto_usuario_ejecutor @p_idUsuario = @idUsuarioEjecutor;
@@ -60,6 +65,7 @@ BEGIN
         END
     END TRY
     BEGIN CATCH
+        -- PASO 4: error: restaurar el contexto previo y responder SYS_001
         EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
 
         EXEC dbo.usp_obtener_mensaje_catalogo
@@ -70,6 +76,7 @@ BEGIN
         SET @estadoResultado = 0;
     END CATCH
 
+    -- PASO 5: retorno unificado de resultados
     SELECT
         idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,

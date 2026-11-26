@@ -17,6 +17,10 @@ GO
 -- agua capturada al INICIO, O-8). Ningun SP invoca este motor (N-1).
 -- Codigos: GEN_002, ALR_001 (deshabilitado, sin escrituras), ALR_002 (umbral invalido), ALR_003 (exito), ALR_006.
 -- ============================================================================
+-- SKILLS-BD lote 10 (2026-11-26): PASO n, IF con BEGIN/END, sin ISNULL (condicion e IF equivalentes) y lecturas sin bloqueo por
+-- vistas uv_* (catalogos, grupo, matricula e identidad de las novedades). Los UPDLOCK/HOLDLOCK y las escrituras siguen en las tablas.
+-- Mismo resultado y mismo JSON de novedades.
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): job del servidor sin @idUsuarioEjecutor; exige @idCorrelacion.
 CREATE OR ALTER PROCEDURE [dbo].[usp_evaluar_alertas_inasistencia_grupo]
 (
     @idGrupo           UNIQUEIDENTIFIER,
@@ -53,12 +57,14 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
     BEGIN TRY
+        -- PASO 1: Validar correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
+        -- PASO 2: Validar parametros obligatorios (GEN_002)
         IF @estadoResultado = 1 AND @idGrupo IS NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_002', @p_param1 = 'idGrupo',
@@ -67,8 +73,9 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
-        -- Solo existencia (no usp_validar_grupo_exista_por_id_interno: exige la ventana de matricula y el cierre evalua periodos terminados)
-        IF @estadoResultado = 1 AND NOT EXISTS (SELECT 1 FROM dbo.Grupo g WHERE g.id = @idGrupoDefecto)
+        -- PASO 3: Grupo existente, solo existencia (no usp_validar_grupo_exista_por_id_interno: exige la ventana de matricula y el
+        -- cierre evalua periodos terminados)
+        IF @estadoResultado = 1 AND NOT EXISTS (SELECT 1 FROM dbo.uv_grupo_registro g WHERE g.id = @idGrupoDefecto)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'VAL_001', @p_param1 = 'Grupo',
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
@@ -76,8 +83,9 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 4: Matricula opcional del grupo (ALR_006)
         IF @estadoResultado = 1 AND @idEstudianteGrupo IS NOT NULL
-           AND NOT EXISTS (SELECT 1 FROM dbo.EstudianteGrupo eg WHERE eg.id = @idEstudianteGrupo AND eg.grupo = @idGrupoDefecto)
+           AND NOT EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo_registro eg WHERE eg.id = @idEstudianteGrupo AND eg.idGrupo = @idGrupoDefecto)
         BEGIN
             SELECT @p1 = CONVERT(NVARCHAR(36), @idEstudianteGrupo), @p2 = CONVERT(NVARCHAR(36), @idGrupoDefecto);
             EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'ALR_006', @p_param1 = @p1, @p_param2 = @p2,
@@ -86,8 +94,8 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
-        -- ALR_001: interruptor apagado -> exito sin escrituras
-        IF @estadoResultado = 1 AND ISNULL(@habilitada, N'') <> N'true'
+        -- PASO 5: ALR_001: interruptor apagado -> exito sin escrituras
+        IF @estadoResultado = 1 AND (@habilitada IS NULL OR @habilitada <> N'true')
         BEGIN
             SET @p1 = CONVERT(NVARCHAR(36), @idGrupoDefecto);
             EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'ALR_001', @p_param1 = @p1,
@@ -99,16 +107,16 @@ BEGIN
             RETURN;
         END
 
-        -- ALR_002: algun umbral ausente o no numerico
+        -- PASO 6: ALR_002: algun umbral ausente o no numerico
         IF @estadoResultado = 1
         BEGIN
             SELECT TOP 1 @codigoTipoInvalido = t.codigo
-            FROM dbo.TipoAlertaInasistencia t
+            FROM dbo.uv_tipo_alerta_inasistencia t
             WHERE dbo.ufn_umbral_alerta_inasistencia(t.id) IS NULL
             ORDER BY t.nivel;
             IF @codigoTipoInvalido IS NOT NULL
             BEGIN
-                SELECT @p1 = CONCAT(t.grupoParametroUmbral, '/', t.claveParametroUmbral), @p2 = t.codigo FROM dbo.TipoAlertaInasistencia t WHERE t.codigo = @codigoTipoInvalido;
+                SELECT @p1 = CONCAT(t.grupoParametroUmbral, '/', t.claveParametroUmbral), @p2 = t.codigo FROM dbo.uv_tipo_alerta_inasistencia t WHERE t.codigo = @codigoTipoInvalido;
                 EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'ALR_002', @p_param1 = @p1, @p_param2 = @p2,
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
                 SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
@@ -116,15 +124,18 @@ BEGIN
             END
         END
 
+        -- PASO 7: Evaluacion transaccional del grupo
         IF @estadoResultado = 1
         BEGIN
             -- O-8: instante de corte capturado al INICIO de la evaluacion
             SET @corte = CAST(SYSUTCDATETIME() AS DATETIME2(3));
-            SELECT @idEstadoVigente = id FROM dbo.EstadoAlertaInasistencia WHERE estaVigente = 1;
-            SELECT @idEstadoSuperada = id FROM dbo.EstadoAlertaInasistencia WHERE estaVigente = 0;
-            SELECT @idEstadoRevisionInicial = id FROM dbo.EstadoRevisionCancelacion WHERE esInicial = 1;
+            SELECT @idEstadoVigente = id FROM dbo.uv_estado_alerta_inasistencia WHERE estaVigente = 1;
+            SELECT @idEstadoSuperada = id FROM dbo.uv_estado_alerta_inasistencia WHERE estaVigente = 0;
+            SELECT @idEstadoRevisionInicial = id FROM dbo.uv_estado_revision_cancelacion WHERE esInicial = 1;
             IF @idEstadoVigente IS NULL OR @idEstadoSuperada IS NULL OR @idEstadoRevisionInicial IS NULL
+            BEGIN
                 THROW 52701, 'CULM001_C_CATALOGO_INCONSISTENTE: faltan estados de alerta o de revision.', 1;
+            END
 
             IF @@TRANCOUNT = 0
             BEGIN
@@ -162,10 +173,10 @@ BEGIN
                         ELSE 'NINGUNA' END,
                    NULL
             FROM #culmc_cand c
-            CROSS JOIN dbo.TipoAlertaInasistencia t
+            CROSS JOIN dbo.uv_tipo_alerta_inasistencia t
             CROSS APPLY (SELECT umbral = dbo.ufn_umbral_alerta_inasistencia(t.id)) u
             LEFT JOIN dbo.AlertaInasistencia a WITH (UPDLOCK, HOLDLOCK) ON a.estudianteGrupo = c.idEstudianteGrupo AND a.tipo = t.id
-            LEFT JOIN dbo.EstadoAlertaInasistencia ea ON ea.id = a.estado;
+            LEFT JOIN dbo.uv_estado_alerta_inasistencia ea ON ea.id = a.estado;
             UPDATE #culmc_eval SET idAlertaNueva = NEWID() WHERE accion = 'NUEVA';
 
             INSERT INTO dbo.AlertaInasistencia (id, estudianteGrupo, tipo, estado, porcentajeCruce, umbralCruce, horasFaltaCruce, horasDictadasCruce, fechaCruceUtc,
@@ -206,13 +217,13 @@ BEGIN
             SELECT NEWID(), SYSDATETIMEOFFSET(), N'SISTEMA', 'SYSTEM', 'ALERTA_INASISTENCIA_REGISTRADA', 'AlertaInasistencia', CONVERT(NVARCHAR(36), e.idAlertaNueva), 'SUCCESS',
                    @idCorrelacionDefecto, 'JOB', N'/jobs/alertas-inasistencia', 200,
                    (SELECT idEstudianteGrupo = e.idEstudianteGrupo, tipo = t.codigo, porcentajeInasistencia = e.porcentaje, umbral = e.umbral FOR JSON PATH, WITHOUT_ARRAY_WRAPPER)
-            FROM #culmc_eval e INNER JOIN dbo.TipoAlertaInasistencia t ON t.id = e.idTipo
+            FROM #culmc_eval e INNER JOIN dbo.uv_tipo_alerta_inasistencia t ON t.id = e.idTipo
             WHERE e.accion = 'NUEVA';
             INSERT INTO dbo.AuditoriaEvento (id, occurredAt, actorId, actorType, action, resourceType, resourceId, result, correlationId, httpMethod, path, httpStatus, metadata)
             SELECT NEWID(), SYSDATETIMEOFFSET(), N'SISTEMA', 'SYSTEM', 'ALERTA_INASISTENCIA_ACTUALIZADA', 'AlertaInasistencia', CONVERT(NVARCHAR(36), e.idAlertaExistente), 'SUCCESS',
                    @idCorrelacionDefecto, 'JOB', N'/jobs/alertas-inasistencia', 200,
                    (SELECT idEstudianteGrupo = e.idEstudianteGrupo, tipo = t.codigo, estadoNuevo = IIF(e.accion = 'SUPERAR', N'SUPERADA', N'VIGENTE'), porcentajeInasistencia = e.porcentaje, umbral = e.umbral FOR JSON PATH, WITHOUT_ARRAY_WRAPPER)
-            FROM #culmc_eval e INNER JOIN dbo.TipoAlertaInasistencia t ON t.id = e.idTipo
+            FROM #culmc_eval e INNER JOIN dbo.uv_tipo_alerta_inasistencia t ON t.id = e.idTipo
             WHERE e.accion IN ('SUPERAR', 'REACTIVAR');
             INSERT INTO dbo.AuditoriaEvento (id, occurredAt, actorId, actorType, action, resourceType, resourceId, result, correlationId, httpMethod, path, httpStatus, metadata)
             SELECT NEWID(), SYSDATETIMEOFFSET(), N'SISTEMA', 'SYSTEM', 'REVISION_CANCELACION_CREADA', 'RevisionCancelacion', CONVERT(NVARCHAR(36), v.idRevision), 'SUCCESS',
@@ -221,11 +232,11 @@ BEGIN
             FROM #culmc_rev v;
 
             -- Novedades (una por alerta creada); principal = la de mayor nivel creada para la matricula
-            SELECT @novedadesJSON = ISNULL((
+            SET @novedadesJSON = (
                 SELECT  idAlerta = e.idAlertaNueva, codigoTipo = t.codigo, nivel = t.nivel,
                         esPrincipal = CAST(IIF(e.nivel = MAX(e.nivel) OVER (PARTITION BY e.idEstudianteGrupo), 1, 0) AS BIT),
                         porcentajeInasistencia = e.porcentaje, umbral = e.umbral,
-                        umbralPerdida = (SELECT TOP 1 dbo.ufn_umbral_alerta_inasistencia(tp.id) FROM dbo.TipoAlertaInasistencia tp WHERE tp.creaRevisionCancelacion = 1),
+                        umbralPerdida = (SELECT TOP 1 dbo.ufn_umbral_alerta_inasistencia(tp.id) FROM dbo.uv_tipo_alerta_inasistencia tp WHERE tp.creaRevisionCancelacion = 1),
                         horasFalta = e.horasFalta, horasDictadas = e.horasDictadas,
                         idEstudianteGrupo = e.idEstudianteGrupo, idGrupo = g.id, codigoGrupo = g.codigo, nombreGrupo = g.nombre, nombreAsignatura = asig.nombre,
                         tipoPlantillaEstudiante = t.tipoPlantillaEstudiante,
@@ -237,18 +248,22 @@ BEGIN
                         [docente.correo] = ud.correo,
                         idRevisionCreada = v.idRevision
                 FROM #culmc_eval e
-                INNER JOIN dbo.TipoAlertaInasistencia t ON t.id = e.idTipo
-                INNER JOIN dbo.EstudianteGrupo eg ON eg.id = e.idEstudianteGrupo
-                INNER JOIN dbo.Estudiante est ON est.id = eg.estudiante
-                INNER JOIN dbo.Usuario ue ON ue.id = est.usuario
-                INNER JOIN dbo.Grupo g ON g.id = eg.grupo
-                INNER JOIN dbo.Asignatura asig ON asig.id = g.asignatura
-                INNER JOIN dbo.Docente d ON d.id = g.docente
-                INNER JOIN dbo.Usuario ud ON ud.id = d.usuario
+                INNER JOIN dbo.uv_tipo_alerta_inasistencia t ON t.id = e.idTipo
+                INNER JOIN dbo.uv_estudiante_grupo_registro eg ON eg.id = e.idEstudianteGrupo
+                INNER JOIN dbo.uv_estudiante_identidad est ON est.id = eg.idEstudiante
+                INNER JOIN dbo.uv_usuario ue ON ue.id = est.idUsuario
+                INNER JOIN dbo.uv_grupo_registro g ON g.id = eg.idGrupo
+                INNER JOIN dbo.uv_asignatura asig ON asig.id = g.idAsignatura
+                INNER JOIN dbo.uv_docente_identidad d ON d.id = g.idDocente
+                INNER JOIN dbo.uv_usuario ud ON ud.id = d.idUsuario
                 LEFT JOIN #culmc_rev v ON v.idEstudianteGrupo = e.idEstudianteGrupo AND v.idAlerta = e.idAlertaNueva
                 WHERE e.accion = 'NUEVA'
                 ORDER BY e.idEstudianteGrupo, t.nivel
-                FOR JSON PATH), N'[]');
+                FOR JSON PATH);
+            IF @novedadesJSON IS NULL
+            BEGIN
+                SET @novedadesJSON = N'[]';
+            END
 
             UPDATE dbo.EvaluacionAlertaGrupo
             SET fechaCorteUtc = @corte, idCorrelacionUltima = @idCorrelacionDefecto, totalEvaluaciones = totalEvaluaciones + 1
@@ -257,9 +272,13 @@ BEGIN
             IF @transaccionPropia = 1
             BEGIN
                 IF XACT_STATE() = 1
+                BEGIN
                     COMMIT TRANSACTION;
+                END
                 ELSE IF XACT_STATE() = -1
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
                 SET @transaccionPropia = 0;
             END
 
@@ -270,17 +289,24 @@ BEGIN
         END
     END TRY
     BEGIN CATCH
+        -- PASO 8: Manejo de errores
         SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
             ROLLBACK TRANSACTION sp_evaluar_alertas_grupo;
+        END
 
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
@@ -289,10 +315,13 @@ BEGIN
         SELECT @alertasCreadas = 0, @alertasSuperadas = 0, @alertasReactivadas = 0, @revisionesCreadas = 0, @novedadesJSON = N'[]';
     END CATCH
 
-    -- Si el error ocurre tras escribir, el rollback anterior ya revirtio los contadores
+    -- PASO 9: Si el error ocurre tras escribir, el rollback anterior ya revirtio los contadores
     IF @estadoResultado = 0
+    BEGIN
         SELECT @alertasCreadas = 0, @alertasSuperadas = 0, @alertasReactivadas = 0, @revisionesCreadas = 0, @novedadesJSON = N'[]';
+    END
 
+    -- PASO 10: Resultado
     SELECT
         idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,

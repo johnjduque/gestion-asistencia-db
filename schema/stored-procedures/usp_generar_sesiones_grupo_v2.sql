@@ -25,6 +25,7 @@ GO
 -- Las dos fases son idempotentes: si la segunda falla, repetir la llamada completa deja el estado correcto.
 -- Como usa INSERT ... EXEC, este SP no puede anidarse en otro INSERT ... EXEC (error 8164).
 -- ============================================================================
+-- SKILLS-BD lote 13 (2026-11-26): PASO n e IF con BEGIN/END. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_generar_sesiones_grupo_v2]
 (
     @idGrupo           UNIQUEIDENTIFIER,
@@ -60,7 +61,7 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
     BEGIN TRY
-        -- FASE 1: generacion con el SP congelado
+        -- PASO 1 (fase 1): generacion con el SP congelado
         INSERT INTO @resultadoGeneracion (idCorrelacion, mensajeUsuarioResultado, mensajeTecnicoResultado, estadoResultado)
         EXEC dbo.usp_generar_sesiones_grupo @idGrupo = @idGrupo, @idCorrelacion = @idCorrelacion, @idUsuarioEjecutor = @idUsuarioEjecutor;
 
@@ -71,7 +72,7 @@ BEGIN
             @estadoResultado = r.estadoResultado
         FROM @resultadoGeneracion r;
 
-        -- FASE 2: festivos de las sesiones del grupo (solo si la fase 1 fue exitosa)
+        -- PASO 2 (fase 2): festivos de las sesiones del grupo (solo si la fase 1 fue exitosa)
         IF @estadoResultado = 1
         BEGIN
             IF @@TRANCOUNT = 0
@@ -80,7 +81,9 @@ BEGIN
                 SET @transaccionPropia = 1;
             END
             ELSE
+            BEGIN
                 SAVE TRANSACTION sp_generar_sesiones_v2;
+            END
 
             EXEC dbo.usp_aplicar_festivos_grupo_interno
                 @idGrupo = @idGrupoDefecto,
@@ -94,10 +97,13 @@ BEGIN
                 @estadoResultado = @estadoFase2 OUTPUT;
 
             IF XACT_STATE() = -1
+            BEGIN
                 THROW 51000, @mensajeTecnicoFase2, 1;
+            END
 
-            -- DEC-081: dias de receso academico del periodo, justo despues de los festivos (un festivo ya aplicado gana)
+            -- PASO 3 (DEC-081): dias de receso academico del periodo, justo despues de los festivos (un festivo ya aplicado gana)
             IF XACT_STATE() = 1 AND @estadoFase2 = 1
+            BEGIN
                 EXEC dbo.usp_cancelar_sesiones_receso_interno
                     @idGrupo = @idGrupoDefecto,
                     @idReceso = NULL,
@@ -109,10 +115,14 @@ BEGIN
                     @mensajeUsuarioResultado = @mensajeUsuarioFase2 OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoFase2 OUTPUT,
                     @estadoResultado = @estadoFase2 OUTPUT;
+            END
 
             IF XACT_STATE() = -1
+            BEGIN
                 THROW 51000, @mensajeTecnicoFase2, 1;
+            END
 
+            -- PASO 4: resultado de la fase 2 y confirmacion de la transaccion propia
             IF @estadoFase2 = 0
             BEGIN
                 -- Rechazo del nucleo sin escrituras: se informa su mensaje (la fase 1 ya quedo aplicada e idempotente)
@@ -127,11 +137,16 @@ BEGIN
         END
     END TRY
     BEGIN CATCH
+        -- PASO 5: error: con transaccion del llamador relanza; si no, revierte y responde SYS_001
         IF @trancountEntrada > 0
+        BEGIN
             THROW;
+        END
 
         IF @@TRANCOUNT > 0
+        BEGIN
             ROLLBACK TRANSACTION;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',

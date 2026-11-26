@@ -19,6 +19,8 @@ GO
 --     ni de la pagina) y se repiten en cada fila.
 -- Paginacion acotada como R2 (pagina >= 1, tamano 1..100). Solo lectura: sin XACT_ABORT.
 -- ============================================================================
+-- SKILLS-BD lote 10 (2026-11-26): vinculo y periodo por uv_docente_programa/uv_periodo_academico_fechas (antes, las tablas) y
+-- TRY/CATCH de lectura que relanza. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_historial_grupos_docente_programa]
 (
     @idUsuarioEjecutor   UNIQUEIDENTIFIER,
@@ -44,91 +46,98 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
--- PASO 1: Resolver ambito del ejecutor (usp_resolver_programa_coordinador_interno)
-    EXEC dbo.usp_resolver_programa_coordinador_interno
-        @idUsuarioEjecutor = @idUsuarioEjecutor,
-        @idCorrelacion = @idCorrelacion,
-        @validarUmbrales = 0,
-        @idPrograma = @idPrograma OUTPUT, @idProgramaSolicitado = @idPrograma;
+    BEGIN TRY
+        -- PASO 1: Resolver ambito del ejecutor (usp_resolver_programa_coordinador_interno)
+        EXEC dbo.usp_resolver_programa_coordinador_interno
+            @idUsuarioEjecutor = @idUsuarioEjecutor,
+            @idCorrelacion = @idCorrelacion,
+            @validarUmbrales = 0,
+            @idPrograma = @idPrograma OUTPUT, @idProgramaSolicitado = @idPrograma;
 
-    -- PASO 2: Validacion de negocio (VAL_001)
-    IF @idDocente IS NULL
-    BEGIN
-        SET @msgP1 = CAST(N'Docente' AS NVARCHAR(500));
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'VAL_001',
-            @p_param1 = @msgP1,
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        THROW 51000, @mensajeTecnicoResultado, 1;
-    END
+        -- PASO 2: Validacion de negocio (VAL_001)
+        IF @idDocente IS NULL
+        BEGIN
+            SET @msgP1 = CAST(N'Docente' AS NVARCHAR(500));
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'VAL_001',
+                @p_param1 = @msgP1,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            THROW 51000, @mensajeTecnicoResultado, 1;
+        END
 
-    -- PASO 3: Validacion de negocio (GEN_001)
-    IF NOT EXISTS (SELECT 1 FROM dbo.DocentePrograma dp WHERE dp.docente = @idDocente AND dp.programa = @idPrograma)
-    BEGIN
-        SET @msgP1 = CAST(N'Docente' AS NVARCHAR(500));
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'GEN_001',
-            @p_param1 = @msgP1,
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        THROW 51000, @mensajeTecnicoResultado, 1;
-    END
+        -- PASO 3: Validacion de negocio (GEN_001)
+        IF NOT EXISTS (SELECT 1 FROM dbo.uv_docente_programa dp WHERE dp.idDocente = @idDocente AND dp.idPrograma = @idPrograma)
+        BEGIN
+            SET @msgP1 = CAST(N'Docente' AS NVARCHAR(500));
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'GEN_001',
+                @p_param1 = @msgP1,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            THROW 51000, @mensajeTecnicoResultado, 1;
+        END
 
-    -- PASO 4: Consulta y retorno de resultados
-    ;WITH historial AS (
+        -- PASO 4: Consulta y retorno de resultados
+        ;WITH historial AS (
+            SELECT
+                g.id, g.codigo, g.nombre, g.idAsignatura, g.nombreAsignatura,
+                g.idPeriodoAcademico, pa.codigo AS codigoPeriodo, pa.nombre AS nombrePeriodo,
+                pa.fechaInicio, pa.fechaFin,
+                estadoPeriodo = CASE
+                                    WHEN @hoyLocal < pa.fechaInicio THEN 'PROXIMO'
+                                    WHEN @hoyLocal > pa.fechaFin THEN 'FINALIZADO'
+                                    ELSE 'VIGENTE'
+                                END,
+                g.capacidadMaximaPermitida, g.estudiantesActivos, g.estudiantesFinalizados,
+                g.estudiantesCanceladosVoluntad, g.estudiantesCanceladosInasistencia
+            FROM dbo.uv_grupo g
+            INNER JOIN dbo.uv_periodo_academico_fechas pa ON pa.id = g.idPeriodoAcademico
+            WHERE g.idDocente = @idDocente
+              AND EXISTS (SELECT 1 FROM dbo.uv_grupo_programa gpx WHERE gpx.idGrupo = g.id AND gpx.idPrograma = @idPrograma)
+        ),
+        resumen AS (
+            SELECT
+                totalGrupos      = COUNT(*),
+                totalPeriodos    = COUNT(DISTINCT h.idPeriodoAcademico),
+                gruposVigentes   = SUM(IIF(h.estadoPeriodo = 'VIGENTE', 1, 0)),
+                activosVigentes  = SUM(IIF(h.estadoPeriodo = 'VIGENTE', h.estudiantesActivos, 0))
+            FROM historial h
+        )
+        -- PASO 5: Consulta y retorno de resultados (ISNULL sobre agregacion (permitido): SUM de un historial vacio es NULL)
         SELECT
-            g.id, g.codigo, g.nombre, g.idAsignatura, g.nombreAsignatura,
-            g.idPeriodoAcademico, pa.codigo AS codigoPeriodo, pa.nombre AS nombrePeriodo,
-            pa.fechaInicio, pa.fechaFin,
-            estadoPeriodo = CASE
-                                WHEN @hoyLocal < pa.fechaInicio THEN 'PROXIMO'
-                                WHEN @hoyLocal > pa.fechaFin THEN 'FINALIZADO'
-                                ELSE 'VIGENTE'
-                            END,
-            g.capacidadMaximaPermitida, g.estudiantesActivos, g.estudiantesFinalizados,
-            g.estudiantesCanceladosVoluntad, g.estudiantesCanceladosInasistencia
-        FROM dbo.uv_grupo g
-        INNER JOIN dbo.PeriodoAcademico pa ON pa.id = g.idPeriodoAcademico
-        WHERE g.idDocente = @idDocente
-          AND EXISTS (SELECT 1 FROM dbo.uv_grupo_programa gpx WHERE gpx.idGrupo = g.id AND gpx.idPrograma = @idPrograma)
-    ),
-    resumen AS (
-        SELECT
-            totalGrupos      = COUNT(*),
-            totalPeriodos    = COUNT(DISTINCT h.idPeriodoAcademico),
-            gruposVigentes   = SUM(IIF(h.estadoPeriodo = 'VIGENTE', 1, 0)),
-            activosVigentes  = SUM(IIF(h.estadoPeriodo = 'VIGENTE', h.estudiantesActivos, 0))
+            idGrupo                           = h.id,
+            codigoGrupo                       = h.codigo,
+            nombreGrupo                       = h.nombre,
+            idAsignatura                      = h.idAsignatura,
+            nombreAsignatura                  = h.nombreAsignatura,
+            idPeriodoAcademico                = h.idPeriodoAcademico,
+            codigoPeriodoAcademico            = h.codigoPeriodo,
+            nombrePeriodoAcademico            = h.nombrePeriodo,
+            fechaInicioPeriodo                = h.fechaInicio,
+            fechaFinPeriodo                   = h.fechaFin,
+            estadoPeriodo                     = CAST(h.estadoPeriodo AS NVARCHAR(10)),
+            capacidadMaxima                   = h.capacidadMaximaPermitida,
+            estudiantesActivos                = h.estudiantesActivos,
+            estudiantesFinalizados            = h.estudiantesFinalizados,
+            estudiantesCanceladosVoluntad     = h.estudiantesCanceladosVoluntad,
+            estudiantesCanceladosInasistencia = h.estudiantesCanceladosInasistencia,
+            resumenTotalGrupos                = r.totalGrupos,
+            resumenTotalPeriodos              = r.totalPeriodos,
+            resumenGruposVigentes             = ISNULL(r.gruposVigentes, 0),
+            resumenEstudiantesActivosVigentes = ISNULL(r.activosVigentes, 0),
+            totalRegistros                    = COUNT(*) OVER()
         FROM historial h
-    )
-    -- PASO 5: Consulta y retorno de resultados
-    SELECT
-        idGrupo                           = h.id,
-        codigoGrupo                       = h.codigo,
-        nombreGrupo                       = h.nombre,
-        idAsignatura                      = h.idAsignatura,
-        nombreAsignatura                  = h.nombreAsignatura,
-        idPeriodoAcademico                = h.idPeriodoAcademico,
-        codigoPeriodoAcademico            = h.codigoPeriodo,
-        nombrePeriodoAcademico            = h.nombrePeriodo,
-        fechaInicioPeriodo                = h.fechaInicio,
-        fechaFinPeriodo                   = h.fechaFin,
-        estadoPeriodo                     = CAST(h.estadoPeriodo AS NVARCHAR(10)),
-        capacidadMaxima                   = h.capacidadMaximaPermitida,
-        estudiantesActivos                = h.estudiantesActivos,
-        estudiantesFinalizados            = h.estudiantesFinalizados,
-        estudiantesCanceladosVoluntad     = h.estudiantesCanceladosVoluntad,
-        estudiantesCanceladosInasistencia = h.estudiantesCanceladosInasistencia,
-        resumenTotalGrupos                = r.totalGrupos,
-        resumenTotalPeriodos              = r.totalPeriodos,
-        resumenGruposVigentes             = ISNULL(r.gruposVigentes, 0),
-        resumenEstudiantesActivosVigentes = ISNULL(r.activosVigentes, 0),
-        totalRegistros                    = COUNT(*) OVER()
-    FROM historial h
-    CROSS JOIN resumen r
-    WHERE (@idPeriodoAcademico IS NULL OR h.idPeriodoAcademico = @idPeriodoAcademico)
-    ORDER BY h.fechaInicio DESC, h.nombreAsignatura ASC, h.codigo ASC, h.id ASC
-    OFFSET @offset ROWS
-    FETCH NEXT @tamano ROWS ONLY;
+        CROSS JOIN resumen r
+        WHERE (@idPeriodoAcademico IS NULL OR h.idPeriodoAcademico = @idPeriodoAcademico)
+        ORDER BY h.fechaInicio DESC, h.nombreAsignatura ASC, h.codigo ASC, h.id ASC
+        OFFSET @offset ROWS
+        FETCH NEXT @tamano ROWS ONLY;
+    END TRY
+    BEGIN CATCH
+        -- PASO 6: consulta de lectura (READ_QUERY_RESULTSET): el error, incluido el rechazo de validacion,
+        -- se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
+        THROW;
+    END CATCH
 END;
 GO

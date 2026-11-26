@@ -19,6 +19,8 @@ GO
 -- decano es el ejecutor.
 -- SESSION_CONTEXT: se captura el previo y SIEMPRE se restaura (exito y error).
 -- ============================================================================
+-- SKILLS-BD lote 13 (2026-11-26): DECLARE en la cabecera, PASO n, IF con BEGIN/END, lecturas por vistas uv_* (facultad y decano por uv_facultad_registro y uv_decano_identidad) y
+-- TRY/CATCH de lectura que relanza (READ_QUERY_RESULTSET). Mismas columnas y mismas filas.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_sesiones_facultad_paginado]
 (
     @idUsuarioEjecutor  UNIQUEIDENTIFIER,
@@ -31,10 +33,6 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_sesiones_facultad_paginado]
     @idGrupo            UNIQUEIDENTIFIER = NULL
 )
 AS
-BEGIN
-    SET NOCOUNT ON;
-    -- Consulta de solo lectura: sin XACT_ABORT para no invalidar la transaccion del llamador ante un THROW de validacion.
-
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idUsuarioDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @guidVacio            UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(NULL, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
@@ -42,20 +40,23 @@ BEGIN
     DECLARE @inicio               DATETIME2 = CAST(@fechaDesde AS DATETIME2);
     DECLARE @finExclusivo         DATETIME2 = DATEADD(DAY, 1, CAST(@fechaHasta AS DATETIME2));
     DECLARE @offset               INT;
-
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado BIT = 1;
-
     DECLARE @contextoPrevio SQL_VARIANT = SESSION_CONTEXT(N'idUsuarioEjecutor');
+BEGIN
+    SET NOCOUNT ON;
+    -- Consulta de solo lectura: sin XACT_ABORT para no invalidar la transaccion del llamador ante un THROW de validacion.
 
     BEGIN TRY
+        -- PASO 1: correlacion obligatoria
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
+        -- PASO 2: ejecutor obligatorio (VAL_001)
         IF @estadoResultado = 1 AND (@idUsuarioDefecto IS NULL OR @idUsuarioDefecto = @guidVacio)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -67,6 +68,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 3: paginacion valida (PAG_001)
         IF @estadoResultado = 1
            AND (@numeroPagina IS NULL OR @numeroPagina < 1 OR @tamanoPagina IS NULL OR @tamanoPagina < 1
                 OR @tamanoMaximo IS NULL OR @tamanoPagina > @tamanoMaximo)
@@ -81,12 +83,13 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 4: grupo filtrado dentro de la facultad del decano (SEC_002)
         IF @estadoResultado = 1 AND @idGrupo IS NOT NULL
            AND NOT EXISTS (SELECT 1
                            FROM dbo.uv_grupo_programa gp
                            INNER JOIN dbo.uv_programa x ON x.id = gp.idPrograma
                            WHERE gp.idGrupo = @idGrupo
-                             AND x.idFacultad IN (SELECT f.id FROM dbo.Facultad f INNER JOIN dbo.Decano d ON d.id = f.decano WHERE d.usuario = @idUsuarioDefecto))
+                             AND x.idFacultad IN (SELECT f.id FROM dbo.uv_facultad_registro f INNER JOIN dbo.uv_decano_identidad d ON d.id = f.idDecano WHERE d.idUsuario = @idUsuarioDefecto))
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'SEC_002',
@@ -96,16 +99,19 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 5: rechazo de validacion: se propaga al llamador
         IF @estadoResultado = 0
         BEGIN
             THROW 51000, @mensajeTecnicoResultado, 1;
         END
 
+        -- PASO 6: desplazamiento e identidad temporal en el contexto
         SET @offset = (@numeroPagina - 1) * @tamanoPagina;
 
         EXEC dbo.usp_establecer_contexto_usuario_ejecutor
             @p_idUsuario = @idUsuarioDefecto;
 
+        -- PASO 7: sesiones de la facultad del decano, paginadas
         SELECT
             s.id,
             s.nombre,
@@ -134,7 +140,7 @@ BEGIN
                       FROM dbo.uv_grupo_programa gp
                       INNER JOIN dbo.uv_programa x ON x.id = gp.idPrograma
                       WHERE gp.idGrupo = s.idGrupo
-                        AND x.idFacultad IN (SELECT f.id FROM dbo.Facultad f INNER JOIN dbo.Decano d ON d.id = f.decano WHERE d.usuario = @idUsuarioDefecto)
+                        AND x.idFacultad IN (SELECT f.id FROM dbo.uv_facultad_registro f INNER JOIN dbo.uv_decano_identidad d ON d.id = f.idDecano WHERE d.idUsuario = @idUsuarioDefecto)
                         AND (@idPrograma IS NULL OR x.id = @idPrograma))
           AND (@inicio IS NULL OR s.fechaHoraInicio >= @inicio)
           AND (@finExclusivo IS NULL OR s.fechaHoraInicio < @finExclusivo)
@@ -142,12 +148,15 @@ BEGIN
         OFFSET @offset ROWS
         FETCH NEXT @tamanoPagina ROWS ONLY;
 
+        -- PASO 8: restaurar el contexto de sesion previo
         EXEC sys.sp_set_session_context
             @key = N'idUsuarioEjecutor',
             @value = @contextoPrevio,
             @read_only = 0;
     END TRY
     BEGIN CATCH
+        -- PASO 9: consulta de lectura (READ_QUERY_RESULTSET): restaurar el contexto previo y propagar el error al llamador,
+        -- que lo traduce a SYS_001 (sin triplete propio).
         EXEC sys.sp_set_session_context
             @key = N'idUsuarioEjecutor',
             @value = @contextoPrevio,

@@ -23,6 +23,7 @@ GO
 -- READPAST sobre TomaAsistencia para no esperar tomas que otra instancia o el docente tiene bloqueadas (una vista no admite la
 -- pista sobre la fila fisica), y la toma y la sesion se releen con UPDLOCK/HOLDLOCK antes de cerrar.
 -- ============================================================================
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): job del servidor sin @idUsuarioEjecutor; exige @idCorrelacion.
 CREATE OR ALTER PROCEDURE [dbo].[usp_cerrar_tomas_vencidas]
 (
     @idCorrelacion UNIQUEIDENTIFIER

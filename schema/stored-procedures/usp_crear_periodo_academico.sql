@@ -15,6 +15,7 @@ GO
 -- Concurrencia: los periodos de la institucion se bloquean (UPDLOCK, HOLDLOCK) mientras se valida la unicidad.
 -- CULM-001 D.9-a (F-ADM-030): el resultset devuelve ademas idPeriodo (el creado; NULL si estadoResultado = 0) para que el backend
 -- responda 201 con el periodo creado.
+-- SKILLS-BD lote 9 (2026-11-26): lecturas posteriores al bloqueo por uv_periodo_academico_fechas (antes, la tabla) e IF con BEGIN/END; DECLARE del CATCH a la cabecera. El bloqueo UPDLOCK/HOLDLOCK sigue en la tabla. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_crear_periodo_academico]
 (
     @idPeriodo               UNIQUEIDENTIFIER,
@@ -42,6 +43,7 @@ AS
     DECLARE @conteoTransaccionesInicial INT = 0;
     DECLARE @transaccionPropia          BIT = 0;
     DECLARE @savepointCreado            BIT = 0;
+    DECLARE @estadoTransaccionCatch INT;
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
@@ -66,12 +68,14 @@ BEGIN
 
         -- PASO 3: Resolver ambito del ejecutor (usp_resolver_institucion_gestor_periodo_interno)
         IF @estadoResultado = 1
+        BEGIN
             EXEC dbo.usp_resolver_institucion_gestor_periodo_interno
                 @idUsuario = @idUsuarioEjecutorDefecto, @idCorrelacion = @idCorrelacionDefecto,
                 @idInstitucion = @idInstitucion OUTPUT,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
+        END
 
         -- PASO 4: Validacion de negocio (GEN_002)
         IF @estadoResultado = 1 AND (@idPeriodoDefecto = @guidDefecto OR @nombreDef IS NULL OR @nombreDef = '')
@@ -89,7 +93,10 @@ BEGIN
         IF @estadoResultado = 1 AND @fechaInicio IS NOT NULL AND @semanasDuracion IS NOT NULL
         BEGIN
             SET @fechaFinCalculada = DATEADD(DAY, 7 * @semanasDuracion - 1, CAST(@fechaInicio AS DATE));
-            IF @fechaFin IS NULL SET @fechaFin = CAST(@fechaFinCalculada AS DATETIME2);
+            IF @fechaFin IS NULL
+            BEGIN
+                SET @fechaFin = CAST(@fechaFinCalculada AS DATETIME2);
+            END
         END
 
         -- PASO 5.1: Validacion de negocio (PER_002)
@@ -133,8 +140,8 @@ BEGIN
             FROM dbo.PeriodoAcademico pa WITH (UPDLOCK, HOLDLOCK)
             WHERE pa.institucion = @idInstitucion;
 
-            IF EXISTS (SELECT 1 FROM dbo.PeriodoAcademico pa WHERE pa.id = @idPeriodoDefecto)
-               OR EXISTS (SELECT 1 FROM dbo.PeriodoAcademico pa WHERE pa.institucion = @idInstitucion AND LOWER(pa.nombre) = LOWER(@nombreDef))
+            IF EXISTS (SELECT 1 FROM dbo.uv_periodo_academico_fechas pa WHERE pa.id = @idPeriodoDefecto)
+               OR EXISTS (SELECT 1 FROM dbo.uv_periodo_academico_fechas pa WHERE pa.idInstitucion = @idInstitucion AND LOWER(pa.nombre) = LOWER(@nombreDef))
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
                     @p_codigo = 'PER_003',
@@ -172,16 +179,25 @@ BEGIN
 
             IF @transaccionPropia = 1
             BEGIN
-                IF XACT_STATE() = 1 COMMIT TRANSACTION;
-                ELSE IF XACT_STATE() = -1 ROLLBACK TRANSACTION;
+                IF XACT_STATE() = 1
+                BEGIN
+                    COMMIT TRANSACTION;
+                END
+                ELSE IF XACT_STATE() = -1
+                BEGIN
+                    ROLLBACK TRANSACTION;
+                END
             END
         END
     END TRY
     BEGIN CATCH
-        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+        SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
-            IF @estadoTransaccionCatch <> 0 ROLLBACK TRANSACTION;
+            IF @estadoTransaccionCatch <> 0
+            BEGIN
+                ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN

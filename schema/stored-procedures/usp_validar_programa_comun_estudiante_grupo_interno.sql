@@ -12,6 +12,8 @@ GO
 --   (1) @idProgramaElegido informado y ajeno al grupo (ufn_programas_grupo): EST_006.
 --   (2) el estudiante tiene vinculos pero ninguno es programa del grupo: EST_010.
 --   (3) @idProgramaElegido informado y que no es uno de los programas del estudiante: EST_011.
+-- SKILLS-BD lote 7 (2026-11-26): vinculos del estudiante por uv_estudiante_programa (antes, la tabla), PASO n e IF con
+-- BEGIN/END; mismos codigos.
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_programa_comun_estudiante_grupo_interno]
 (
     @idEstudiante            UNIQUEIDENTIFIER,
@@ -33,20 +35,29 @@ AS
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
+        -- PASO 1: Reglas de programa comun, en orden (EST_006, EST_010, EST_011)
         IF @idProgramaElegido IS NOT NULL
            AND NOT EXISTS (SELECT 1 FROM dbo.ufn_programas_grupo(@idGrupo) pg WHERE pg.idPrograma = @idProgramaElegido)
+        BEGIN
             SET @codigoRechazo = 'EST_006';
+        END
         ELSE IF @idEstudiante IS NOT NULL
-                AND EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep WHERE ep.estudiante = @idEstudiante)
-                AND NOT EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep
-                                INNER JOIN dbo.ufn_programas_grupo(@idGrupo) pg ON pg.idPrograma = ep.programa
-                                WHERE ep.estudiante = @idEstudiante)
+                AND EXISTS (SELECT 1 FROM dbo.uv_estudiante_programa ep WHERE ep.idEstudiante = @idEstudiante)
+                AND NOT EXISTS (SELECT 1 FROM dbo.uv_estudiante_programa ep
+                                INNER JOIN dbo.ufn_programas_grupo(@idGrupo) pg ON pg.idPrograma = ep.idPrograma
+                                WHERE ep.idEstudiante = @idEstudiante)
+        BEGIN
             SET @codigoRechazo = 'EST_010';
+        END
         ELSE IF @idEstudiante IS NOT NULL AND @idProgramaElegido IS NOT NULL
-                AND EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep WHERE ep.estudiante = @idEstudiante)
-                AND NOT EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep
-                                WHERE ep.estudiante = @idEstudiante AND ep.programa = @idProgramaElegido)
+                AND EXISTS (SELECT 1 FROM dbo.uv_estudiante_programa ep WHERE ep.idEstudiante = @idEstudiante)
+                AND NOT EXISTS (SELECT 1 FROM dbo.uv_estudiante_programa ep
+                                WHERE ep.idEstudiante = @idEstudiante AND ep.idPrograma = @idProgramaElegido)
+        BEGIN
             SET @codigoRechazo = 'EST_011';
+        END
+
+        -- PASO 2: Rechazo con el mensaje del catalogo
 
         IF @codigoRechazo IS NOT NULL
         BEGIN
@@ -59,6 +70,7 @@ BEGIN
         END
     END TRY
     BEGIN CATCH
+        -- PASO 3: Error inesperado: triplete SYS_001
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,

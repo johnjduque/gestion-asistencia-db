@@ -13,6 +13,8 @@ GO
 -- menu); @soloNoLeidas -> fechaLecturaUtc IS NULL. Columnas de uv_alerta_inasistencia sin ids de usuario ni de docente, mas
 -- porcentajeActual, umbralPerdidaActual y totalRegistros. Nunca columnas de la revision. Orden estaLeida ASC, fechaCruceUtc DESC.
 -- ============================================================================
+-- SKILLS-BD lote 10 (2026-11-26): DECLARE en la cabecera, PASO n, IF con BEGIN/END, matricula del estudiante por
+-- uv_estudiante_grupo_registro/uv_estudiante_identidad (antes, las tablas) y TRY/CATCH de lectura que relanza. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_alertas_estudiante]
 (
     @idUsuarioEjecutor UNIQUEIDENTIFIER,
@@ -24,10 +26,6 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_alertas_estudiante]
     @idGrupo           UNIQUEIDENTIFIER = NULL
 )
 AS
-BEGIN
-    SET NOCOUNT ON;
-    SET XACT_ABORT ON;
-
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idUsuarioDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @tamanoMaximo         INT = dbo.ufn_obtener_parametro_int(NULL, 'PAGINACION', 'TAMANO_MAXIMO');
@@ -37,63 +35,84 @@ BEGIN
     DECLARE @estadoResultado BIT = 1;
     DECLARE @offset INT;
     DECLARE @p1 NVARCHAR(500), @p2 NVARCHAR(500);
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
 
-    EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
-        @idCorrelacion = @idCorrelacionDefecto,
-        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-        @estadoResultado = @estadoResultado OUTPUT;
-    IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_002', @p_param1 = 'idUsuarioEjecutor',
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-    END
-    IF @estadoResultado = 1
-        EXEC dbo.usp_validar_permiso_rbac_usuario_interno
-            @idUsuario = @idUsuarioDefecto, @codigoPerfilRequerido = 'ESTUDIANTE', @idCorrelacion = @idCorrelacionDefecto,
+    BEGIN TRY
+        -- PASO 1: Validar correlacion
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
+            @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
-    IF @estadoResultado = 1
-       AND (@numeroPagina IS NULL OR @numeroPagina < 1 OR @tamanoPagina IS NULL OR @tamanoPagina < 1 OR @tamanoMaximo IS NULL OR @tamanoPagina > @tamanoMaximo)
-    BEGIN
-        SELECT @p1 = CONVERT(NVARCHAR(20), @numeroPagina), @p2 = CONVERT(NVARCHAR(20), @tamanoPagina);
-        EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'PAG_001', @p_param1 = @p1, @p_param2 = @p2,
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @estadoResultado = 0;
-    END
-    IF @estadoResultado = 1 AND @idGrupo IS NOT NULL
-       AND NOT EXISTS (SELECT 1 FROM dbo.EstudianteGrupo eg INNER JOIN dbo.Estudiante e ON e.id = eg.estudiante WHERE eg.grupo = @idGrupo AND e.usuario = @idUsuarioDefecto)
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SEC_002', @p_param1 = 'Grupo del estudiante',
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @estadoResultado = 0;
-    END
-    IF @estadoResultado = 0
-        THROW 51000, @mensajeTecnicoResultado, 1;
+        -- PASO 2: Validar parametros obligatorios (GEN_002)
+        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_002', @p_param1 = 'idUsuarioEjecutor',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+        -- PASO 3: Validar perfil ESTUDIANTE del ejecutor
+        IF @estadoResultado = 1
+        BEGIN
+            EXEC dbo.usp_validar_permiso_rbac_usuario_interno
+                @idUsuario = @idUsuarioDefecto, @codigoPerfilRequerido = 'ESTUDIANTE', @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
+        -- PASO 4: Validar paginacion (PAG_001)
+        IF @estadoResultado = 1
+           AND (@numeroPagina IS NULL OR @numeroPagina < 1 OR @tamanoPagina IS NULL OR @tamanoPagina < 1 OR @tamanoMaximo IS NULL OR @tamanoPagina > @tamanoMaximo)
+        BEGIN
+            SELECT @p1 = CONVERT(NVARCHAR(20), @numeroPagina), @p2 = CONVERT(NVARCHAR(20), @tamanoPagina);
+            EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'PAG_001', @p_param1 = @p1, @p_param2 = @p2,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @estadoResultado = 0;
+        END
+        -- PASO 5: Grupo del propio estudiante (SEC_002)
+        IF @estadoResultado = 1 AND @idGrupo IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo_registro eg INNER JOIN dbo.uv_estudiante_identidad e ON e.id = eg.idEstudiante WHERE eg.idGrupo = @idGrupo AND e.idUsuario = @idUsuarioDefecto)
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SEC_002', @p_param1 = 'Grupo del estudiante',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @estadoResultado = 0;
+        END
+        -- PASO 6: Rechazo de validacion: se lanza con el detalle tecnico
+        IF @estadoResultado = 0
+        BEGIN
+            THROW 51000, @mensajeTecnicoResultado, 1;
+        END
 
-    SET @offset = (@numeroPagina - 1) * @tamanoPagina;
-    SELECT
-        id = a.id, idEstudianteGrupo = a.idEstudianteGrupo, idEstudiante = a.idEstudiante, nombreCompletoEstudiante = a.nombreCompletoEstudiante,
-        idGrupo = a.idGrupo, codigoGrupo = a.codigoGrupo, nombreGrupo = a.nombreGrupo, idAsignatura = a.idAsignatura, nombreAsignatura = a.nombreAsignatura,
-        idPeriodoAcademico = a.idPeriodoAcademico, codigoEstadoMatricula = a.codigoEstadoMatricula,
-        idTipo = a.idTipo, codigoTipo = a.codigoTipo, nombreTipo = a.nombreTipo, nivel = a.nivel, codigoMensajeUsuario = a.codigoMensajeUsuario,
-        idEstado = a.idEstado, codigoEstado = a.codigoEstado, estaVigente = a.estaVigente,
-        porcentajeCruce = a.porcentajeCruce, umbralCruce = a.umbralCruce, horasFaltaCruce = a.horasFaltaCruce, horasDictadasCruce = a.horasDictadasCruce,
-        fechaCruceUtc = a.fechaCruceUtc, porcentajeUltimaEvaluacion = a.porcentajeUltimaEvaluacion, fechaUltimaEvaluacionUtc = a.fechaUltimaEvaluacionUtc,
-        fechaLecturaUtc = a.fechaLecturaUtc, estaLeida = a.estaLeida,
-        porcentajeActual = r.porcentajeInasistencia,
-        umbralPerdidaActual = r.umbralPerdida,
-        totalRegistros = COUNT(1) OVER(),
-        -- CIERRE-W3I: nivel de permanencia vigente (REGULAR/RIESGO/PERDIDA) con la unica regla y los umbrales del catalogo
-        codigoPermanenciaActual = r.codigoPermanencia
-    FROM dbo.uv_alerta_inasistencia a
-    LEFT JOIN dbo.uv_resumen_asistencia_estudiante_grupo r ON r.idEstudianteGrupo = a.idEstudianteGrupo
-    WHERE a.idUsuarioEstudiante = @idUsuarioDefecto
-      AND (@idGrupo IS NULL OR a.idGrupo = @idGrupo)
-      AND (@soloNoLeidas IS NULL OR @soloNoLeidas = 0 OR a.fechaLecturaUtc IS NULL)
-      AND (@soloVigentes IS NULL OR @soloVigentes = 0 OR (a.estaVigente = 1 AND a.codigoEstadoMatricula = @codigoInscrita))
-    ORDER BY a.estaLeida ASC, a.fechaCruceUtc DESC, a.id ASC
-    OFFSET @offset ROWS FETCH NEXT @tamanoPagina ROWS ONLY;
+        -- PASO 7: Consulta paginada de las alertas del estudiante
+        SET @offset = (@numeroPagina - 1) * @tamanoPagina;
+        SELECT
+            id = a.id, idEstudianteGrupo = a.idEstudianteGrupo, idEstudiante = a.idEstudiante, nombreCompletoEstudiante = a.nombreCompletoEstudiante,
+            idGrupo = a.idGrupo, codigoGrupo = a.codigoGrupo, nombreGrupo = a.nombreGrupo, idAsignatura = a.idAsignatura, nombreAsignatura = a.nombreAsignatura,
+            idPeriodoAcademico = a.idPeriodoAcademico, codigoEstadoMatricula = a.codigoEstadoMatricula,
+            idTipo = a.idTipo, codigoTipo = a.codigoTipo, nombreTipo = a.nombreTipo, nivel = a.nivel, codigoMensajeUsuario = a.codigoMensajeUsuario,
+            idEstado = a.idEstado, codigoEstado = a.codigoEstado, estaVigente = a.estaVigente,
+            porcentajeCruce = a.porcentajeCruce, umbralCruce = a.umbralCruce, horasFaltaCruce = a.horasFaltaCruce, horasDictadasCruce = a.horasDictadasCruce,
+            fechaCruceUtc = a.fechaCruceUtc, porcentajeUltimaEvaluacion = a.porcentajeUltimaEvaluacion, fechaUltimaEvaluacionUtc = a.fechaUltimaEvaluacionUtc,
+            fechaLecturaUtc = a.fechaLecturaUtc, estaLeida = a.estaLeida,
+            porcentajeActual = r.porcentajeInasistencia,
+            umbralPerdidaActual = r.umbralPerdida,
+            totalRegistros = COUNT(1) OVER(),
+            -- CIERRE-W3I: nivel de permanencia vigente (REGULAR/RIESGO/PERDIDA) con la unica regla y los umbrales del catalogo
+            codigoPermanenciaActual = r.codigoPermanencia
+        FROM dbo.uv_alerta_inasistencia a
+        LEFT JOIN dbo.uv_resumen_asistencia_estudiante_grupo r ON r.idEstudianteGrupo = a.idEstudianteGrupo
+        WHERE a.idUsuarioEstudiante = @idUsuarioDefecto
+          AND (@idGrupo IS NULL OR a.idGrupo = @idGrupo)
+          AND (@soloNoLeidas IS NULL OR @soloNoLeidas = 0 OR a.fechaLecturaUtc IS NULL)
+          AND (@soloVigentes IS NULL OR @soloVigentes = 0 OR (a.estaVigente = 1 AND a.codigoEstadoMatricula = @codigoInscrita))
+        ORDER BY a.estaLeida ASC, a.fechaCruceUtc DESC, a.id ASC
+        OFFSET @offset ROWS FETCH NEXT @tamanoPagina ROWS ONLY;
+    END TRY
+    BEGIN CATCH
+        -- PASO 8: consulta de lectura (READ_QUERY_RESULTSET): el error, incluido el rechazo de validacion,
+        -- se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
+        THROW;
+    END CATCH
 END;
 GO

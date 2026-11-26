@@ -17,6 +17,7 @@ GO
 -- fallas de validacion se propagan con THROW (VAL_001 / SEC_001). SESSION_CONTEXT: se captura el previo y SIEMPRE se
 -- restaura (exito y error). Solo lectura: sin transaccion.
 -- ============================================================================
+-- SKILLS-BD lote 10 (2026-11-26): PASO n tambien en el restablecimiento del contexto y en el CATCH de lectura que relanza. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_docentes_ambito_consolidado]
 (
     @idUsuarioEjecutor   UNIQUEIDENTIFIER,
@@ -60,9 +61,12 @@ BEGIN
         GROUP BY g.idDocente
         ORDER BY MAX(d.nombreCompleto) ASC, g.idDocente ASC;
 
+        -- PASO 3: Restaurar el contexto de sesion previo
         EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
     END TRY
     BEGIN CATCH
+        -- PASO 4: consulta de lectura (READ_QUERY_RESULTSET): el error, incluido el rechazo de validacion,
+        -- se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
         EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
         THROW;
     END CATCH;

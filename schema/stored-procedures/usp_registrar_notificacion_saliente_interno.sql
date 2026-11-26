@@ -10,6 +10,7 @@ GO
 -- Capacidad: Notificaciones Outbox (NOTIF-001)
 -- Ambito: Operacion atomica de persistencia interna.
 -- =============================================================================
+-- SKILLS-BD lote 8 (2026-11-26): DECLARE en la cabecera (los de un paso se asignan con SET en ese paso) y PASO n. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_notificacion_saliente_interno]
 (
     @tipo                    VARCHAR(60),
@@ -26,19 +27,21 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_notificacion_saliente_interno]
     @estadoResultado         BIT OUTPUT
 )
 AS
-BEGIN
-    SET NOCOUNT ON;
-    SET XACT_ABORT ON;
-
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @transaccionPropia BIT = 0;
     DECLARE @savepointCreado   BIT = 0;
+    DECLARE @ahora DATETIMEOFFSET(7);
+    DECLARE @idNotificacion UNIQUEIDENTIFIER;
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
 
     SET @mensajeUsuarioResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     SET @mensajeTecnicoResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     SET @estadoResultado = 1;
 
     BEGIN TRY
+        -- PASO 1: Transaccion propia, o savepoint si el llamador ya tiene una abierta
         IF @@TRANCOUNT = 0
         BEGIN
             BEGIN TRANSACTION;
@@ -50,8 +53,9 @@ BEGIN
             SET @savepointCreado = 1;
         END
 
-        DECLARE @ahora DATETIMEOFFSET(7) = SYSUTCDATETIME();
-        DECLARE @idNotificacion UNIQUEIDENTIFIER = NEWID();
+        -- PASO 2: Insertar la notificacion en estado PENDIENTE, lista para el primer intento
+        SET @ahora = SYSUTCDATETIME();
+        SET @idNotificacion = NEWID();
 
         INSERT INTO dbo.NotificacionSaliente (
             id, tipo, asunto, mensaje, destinatarios, datos, idEstado,
@@ -62,6 +66,7 @@ BEGIN
             0, @ahora, @ahora, @idCorrelacionDefecto, @traceId, @spanId
         );
 
+        -- PASO 3: Mensaje de exito del catalogo
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'GEN_004',
             @p_param1 = 'Notificacion Saliente',
@@ -70,12 +75,14 @@ BEGIN
 
         SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
 
+        -- PASO 4: Confirmar la transaccion propia
         IF @transaccionPropia = 1
         BEGIN
             COMMIT TRANSACTION;
         END
     END TRY
     BEGIN CATCH
+        -- PASO 5: Revertir solo lo propio (savepoint o transaccion) y responder SYS_001 (comportamiento previo)
         IF @savepointCreado = 1 AND XACT_STATE() = 1
         BEGIN
             ROLLBACK TRANSACTION sv_registrar_notif_saliente;

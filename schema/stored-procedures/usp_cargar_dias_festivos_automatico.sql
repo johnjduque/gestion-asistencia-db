@@ -10,6 +10,8 @@ GO
 -- (CargaFestivosScheduler), sin usuario ejecutor (como usp_rotar_token_matricula_automatico): la bitacora
 -- dbo.CargaDiaFestivo queda con usuarioEjecutor NULL. Misma salida y validaciones que usp_cargar_dias_festivos.
 -- ============================================================================
+-- SKILLS-BD lote 12 (2026-11-26): PASO n. Mismo resultado.
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): job del servidor sin @idUsuarioEjecutor; exige @idCorrelacion.
 CREATE OR ALTER PROCEDURE [dbo].[usp_cargar_dias_festivos_automatico]
 (
     @anio                     INT,
@@ -29,6 +31,7 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
     BEGIN TRY
+        -- PASO 1: Cargar los festivos del anio (nucleo interno)
         EXEC dbo.usp_cargar_dias_festivos_interno
             @anio = @anio,
             @festivosJSON = @festivosJSON,
@@ -44,8 +47,11 @@ BEGIN
             @estadoResultado = @estadoResultado OUTPUT;
     END TRY
     BEGIN CATCH
+        -- PASO 2: Error: relanzar si la transaccion externa quedo condenada; si no, SYS_001
         IF XACT_STATE() = -1 AND @@TRANCOUNT > 0
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
@@ -55,6 +61,7 @@ BEGIN
         SET @estadoResultado = 0;
     END CATCH
 
+    -- PASO 3: Resultado
     SELECT
         idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,

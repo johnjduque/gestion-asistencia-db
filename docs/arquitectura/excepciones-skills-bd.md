@@ -3,7 +3,7 @@ status: active
 type: architecture
 scope: database
 owner: db-team
-last-reviewed: 2026-11-25
+last-reviewed: 2026-11-26
 ---
 
 # Excepciones justificadas a los skills de BD
@@ -30,7 +30,9 @@ Origen: auditoría y plan por lotes del 2026-11-25. Las decisiones son de John (
 - exigen `@idCorrelacion`;
 - ningún endpoint los expone recibiendo la identidad del usuario como parámetro libre;
 - los públicos por token validan el token, su vigencia y su ámbito;
-- su cabecera lleva la marca `SP_SISTEMA` con el motivo (se agrega al intervenirlos en su lote).
+- su cabecera lleva la marca `SP_SISTEMA` con el motivo (se agrega al intervenirlos en su lote; el lote 12 la puso también en los de
+  lotes anteriores que no la tenían; el lote 14 la puso en los congelados `usp_sincronizar_parametro_catalogo_externo` y
+  `usp_validar_token_matricula_publico`).
 
 ## E2. Ejecutor recibido como `@idUsuario`
 
@@ -69,10 +71,13 @@ Origen: auditoría y plan por lotes del 2026-11-25. Las decisiones son de John (
 - el backend los invoca sin transacción externa, así que siempre usan su transacción propia;
 - en el CATCH revisan `XACT_STATE()`;
 - los SP cuyo contrato exige preservar la transacción del llamador siguen sin `XACT_ABORT`: `usp_crear_decano`, `usp_crear_coordinador` y `usp_registrar_o_actualizar_plan_estudio`.
+- `usp_reservar_notificaciones_salientes` (lote 8) sigue sin `XACT_ABORT` en la fachada: sus validaciones salen como `THROW 51000` y con `XACT_ABORT ON` condenarían la transacción del llamador (lo comprueba `test/test_usp_reservar_notificaciones_salientes.sql`); su interno, que es el que escribe, sí lo activa.
 
 ## E6. Objetos congelados
 
-**Regla afectada:** ninguna directamente. Los 38 SP con hash en `docs/contracts/*.sha256` o en `test_golden_path_immutability.sql` se corrigen en el lote 14 sin cambiar su firma ni su resultset, y se regeneran sus manifiestos.
+**Regla afectada:** ninguna directamente. Los 38 SP con hash en `docs/contracts/*.sha256` o en `test_golden_path_immutability.sql` se corrigen en el lote 14 sin cambiar su firma ni su resultset, y se regeneran sus manifiestos. Hecho en el lote 14 (2026-11-26): 37 de los 38 SP corregidos (`usp_validar_sesion_operacion_interno` ya cumplía);
+`usp_validar_carga_masiva_usuarios` ya estaba retirado; el manifiesto DB-GP-001C no se reescribe (las líneas `SUPERSEDES` de `DB_UTC_D06_POST_FREEZE_MANIFEST.sha256` siguen
+nombrando su hash original) y los de UTC-D06, CULM-001 D y LB-004D se regeneraron en el mismo commit.
 
 ## E7. Búsqueda del token QR de asistencia en la tabla
 
@@ -84,6 +89,17 @@ Origen: auditoría y plan por lotes del 2026-11-25. Las decisiones son de John (
 - solo lectura, sin `UPDLOCK` (`READ COMMITTED`), y solo de las columnas que identifican el token, la toma, la sesión y el grupo;
 - el resultado sale por OUTPUT a su único llamador (`usp_registrar_asistencia_por_token`), que valida titularidad, ventana y RBAC como antes;
 - cualquier token desconocido, cerrado o vencido devuelve el mismo `AQR_001` (no revela si existió).
+
+Por el mismo motivo (lote 12), `usp_consultar_token_verificacion_correo` busca el token de verificación de correo por `tokenHash` en
+`dbo.TokenVerificacionCorreo` (`uv_token_verificacion_correo` no expone el hash y no debe exponerlo); el usuario lo lee por `uv_usuario`.
+Es solo lectura y devuelve 0 filas para cualquier token inválido.
+
+Por el mismo motivo (lote 14), `uv_token_matricula_grupo_registro` no expone `tokenHash`, `tokenHashAnterior`, `pin` ni
+`pinAnterior`: la ventana de matrícula se sigue resolviendo por hash o PIN en `usp_resolver_token_matricula_interno`.
+
+En `usp_registrar_asistencia_por_token` (lote 12) las dos búsquedas de la fila propia (`dbo.Asistencia` y `dbo.DetalleAsistencia`
+con `WITH (FORCESEEK)`) siguen en la tabla: la pista evita que, con pocas filas, el plan recorra la PK y espere las filas aún sin
+confirmar de los demás estudiantes (registro QR concurrente). Una vista no garantiza que la pista llegue a la tabla base.
 
 Las lecturas con bloqueo (`UPDLOCK, HOLDLOCK`) de las filas que se van a escribir dentro de la misma transacción (tomas, tokens de matrícula, matrículas) siguen en la tabla: es la excepción de lecturas con bloqueo que ya recogen los skills. En el mismo grupo queda el job `usp_cerrar_tomas_vencidas`: busca las tomas candidatas en `dbo.TomaAsistencia` con `READPAST` para saltar las que otra transacción tiene bloqueadas (una vista no admite esa pista sobre la tabla base de forma fiable).
 

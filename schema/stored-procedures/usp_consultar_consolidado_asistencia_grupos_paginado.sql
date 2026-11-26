@@ -30,6 +30,8 @@ GO
 -- Revision final P3: solo se devuelven las filas (grupo, programa) de los programas del ambito del ejecutor.
 -- SESSION_CONTEXT: se captura el previo y SIEMPRE se restaura (exito y error).
 -- ============================================================================
+-- SKILLS-BD lote 14 (2026-11-26, objeto congelado, decision D5): PASO en el CATCH (los ISNULL que quedan son sobre agregaciones, permitidos).
+-- Misma firma, mismo resultset y mismos codigos; el hash del manifiesto se actualiza en el mismo commit.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_consolidado_asistencia_grupos_paginado]
 (
     @idUsuarioEjecutor   UNIQUEIDENTIFIER,
@@ -172,9 +174,12 @@ BEGIN
         OFFSET @offset ROWS
         FETCH NEXT @tamanoPagina ROWS ONLY;
 
+        -- PASO 4: restaurar el contexto de sesion previo
         EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
     END TRY
     BEGIN CATCH
+        -- PASO 5: consulta de lectura (READ_QUERY_RESULTSET): restaurar el contexto previo y propagar el error al llamador,
+        -- que lo traduce a SYS_001 (sin triplete propio).
         EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
         THROW;
     END CATCH;

@@ -8,6 +8,9 @@ GO
 -- IDENT-001: emite el token de verificacion de correo (solo se recibe y guarda su SHA-256). Lo invoca el canal de
 -- correo al entregar el aviso. Revoca el token activo previo del usuario y la vigencia es ahora + TTL_HORAS (parametro).
 -- Tecnico (sin ejecutor): la credencial es la identidad del proceso de entrega. Resultset canonico de 4 columnas.
+-- SKILLS-BD lote 12 (2026-11-26): DECLARE del CATCH a la cabecera, PASO en el CATCH y usuario por uv_usuario (antes, la tabla).
+-- El UPDATE con UPDLOCK, HOLDLOCK y el INSERT siguen en la tabla. Mismo resultado.
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): notificaciones y correo: lo invoca el backend sin usuario con perfil; exige @idCorrelacion.
 CREATE OR ALTER PROCEDURE [dbo].[usp_emitir_token_verificacion_correo]
 (
     @idUsuario     UNIQUEIDENTIFIER,
@@ -29,6 +32,7 @@ AS
     DECLARE @correoConfirmado  BIT;
     DECLARE @ttlHoras          INT;
     DECLARE @ahoraUtc          DATETIME2(0);
+    DECLARE @estadoTransaccionCatch INT;
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;   -- AUD-BD M-6: un error no capturado condena la transaccion; el CATCH ya maneja XACT_STATE() = -1 (THROW si no es propia)
@@ -54,8 +58,8 @@ BEGIN
         -- PASO 3: el usuario debe existir, estar activo y no tener el correo verificado
         IF @estadoResultado = 1
         BEGIN
-            SELECT @estadoUsuario = u.estado, @correoConfirmado = u.correoConfirmado
-            FROM dbo.Usuario u
+            SELECT @estadoUsuario = u.estaActivoUsuario, @correoConfirmado = u.correoConfirmado
+            FROM dbo.uv_usuario u
             WHERE u.id = @idUsuario;
 
             IF @estadoUsuario IS NULL OR @estadoUsuario = 0
@@ -117,31 +121,46 @@ BEGIN
             IF XACT_STATE() = 1
             BEGIN
                 IF @estadoResultado = 1
+                BEGIN
                     COMMIT TRANSACTION;
+                END
                 ELSE
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
             END
             ELSE IF XACT_STATE() = -1
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1
         BEGIN
             IF XACT_STATE() = 1 AND @estadoResultado = 0
+            BEGIN
                 ROLLBACK TRANSACTION sp_ident_emitir_token;
+            END
         END
     END TRY
     BEGIN CATCH
-        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+        -- PASO 6: error: revertir lo propio, relanzar si la transaccion externa quedo condenada; si no, SYS_001
+        SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
             ROLLBACK TRANSACTION sp_ident_emitir_token;
+        END
 
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',

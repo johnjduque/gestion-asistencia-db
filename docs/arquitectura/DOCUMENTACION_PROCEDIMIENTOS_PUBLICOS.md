@@ -596,3 +596,173 @@ Misma firma, mismo resultset y mismos códigos; prueba `test/test_skills_lote5_c
 | `usp_consultar_docentes_facultad_paginado` | Solo el comentario del `CATCH` de lectura |
 
 Los `CATCH` de las consultas relanzan el error (READ_QUERY_RESULTSET), igual que en los lotes anteriores.
+
+## Addendum SKILLS-BD lote 6 (2026-11-26): asignaturas y planes de estudio
+
+Misma firma, mismo resultset y mismos códigos; prueba `test/test_skills_lote6_caracterizacion.sql` más las de dominio de cada SP.
+
+| SP | Cambio en el lote 6 |
+| :--- | :--- |
+| `usp_agregar_semestre_plan_estudio`, `usp_quitar_semestre_plan_estudio` | Plan, semestres y vínculos por `uv_plan_estudio`, `uv_semestre_plan_estudio`, `uv_semestre` y `uv_asignatura_plan_estudio` (antes, las tablas). El bloqueo `UPDLOCK, HOLDLOCK` del plan sigue en la tabla, y las lecturas siguientes van bajo ese bloqueo |
+| `usp_cambiar_estado_plan_estudio` | Programa del plan por `uv_plan_estudio` |
+| `usp_registrar_o_actualizar_plan_estudio` | Plan existente y unicidad `(programa, inp)` por `uv_plan_estudio` (bajo el bloqueo del programa, que sigue en la tabla); `IF` con `BEGIN/END`; `DECLARE` del `CATCH` a la cabecera |
+| `usp_toggle_estado_asignatura` | Sin `COALESCE` (un `IIF` equivalente); `IF` con `BEGIN/END`; `PASO n`. La lectura con `UPDLOCK, HOLDLOCK` sigue en la tabla |
+| `usp_consultar_asignaturas_asociables_paginado`, `usp_consultar_asignaturas_plan_paginado` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END`, `TRY/CATCH` de lectura y plan por `uv_plan_estudio`/`uv_programa` (antes, las tablas) |
+| `usp_consultar_asignaturas_coordinador_paginado`, `usp_consultar_planes_estudio_programa_paginado` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END` y `TRY/CATCH` de lectura |
+| `usp_buscar_asignaturas_paginado`, `usp_consultar_componentes_formacion` | Comentario del `CATCH` de lectura (y `PASO n` en el primero) |
+
+Los `ISNULL`/`COALESCE` que quedan en este grupo son sobre agregaciones (`MAX`, `SUM`), permitidos por la skill.
+
+## Addendum SKILLS-BD lote 7 (2026-11-26): estudiantes y matrícula en grupo
+
+Misma firma, mismo resultset y mismos códigos; prueba `test/test_skills_lote7_caracterizacion.sql` más las de dominio de cada SP.
+
+| SP | Cambio en el lote 7 |
+| :--- | :--- |
+| `usp_registrar_estudiante_en_grupo` | `DECLARE` de los pasos a la cabecera (asignados con `SET` en su paso); usuario, estudiante y tipo de identificación por `uv_usuario`, `uv_estudiante_identidad` y `uv_tipo_identificacion` (antes, las tablas); `IF` con `BEGIN/END` |
+| `usp_retirar_estudiante_grupo` | Estados por `uv_estado_estudiante_grupo`; docente y periodo por `uv_docente_identidad` y `uv_periodo_academico`. El bloqueo `UPDLOCK, HOLDLOCK` sigue sobre las tablas `Grupo` y `EstudianteGrupo` |
+| `usp_abrir_ventana_matricula_grupo` | Titular por `uv_grupo`/`uv_docente_identidad` (antes, las tablas); `DECLARE` en la cabecera. El token sigue leyéndose con bloqueo en la tabla |
+| `usp_cerrar_ventana_matricula_grupo` | `PASO n`, `DECLARE` en la cabecera, `IF` con `BEGIN/END` y `SET XACT_ABORT ON` (fachada que muta y no lo tenía) |
+| `usp_actualizar_semestre_estudiante_programa` | Vínculo y semestres por `uv_estudiante_programa` y `uv_semestre` (antes, las tablas); `PASO n` |
+| `usp_buscar_estudiante_por_documento_grupo`, `usp_consultar_destinatarios_retiro_estudiante_grupo`, `usp_consultar_estudiantes_grupo_ambito_paginado`, `usp_consultar_directorio_estudiantes_paginado` | Ámbito, grupo, docente y estudiante por vistas `uv_*` (antes, las tablas); `DECLARE` en la cabecera, `PASO n` y `TRY/CATCH` de lectura |
+| `usp_consultar_estudiante_facultad_detalle`, `usp_consultar_estudiantes_facultad_paginado` | Facultad del decano por `uv_facultad`/`uv_decano_identidad` (antes, las tablas); `TRY/CATCH` de lectura |
+| `usp_consultar_horas_programadas_estudiante`, `usp_consultar_plan_estudio_estudiante` | Estudiante y vínculos por `uv_estudiante_identidad` y `uv_estudiante_programa`; `TRY/CATCH` de lectura |
+| `usp_buscar_estudiantes_institucion_paginado`, `usp_consultar_bitacora_estudiante_programa`, `usp_consultar_faltas_reclamables_estudiante`, `usp_consultar_ficha_estudiante_programa`, `usp_consultar_materias_estudiante`, `usp_consultar_ventanas_matricula_por_rotar` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END` y `TRY/CATCH` de lectura que relanza |
+
+Los `ISNULL` que quedan en `usp_consultar_horas_programadas_estudiante` son sobre agregaciones (`SUM`), permitidos por la skill.
+
+## Addendum SKILLS-BD lote 8 (2026-11-26): notificaciones
+
+Misma firma, mismo resultset y mismos códigos; prueba `test/test_skills_lote8_caracterizacion.sql` más las de dominio de cada SP.
+
+| SP | Cambio en el lote 8 |
+| :--- | :--- |
+| `usp_registrar_notificacion_saliente`, `usp_marcar_notificacion_entregada`, `usp_registrar_fallo_notificacion`, `usp_depurar_notificaciones_salientes` | `DECLARE` en la cabecera (los de un paso se asignan con `SET` en ese paso), `PASO n`, `SET XACT_ABORT ON` (fachadas que mutan y no lo tenían) y estados/notificación por `uv_estado_notificacion`/`uv_notificacion_saliente` (antes, las tablas). Sin `COALESCE`/`ISNULL` sobre variables (`IIF` equivalentes) |
+| `usp_reservar_notificaciones_salientes` | `PASO n` y `TRY/CATCH` que relanza el mismo error (`51000`). Sin `XACT_ABORT ON` a propósito (excepción E5 de `excepciones-skills-bd.md`) |
+| `usp_confirmar_verificacion_correo` | `DECLARE` del `CATCH` a la cabecera, `PASO n`, `IF` con `BEGIN/END` y usuario activo por `uv_usuario`. El bloqueo del token y el `UPDATE` de `Usuario` siguen en las tablas |
+| `usp_consultar_reenvio_verificacion_correo` | Ámbito, estudiante, usuario y tokens por `uv_grupo`, `uv_docente_identidad`, `uv_grupo_programa`, `uv_programa`, `uv_coordinador_identidad`, `uv_estudiante_programa`, `uv_estudiante_identidad`, `uv_estudiante_grupo`, `uv_usuario` y `uv_token_verificacion_correo`; `IF` con `BEGIN/END` y `TRY/CATCH` de lectura que relanza (los rechazos siguen saliendo como `THROW 51000` con `DBCODE`) |
+| `usp_registrar_aviso_falta_sesion` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END` y sesión por `uv_sesion`. La lectura idempotente con `UPDLOCK, HOLDLOCK` sigue en la tabla |
+| `usp_consultar_sesiones_pendientes_aviso_falta`, `usp_consultar_faltas_sesion_aviso` | `PASO n`, `IF` con `BEGIN/END`, sin `ISNULL` (`IIF`/`IF` equivalentes), avisos por `uv_aviso_falta_sesion` y `TRY/CATCH` de lectura que relanza |
+| `usp_consultar_contacto_notificacion` | `DECLARE` en la cabecera y `PASO n` |
+
+## Addendum SKILLS-BD lote 9 (2026-11-26): periodos, festivos y recesos
+
+Misma firma, mismo resultset y mismos códigos; prueba `test/test_skills_lote9_caracterizacion.sql` más las de dominio de cada SP
+(`test_culm001_b1_festivos`, `test_culm001_c_cierre_masivo`, `test_fix_cierre_001/002`, `test_receso_academico`,
+`test_usp_periodo_academico_gestion`, `test_val_pru15_periodo_cerrado`, `test_p3_revision_final_bd`).
+
+| SP | Cambio en el lote 9 |
+| :--- | :--- |
+| `usp_crear_periodo_academico`, `usp_actualizar_periodo_academico` | `PASO n`, `IF` con `BEGIN/END`, `DECLARE` del `CATCH` a la cabecera y las lecturas posteriores al bloqueo por `uv_periodo_academico_fechas` (antes, la tabla). El bloqueo `UPDLOCK, HOLDLOCK` sigue en la tabla |
+| `usp_eliminar_periodo_academico` | `PASO n` y cancelaciones por receso por `uv_sesion_cancelacion`/`uv_receso_academico_registro`. Los bloqueos y los `DELETE` siguen en las tablas |
+| `usp_crear_receso_academico` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END`, `IIF` en lugar de `COALESCE` y detalle por `uv_sesion_cancelacion`/`uv_sesion` |
+| `usp_retirar_receso_academico` | `PASO n`, `IF` con `BEGIN/END` y periodo/cancelaciones por `uv_periodo_academico_fechas`/`uv_sesion_cancelacion`. El bloqueo del receso sigue en la tabla |
+| `usp_aplicar_festivos_grupo` | `PASO n`, `IF` con `BEGIN/END` y grupo por `uv_grupo_registro` (antes, `dbo.Grupo`) |
+| `usp_aplicar_festivos_periodo` | `PASO n`, `IF` con `BEGIN/END` y `IIF` en lugar de `ISNULL` sobre variables |
+| `usp_cargar_dias_festivos` | `PASO n` e `IF` con `BEGIN/END` |
+| `usp_ejecutar_cierre_masivo_periodo` | `PASO n` numerados, `IF` con `BEGIN/END` (también los `COMMIT` de una línea) y lecturas sin bloqueo por `uv_estado_estudiante_grupo`, `uv_tipo_alerta_inasistencia`, `uv_estado_revision_cancelacion`, `uv_grupo_registro`, `uv_estudiante_grupo_registro` y `uv_revision_cancelacion_registro`. El orden de bloqueos (§2.0) no cambia: `PeriodoAcademico`, `RevisionCancelacion` y `EstudianteGrupo` con `UPDLOCK, HOLDLOCK` y los `UPDATE` siguen en las tablas |
+| `usp_consultar_carga_festivos_anio`, `usp_consultar_dias_festivos`, `usp_consultar_sesiones_festivo_con_asistencia_paginado`, `usp_consultar_destinatarios_receso_academico`, `usp_consultar_recesos_periodo` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END`, lecturas por vistas y `TRY/CATCH` de lectura que relanza |
+
+## Addendum SKILLS-BD lote 10 (2026-11-26): indicadores y consultas
+
+Misma firma, mismos valores en el resultset y mismos códigos; prueba `test/test_skills_lote10_caracterizacion.sql` más las de dominio
+de cada SP (KPI de coordinador, decano e institución, aforo, alerta temprana, alertas, W2A/W2B/W3I/W3M, CULM-001 B.2 y C, puntos de
+control y ATA P1).
+
+| SP | Cambio en el lote 10 |
+| :--- | :--- |
+| `usp_consultar_kpis_coordinador`, `usp_consultar_kpis_decano`, `usp_consultar_kpis_institucion` | `DECLARE` en la cabecera (los que dependen del ámbito resuelto se asignan con `SET` en su paso) y `TRY/CATCH` de lectura que relanza. Mismas consultas y mismas pistas (`OPTION (RECOMPILE)`, `NO_PERFORMANCE_SPOOL`); los `ISNULL` que quedan son sobre `SUM` (permitidos) |
+| `usp_consultar_aforo_grupos_facultad`, `usp_consultar_alerta_temprana_programa`, `usp_consultar_resumen_asistencia_estudiante_programa`, `usp_consultar_resumen_docentes_programa`, `usp_consultar_historial_grupos_docente_programa` | `DECLARE` en la cabecera, `IF` con `BEGIN/END`, sin `ISNULL` sobre columnas o parámetros (condiciones `IS NULL` equivalentes) y `TRY/CATCH` de lectura que relanza. El historial lee el vínculo y el periodo por `uv_docente_programa`/`uv_periodo_academico_fechas` |
+| `usp_consultar_alertas_estudiante`, `usp_consultar_resumen_asistencia_estudiante`, `usp_consultar_resumen_materias_estudiante` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END`, estudiante y matrícula por `uv_estudiante_identidad`/`uv_estudiante_grupo_registro` y `TRY/CATCH` de lectura que relanza |
+| `usp_consultar_matriz_asistencia_grupo_docente_paginado`, `usp_consultar_resumen_asistencia_grupo_docente_paginado`, `usp_consultar_resumen_tomas_sesion` | Igual, sin `ISNULL` sobre columnas de `LEFT JOIN` (`IIF` equivalentes) y transiciones/revisión/sesión por `uv_transicion_revision_cancelacion`, `uv_revision_cancelacion_registro` y `uv_sesion` |
+| `usp_consultar_grupos_pendientes_evaluacion_alertas` | Igual, con grupos, periodos, cortes y matrículas por `uv_grupo_registro`, `uv_periodo_academico_fechas`, `uv_evaluacion_alerta_grupo`, `uv_estudiante_grupo_registro` y `uv_estado_estudiante_grupo` |
+| `usp_consultar_asignaturas_ambito_consolidado`, `usp_consultar_docentes_ambito_consolidado`, `usp_consultar_historial_estudiante`, `usp_consultar_resumen_grupos_docente` | `PASO n` también en el restablecimiento del contexto y en el `CATCH` de lectura (ya relanzaba) |
+| `usp_evaluar_alertas_inasistencia_grupo` | `PASO n`, `IF` con `BEGIN/END`, sin `ISNULL` (condición e `IF` equivalentes) y lecturas sin bloqueo por vistas (catálogos de alerta y revisión, grupo, matrícula e identidad de las novedades). Los `UPDLOCK, HOLDLOCK` y las escrituras siguen en las tablas; el JSON de novedades es el mismo |
+
+En `usp_consultar_resumen_asistencia_grupo_docente_paginado` (`tieneAdvertenciaVigente`, `tienePerdidaVigente`, `requiereAccionDocente`) y
+`usp_consultar_resumen_tomas_sesion` (minutos, estado y tomas ausentes) las columnas que usaban `ISNULL` sobre un `LEFT JOIN` siguen
+sin devolver `NULL`, pero los metadatos del resultset las describen ahora como anulables (así describe SQL Server un `IIF`). Los valores
+no cambian; solo cambia esa marca de los metadatos.
+
+
+## Addendum SKILLS-BD lote 11 (2026-11-26): revisiones de cancelación y reclamos
+
+Misma firma, mismos valores en el resultset y mismos códigos; prueba `test/test_skills_lote11_caracterizacion.sql` más las de dominio
+de cada SP (CULM-001 C y D.1/D.2, reclamos del estudiante y del docente, SES-04, DEC-073, puntos de control, PRU-13, PRU-15, REC3 y
+LB-004D).
+
+| SP | Cambio en el lote 11 |
+| :--- | :--- |
+| `usp_consultar_destinatarios_reclamo_asistencia`, `usp_consultar_destinatarios_revision_cancelacion` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END`, lecturas por vistas y `TRY/CATCH` de lectura que relanza |
+| `usp_consultar_detalle_solicitud_revision_docente`, `usp_consultar_solicitudes_revision_estudiante` | Igual; la cadena reclamo, asistencia, matrícula, estudiante, sesión, grupo, asignatura, soporte, categoría y razón por `uv_solicitud_revision_asistencia_registro`, `uv_asistencia_registro`, `uv_estudiante_grupo_registro`, `uv_estudiante_identidad`, `uv_usuario`, `uv_sesion_registro`, `uv_grupo_registro`, `uv_asignatura`, `uv_archivo_soporte_registro`, `uv_categoria_justificacion` y `uv_razon_causa`. `soportesJson` sale de un `OUTER APPLY` con `IIF` (antes, `ISNULL`) |
+| `usp_consultar_asistencias_grupo_ambito_paginado` | Igual; las comprobaciones de ámbito por `uv_usuario`, `uv_grupo_registro`, `uv_docente_identidad`, `uv_programa`, `uv_facultad`, `uv_administrador`, `uv_coordinador_identidad` y `uv_decano_identidad` |
+| `usp_consultar_revisiones_cancelacion_coordinador_paginado`, `_decano_paginado`, `_docente_paginado` | Igual; estados, transiciones, programas y vínculo estudiante-programa por `uv_estado_revision_cancelacion`, `uv_transicion_revision_cancelacion`, `uv_programa` y `uv_estudiante_programa_semestre`. El `ISNULL` que queda es sobre `STRING_AGG` (agregación, permitido) |
+| `usp_actualizar_resolutores_revisiones_cancelacion` | `PASO n`, `IF` con `BEGIN/END`, `IIF` en lugar de `ISNULL` y la cola del lote, los catálogos y los resolutores por vistas. El `UPDLOCK, HOLDLOCK` de la revisión y las escrituras siguen en las tablas; el JSON de novedades es el mismo |
+| `usp_decidir_revision_cancelacion`, `usp_resolver_revision_cancelacion` | `PASO n`, `IF` con `BEGIN/END` (también los `COMMIT` de una línea), longitudes del motivo con `IIF` (antes, `ISNULL`; mismos 10, 500 y tope 1000) y lecturas sin bloqueo por vistas (`uv_transicion_revision_cancelacion`, `uv_estado_revision_cancelacion`, `uv_estudiante_grupo_registro`, `uv_estado_estudiante_grupo`, `uv_grupo_registro`, `uv_docente_identidad`, `uv_decano_rol`, `uv_tipo_alerta_inasistencia`, `uv_programa`). Los `UPDLOCK, HOLDLOCK` (`RevisionCancelacion`, `EstudianteGrupo`) y las escrituras siguen en las tablas |
+| `usp_radicar_solicitud_revision_asistencia` | `IF` con `BEGIN/END` y sesión, matrícula, asistencia y estado por `uv_sesion_registro`, `uv_estudiante_grupo_registro`, `uv_asistencia_registro` y `uv_estado` |
+| `usp_resolver_solicitud_revision_asistencia` | `IF` con `BEGIN/END`, `IIF` en lugar de `ISNULL`, `PASO` en el `CATCH` y catálogos y llaves por vistas. Los `UPDLOCK, HOLDLOCK` (`SolicitudRevisionAsistencia`, `DetalleAsistencia`) y las escrituras siguen en las tablas |
+| `usp_retirar_solicitud_revision_asistencia` | `IF` con `BEGIN/END`, `PASO` en el `CATCH` y estado, asistencia, matrícula y estudiante por vistas. El `UPDLOCK, HOLDLOCK` del reclamo y la escritura siguen en la tabla |
+
+En `usp_consultar_detalle_solicitud_revision_docente` y `usp_consultar_solicitudes_revision_estudiante` la columna `soportesJson` sigue
+sin devolver `NULL` (`'[]'` sin soportes), pero los metadatos del resultset la describen ahora como anulable (así describe SQL Server un
+`IIF`). Los valores no cambian; solo cambia esa marca de los metadatos.
+
+## Addendum SKILLS-BD lote 12 (2026-11-26): tomas y QR
+
+Misma firma, mismo resultset (los metadatos de los 19 SP no cambian) y mismos códigos; los 19 SP ya tenían prueba directa de dominio
+y se corrieron antes y después (CULM-001 B.1 y B.2 tomas y QR, ATA P1, puntos de control, IDENT-001/002, NOTOMA-001, D.7, DEC-076/077,
+MRM, PRU-15, cierre de contrato y auditoría del 2026-11-22).
+
+| SP | Cambio en el lote 12 |
+| :--- | :--- |
+| `usp_consultar_asistencias_toma_paginado`, `usp_consultar_faltantes_toma_paginado`, `usp_consultar_tomas_sesion` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END`, toma, sesión, asistencia, detalle y razón por `uv_toma_asistencia_registro`, `uv_sesion_registro`, `uv_asistencia_registro`, `uv_detalle_asistencia_registro` y `uv_razon_causa`, y `TRY/CATCH` de lectura que relanza |
+| `usp_consultar_tomas_qr_por_rotar`, `usp_consultar_destinatarios_aviso_sin_toma`, `usp_consultar_sesiones_pendientes_aviso_sin_toma` | Igual; programa por `uv_programa`, avisos ya enviados por `uv_aviso_sesion_sin_toma` e `IIF`/`IS NULL` en lugar de `ISNULL` |
+| `usp_consultar_token_verificacion_correo` | `PASO n`, usuario por `uv_usuario` y `TRY/CATCH` de lectura. El token sigue buscándose por su hash en la tabla (excepción E7) |
+| `usp_abrir_qr_toma`, `usp_abrir_toma_asistencia`, `usp_cerrar_qr_toma`, `usp_cerrar_toma_asistencia`, `usp_rotar_token_asistencia_toma`, `usp_registrar_asistencias_toma` | `PASO n`, `IF` con `BEGIN/END` y lecturas sin bloqueo por vistas (toma, sesión, modo, estado, docente y matrícula). Los `UPDLOCK, HOLDLOCK` (sesión, toma, tokens) y las escrituras siguen en las tablas; el `ISNULL` que queda es sobre `MAX` (permitido) |
+| `usp_registrar_asistencia_por_token` | Igual; las dos búsquedas `FORCESEEK` de la fila propia siguen en las tablas (excepción documentada en `excepciones-skills-bd.md`, E7) |
+| `usp_emitir_token_verificacion_correo` | `DECLARE` del `CATCH` a la cabecera, `PASO` en el `CATCH` y usuario por `uv_usuario`. El `UPDATE` con bloqueo y el `INSERT` siguen en la tabla |
+| `usp_registrar_aviso_sesion_sin_toma` | `DECLARE` en la cabecera, `PASO n` y sesión por `uv_sesion_registro`. La lectura con `UPDLOCK, HOLDLOCK` y el `INSERT` siguen en la tabla |
+| `usp_aplicar_festivos_automatico`, `usp_cargar_dias_festivos_automatico`, `usp_rotar_token_asistencia_automatico` | `PASO n` (y en el primero `IIF` en lugar de `ISNULL`) |
+
+Marca `SP_SISTEMA` (excepción E1): el lote 12 la agrega, solo como comentario de cabecera, a los SP de sistema no congelados que aún no
+la tenían, también a los de lotes anteriores (jobs, notificaciones y correo, integraciones y utilidades). No cambia su código.
+
+## Addendum SKILLS-BD lote 13 (2026-11-26): sesiones y horarios
+
+Misma firma, mismo resultset (los metadatos de los 28 SP del lote no cambian) y mismos códigos; las pruebas de dominio de sesiones y
+la de caracterización del lote dan el mismo resultado antes y después.
+
+| SP | Cambio en el lote 13 |
+| :--- | :--- |
+| `usp_consultar_destinatarios_sesion_cancelada`, `usp_consultar_destinatarios_sesion_manual`, `usp_consultar_destinatarios_solicitud_sesion`, `usp_consultar_motivos_cancelacion_sesion`, `usp_consultar_solicitudes_sesion_coordinador_paginado` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END`, lecturas por vistas (programa por `uv_programa_registro`, solicitud y sesión por `uv_solicitud_sesion_registro` y `uv_sesion_registro`) y `TRY/CATCH` de lectura que relanza |
+| `usp_consultar_horario_estudiante`, `usp_consultar_sesiones_calendario_docente`, `usp_consultar_sesiones_calendario_estudiante` | Igual; estudiante, docente y matrícula por `uv_estudiante_identidad`, `uv_docente_identidad`, `uv_estudiante_grupo_registro` y `uv_estado_estudiante_grupo` |
+| `usp_consultar_solicitudes_sesion_docente_paginado` | Igual; programa y docente por `uv_programa_registro` y `uv_docente_identidad`, e `IIF` en lugar de `ISNULL` |
+| `usp_consultar_sesiones_facultad_paginado`, `usp_consultar_sesiones_grupo_paginado`, `usp_consultar_asistencias_sesion_paginado` | `DECLARE` en la cabecera, `PASO n` (y en el `CATCH`, que restaura el contexto y relanza), `IF` con `BEGIN/END`; facultad y decano por `uv_facultad_registro` y `uv_decano_identidad`, solicitud por `uv_solicitud_sesion_registro` y `uv_estado_solicitud_sesion` |
+| `usp_aprobar_solicitud_sesion`, `usp_rechazar_solicitud_sesion` | `IF` con `BEGIN/END`, `PASO` en el `CATCH` y solicitud, estado y cancelación por vistas. La lectura con `UPDLOCK, HOLDLOCK` de `dbo.Sesion` y las escrituras siguen en las tablas |
+| `usp_cancelar_sesion`, `usp_cancelar_sesion_coordinador` | Igual; cancelación, asistencias y tomas por `uv_sesion_cancelacion`, `uv_asistencia_registro` y `uv_toma_asistencia_registro` |
+| `usp_generar_sesiones_grupo_v2` | `PASO n` e `IF` con `BEGIN/END` |
+
+## Addendum SKILLS-BD lote 14 (2026-11-26): objetos congelados (decisión D5)
+
+Misma firma, mismo resultset (los metadatos de `sys.dm_exec_describe_first_result_set_for_object` de los 37 SP intervenidos no
+cambian) y mismos códigos; las pruebas de dominio de los SP congelados y la de caracterización del lote dan el mismo resultado antes y
+después. Los hashes de `docs/contracts/` se actualizan en el mismo commit (el manifiesto DB-GP-001C no se reescribe: las líneas
+`SUPERSEDES` siguen apuntando a su hash original).
+
+| SP | Cambio en el lote 14 |
+| :--- | :--- |
+| `usp_crear_sesion`, `usp_crear_sesion_v2`, `usp_actualizar_sesion`, `usp_actualizar_sesion_v2` | `PASO 1` (delegación al núcleo) dentro de un `TRY` cuyo `CATCH` solo relanza (`PASO 2`; el núcleo ya captura sus errores) y `PASO 3` de retorno |
+| `usp_generar_sesiones_grupo`, `usp_registrar_asistencias_sesion` | `DECLARE` del cuerpo a la cabecera, `PASO n`, `IF` con `BEGIN/END` y lecturas sin bloqueo por vistas (grupo, periodo, zona, horario, día, sesión y matrícula). El correlativo con `UPDLOCK, HOLDLOCK` y las escrituras siguen en las tablas; sin `INSERT ... EXEC` ni tablas `#` |
+| `usp_clasificar_procedencia_sesion` | `DECLARE` del `CATCH` a la cabecera, `PASO n`, `IF` con `BEGIN/END` y ambiente por `uv_parametro`; el `UPDLOCK` de la sesión y las escrituras siguen en las tablas |
+| `usp_consultar_comparativa_facultades`, `usp_consultar_comparativa_programas_facultad`, `usp_consultar_tendencia_ausentismo`, `usp_consultar_configuracion_reclamos`, `usp_consultar_periodos_academicos_paginado`, `usp_consultar_grupo_facultad_detalle`, `usp_consultar_programas_institucion_paginado`, `usp_consultar_sesiones_materia_estudiante` | `DECLARE` en la cabecera (uno por variable), `PASO n`, `IIF` en lugar de `ISNULL` sobre variables, lecturas por vistas y `TRY/CATCH` de lectura que relanza (los `ISNULL` que quedan son sobre agregaciones, permitido) |
+| `usp_consultar_archivo_soporte_autorizado`, `usp_consultar_solicitudes_revision_docente` | Igual; todas las uniones por vistas `uv_*` (soporte, reclamo, asistencia, sesión, grupo, matrícula, usuario, asignatura, categoría y estado) |
+| `usp_consultar_auditoria_eventos_paginado`, `usp_consultar_parametros_paginado`, `usp_consultar_consolidado_asistencia_grupos_paginado`, `usp_consultar_cambios_parametro_paginado`, `usp_validar_acceso_reporte_grupo` | `PASO n` (también en la restauración del contexto y en el `CATCH`) e `IIF` en lugar de `ISNULL` |
+| `usp_actualizar_parametro`, `usp_sincronizar_parametro_catalogo_externo` | `PASO n`, `IF` con `BEGIN/END`, `IS NULL` en lugar de `ISNULL` y lecturas sin bloqueo por `uv_parametro_registro`, `uv_parametro_edicion_registro` y `uv_sincronizacion_parametro_externo_registro`. Los `UPDLOCK, HOLDLOCK` y las escrituras siguen en las tablas |
+| `usp_admitir_estudiante`, `usp_crear_coordinador`, `usp_crear_decano` | `DECLARE` del cuerpo y del `CATCH` a la cabecera, `PASO` en el `CATCH`, `IF` con `BEGIN/END`, `IIF` en lugar de `COALESCE` y lecturas sin bloqueo por vistas (`uv_administrador_registro`, `uv_estudiante_identidad`, `uv_estudiante_programa_registro`, `uv_usuario`, `uv_decano_rol`). Las lecturas con `UPDLOCK` de `dbo.Usuario` y las escrituras siguen en las tablas |
+| `usp_registrar_archivo_soporte`, `usp_radicar_solicitud_revision_asistencia_v2`, `usp_radicar_solicitud_revision_asistencia_v3` | `DECLARE` del `CATCH` a la cabecera, `PASO n`, `IF` con `BEGIN/END`; estudiante y archivo por `uv_estudiante_identidad` y `uv_archivo_soporte_registro`. El `UPDLOCK` del soporte y el `INSERT` siguen en la tabla |
+| `usp_validar_token_matricula_publico` | `DECLARE` del `CATCH` a la cabecera, `PASO n`, `IF` con `BEGIN/END`; ventana, programa, estudiante y vínculo por `uv_token_matricula_grupo_registro`, `uv_programa_registro`, `uv_estudiante_identidad` y `uv_estudiante_programa_registro` |
+
+Marca `SP_SISTEMA` (excepción E1): se agrega a los congelados `usp_sincronizar_parametro_catalogo_externo` y
+`usp_validar_token_matricula_publico`. `usp_validar_carga_masiva_usuarios` ya está retirado (su archivo solo lo borra) y no se toca.
+
+Vistas nuevas: `uv_administrador_registro`, `uv_asignatura_registro`, `uv_parametro_registro` (todas las filas de `CatalogoParametro`, sin el filtro de activos de `uv_parametro`), `uv_parametro_edicion_registro`, `uv_sincronizacion_parametro_externo_registro` (sin los valores), `uv_estudiante_programa_registro` y `uv_token_matricula_grupo_registro` (sin `tokenHash`, `tokenHashAnterior`, `pin` ni `pinAnterior`, excepción E7).

@@ -39,6 +39,22 @@ PRINT '======================================================================';
 :r /tmp/test/test_skills_lote4_caracterizacion.sql
 -- SKILLS-BD lote 5 (2026-11-26): docentes y grupos (vinculos docente-programa, grupos y consultas por vistas uv_*)
 :r /tmp/test/test_skills_lote5_caracterizacion.sql
+-- SKILLS-BD lote 6 (2026-11-26): asignaturas y planes de estudio (validadores de asignatura y consultas por vistas uv_*)
+:r /tmp/test/test_skills_lote6_caracterizacion.sql
+-- SKILLS-BD lote 7 (2026-11-26): estudiantes y matricula en grupo (internos de estudiante y consultas por vistas uv_*)
+:r /tmp/test/test_skills_lote7_caracterizacion.sql
+-- SKILLS-BD lote 8 (2026-11-26): notificaciones (internos del outbox, avisos de falta y verificacion de correo)
+:r /tmp/test/test_skills_lote8_caracterizacion.sql
+-- SKILLS-BD lote 9 (2026-11-26): periodos, festivos y recesos (validadores de periodo y lecturas por vistas uv_*)
+:r /tmp/test/test_skills_lote9_caracterizacion.sql
+-- SKILLS-BD lote 10 (2026-11-26): indicadores y consultas (resolutores del periodo de los KPI)
+:r /tmp/test/test_skills_lote10_caracterizacion.sql
+-- SKILLS-BD lote 11 (2026-11-26): revisiones de cancelacion y reclamos (destinatarios del reclamo y lecturas por vistas uv_*)
+:r /tmp/test/test_skills_lote11_caracterizacion.sql
+-- SKILLS-BD lote 13 (2026-11-26): sesiones y horarios (validadores de sesion y de horario y lecturas por vistas uv_*)
+:r /tmp/test/test_skills_lote13_caracterizacion.sql
+-- SKILLS-BD lote 14 (2026-11-26): objetos congelados (validador de parametro externo y nucleo de actualizacion de sesion)
+:r /tmp/test/test_skills_lote14_caracterizacion.sql
 :r /tmp/test/test_reactive_academic.sql
 :r /tmp/test/test_mass_period_close.sql
 :r /tmp/test/test_usp_registrar_estudiante_en_grupo_usuario_no_existente.sql

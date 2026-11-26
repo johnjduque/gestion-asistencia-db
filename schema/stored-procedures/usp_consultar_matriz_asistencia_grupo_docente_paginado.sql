@@ -19,6 +19,8 @@ GO
 -- codigoEstadoSesionEstudiante de la vista (PRESENTE, AUSENTE, JUSTIFICADA, PARCIAL, NO_DISPONIBLE); minutosAsistidos y
 -- minutosSesion salen de la misma vista.
 -- ============================================================================
+-- SKILLS-BD lote 10 (2026-11-26): DECLARE en la cabecera, PASO n, IF con BEGIN/END, sin ISNULL (IIF equivalente) y TRY/CATCH
+-- de lectura que relanza. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_matriz_asistencia_grupo_docente_paginado]
 (
     @idUsuarioEjecutor UNIQUEIDENTIFIER,
@@ -29,10 +31,6 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_matriz_asistencia_grupo_docente_p
     @busqueda          NVARCHAR(100) = NULL
 )
 AS
-BEGIN
-    SET NOCOUNT ON;
-    SET XACT_ABORT ON;
-
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idGrupoDefecto       UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idGrupo, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @busquedaFiltro       NVARCHAR(100) = NULLIF(TRIM(@busqueda), '');
@@ -40,52 +38,67 @@ BEGIN
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado BIT = 1;
     DECLARE @offset INT;
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
 
-    EXEC dbo.usp_validar_consulta_grupo_docente_titular_interno
-        @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacionDefecto, @idGrupo = @idGrupo,
-        @validarPaginacion = 1, @numeroPagina = @numeroPagina, @tamanoPagina = @tamanoPagina,
-        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-        @estadoResultado = @estadoResultado OUTPUT;
-    IF @estadoResultado = 0
-        THROW 51000, @mensajeTecnicoResultado, 1;
+    BEGIN TRY
+        -- PASO 1: Validar correlacion, ejecutor, docente titular del grupo y paginacion
+        EXEC dbo.usp_validar_consulta_grupo_docente_titular_interno
+            @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacionDefecto, @idGrupo = @idGrupo,
+            @validarPaginacion = 1, @numeroPagina = @numeroPagina, @tamanoPagina = @tamanoPagina,
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+            @estadoResultado = @estadoResultado OUTPUT;
+        -- PASO 2: Rechazo de validacion: se lanza con el detalle tecnico
+        IF @estadoResultado = 0
+        BEGIN
+            THROW 51000, @mensajeTecnicoResultado, 1;
+        END
 
-    SET @offset = (@numeroPagina - 1) * @tamanoPagina;
-    WITH alumnos AS (
+        -- PASO 3: Matriz: pagina de estudiantes del grupo por cada sesion con su estado de asistencia
+        SET @offset = (@numeroPagina - 1) * @tamanoPagina;
+        WITH alumnos AS (
+            SELECT
+                idEstudianteGrupo        = eg.id,
+                idEstudiante             = eg.idEstudiante,
+                nombreCompletoEstudiante = eg.nombreCompletoEstudiante,
+                documento                = CAST(ei.numeroIdentificacion AS NVARCHAR(20)),
+                codigoEstadoEstudiante   = eg.codigoEstadoEstudiante,
+                totalRegistros           = COUNT(1) OVER()
+            FROM dbo.uv_estudiante_grupo eg
+            INNER JOIN dbo.uv_estudiante_identidad ei ON ei.id = eg.idEstudiante
+            WHERE eg.idGrupo = @idGrupoDefecto
+              AND (@busquedaFiltro IS NULL
+                   OR CHARINDEX(@busquedaFiltro, ei.nombreCompleto) > 0
+                   OR CHARINDEX(@busquedaFiltro, CONVERT(NVARCHAR(20), ei.numeroIdentificacion)) > 0)
+            ORDER BY eg.nombreCompletoEstudiante ASC, eg.idEstudiante ASC
+            OFFSET @offset ROWS FETCH NEXT @tamanoPagina ROWS ONLY
+        )
         SELECT
-            idEstudianteGrupo        = eg.id,
-            idEstudiante             = eg.idEstudiante,
-            nombreCompletoEstudiante = eg.nombreCompletoEstudiante,
-            documento                = CAST(ei.numeroIdentificacion AS NVARCHAR(20)),
-            codigoEstadoEstudiante   = eg.codigoEstadoEstudiante,
-            totalRegistros           = COUNT(1) OVER()
-        FROM dbo.uv_estudiante_grupo eg
-        INNER JOIN dbo.uv_estudiante_identidad ei ON ei.id = eg.idEstudiante
-        WHERE eg.idGrupo = @idGrupoDefecto
-          AND (@busquedaFiltro IS NULL
-               OR CHARINDEX(@busquedaFiltro, ei.nombreCompleto) > 0
-               OR CHARINDEX(@busquedaFiltro, CONVERT(NVARCHAR(20), ei.numeroIdentificacion)) > 0)
-        ORDER BY eg.nombreCompletoEstudiante ASC, eg.idEstudiante ASC
-        OFFSET @offset ROWS FETCH NEXT @tamanoPagina ROWS ONLY
-    )
-    SELECT
-        idEstudianteGrupo        = a.idEstudianteGrupo,
-        idEstudiante             = a.idEstudiante,
-        nombreCompletoEstudiante = a.nombreCompletoEstudiante,
-        documento                = a.documento,
-        codigoEstadoEstudiante   = a.codigoEstadoEstudiante,
-        totalRegistros           = a.totalRegistros,
-        idSesion                 = s.idSesion,
-        codigoEstado             = CAST(CASE WHEN s.idSesion IS NULL THEN NULL
-                                             WHEN s.estaCancelada = 1 THEN N'NO_DISPONIBLE'
-                                             WHEN h.idAsistencia IS NULL THEN N'SIN_REGISTRO'
-                                             ELSE h.codigoEstadoSesionEstudiante END AS NVARCHAR(20)),
-        minutosAsistidos         = CASE WHEN s.idSesion IS NULL THEN NULL ELSE ISNULL(h.minutosAsistidos, 0) END,
-        minutosSesion            = CASE WHEN s.idSesion IS NULL THEN NULL
-                                        ELSE IIF(s.fechaHoraFin > s.fechaHoraInicio, DATEDIFF(MINUTE, s.fechaHoraInicio, s.fechaHoraFin), 0) END
-    FROM alumnos a
-    LEFT JOIN dbo.uv_sesion_estado s ON s.idGrupo = @idGrupoDefecto
-    LEFT JOIN dbo.uv_asistencia_sesion_horas h
-           ON h.idEstudianteGrupo = a.idEstudianteGrupo AND h.idSesion = s.idSesion AND h.idGrupo = @idGrupoDefecto
-    ORDER BY a.nombreCompletoEstudiante ASC, a.idEstudiante ASC, s.numero ASC, s.idSesion ASC;
+            idEstudianteGrupo        = a.idEstudianteGrupo,
+            idEstudiante             = a.idEstudiante,
+            nombreCompletoEstudiante = a.nombreCompletoEstudiante,
+            documento                = a.documento,
+            codigoEstadoEstudiante   = a.codigoEstadoEstudiante,
+            totalRegistros           = a.totalRegistros,
+            idSesion                 = s.idSesion,
+            codigoEstado             = CAST(CASE WHEN s.idSesion IS NULL THEN NULL
+                                                 WHEN s.estaCancelada = 1 THEN N'NO_DISPONIBLE'
+                                                 WHEN h.idAsistencia IS NULL THEN N'SIN_REGISTRO'
+                                                 ELSE h.codigoEstadoSesionEstudiante END AS NVARCHAR(20)),
+            minutosAsistidos         = CASE WHEN s.idSesion IS NULL THEN NULL ELSE IIF(h.minutosAsistidos IS NULL, 0, h.minutosAsistidos) END,
+            minutosSesion            = CASE WHEN s.idSesion IS NULL THEN NULL
+                                            ELSE IIF(s.fechaHoraFin > s.fechaHoraInicio, DATEDIFF(MINUTE, s.fechaHoraInicio, s.fechaHoraFin), 0) END
+        FROM alumnos a
+        LEFT JOIN dbo.uv_sesion_estado s ON s.idGrupo = @idGrupoDefecto
+        LEFT JOIN dbo.uv_asistencia_sesion_horas h
+               ON h.idEstudianteGrupo = a.idEstudianteGrupo AND h.idSesion = s.idSesion AND h.idGrupo = @idGrupoDefecto
+        ORDER BY a.nombreCompletoEstudiante ASC, a.idEstudiante ASC, s.numero ASC, s.idSesion ASC;
+    END TRY
+    BEGIN CATCH
+        -- PASO 4: consulta de lectura (READ_QUERY_RESULTSET): el error, incluido el rechazo de validacion,
+        -- se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
+        THROW;
+    END CATCH
 END;
 GO

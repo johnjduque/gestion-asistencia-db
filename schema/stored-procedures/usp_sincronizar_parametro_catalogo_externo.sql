@@ -30,6 +30,10 @@ GO
 -- Auditoria e idempotencia: con @idEvento, cada resultado queda en dbo.SincronizacionParametroExterno; sin @idEvento (reconciliacion)
 -- solo se registran los APLICADO. Transaccion propia o SAVE TRANSACTION. Las ramas sin escritura solo confirman la transaccion propia.
 -- ============================================================================
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): proceso del sistema sin @idUsuarioEjecutor; exige @idCorrelacion.
+-- SKILLS-BD lote 14 (2026-11-26, objeto congelado, decision D5): PASO n, IF con BEGIN/END y lecturas sin bloqueo del ultimo evento aplicado y de la fecha nueva por vistas
+-- uv_* (antes, las tablas); los UPDLOCK, el UPDATE y el INSERT siguen en las tablas.
+-- Misma firma, mismo resultset y mismos codigos; el hash del manifiesto se actualiza en el mismo commit.
 CREATE OR ALTER PROCEDURE [dbo].[usp_sincronizar_parametro_catalogo_externo]
 (
     @grupo          VARCHAR(100),
@@ -151,8 +155,8 @@ BEGIN
             ELSE
             BEGIN
                 SELECT @ultimoAplicado = MAX(s.ocurridoEnUtc)
-                FROM dbo.SincronizacionParametroExterno s
-                WHERE s.parametro = @idParametro AND s.resultado IN ('APLICADO', 'SIN_CAMBIOS');
+                FROM dbo.uv_sincronizacion_parametro_externo_registro s
+                WHERE s.idParametro = @idParametro AND s.resultado IN ('APLICADO', 'SIN_CAMBIOS');
 
                 IF @ultimoAplicado IS NOT NULL AND @ocurridoEnUtc < @ultimoAplicado
                 BEGIN
@@ -190,7 +194,7 @@ BEGIN
                         SET valor = @valorObjetivo, fechaModificacion = SYSUTCDATETIME()
                         WHERE id = @idParametro;
 
-                        SELECT @fechaNueva = fechaModificacion FROM dbo.CatalogoParametro WHERE id = @idParametro;
+                        SELECT @fechaNueva = r.fechaModificacion FROM dbo.uv_parametro_registro r WHERE r.id = @idParametro;
                         SET @resultado = 'APLICADO';
                         SET @codigoMensaje = 'PRM_013';
                         SET @huboCambio = 1;
@@ -198,7 +202,7 @@ BEGIN
                 END
             END
 
-            -- Bitacora: con idEvento se registra todo resultado (idempotencia y auditoria); sin idEvento solo los valores aplicados
+            -- PASO 4: bitacora; con idEvento se registra todo resultado (idempotencia y auditoria); sin idEvento solo los valores aplicados
             IF @resultado <> 'DUPLICADO' AND (@idEventoLimpio IS NOT NULL OR @resultado = 'APLICADO')
             BEGIN
                 INSERT INTO dbo.SincronizacionParametroExterno
@@ -210,6 +214,7 @@ BEGIN
                      @ocurridoEnUtc, @idCorrelacionDefecto, SYSUTCDATETIME());
             END
 
+            -- PASO 5: mensaje del resultado
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = @codigoMensaje, @p_param1 = @param1, @p_param2 = @param2,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
@@ -217,30 +222,40 @@ BEGIN
             SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Parametro: ', @grupoLimpio, '.', @claveLimpia,
                                                   ' Correlacion: ', @idCorrelacionDefecto);
 
-            -- Las ramas sin escritura solo confirman la transaccion propia (libera los bloqueos).
+            -- PASO 6: las ramas sin escritura solo confirman la transaccion propia (libera los bloqueos).
             IF @transaccionPropia = 1
             BEGIN
                 IF XACT_STATE() = 1
+                BEGIN
                     COMMIT TRANSACTION;
+                END
                 ELSE IF XACT_STATE() = -1
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
                 SET @transaccionPropia = 0;
             END
         END
     END TRY
     BEGIN CATCH
+        -- PASO 7: reversion respetando ownership; transaccion externa condenada se propaga al propietario; si no, SYS_001
         SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
             ROLLBACK TRANSACTION sp_sincronizar_parametro_externo;
+        END
 
-        -- Transaccion externa condenada que no nos pertenece: se propaga al propietario
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
@@ -253,6 +268,7 @@ BEGIN
         SET @fechaNueva = NULL;
     END CATCH
 
+    -- PASO 8: retorno unificado de resultados
     SELECT
         idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,

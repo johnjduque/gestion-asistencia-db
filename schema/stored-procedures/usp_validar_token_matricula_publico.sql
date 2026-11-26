@@ -12,6 +12,10 @@ GO
 --     (anti-enumeracion). La ventana vencida se marca EXPIRADA de forma perezosa (persistida antes de responder el error).
 -- Los rechazos se propagan con THROW 51000 y mensaje "DBCODE=<codigo>|..." (como usp_consultar_reenvio_verificacion_correo).
 -- READ_QUERY_RESULTSET: NON_GOLDEN_PATH_EXTENSION (ver test/test_contract_closure.sql).
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): flujo publico por token, sin ejecutor obligatorio; exige @idCorrelacion.
+-- SKILLS-BD lote 14 (2026-11-26, objeto congelado, decision D5): DECLARE del CATCH a la cabecera, PASO n, IF con BEGIN/END y lecturas de ventana, programa, estudiante y
+-- vinculo por vistas uv_* (antes, las tablas); el token se sigue resolviendo en el nucleo interno (E7).
+-- Misma firma, mismo resultset y mismos codigos; el hash del manifiesto se actualiza en el mismo commit.
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_token_matricula_publico]
 (
     @tokenHash     VARBINARY(32) = NULL,
@@ -40,9 +44,11 @@ AS
     DECLARE @mensajeTecnicoInterno   NVARCHAR(4000);
     DECLARE @estadoInterno           BIT;
     DECLARE @mensajeErrorInterno     NVARCHAR(2048);
+    DECLARE @estadoTransaccionCatch  INT;
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
+        -- PASO 1: transaccion propia o savepoint (la expiracion perezosa puede escribir)
         SET @conteoTransaccionesInicial = @@TRANCOUNT;
         IF @conteoTransaccionesInicial = 0
         BEGIN
@@ -55,6 +61,7 @@ BEGIN
             SET @savepointCreado = 1;
         END
 
+        -- PASO 2: resolver el token o PIN en el nucleo (MQR_001 / MQR_007 como codigo de rechazo)
         EXEC dbo.usp_resolver_token_matricula_interno
             @tokenHash = @tokenHash, @pin = @pin, @idCorrelacion = @idCorrelacionDefecto,
             @idVentana = @idVentana OUTPUT, @idGrupo = @idGrupo OUTPUT,
@@ -67,15 +74,20 @@ BEGIN
             THROW 52525, @mensajeErrorInterno, 1;
         END
 
-        -- La unica escritura posible es la expiracion perezosa, que debe persistir aun cuando se rechace.
+        -- PASO 3: la unica escritura posible es la expiracion perezosa, que debe persistir aun cuando se rechace.
         IF @transaccionPropia = 1
         BEGIN
             IF XACT_STATE() = 1
+            BEGIN
                 COMMIT TRANSACTION;
+            END
             ELSE IF XACT_STATE() = -1
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
 
+        -- PASO 4: mensaje del rechazo
         IF @codigoRechazo IS NOT NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -87,17 +99,24 @@ BEGIN
         END
     END TRY
     BEGIN CATCH
-        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+        -- PASO 5: reversion respetando ownership; transaccion externa condenada se propaga; si no, SYS_001
+        SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
             ROLLBACK TRANSACTION sp_hu176b_validar;
+        END
 
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
@@ -107,11 +126,13 @@ BEGIN
         SET @estadoResultado = 0;
     END CATCH
 
+    -- PASO 6: los rechazos se propagan con THROW 51000
     IF @estadoResultado = 0
     BEGIN
         THROW 51000, @mensajeTecnicoResultado, 1;
     END
 
+    -- PASO 7: datos minimos del curso (sin datos de estudiantes)
     SELECT
         idGrupo            = v.grupo,
         nombreAsignatura   = v.nombreAsignatura,
@@ -122,28 +143,28 @@ BEGIN
         -- DEC-078: programas entre los que elige el estudiante (JSON [{idPrograma, nombre}] por nombre); NULL si la ventana fija
         -- el programa o el grupo tiene uno solo. Solo nombres de programas: ningun dato de estudiantes.
         programasElegibles = CASE
-            WHEN t.programaPorDefecto IS NULL AND est.idEstudiante IS NULL AND (SELECT COUNT(*) FROM dbo.ufn_programas_grupo(v.grupo)) > 1
+            WHEN t.idProgramaPorDefecto IS NULL AND est.idEstudiante IS NULL AND (SELECT COUNT(*) FROM dbo.ufn_programas_grupo(v.grupo)) > 1
             THEN (SELECT pg.idPrograma, p.nombre
                   FROM dbo.ufn_programas_grupo(v.grupo) pg
-                  INNER JOIN dbo.Programa p ON p.id = pg.idPrograma
+                  INNER JOIN dbo.uv_programa_registro p ON p.id = pg.idPrograma
                   ORDER BY p.nombre, p.id
                   FOR JSON PATH)
-            WHEN t.programaPorDefecto IS NULL AND est.idEstudiante IS NOT NULL
-                 AND (SELECT COUNT(*) FROM dbo.EstudiantePrograma ep INNER JOIN dbo.ufn_programas_grupo(v.grupo) pg ON pg.idPrograma = ep.programa
-                      WHERE ep.estudiante = est.idEstudiante) > 1
+            WHEN t.idProgramaPorDefecto IS NULL AND est.idEstudiante IS NOT NULL
+                 AND (SELECT COUNT(*) FROM dbo.uv_estudiante_programa_registro ep INNER JOIN dbo.ufn_programas_grupo(v.grupo) pg ON pg.idPrograma = ep.idPrograma
+                      WHERE ep.idEstudiante = est.idEstudiante) > 1
             THEN (SELECT pg.idPrograma, p.nombre
-                  FROM dbo.EstudiantePrograma ep
-                  INNER JOIN dbo.ufn_programas_grupo(v.grupo) pg ON pg.idPrograma = ep.programa
-                  INNER JOIN dbo.Programa p ON p.id = pg.idPrograma
-                  WHERE ep.estudiante = est.idEstudiante
+                  FROM dbo.uv_estudiante_programa_registro ep
+                  INNER JOIN dbo.ufn_programas_grupo(v.grupo) pg ON pg.idPrograma = ep.idPrograma
+                  INNER JOIN dbo.uv_programa_registro p ON p.id = pg.idPrograma
+                  WHERE ep.idEstudiante = est.idEstudiante
                   ORDER BY p.nombre, p.id
                   FOR JSON PATH)
         END
     FROM dbo.uv_token_matricula_grupo v
-    INNER JOIN dbo.TokenMatriculaGrupo t ON t.id = v.id
+    INNER JOIN dbo.uv_token_matricula_grupo_registro t ON t.id = v.id
     -- estudiante conocido con al menos un programa (sin programas: se comporta como el anonimo)
-    OUTER APPLY (SELECT TOP 1 idEstudiante = e.id FROM dbo.Estudiante e
-                 WHERE e.usuario = @idUsuarioEjecutor AND EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep WHERE ep.estudiante = e.id)) est
+    OUTER APPLY (SELECT TOP 1 idEstudiante = e.id FROM dbo.uv_estudiante_identidad e
+                 WHERE e.idUsuario = @idUsuarioEjecutor AND EXISTS (SELECT 1 FROM dbo.uv_estudiante_programa_registro ep WHERE ep.idEstudiante = e.id)) est
     WHERE v.id = @idVentana;
 END;
 GO

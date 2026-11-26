@@ -15,6 +15,8 @@ GO
 -- concurrentes: lo llaman usp_crear_sesion_interno y usp_actualizar_sesion_interno DENTRO de su transaccion, antes de
 -- escribir. No escribe. Cuando B introduzca SesionCancelacion (DEC-016), debera excluir las sesiones canceladas.
 -- ============================================================================
+-- SKILLS-BD lote 13 (2026-11-26): PASO 0, IF con BEGIN/END y grupo por uv_grupo_registro (antes, la tabla). La lectura con
+-- UPDLOCK, HOLDLOCK de dbo.Sesion sigue en la tabla. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_solape_sesion_interno]
 (
     @idGrupo                 UNIQUEIDENTIFIER,
@@ -33,6 +35,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
+    -- PASO 0: inicializacion de las salidas desde el catalogo
     SELECT @mensajeUsuarioResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
            @mensajeTecnicoResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
            @estadoResultado = 1;
@@ -48,12 +51,12 @@ BEGIN
         -- PASO 2: sesion del mismo grupo o de otro grupo del mismo docente que se cruce (bordes iguales no solapan)
         IF @estadoResultado = 1 AND @fechaHoraInicio IS NOT NULL AND @fechaHoraFin IS NOT NULL
         BEGIN
-            SELECT @idDocente = g.docente FROM dbo.Grupo g WHERE g.id = @idGrupo;
+            SELECT @idDocente = g.idDocente FROM dbo.uv_grupo_registro g WHERE g.id = @idGrupo;
 
             SELECT TOP 1 @idSesionConflicto = s.id
             FROM dbo.Sesion s WITH (UPDLOCK, HOLDLOCK)
-            INNER JOIN dbo.Grupo g ON g.id = s.grupo
-            WHERE (s.grupo = @idGrupo OR (@idDocente IS NOT NULL AND g.docente = @idDocente))
+            INNER JOIN dbo.uv_grupo_registro g ON g.id = s.grupo
+            WHERE (s.grupo = @idGrupo OR (@idDocente IS NOT NULL AND g.idDocente = @idDocente))
               AND s.fechaHoraInicio < @fechaHoraFin
               AND s.fechaHoraFin > @fechaHoraInicio
               AND (@idSesionExcluir IS NULL OR s.id <> @idSesionExcluir)
@@ -72,8 +75,11 @@ BEGIN
         END
     END TRY
     BEGIN CATCH
+        -- PASO 3: transaccion condenada: relanza; si no, SYS_001. Sin transaccion propia: la revierte el llamador
         IF XACT_STATE() = -1
+        BEGIN
             THROW;
+        END
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,

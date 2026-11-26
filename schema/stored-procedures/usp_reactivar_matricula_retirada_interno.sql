@@ -20,6 +20,8 @@ GO
 --   * No inscribe en el programa: esa regla la aplica una sola vez el bloque comun del interno.
 --   * Transaccion propia si @@TRANCOUNT = 0; si no, savepoint sp_reactivar_matricula. @@TRANCOUNT sale igual que entra.
 -- ============================================================================
+-- SKILLS-BD lote 7 (2026-11-26): busqueda sin bloqueo por uv_estudiante_grupo (antes, la tabla) e IF con BEGIN/END. Las
+-- lecturas con UPDLOCK, HOLDLOCK siguen en la tabla. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_reactivar_matricula_retirada_interno]
 (
     @idEstudiante            UNIQUEIDENTIFIER,
@@ -99,11 +101,10 @@ BEGIN
         IF @estadoResultado = 1
         BEGIN
             SELECT TOP 1 @idEstudianteGrupo = eg.id
-            FROM dbo.EstudianteGrupo eg
-            INNER JOIN dbo.uv_estado_estudiante_grupo es ON es.id = eg.estado
-            WHERE eg.grupo = @idGrupoDefecto
-              AND eg.estudiante = @idEstudianteDefecto
-              AND es.codigo = @codigoRetirada
+            FROM dbo.uv_estudiante_grupo eg
+            WHERE eg.idGrupo = @idGrupoDefecto
+              AND eg.idEstudiante = @idEstudianteDefecto
+              AND eg.codigoEstadoEstudiante = @codigoRetirada
             ORDER BY eg.id;
         END
 
@@ -151,15 +152,21 @@ BEGIN
         END
 
         IF @estadoResultado = 1 AND @reactivada = 0 AND @mensajeTecnicoResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA')
+        BEGIN
             SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+        END
 
         -- PASO 6: cierre de la transaccion propia (las ramas de rechazo no escriben)
         IF @transaccionPropia = 1
         BEGIN
             IF XACT_STATE() = 1
+            BEGIN
                 COMMIT TRANSACTION;
+            END
             ELSE IF XACT_STATE() = -1
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
     END TRY
     BEGIN CATCH
@@ -167,13 +174,19 @@ BEGIN
         IF @transaccionPropia = 1
         BEGIN
             IF @@TRANCOUNT > 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
             ROLLBACK TRANSACTION sp_reactivar_matricula;
+        END
 
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',

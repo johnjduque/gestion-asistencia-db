@@ -19,6 +19,8 @@ GO
 -- VAL-pendientes-john PRU-15: un reclamo pendiente de una sesion de un periodo cerrado por el cierre masivo ya no se retira (PER_008,
 -- despues de la propiedad y del estado, sin escrituras).
 -- ============================================================================
+-- SKILLS-BD lote 11 (2026-11-26): IF con BEGIN/END, PASO en el CATCH y lecturas sin bloqueo por vistas uv_* (antes, las tablas).
+-- La lectura con UPDLOCK, HOLDLOCK de dbo.SolicitudRevisionAsistencia y la escritura siguen en la tabla. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_retirar_solicitud_revision_asistencia]
 (
     @idSolicitudRevision UNIQUEIDENTIFIER,
@@ -79,7 +81,7 @@ BEGIN
         -- PASO 3: estados por catalogo (parametros RECLAMO/*)
         IF @estadoResultado = 1
         BEGIN
-            SELECT @idEstadoRetirado = e.id FROM dbo.Estado e WHERE e.codigo = @codigoRetirado;
+            SELECT @idEstadoRetirado = e.id FROM dbo.uv_estado e WHERE e.codigo = @codigoRetirado;
             IF @idEstadoRetirado IS NULL OR @codigoPendiente IS NULL OR @codigoPendiente = N''
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
@@ -106,20 +108,25 @@ BEGIN
                 SET @savepointCreado = 1;
             END
 
-            SELECT @idSolicitudBloqueada = r.id, @codigoEstadoActual = est.codigo, @idSesionSolicitud = a.sesion
+            SELECT @idSolicitudBloqueada = r.id, @codigoEstadoActual = est.codigo, @idSesionSolicitud = a.idSesion
             FROM dbo.SolicitudRevisionAsistencia r WITH (UPDLOCK, HOLDLOCK)
-            INNER JOIN dbo.Estado est ON est.id = r.estado
-            INNER JOIN dbo.Asistencia a ON a.id = r.asistencia
-            INNER JOIN dbo.EstudianteGrupo eg ON eg.id = a.estudianteGrupo
-            INNER JOIN dbo.Estudiante e ON e.id = eg.estudiante
+            INNER JOIN dbo.uv_estado est ON est.id = r.estado
+            INNER JOIN dbo.uv_asistencia_registro a ON a.id = r.asistencia
+            INNER JOIN dbo.uv_estudiante_grupo_registro eg ON eg.id = a.idEstudianteGrupo
+            INNER JOIN dbo.uv_estudiante_identidad e ON e.id = eg.idEstudiante
             WHERE r.id = @idSolicitudRevision
-              AND e.usuario = @idUsuarioEjecutor;
+              AND e.idUsuario = @idUsuarioEjecutor;
 
             IF @idSolicitudBloqueada IS NULL
+            BEGIN
                 SET @codigoRechazo = 'REV_006';
+            END
             ELSE IF @codigoEstadoActual <> @codigoPendiente
+            BEGIN
                 SET @codigoRechazo = 'REV_007';
+            END
             ELSE
+            BEGIN
                 -- VAL-pendientes-john PRU-15: periodo cerrado por el cierre masivo => PER_008 (sin escrituras)
                 EXEC dbo.usp_validar_periodo_abierto_sesion_interno
                     @idSesion = @idSesionSolicitud,
@@ -127,6 +134,7 @@ BEGIN
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                     @estadoResultado = @estadoResultado OUTPUT;
+            END
 
             IF @idSolicitudBloqueada IS NOT NULL AND @codigoRechazo IS NULL AND @estadoResultado = 1
             BEGIN
@@ -144,9 +152,13 @@ BEGIN
             IF @transaccionPropia = 1
             BEGIN
                 IF XACT_STATE() = 1
+                BEGIN
                     COMMIT TRANSACTION;
+                END
                 ELSE IF XACT_STATE() = -1
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
             END
         END
 
@@ -162,17 +174,24 @@ BEGIN
         END
     END TRY
     BEGIN CATCH
+        -- PASO 6: error: revertir lo propio, relanzar si la transaccion externa quedo condenada; si no, SYS_001
         SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @@TRANCOUNT > 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
             ROLLBACK TRANSACTION sp_retirar_solicitud_revision;
+        END
 
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',

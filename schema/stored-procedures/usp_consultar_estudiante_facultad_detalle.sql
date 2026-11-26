@@ -16,6 +16,8 @@ GO
 -- Ambito: uv_auth_estudiante (fail-closed) restringida a las facultades cuyo decano es el ejecutor.
 -- SESSION_CONTEXT: se captura el previo y SIEMPRE se restaura (exito y error).
 -- ============================================================================
+-- SKILLS-BD lote 7 (2026-11-26): facultad del decano por uv_facultad/uv_decano_identidad (antes, las tablas) y comentario
+-- del CATCH de lectura; mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_estudiante_facultad_detalle]
 (
     @idUsuarioEjecutor  UNIQUEIDENTIFIER,
@@ -94,8 +96,8 @@ BEGIN TRY
         FROM dbo.uv_auth_estudiante e
         WHERE e.id = @idEstudiante
           AND e.idFacultad IN (
-                SELECT f.id FROM dbo.Facultad f INNER JOIN dbo.Decano d ON d.id = f.decano
-                WHERE d.usuario = @idUsuarioDefecto
+                SELECT f.id FROM dbo.uv_facultad f INNER JOIN dbo.uv_decano_identidad di ON di.id = f.idDecano
+                WHERE di.idUsuario = @idUsuarioDefecto
               )
         ORDER BY e.nombrePrograma ASC, e.nombreAsignatura ASC, e.nombreGrupo ASC, e.idGrupo ASC;
 
@@ -106,6 +108,8 @@ BEGIN TRY
             @read_only = 0;
     END TRY
     BEGIN CATCH
+        -- PASO 8: consulta de lectura (READ_QUERY_RESULTSET): se restaura el contexto y el error, incluido el
+        -- rechazo de validacion, se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
         EXEC sys.sp_set_session_context
             @key = N'idUsuarioEjecutor',
             @value = @contextoPrevio,

@@ -19,6 +19,7 @@ GO
 -- el administrador ve las matriculas de su institucion y el decano solo las de su facultad.
 -- SESSION_CONTEXT: se captura el previo y SIEMPRE se restaura (exito y error).
 -- ============================================================================
+-- SKILLS-BD lote 10 (2026-11-26): PASO n tambien en el restablecimiento del contexto y en el CATCH de lectura que relanza. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_historial_estudiante]
 (
     @idUsuarioEjecutor  UNIQUEIDENTIFIER,
@@ -121,12 +122,15 @@ BEGIN
         WHERE e.id = @idEstudiante
         ORDER BY pa.fechaInicio DESC, e.nombrePrograma ASC, e.nombreAsignatura ASC, e.idGrupo ASC;
 
+        -- PASO 6: Restaurar el contexto de sesion previo
         EXEC sys.sp_set_session_context
             @key = N'idUsuarioEjecutor',
             @value = @contextoPrevio,
             @read_only = 0;
     END TRY
     BEGIN CATCH
+        -- PASO 7: consulta de lectura (READ_QUERY_RESULTSET): el error, incluido el rechazo de validacion,
+        -- se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
         EXEC sys.sp_set_session_context
             @key = N'idUsuarioEjecutor',
             @value = @contextoPrevio,

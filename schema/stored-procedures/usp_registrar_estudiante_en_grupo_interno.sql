@@ -16,6 +16,7 @@ GO
 -- inscripcion en el programa (componente ESP) es comun a los dos caminos y vive solo aqui.
 -- El estado por defecto ('' o el parametro) se resuelve con MATRICULA/ESTADO_INSCRITA (sin literal quemado).
 -- ============================================================================
+-- SKILLS-BD lote 7 (2026-11-26): DECLARE en la cabecera (se asignan con SET en su paso) e IF con BEGIN/END; mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_estudiante_en_grupo_interno]
 (
     @idEstudiante            UNIQUEIDENTIFIER,
@@ -34,6 +35,8 @@ AS
     DECLARE @idGrupoDefecto       UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idGrupo, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idEstadoActivo       UNIQUEIDENTIFIER;
     DECLARE @reactivada           BIT = 0;
+    DECLARE @codigoEstadoDefecto  NVARCHAR(10);
+    DECLARE @idProgramaAsegurado  UNIQUEIDENTIFIER;
 
     -- Inicialización de respuesta desde parámetros del catálogo
     SELECT 
@@ -55,8 +58,11 @@ BEGIN
         -- PASO 2: Obtener identificador del Estado para EstudianteGrupo
         IF @estadoResultado = 1
         BEGIN
-            DECLARE @codigoEstadoDefecto NVARCHAR(10) = UPPER(TRIM(dbo.ufn_obtener_parametro_texto(@codigoEstado, 'GENERAL', 'CADENA_VACIA')));
-            IF @codigoEstadoDefecto = '' SET @codigoEstadoDefecto = UPPER(TRIM(CAST(dbo.ufn_obtener_parametro('MATRICULA', 'ESTADO_INSCRITA') AS NVARCHAR(10))));
+            SET @codigoEstadoDefecto = UPPER(TRIM(dbo.ufn_obtener_parametro_texto(@codigoEstado, 'GENERAL', 'CADENA_VACIA')));
+            IF @codigoEstadoDefecto = ''
+            BEGIN
+                SET @codigoEstadoDefecto = UPPER(TRIM(CAST(dbo.ufn_obtener_parametro('MATRICULA', 'ESTADO_INSCRITA') AS NVARCHAR(10))));
+            END
 
             SELECT @idEstadoActivo = id 
             FROM dbo.uv_estado_estudiante_grupo 
@@ -120,7 +126,6 @@ BEGIN
         -- PASO 3.7 (CULM-001 B2NM, DEC-020/R7): toda matricula (alta o reactivacion) tiene EstudiantePrograma en un programa del grupo.
         IF @estadoResultado = 1
         BEGIN
-            DECLARE @idProgramaAsegurado UNIQUEIDENTIFIER;
             EXEC dbo.usp_asegurar_estudiante_programa_grupo_interno
                 @idEstudiante = @idEstudianteDefecto,
                 @idGrupo = @idGrupoDefecto,
