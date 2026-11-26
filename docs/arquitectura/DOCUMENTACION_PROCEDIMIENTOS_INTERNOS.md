@@ -572,3 +572,18 @@ Mismo nombre, misma firma y mismo comportamiento; prueba `test/test_skills_lote7
 
 Vista nueva `uv_estudiante_programa_semestre` (`id`, `idEstudiante`, `idPrograma`, `semestreActual` de `EstudiantePrograma`): se creó porque
 `uv_estudiante_programa` no expone `semestreActual` y la skill prohíbe cambiar la forma de una vista existente.
+
+## Addendum SKILLS-BD lote 8 (2026-11-26): notificaciones
+
+Mismo nombre, misma firma y mismo comportamiento; prueba `test/test_skills_lote8_caracterizacion.sql` (`SKL8_*`).
+
+| Interno | Cambio en el lote 8 |
+| :--- | :--- |
+| `usp_registrar_notificacion_saliente_interno`, `usp_marcar_notificacion_entregada_interno` | `DECLARE` en la cabecera (los de un paso se asignan con `SET` en ese paso) y `PASO n` |
+| `usp_registrar_fallo_notificacion_interno` | Igual, y los intentos actuales por `uv_notificacion_saliente` (antes, la tabla); mismo backoff `MIN(base * 2^(intentos - 1), max)` |
+| `usp_depurar_notificaciones_salientes_interno` | Igual, y las candidatas a borrar por `uv_notificacion_saliente`; el `DELETE` sigue sobre la tabla |
+| `usp_reservar_notificaciones_salientes_interno` | Estados por `uv_estado_notificacion`; la reserva con `UPDLOCK, READPAST, ROWLOCK` sigue en la tabla. Su `CATCH` relanza el error con el detalle técnico (`51000`), como antes: es un comando con resultset (las filas reservadas) y no tiene triplete |
+| `usp_validar_correo_institucional_personal_interno` | `PASO n`, `IF` con `BEGIN/END` y `TRY/CATCH` (con transacción abierta relanza; sin ella, `SYS_001`) |
+
+Vistas nuevas, delgadas y sin cálculos: `uv_notificacion_saliente`, `uv_estado_notificacion` y `uv_aviso_falta_sesion` (las tablas del
+outbox y de avisos de falta no tenían vista). Las escrituras y las lecturas con bloqueo siguen en las tablas.

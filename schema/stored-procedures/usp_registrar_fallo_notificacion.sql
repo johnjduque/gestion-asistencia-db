@@ -11,6 +11,7 @@ GO
 -- Ambito: Fachada publica tecnica para registrar fallos y calcular reintentos.
 -- Salida Canonica: (idCorrelacion, mensajeUsuarioResultado, mensajeTecnicoResultado, estadoResultado)
 -- =============================================================================
+-- SKILLS-BD lote 8 (2026-11-26): DECLARE en la cabecera (los de un paso se asignan con SET en ese paso), PASO n, SET XACT_ABORT ON (fachada que muta) y lecturas por uv_estado_notificacion/uv_notificacion_saliente (antes, las tablas); sin ISNULL (un IIF equivalente). Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_fallo_notificacion]
 (
     @id                  UNIQUEIDENTIFIER = NULL,
@@ -24,23 +25,28 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_fallo_notificacion]
     @idCorrelacion       UNIQUEIDENTIFIER = NULL
 )
 AS
-BEGIN
-    SET NOCOUNT ON;
-
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado         BIT = 1;
+    DECLARE @ahora DATETIMEOFFSET(7);
+    DECLARE @idReservada UNIQUEIDENTIFIER;
+    DECLARE @idReintentable UNIQUEIDENTIFIER;
+    DECLARE @idDefinitiva UNIQUEIDENTIFIER;
+    DECLARE @detalleTruncado NVARCHAR(300);
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
 
     BEGIN TRY
-        -- 1. Validar idCorrelacion
+        -- PASO 1: Validar idCorrelacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- 2. Validar parametros tecnicos obligatorios
+        -- PASO 2: Validar parametros tecnicos obligatorios
         IF @estadoResultado = 1
         BEGIN
             IF @reintentable IS NULL
@@ -58,8 +64,8 @@ BEGIN
             END
         END
 
-        -- 3. Validar existencia del id
-        IF @estadoResultado = 1 AND (@id IS NULL OR NOT EXISTS (SELECT 1 FROM dbo.NotificacionSaliente WHERE id = @id))
+        -- PASO 3: Validar existencia del id
+        IF @estadoResultado = 1 AND (@id IS NULL OR NOT EXISTS (SELECT 1 FROM dbo.uv_notificacion_saliente WHERE id = @id))
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'NTF_002',
@@ -69,14 +75,14 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
-        -- 4. Validar reserva vigente de la instancia
+        -- PASO 4: Validar reserva vigente de la instancia
         IF @estadoResultado = 1
         BEGIN
-            DECLARE @ahora DATETIMEOFFSET(7) = SYSUTCDATETIME();
-            DECLARE @idReservada UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM dbo.EstadoNotificacion WHERE codigo = 'RESERVADA');
+            SET @ahora = SYSUTCDATETIME();
+            SET @idReservada = (SELECT TOP 1 id FROM dbo.uv_estado_notificacion WHERE codigo = 'RESERVADA');
 
             IF NOT EXISTS (
-                SELECT 1 FROM dbo.NotificacionSaliente
+                SELECT 1 FROM dbo.uv_notificacion_saliente
                 WHERE id = @id
                   AND idEstado = @idReservada
                   AND reservadoPor = @instancia
@@ -92,16 +98,14 @@ BEGIN
             END
         END
 
-        -- 5. Delegar al interno
+        -- PASO 5: Delegar al interno
         IF @estadoResultado = 1
         BEGIN
-            DECLARE @idReintentable UNIQUEIDENTIFIER;
-            DECLARE @idDefinitiva   UNIQUEIDENTIFIER;
             SELECT @idReintentable = MAX(CASE WHEN codigo = 'FALLIDA_REINTENTABLE' THEN id END),
                    @idDefinitiva   = MAX(CASE WHEN codigo = 'FALLIDA_DEFINITIVA' THEN id END)
-            FROM dbo.EstadoNotificacion;
+            FROM dbo.uv_estado_notificacion;
 
-            DECLARE @detalleTruncado NVARCHAR(300) = SUBSTRING(ISNULL(@detalleError, N''), 1, 300);
+            SET @detalleTruncado = SUBSTRING(IIF(@detalleError IS NULL, N'', @detalleError), 1, 300);
 
             EXEC dbo.usp_registrar_fallo_notificacion_interno
                 @id = @id,
@@ -120,6 +124,7 @@ BEGIN
         END
     END TRY
     BEGIN CATCH
+        -- PASO 6: el interno ya revirtio lo suyo; la fachada no abre transaccion y responde SYS_001
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,

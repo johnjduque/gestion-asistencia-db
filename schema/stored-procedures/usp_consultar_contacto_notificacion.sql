@@ -15,32 +15,33 @@ GO
 --   Result set 1 (canonico): (idCorrelacion, mensajeUsuarioResultado, mensajeTecnicoResultado, estadoResultado)
 --   Result set 2 (cuando estadoResultado=1): (idUsuario, correo, correoConfirmado)
 -- =============================================================================
+-- SKILLS-BD lote 8 (2026-11-26): DECLARE en la cabecera (los de un paso se asignan con SET en ese paso) y PASO n. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_contacto_notificacion]
 (
     @usuariosJson  NVARCHAR(MAX)    = NULL,
     @idCorrelacion UNIQUEIDENTIFIER = NULL
 )
 AS
+    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
+    DECLARE @jsonTrim             NVARCHAR(MAX)    = TRIM(@usuariosJson);
+    DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
+    DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
+    DECLARE @estadoResultado         BIT = 1;
+    DECLARE @countElem INT;
+    DECLARE @hayUuidInvalido BIT;
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
-    DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
-    DECLARE @jsonTrim             NVARCHAR(MAX)    = TRIM(@usuariosJson);
-
-    DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
-    DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
-    DECLARE @estadoResultado         BIT = 1;
-
     BEGIN TRY
-        -- 1. Validar idCorrelacion
+        -- PASO 1: Validar idCorrelacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- 2. Validar @usuariosJson (arreglo JSON de 1..100 UUID validos)
+        -- PASO 2: Validar @usuariosJson (arreglo JSON de 1..100 UUID validos)
         IF @estadoResultado = 1
         BEGIN
             IF @jsonTrim IS NULL OR @jsonTrim = N'' OR ISJSON(@jsonTrim) <> 1 OR LEFT(@jsonTrim, 1) <> '['
@@ -54,8 +55,8 @@ BEGIN
             END
             ELSE
             BEGIN
-                DECLARE @countElem INT = 0;
-                DECLARE @hayUuidInvalido BIT = 0;
+                SET @countElem = 0;
+                SET @hayUuidInvalido = 0;
 
                 SELECT
                     @countElem = COUNT(*),
@@ -78,7 +79,7 @@ BEGIN
             END
         END
 
-        -- 3. Preparar mensaje de exito GEN_003
+        -- PASO 3: Preparar mensaje de exito GEN_003
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -90,6 +91,7 @@ BEGIN
         END
     END TRY
     BEGIN CATCH
+        -- PASO 4: responde SYS_001 en el triplete (comportamiento previo); sin resultset de contactos
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
@@ -106,7 +108,7 @@ BEGIN
         mensajeTecnicoResultado = @mensajeTecnicoResultado,
         estadoResultado         = @estadoResultado;
 
-    -- Result set 2: contactos cuando la validacion fue exitosa
+    -- PASO 5: Result set 2, contactos cuando la validacion fue exitosa
     IF @estadoResultado = 1
     BEGIN
         EXEC dbo.usp_consultar_contacto_notificacion_interno

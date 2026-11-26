@@ -9,6 +9,7 @@ GO
 -- en una unica transaccion con UPDLOCK/HOLDLOCK (dos confirmaciones simultaneas: solo una gana).
 -- Publico sin ejecutor: la credencial es el hash del token. Cualquier token invalido (inexistente, vencido, usado,
 -- revocado, nulo o de usuario inactivo) responde exactamente igual (VCE_002). Resultset canonico de 4 columnas.
+-- SKILLS-BD lote 8 (2026-11-26): DECLARE del CATCH a la cabecera, PASO n, IF con BEGIN/END y usuario activo por uv_usuario (antes, la tabla). El bloqueo del token sigue en la tabla. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_confirmar_verificacion_correo]
 (
     @tokenHash     VARBINARY(32),
@@ -25,10 +26,12 @@ AS
     DECLARE @transaccionPropia          BIT = 0;
     DECLARE @savepointCreado            BIT = 0;
     DECLARE @consumidos TABLE (usuario UNIQUEIDENTIFIER NOT NULL);
+    DECLARE @estadoTransaccionCatch INT;
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;   -- AUD-BD M-6: un error no capturado condena la transaccion; el CATCH ya maneja XACT_STATE() = -1 (THROW si no es propia)
     BEGIN TRY
+        -- PASO 1: Transaccion propia, o savepoint si el llamador ya tiene una abierta
         SET @conteoTransaccionesInicial = @@TRANCOUNT;
         IF @conteoTransaccionesInicial = 0
         BEGIN
@@ -41,17 +44,19 @@ BEGIN
             SET @savepointCreado = 1;
         END
 
+        -- PASO 2: Consumir el token vigente de un usuario activo (bloqueo UPDLOCK/HOLDLOCK sobre la tabla del token)
         UPDATE t
         SET t.fechaUsoUtc = SYSUTCDATETIME()
         OUTPUT inserted.usuario INTO @consumidos (usuario)
         FROM dbo.TokenVerificacionCorreo t WITH (UPDLOCK, HOLDLOCK)
-        INNER JOIN dbo.Usuario u ON u.id = t.usuario
+        INNER JOIN dbo.uv_usuario u ON u.id = t.usuario
         WHERE t.tokenHash = @tokenHash
           AND t.fechaUsoUtc IS NULL
           AND t.fechaRevocacionUtc IS NULL
           AND SYSUTCDATETIME() < t.fechaExpiracionUtc
-          AND u.estado = 1;
+          AND u.estaActivoUsuario = 1;
 
+        -- PASO 3: Con token consumido, confirmar el correo (VCE_006); si no, rechazo VCE_002 sin escrituras
         IF EXISTS (SELECT 1 FROM @consumidos)
         BEGIN
             UPDATE u
@@ -75,28 +80,39 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
-        -- La rama de rechazo no escribe nada, por lo que no requiere ROLLBACK (ademas un ROLLBACK no es valido si el
+        -- PASO 4: La rama de rechazo no escribe nada, por lo que no requiere ROLLBACK (ademas un ROLLBACK no es valido si el
         -- llamador usa INSERT ... EXEC). Solo se confirma la transaccion propia; con savepoint no hay nada que deshacer.
         IF @transaccionPropia = 1
         BEGIN
             IF XACT_STATE() = 1
+            BEGIN
                 COMMIT TRANSACTION;
+            END
             ELSE IF XACT_STATE() = -1
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
     END TRY
     BEGIN CATCH
-        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+        -- PASO 5: Revertir lo propio; con transaccion del llamador no confirmable relanza, si no responde SYS_001
+        SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
             ROLLBACK TRANSACTION sp_ident_confirmar;
+        END
 
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',

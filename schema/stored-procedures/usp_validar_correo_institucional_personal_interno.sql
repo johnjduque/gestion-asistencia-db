@@ -10,6 +10,7 @@ GO
 -- con el dominio vigente. NULL o vacio no se valida aqui (el llamador decide si el correo es obligatorio). Lo llaman los altas
 -- de personal con usuario nuevo y la actualizacion del coordinador cuando cambia su correo: los correos ya guardados no se
 -- revalidan. No abre ni modifica transacciones.
+-- SKILLS-BD lote 8 (2026-11-26): PASO n, IF con BEGIN/END y TRY/CATCH (relanza con transaccion abierta; sin ella, SYS_001). Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_correo_institucional_personal_interno]
 (
     @correo                  NVARCHAR(255),
@@ -29,19 +30,41 @@ BEGIN
         @mensajeTecnicoResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
         @estadoResultado         = 1;
 
-    IF NULLIF(TRIM(@correo), N'') IS NULL
-        RETURN;
+    BEGIN TRY
+        -- PASO 1: Un correo vacio no se valida (pasa)
+        IF NULLIF(TRIM(@correo), N'') IS NULL
+        BEGIN
+            RETURN;
+        END
 
-    IF dbo.ufn_correo_cumple_dominio_institucional(@correo, @dominioInstitucional) = 0
-    BEGIN
+        -- PASO 2: El correo debe pertenecer al dominio institucional (VCE_008)
+        IF dbo.ufn_correo_cumple_dominio_institucional(@correo, @dominioInstitucional) = 0
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'VCE_008',
+                @p_param1 = @dominioInstitucional,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+    END TRY
+    BEGIN CATCH
+        -- PASO 3: corre dentro de la transaccion del llamador: con transaccion abierta relanza para que el llamador revierta
+        -- (comportamiento previo, sin TRY); sin transaccion devuelve el triplete SYS_001.
+        IF XACT_STATE() <> 0
+        BEGIN
+            THROW;
+        END
+
         EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'VCE_008',
-            @p_param1 = @dominioInstitucional,
+            @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
         SET @estadoResultado = 0;
-    END
+    END CATCH
 END;
 GO

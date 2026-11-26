@@ -11,6 +11,7 @@ GO
 -- Devuelve una fila con el usuario del estudiante; el backend registra entonces el aviso. Los rechazos se propagan con
 -- THROW 51000 y mensaje "DBCODE=<codigo>|..." (como usp_consultar_detalle_solicitud_revision_docente).
 -- READ_QUERY_RESULTSET: NON_GOLDEN_PATH_EXTENSION (ver test/test_contract_closure.sql).
+-- SKILLS-BD lote 8 (2026-11-26): ambito, estudiante, usuario y tokens por uv_grupo, uv_docente_identidad, uv_grupo_programa, uv_programa, uv_coordinador_identidad, uv_estudiante_programa, uv_estudiante_identidad, uv_estudiante_grupo, uv_usuario y uv_token_verificacion_correo (antes, las tablas); IF con BEGIN/END y TRY/CATCH de lectura que relanza. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_reenvio_verificacion_correo]
 (
     @idGrupo           UNIQUEIDENTIFIER,
@@ -34,95 +35,111 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- PASO 1: correlacion y ejecutor obligatorios
-    EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
-        @idCorrelacion = @idCorrelacionDefecto,
-        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-        @estadoResultado = @estadoResultado OUTPUT;
-
-    IF @estadoResultado = 1 AND (@idUsuarioEjecutor IS NULL OR @idGrupo IS NULL OR @idEstudiante IS NULL)
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'GEN_002', @p_param1 = 'idUsuarioEjecutor/idGrupo/idEstudiante',
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-    END
-
-    -- PASO 2: RBAC del ejecutor
-    IF @estadoResultado = 1
-    BEGIN
-        EXEC dbo.usp_validar_permiso_rbac_usuario_interno
-            @idUsuario = @idUsuarioEjecutor,
-            @codigoPerfilRequerido = 'DOCENTE,COORDINADOR',
+    BEGIN TRY
+        -- PASO 1: correlacion y ejecutor obligatorios
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
-    END
 
-    -- PASO 3: ambito jerarquico (titular del grupo o coordinador del programa del grupo) y pertenencia del estudiante
-    IF @estadoResultado = 1
-    BEGIN
-        IF EXISTS (
-            SELECT 1
-            FROM dbo.Grupo g
-            INNER JOIN dbo.Docente d ON d.id = g.docente
-            WHERE g.id = @idGrupo AND d.usuario = @idUsuarioEjecutor
-        )
-        OR EXISTS (
-            SELECT 1
-            FROM dbo.Grupo g
-            INNER JOIN dbo.uv_grupo_programa gpx ON gpx.idGrupo = g.id   -- CULM-001 B2NM: vigencia S1
-            INNER JOIN dbo.Programa pr ON pr.id = gpx.idPrograma
-            INNER JOIN dbo.Coordinador c ON c.id = pr.coordinador
-            WHERE g.id = @idGrupo AND c.usuario = @idUsuarioEjecutor
-              AND EXISTS (SELECT 1 FROM dbo.EstudiantePrograma epx WHERE epx.estudiante = @idEstudiante AND epx.programa = pr.id)
-        )
-            SET @enAmbito = 1;
-
-        SELECT @idUsuarioEstudiante = e.usuario
-        FROM dbo.Estudiante e
-        INNER JOIN dbo.EstudianteGrupo eg ON eg.estudiante = e.id AND eg.grupo = @idGrupo
-        WHERE e.id = @idEstudiante;
-
-        IF @enAmbito = 0 OR @idUsuarioEstudiante IS NULL
-            SET @codigoRechazo = 'VCE_004';
-    END
-
-    -- PASO 4: correo aun sin verificar y espera minima
-    IF @estadoResultado = 1 AND @codigoRechazo IS NULL
-    BEGIN
-        SELECT @correoConfirmado = u.correoConfirmado FROM dbo.Usuario u WHERE u.id = @idUsuarioEstudiante;
-
-        IF @correoConfirmado = 1
-            SET @codigoRechazo = 'VCE_005';
-        ELSE
+        IF @estadoResultado = 1 AND (@idUsuarioEjecutor IS NULL OR @idGrupo IS NULL OR @idEstudiante IS NULL)
         BEGIN
-            SET @esperaMinutos = dbo.ufn_obtener_parametro_int(NULL, 'VERIFICACION_CORREO', 'REENVIO_ESPERA_MINUTOS');
-            SELECT @ultimaEmisionUtc = MAX(t.fechaEmisionUtc) FROM dbo.TokenVerificacionCorreo t WHERE t.usuario = @idUsuarioEstudiante;
-            IF @ultimaEmisionUtc IS NOT NULL AND @ultimaEmisionUtc > DATEADD(MINUTE, -@esperaMinutos, SYSUTCDATETIME())
-                SET @codigoRechazo = 'VCE_003';
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'GEN_002', @p_param1 = 'idUsuarioEjecutor/idGrupo/idEstudiante',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
         END
-    END
 
-    IF @estadoResultado = 1 AND @codigoRechazo IS NOT NULL
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = @codigoRechazo,
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-    END
+        -- PASO 2: RBAC del ejecutor
+        IF @estadoResultado = 1
+        BEGIN
+            EXEC dbo.usp_validar_permiso_rbac_usuario_interno
+                @idUsuario = @idUsuarioEjecutor,
+                @codigoPerfilRequerido = 'DOCENTE,COORDINADOR',
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
 
-    IF @estadoResultado = 0
-    BEGIN
-        THROW 51000, @mensajeTecnicoResultado, 1;
-    END
+        -- PASO 3: ambito jerarquico (titular del grupo o coordinador del programa del grupo) y pertenencia del estudiante
+        IF @estadoResultado = 1
+        BEGIN
+            IF EXISTS (
+                SELECT 1
+                FROM dbo.uv_grupo g
+                INNER JOIN dbo.uv_docente_identidad d ON d.id = g.idDocente
+                WHERE g.id = @idGrupo AND d.idUsuario = @idUsuarioEjecutor
+            )
+            OR EXISTS (
+                SELECT 1
+                FROM dbo.uv_grupo g
+                INNER JOIN dbo.uv_grupo_programa gpx ON gpx.idGrupo = g.id   -- CULM-001 B2NM: vigencia S1
+                INNER JOIN dbo.uv_programa pr ON pr.id = gpx.idPrograma
+                INNER JOIN dbo.uv_coordinador_identidad c ON c.id = pr.idCoordinador
+                WHERE g.id = @idGrupo AND c.idUsuario = @idUsuarioEjecutor
+                  AND EXISTS (SELECT 1 FROM dbo.uv_estudiante_programa epx WHERE epx.idEstudiante = @idEstudiante AND epx.idPrograma = pr.id)
+            )
+            BEGIN
+                SET @enAmbito = 1;
+            END
 
-    SELECT @idUsuarioEstudiante AS idUsuario;
+            SELECT @idUsuarioEstudiante = e.idUsuario
+            FROM dbo.uv_estudiante_identidad e
+            INNER JOIN dbo.uv_estudiante_grupo eg ON eg.idEstudiante = e.id AND eg.idGrupo = @idGrupo
+            WHERE e.id = @idEstudiante;
+
+            IF @enAmbito = 0 OR @idUsuarioEstudiante IS NULL
+            BEGIN
+                SET @codigoRechazo = 'VCE_004';
+            END
+        END
+
+        -- PASO 4: correo aun sin verificar y espera minima
+        IF @estadoResultado = 1 AND @codigoRechazo IS NULL
+        BEGIN
+            SELECT @correoConfirmado = u.correoConfirmado FROM dbo.uv_usuario u WHERE u.id = @idUsuarioEstudiante;
+
+            IF @correoConfirmado = 1
+            BEGIN
+                SET @codigoRechazo = 'VCE_005';
+            END
+            ELSE
+            BEGIN
+                SET @esperaMinutos = dbo.ufn_obtener_parametro_int(NULL, 'VERIFICACION_CORREO', 'REENVIO_ESPERA_MINUTOS');
+                SELECT @ultimaEmisionUtc = MAX(t.fechaEmisionUtc) FROM dbo.uv_token_verificacion_correo t WHERE t.idUsuario = @idUsuarioEstudiante;
+                IF @ultimaEmisionUtc IS NOT NULL AND @ultimaEmisionUtc > DATEADD(MINUTE, -@esperaMinutos, SYSUTCDATETIME())
+                BEGIN
+                    SET @codigoRechazo = 'VCE_003';
+                END
+            END
+        END
+
+        -- PASO 5: rechazo por codigo y THROW 51000 (DBCODE); si pasa, una fila con el usuario del estudiante
+        IF @estadoResultado = 1 AND @codigoRechazo IS NOT NULL
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = @codigoRechazo,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+
+        IF @estadoResultado = 0
+        BEGIN
+            THROW 51000, @mensajeTecnicoResultado, 1;
+        END
+
+        SELECT @idUsuarioEstudiante AS idUsuario;
+    END TRY
+    BEGIN CATCH
+        -- PASO 6: consulta de lectura (READ_QUERY_RESULTSET): el error, incluido el rechazo de validacion,
+        -- se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
+        THROW;
+    END CATCH
 END;
 GO

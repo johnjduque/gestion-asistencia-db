@@ -3,7 +3,7 @@ status: active
 type: architecture
 scope: database
 owner: db-team
-last-reviewed: 2026-11-25
+last-reviewed: 2026-11-26
 ---
 
 # Excepciones justificadas a los skills de BD
@@ -69,6 +69,7 @@ Origen: auditoría y plan por lotes del 2026-11-25. Las decisiones son de John (
 - el backend los invoca sin transacción externa, así que siempre usan su transacción propia;
 - en el CATCH revisan `XACT_STATE()`;
 - los SP cuyo contrato exige preservar la transacción del llamador siguen sin `XACT_ABORT`: `usp_crear_decano`, `usp_crear_coordinador` y `usp_registrar_o_actualizar_plan_estudio`.
+- `usp_reservar_notificaciones_salientes` (lote 8) sigue sin `XACT_ABORT` en la fachada: sus validaciones salen como `THROW 51000` y con `XACT_ABORT ON` condenarían la transacción del llamador (lo comprueba `test/test_usp_reservar_notificaciones_salientes.sql`); su interno, que es el que escribe, sí lo activa.
 
 ## E6. Objetos congelados
 

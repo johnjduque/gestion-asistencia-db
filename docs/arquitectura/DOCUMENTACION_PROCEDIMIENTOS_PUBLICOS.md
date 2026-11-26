@@ -630,3 +630,17 @@ Misma firma, mismo resultset y mismos códigos; prueba `test/test_skills_lote7_c
 | `usp_buscar_estudiantes_institucion_paginado`, `usp_consultar_bitacora_estudiante_programa`, `usp_consultar_faltas_reclamables_estudiante`, `usp_consultar_ficha_estudiante_programa`, `usp_consultar_materias_estudiante`, `usp_consultar_ventanas_matricula_por_rotar` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END` y `TRY/CATCH` de lectura que relanza |
 
 Los `ISNULL` que quedan en `usp_consultar_horas_programadas_estudiante` son sobre agregaciones (`SUM`), permitidos por la skill.
+
+## Addendum SKILLS-BD lote 8 (2026-11-26): notificaciones
+
+Misma firma, mismo resultset y mismos códigos; prueba `test/test_skills_lote8_caracterizacion.sql` más las de dominio de cada SP.
+
+| SP | Cambio en el lote 8 |
+| :--- | :--- |
+| `usp_registrar_notificacion_saliente`, `usp_marcar_notificacion_entregada`, `usp_registrar_fallo_notificacion`, `usp_depurar_notificaciones_salientes` | `DECLARE` en la cabecera (los de un paso se asignan con `SET` en ese paso), `PASO n`, `SET XACT_ABORT ON` (fachadas que mutan y no lo tenían) y estados/notificación por `uv_estado_notificacion`/`uv_notificacion_saliente` (antes, las tablas). Sin `COALESCE`/`ISNULL` sobre variables (`IIF` equivalentes) |
+| `usp_reservar_notificaciones_salientes` | `PASO n` y `TRY/CATCH` que relanza el mismo error (`51000`). Sin `XACT_ABORT ON` a propósito (excepción E5 de `excepciones-skills-bd.md`) |
+| `usp_confirmar_verificacion_correo` | `DECLARE` del `CATCH` a la cabecera, `PASO n`, `IF` con `BEGIN/END` y usuario activo por `uv_usuario`. El bloqueo del token y el `UPDATE` de `Usuario` siguen en las tablas |
+| `usp_consultar_reenvio_verificacion_correo` | Ámbito, estudiante, usuario y tokens por `uv_grupo`, `uv_docente_identidad`, `uv_grupo_programa`, `uv_programa`, `uv_coordinador_identidad`, `uv_estudiante_programa`, `uv_estudiante_identidad`, `uv_estudiante_grupo`, `uv_usuario` y `uv_token_verificacion_correo`; `IF` con `BEGIN/END` y `TRY/CATCH` de lectura que relanza (los rechazos siguen saliendo como `THROW 51000` con `DBCODE`) |
+| `usp_registrar_aviso_falta_sesion` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END` y sesión por `uv_sesion`. La lectura idempotente con `UPDLOCK, HOLDLOCK` sigue en la tabla |
+| `usp_consultar_sesiones_pendientes_aviso_falta`, `usp_consultar_faltas_sesion_aviso` | `PASO n`, `IF` con `BEGIN/END`, sin `ISNULL` (`IIF`/`IF` equivalentes), avisos por `uv_aviso_falta_sesion` y `TRY/CATCH` de lectura que relanza |
+| `usp_consultar_contacto_notificacion` | `DECLARE` en la cabecera y `PASO n` |

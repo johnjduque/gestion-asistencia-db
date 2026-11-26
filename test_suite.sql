@@ -41,7 +41,10 @@ PRINT '======================================================================';
 :r /tmp/test/test_skills_lote5_caracterizacion.sql
 -- SKILLS-BD lote 6 (2026-11-26): asignaturas y planes de estudio (validadores de asignatura y consultas por vistas uv_*)
 :r /tmp/test/test_skills_lote6_caracterizacion.sql
+-- SKILLS-BD lote 7 (2026-11-26): estudiantes y matricula en grupo (internos de estudiante y consultas por vistas uv_*)
 :r /tmp/test/test_skills_lote7_caracterizacion.sql
+-- SKILLS-BD lote 8 (2026-11-26): notificaciones (internos del outbox, avisos de falta y verificacion de correo)
+:r /tmp/test/test_skills_lote8_caracterizacion.sql
 :r /tmp/test/test_reactive_academic.sql
 :r /tmp/test/test_mass_period_close.sql
 :r /tmp/test/test_usp_registrar_estudiante_en_grupo_usuario_no_existente.sql
