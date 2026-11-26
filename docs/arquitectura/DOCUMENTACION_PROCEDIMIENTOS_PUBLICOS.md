@@ -726,3 +726,18 @@ MRM, PRU-15, cierre de contrato y auditoría del 2026-11-22).
 
 Marca `SP_SISTEMA` (excepción E1): el lote 12 la agrega, solo como comentario de cabecera, a los SP de sistema no congelados que aún no
 la tenían, también a los de lotes anteriores (jobs, notificaciones y correo, integraciones y utilidades). No cambia su código.
+
+## Addendum SKILLS-BD lote 13 (2026-11-26): sesiones y horarios
+
+Misma firma, mismo resultset (los metadatos de los 28 SP del lote no cambian) y mismos códigos; las pruebas de dominio de sesiones y
+la de caracterización del lote dan el mismo resultado antes y después.
+
+| SP | Cambio en el lote 13 |
+| :--- | :--- |
+| `usp_consultar_destinatarios_sesion_cancelada`, `usp_consultar_destinatarios_sesion_manual`, `usp_consultar_destinatarios_solicitud_sesion`, `usp_consultar_motivos_cancelacion_sesion`, `usp_consultar_solicitudes_sesion_coordinador_paginado` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END`, lecturas por vistas (programa por `uv_programa_registro`, solicitud y sesión por `uv_solicitud_sesion_registro` y `uv_sesion_registro`) y `TRY/CATCH` de lectura que relanza |
+| `usp_consultar_horario_estudiante`, `usp_consultar_sesiones_calendario_docente`, `usp_consultar_sesiones_calendario_estudiante` | Igual; estudiante, docente y matrícula por `uv_estudiante_identidad`, `uv_docente_identidad`, `uv_estudiante_grupo_registro` y `uv_estado_estudiante_grupo` |
+| `usp_consultar_solicitudes_sesion_docente_paginado` | Igual; programa y docente por `uv_programa_registro` y `uv_docente_identidad`, e `IIF` en lugar de `ISNULL` |
+| `usp_consultar_sesiones_facultad_paginado`, `usp_consultar_sesiones_grupo_paginado`, `usp_consultar_asistencias_sesion_paginado` | `DECLARE` en la cabecera, `PASO n` (y en el `CATCH`, que restaura el contexto y relanza), `IF` con `BEGIN/END`; facultad y decano por `uv_facultad_registro` y `uv_decano_identidad`, solicitud por `uv_solicitud_sesion_registro` y `uv_estado_solicitud_sesion` |
+| `usp_aprobar_solicitud_sesion`, `usp_rechazar_solicitud_sesion` | `IF` con `BEGIN/END`, `PASO` en el `CATCH` y solicitud, estado y cancelación por vistas. La lectura con `UPDLOCK, HOLDLOCK` de `dbo.Sesion` y las escrituras siguen en las tablas |
+| `usp_cancelar_sesion`, `usp_cancelar_sesion_coordinador` | Igual; cancelación, asistencias y tomas por `uv_sesion_cancelacion`, `uv_asistencia_registro` y `uv_toma_asistencia_registro` |
+| `usp_generar_sesiones_grupo_v2` | `PASO n` e `IF` con `BEGIN/END` |

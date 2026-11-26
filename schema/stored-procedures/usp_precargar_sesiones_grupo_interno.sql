@@ -16,6 +16,9 @@ GO
 -- borra porque ya no encaja en el horario pierde antes su SesionCancelacion. Las canceladas que siguen encajando no se
 -- borran ni se recrean (idempotencia por grupo, inicio y fin).
 -- DEC-081: despues de los festivos aplica los dias de receso academico del periodo (usp_cancelar_sesiones_receso_interno). B.2 agrega la condicion NOT EXISTS TomaAsistencia.
+-- SKILLS-BD lote 13 (2026-11-26): la inicializacion de las salidas pasa de la cabecera al cuerpo (PASO 0), PASO n, IF con
+-- BEGIN/END, IIF en lugar de COALESCE y lecturas sin bloqueo por vistas uv_* (antes, las tablas). La lectura con UPDLOCK, HOLDLOCK
+-- del correlativo y las escrituras (DELETE de SesionCancelacion y Sesion, INSERT en Sesion) siguen en las tablas. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_precargar_sesiones_grupo_interno]
 (
     @idGrupo                 UNIQUEIDENTIFIER,
@@ -54,16 +57,15 @@ AS
         inicioUtc   DATETIME2 NULL,
         finUtc      DATETIME2 NULL
     );
-
+BEGIN
+    SET NOCOUNT ON;
+    -- PASO 0: inicializacion de las salidas desde el catalogo (antes, entre AS y BEGIN)
     SELECT
         @sesionesCreadas = 0,
         @sesionesEliminadas = 0,
         @mensajeUsuarioResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
         @mensajeTecnicoResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
         @estadoResultado = 1;
-
-BEGIN
-    SET NOCOUNT ON;
     BEGIN TRY
         -- PASO 1: Validacion del identificador de correlacion obligatorio
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
@@ -76,7 +78,7 @@ BEGIN
         IF @estadoResultado = 1
         BEGIN
             SELECT TOP 1 @zonaHorariaSqlServer = CONVERT(SYSNAME, valor)
-            FROM dbo.CatalogoParametro
+            FROM dbo.uv_parametro
             WHERE grupo = 'TIEMPO' AND clave = 'ZONA_HORARIA_SQLSERVER' AND estaActivo = 1;
 
             IF @zonaHorariaSqlServer IS NULL
@@ -95,8 +97,8 @@ BEGIN
         IF @estadoResultado = 1
         BEGIN
             SELECT TOP 1 @fechaInicio = pa.fechaInicio, @fechaFin = pa.fechaFin
-            FROM dbo.Grupo g
-            INNER JOIN dbo.PeriodoAcademico pa ON pa.id = g.periodoAcademico
+            FROM dbo.uv_grupo_registro g
+            INNER JOIN dbo.uv_periodo_academico_fechas pa ON pa.id = g.idPeriodoAcademico
             WHERE g.id = @idGrupoDefecto;
 
             SET @fechaHoy = CAST(@ahoraUtc AT TIME ZONE 'UTC' AT TIME ZONE @zonaHorariaSqlServer AS DATE);
@@ -114,8 +116,8 @@ BEGIN
                    CAST(CONCAT(CONVERT(CHAR(10), f.fecha, 23), 'T', CONVERT(CHAR(8), h.horaInicio, 108)) AS DATETIME2),
                    CAST(CONCAT(CONVERT(CHAR(10), f.fecha, 23), 'T', CONVERT(CHAR(8), h.horaFin, 108)) AS DATETIME2)
             FROM fechas f
-            INNER JOIN dbo.Horario h ON h.grupo = @idGrupoDefecto
-            INNER JOIN dbo.Dia d ON d.id = h.dia
+            INNER JOIN dbo.uv_horario_registro h ON h.idGrupo = @idGrupoDefecto
+            INNER JOIN dbo.uv_dia d ON d.id = h.idDia
             WHERE d.codigo = CASE DATEDIFF(DAY, '19000101', f.fecha) % 7
                                  WHEN 0 THEN 'LU' WHEN 1 THEN 'MA' WHEN 2 THEN 'MI' WHEN 3 THEN 'JU'
                                  WHEN 4 THEN 'VI' WHEN 5 THEN 'SA' ELSE 'DO' END
@@ -138,6 +140,7 @@ BEGIN
             END
         END
 
+        -- PASO 4: franjas a UTC; solo lo que aun no empezo
         IF @estadoResultado = 1
         BEGIN
             UPDATE @slots
@@ -147,18 +150,18 @@ BEGIN
             -- Solo lo que aun no empezo: el pasado no se genera ni se toca
             DELETE FROM @slots WHERE inicioUtc <= @ahoraUtc;
 
-            -- PASO 4: Sesiones futuras generadas que ya no encajan en el horario y no tienen asistencia ni clasificacion.
+            -- PASO 5: Sesiones futuras generadas que ya no encajan en el horario y no tienen asistencia ni clasificacion.
             --         CULM-001 B.1: antes se borra su SesionCancelacion (una sesion que deja de existir pierde su cancelacion).
             INSERT INTO @sesionesEliminables (id)
             SELECT s.id
-            FROM dbo.Sesion s
-            WHERE s.grupo = @idGrupoDefecto
+            FROM dbo.uv_sesion_registro s
+            WHERE s.idGrupo = @idGrupoDefecto
               AND s.fechaHoraInicio > @ahoraUtc
               AND s.procedenciaTemporal = N'UTC_GENERADOR'
               AND NOT EXISTS (SELECT 1 FROM @slots x WHERE x.inicioUtc = s.fechaHoraInicio AND x.finUtc = s.fechaHoraFin)
-              AND NOT EXISTS (SELECT 1 FROM dbo.Asistencia a WHERE a.sesion = s.id)
-              AND NOT EXISTS (SELECT 1 FROM dbo.TomaAsistencia t WHERE t.sesion = s.id)
-              AND NOT EXISTS (SELECT 1 FROM dbo.SesionProcedenciaClasificacion c WHERE c.sesion = s.id);
+              AND NOT EXISTS (SELECT 1 FROM dbo.uv_asistencia_registro a WHERE a.idSesion = s.id)
+              AND NOT EXISTS (SELECT 1 FROM dbo.uv_toma_asistencia_registro t WHERE t.idSesion = s.id)
+              AND NOT EXISTS (SELECT 1 FROM dbo.uv_sesion_procedencia_clasificacion_registro c WHERE c.idSesion = s.id);
 
             DELETE sc
             FROM dbo.SesionCancelacion sc
@@ -169,7 +172,7 @@ BEGIN
             INNER JOIN @sesionesEliminables e ON e.id = s.id;
             SET @sesionesEliminadas = @@ROWCOUNT;
 
-            -- PASO 5: Sesiones que faltan, con correlativo protegido contra carreras con usp_crear_sesion
+            -- PASO 6: Sesiones que faltan, con correlativo protegido contra carreras con usp_crear_sesion
             SELECT @maxNumeroSesion = MAX(numero) FROM dbo.Sesion WITH (UPDLOCK, HOLDLOCK) WHERE grupo = @idGrupoDefecto;
 
             INSERT INTO dbo.Sesion (id, nombre, numero, codigo, numeroSemana, grupo, fechaHoraInicio, fechaHoraFin, procedenciaTemporal)
@@ -186,15 +189,15 @@ BEGIN
                    N'UTC_GENERADOR'
             FROM (
                 SELECT x.fecha, x.inicioUtc, x.finUtc,
-                       numero = COALESCE(@maxNumeroSesion, 0) + ROW_NUMBER() OVER (ORDER BY x.inicioUtc)
+                       numero = IIF(@maxNumeroSesion IS NULL, 0, @maxNumeroSesion) + ROW_NUMBER() OVER (ORDER BY x.inicioUtc)
                 FROM @slots x
                 WHERE NOT EXISTS (
-                    SELECT 1 FROM dbo.Sesion e
-                    WHERE e.grupo = @idGrupoDefecto AND e.fechaHoraInicio = x.inicioUtc AND e.fechaHoraFin = x.finUtc)
+                    SELECT 1 FROM dbo.uv_sesion_registro e
+                    WHERE e.idGrupo = @idGrupoDefecto AND e.fechaHoraInicio = x.inicioUtc AND e.fechaHoraFin = x.finUtc)
             ) n;
             SET @sesionesCreadas = @@ROWCOUNT;
 
-            -- PASO 6 (CULM-001 B.1): festivos de las sesiones del grupo, en la misma transaccion del llamador
+            -- PASO 7 (CULM-001 B.1): festivos de las sesiones del grupo, en la misma transaccion del llamador
             EXEC dbo.usp_aplicar_festivos_grupo_interno
                 @idGrupo = @idGrupoDefecto,
                 @soloFuturas = 0,
@@ -206,7 +209,7 @@ BEGIN
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
 
-            -- PASO 7 (DEC-081): dias de receso academico activos del periodo; un festivo ya aplicado gana. Si falla, informa su mensaje
+            -- PASO 8 (DEC-081): dias de receso academico activos del periodo; un festivo ya aplicado gana. Si falla, informa su mensaje
             IF @estadoResultado = 1
             BEGIN
                 EXEC dbo.usp_cancelar_sesiones_receso_interno
@@ -222,11 +225,14 @@ BEGIN
                     @estadoResultado = @estadoReceso OUTPUT;
 
                 IF @estadoReceso = 0
+                BEGIN
                     SELECT @mensajeUsuarioResultado = @mensajeUsuarioReceso, @mensajeTecnicoResultado = @mensajeTecnicoReceso, @estadoResultado = 0;
+                END
             END
         END
     END TRY
     BEGIN CATCH
+        -- PASO 9: error no controlado (SYS_001). Sin transaccion propia: la revierte el llamador
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,

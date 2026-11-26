@@ -31,6 +31,9 @@ GO
 --   abrir toma/QR y registrar asistencia pasan todos por este validador.
 -- VAL-pendientes-john PRU-15: PASO 2.7, una sesion de un periodo cerrado por el cierre masivo (PeriodoAcademico.fechaCierreUtc) se
 --   rechaza con PER_008 (usp_validar_periodo_abierto_sesion_interno).
+-- SKILLS-BD lote 13 (2026-11-26): la inicializacion de las salidas pasa de la cabecera al cuerpo (PASO 0), PASO n enteros, IF
+-- con BEGIN/END y cancelacion y solicitud por uv_sesion_cancelacion, uv_solicitud_sesion_registro y uv_estado_solicitud_sesion
+-- (antes, las tablas). Las lecturas con HOLDLOCK / UPDLOCK, HOLDLOCK de dbo.Sesion siguen en la tabla. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_sesion_ventana_registro_interno]
 (
     @idSesion                UNIQUEIDENTIFIER,
@@ -59,15 +62,13 @@ AS
     DECLARE @detalleVentana      NVARCHAR(200) = IIF(@toleranciaMinutos IS NULL AND @margenMinutos IS NULL,
                                                      dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
                                                      CONCAT(' Tolerancia: ', @toleranciaAplicada, ' min; margen: ', @margenAplicado, ' min.'));
-
-    -- Inicialización de respuesta desde parámetros del catálogo
+BEGIN
+    SET NOCOUNT ON;
+    -- PASO 0: inicializacion de las salidas desde el catalogo (antes, entre AS y BEGIN)
     SELECT
         @mensajeUsuarioResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
         @mensajeTecnicoResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
         @estadoResultado = 1;
-
-BEGIN
-    SET NOCOUNT ON;
     BEGIN TRY
 
         -- PASO 1: Validación del identificador de correlación obligatorio
@@ -81,6 +82,7 @@ BEGIN
         IF @estadoResultado = 1
         BEGIN
             IF @bloqueoCompartido = 1
+            BEGIN
                 SELECT TOP 1
                     @existe = 1,
                     @fechaHoraInicio = s.fechaHoraInicio,
@@ -88,7 +90,9 @@ BEGIN
                     @procedenciaTemporal = s.procedenciaTemporal
                 FROM dbo.Sesion s WITH (HOLDLOCK)
                 WHERE s.id = @idSesionDefecto;
+            END
             ELSE
+            BEGIN
                 SELECT TOP 1
                     @existe = 1,
                     @fechaHoraInicio = s.fechaHoraInicio,
@@ -96,6 +100,7 @@ BEGIN
                     @procedenciaTemporal = s.procedenciaTemporal
                 FROM dbo.Sesion s WITH (UPDLOCK, HOLDLOCK)
                 WHERE s.id = @idSesionDefecto;
+            END
 
             IF @existe = 0
             BEGIN
@@ -110,9 +115,9 @@ BEGIN
             END
         END
 
-        -- PASO 2.5 (CULM-001 B.1): sesion cancelada => SES_010 (lectura despues del bloqueo de la fila de dbo.Sesion)
+        -- PASO 3 (CULM-001 B.1): sesion cancelada => SES_010 (lectura despues del bloqueo de la fila de dbo.Sesion)
         IF @estadoResultado = 1
-           AND EXISTS (SELECT 1 FROM dbo.SesionCancelacion sc WHERE sc.sesion = @idSesionDefecto)
+           AND EXISTS (SELECT 1 FROM dbo.uv_sesion_cancelacion sc WHERE sc.idSesion = @idSesionDefecto)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'SES_010',
@@ -124,11 +129,11 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
-        -- PASO 2.6 (DEC-065 (2)): sesion extraordinaria pendiente de aprobacion del coordinador => SES_023 (no admite tomas ni asistencia)
+        -- PASO 4 (DEC-065 (2)): sesion extraordinaria pendiente de aprobacion del coordinador => SES_023 (no admite tomas ni asistencia)
         IF @estadoResultado = 1
-           AND EXISTS (SELECT 1 FROM dbo.SesionSolicitud ss
-                       INNER JOIN dbo.EstadoSolicitudSesion es ON es.id = ss.idEstado
-                       WHERE ss.sesion = @idSesionDefecto AND es.esFinal = 0)
+           AND EXISTS (SELECT 1 FROM dbo.uv_solicitud_sesion_registro ss
+                       INNER JOIN dbo.uv_estado_solicitud_sesion es ON es.id = ss.idEstado
+                       WHERE ss.idSesion = @idSesionDefecto AND es.esFinal = 0)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'SES_023',
@@ -140,17 +145,19 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
-        -- PASO 2.7 (VAL-pendientes-john PRU-15): sesion de un periodo CERRADO por el cierre masivo => PER_008 (antes de la ventana,
-        --           para que el motivo sea el periodo y no la hora). Cubre abrir toma o QR, lotes por toma y por sesion y registro por token.
+        -- PASO 5 (VAL-pendientes-john PRU-15): sesion de un periodo CERRADO por el cierre masivo => PER_008 (antes de la ventana,
+        --         para que el motivo sea el periodo y no la hora). Cubre abrir toma o QR, lotes por toma y por sesion y registro por token.
         IF @estadoResultado = 1
+        BEGIN
             EXEC dbo.usp_validar_periodo_abierto_sesion_interno
                 @idSesion = @idSesionDefecto,
                 @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
+        END
 
-        -- PASO 3: Procedencia temporal confirmada (NULL o desconocida = INDETERMINADA)
+        -- PASO 6: Procedencia temporal confirmada (NULL o desconocida = INDETERMINADA)
         IF @estadoResultado = 1
            AND (@procedenciaTemporal IS NULL OR @procedenciaTemporal NOT IN (N'UTC_V2', N'UTC_GENERADOR', N'UTC_OWNER'))
         BEGIN
@@ -164,7 +171,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
-        -- PASO 4: Ventana [inicio - tolerancia, fin + margen) contra el reloj UTC del motor, leído después de obtener
+        -- PASO 7: Ventana [inicio - tolerancia, fin + margen) contra el reloj UTC del motor, leído después de obtener
         --         el bloqueo. Sin tolerancia ni margen es la ventana estricta [inicio, fin) de SES-01.
         IF @estadoResultado = 1
         BEGIN
@@ -198,6 +205,7 @@ BEGIN
 
     END TRY
     BEGIN CATCH
+        -- PASO 8: error no controlado (SYS_001). Sin transaccion propia: la revierte el llamador
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,

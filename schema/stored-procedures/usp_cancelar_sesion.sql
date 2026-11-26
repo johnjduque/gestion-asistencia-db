@@ -22,6 +22,8 @@ GO
 -- @motivo se declara NVARCHAR(4000) (no 500) para que un motivo de mas de 500 caracteres llegue entero y se rechace con
 -- SES_013 en lugar de truncarse en silencio (B1-CAN-03); la columna SesionCancelacion.motivo sigue siendo NVARCHAR(500).
 -- ============================================================================
+-- SKILLS-BD lote 13 (2026-11-26): IF con BEGIN/END, PASO en el CATCH y lecturas sin bloqueo por vistas (cancelacion, asistencias y tomas por uv_sesion_cancelacion, uv_asistencia_registro y uv_toma_asistencia_registro;
+-- antes, las tablas). La lectura con UPDLOCK, HOLDLOCK de dbo.Sesion y las escrituras siguen en las tablas. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_cancelar_sesion]
 (
     @idSesion          UNIQUEIDENTIFIER,
@@ -164,13 +166,17 @@ BEGIN
             FROM dbo.Sesion s WITH (UPDLOCK, HOLDLOCK)
             WHERE s.id = @idSesionDefecto;
 
-            IF EXISTS (SELECT 1 FROM dbo.SesionCancelacion sc WHERE sc.sesion = @idSesionDefecto)
+            IF EXISTS (SELECT 1 FROM dbo.uv_sesion_cancelacion sc WHERE sc.idSesion = @idSesionDefecto)
+            BEGIN
                 SET @codigoRechazo = 'SES_011';
+            END
             -- CULM-001 B.2 (CONTRACT §2.7.2 paso 8, §2.9): una toma (aunque no tenga lecturas) tambien impide cancelar
-            ELSE IF EXISTS (SELECT 1 FROM dbo.Asistencia a WHERE a.sesion = @idSesionDefecto)
-                 OR EXISTS (SELECT 1 FROM dbo.TomaAsistencia t WHERE t.sesion = @idSesionDefecto)
+            ELSE IF EXISTS (SELECT 1 FROM dbo.uv_asistencia_registro a WHERE a.idSesion = @idSesionDefecto)
+                 OR EXISTS (SELECT 1 FROM dbo.uv_toma_asistencia_registro t WHERE t.idSesion = @idSesionDefecto)
+            BEGIN
                 SET @codigoRechazo = IIF(SYSUTCDATETIME() >= DATEADD(MINUTE, IIF(@margenMinutos IS NULL OR @margenMinutos < 0, 0, @margenMinutos), @fechaHoraFin),
                                          'SES_016', 'SES_012');
+            END
 
             IF @codigoRechazo IS NULL
             BEGIN
@@ -203,26 +209,37 @@ BEGIN
             IF @transaccionPropia = 1
             BEGIN
                 IF XACT_STATE() = 1
+                BEGIN
                     COMMIT TRANSACTION;
+                END
                 ELSE IF XACT_STATE() = -1
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
                 SET @transaccionPropia = 0;
             END
         END
     END TRY
     BEGIN CATCH
+        -- PASO 8: error: revertir lo propio, relanzar si la transaccion externa quedo condenada; si no, SYS_001
         SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
             ROLLBACK TRANSACTION sp_cancelar_sesion;
+        END
 
         -- Transaccion externa condenada que no nos pertenece: se propaga al propietario
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',

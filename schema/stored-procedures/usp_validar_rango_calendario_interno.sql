@@ -14,6 +14,8 @@ GO
 -- como instantes UTC [@desdeUtc, @hastaUtcExclusivo) segun TIEMPO/ZONA_HORARIA_SQLSERVER. El caller hace THROW 51000 con el
 -- mensaje tecnico cuando @estadoResultado = 0. Solo lectura.
 -- ============================================================================
+-- SKILLS-BD lote 13 (2026-11-26): un DECLARE por variable, PASO n, IF con BEGIN/END y TRY/CATCH que relanza el error al
+-- llamador (antes, sin TRY: mismo flujo). Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_rango_calendario_interno]
 (
     @idUsuarioEjecutor       UNIQUEIDENTIFIER,
@@ -34,32 +36,47 @@ AS
     DECLARE @offsetIgnorado  INT;
     DECLARE @zonaTexto       NVARCHAR(128) = CAST(dbo.ufn_obtener_parametro_texto(NULL, 'TIEMPO', 'ZONA_HORARIA_SQLSERVER') AS NVARCHAR(128));
     DECLARE @zona            NVARCHAR(128) = IIF(@zonaTexto IS NULL OR @zonaTexto = N'', N'SA Pacific Standard Time', @zonaTexto);
-    DECLARE @p1 NVARCHAR(500), @p2 NVARCHAR(500), @p3 NVARCHAR(500);
+    DECLARE @p1              NVARCHAR(500);
+    DECLARE @p2              NVARCHAR(500);
+    DECLARE @p3              NVARCHAR(500);
 BEGIN
     SET NOCOUNT ON;
 
-    SELECT @desdeUtc = NULL, @hastaUtcExclusivo = NULL;
-    EXEC dbo.usp_validar_consulta_paginada_interno
-        @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacion, @codigoPerfilRequerido = @codigoPerfilRequerido,
-        @numeroPagina = 1, @tamanoPagina = 1,
-        @idUsuarioValidado = @idUsuarioValidado OUTPUT, @offset = @offsetIgnorado OUTPUT,
-        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-        @estadoResultado = @estadoResultado OUTPUT;
-    EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
+    BEGIN TRY
+        -- PASO 1: salidas de fecha vacias; correlacion, ejecutor y perfil requerido (validacion compartida de consultas)
+        SELECT @desdeUtc = NULL, @hastaUtcExclusivo = NULL;
+        EXEC dbo.usp_validar_consulta_paginada_interno
+            @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacion, @codigoPerfilRequerido = @codigoPerfilRequerido,
+            @numeroPagina = 1, @tamanoPagina = 1,
+            @idUsuarioValidado = @idUsuarioValidado OUTPUT, @offset = @offsetIgnorado OUTPUT,
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+            @estadoResultado = @estadoResultado OUTPUT;
 
-    IF @estadoResultado = 1
-       AND (@desde IS NULL OR @hasta IS NULL OR @hasta < @desde OR DATEDIFF(DAY, @desde, @hasta) + 1 > @maximoDias)
-    BEGIN
-        SELECT @p1 = CONVERT(NVARCHAR(10), @desde, 23), @p2 = CONVERT(NVARCHAR(10), @hasta, 23), @p3 = CONVERT(NVARCHAR(10), @maximoDias);
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'CAL_001', @p_param1 = @p1, @p_param2 = @p2, @p_param3 = @p3,
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', CAST(@idCorrelacion AS NVARCHAR(50)));
-        SET @estadoResultado = 0;
-    END
+        -- PASO 2: restaurar el contexto de sesion previo
+        EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
 
-    IF @estadoResultado = 1
-        SELECT @desdeUtc = CAST((CAST(@desde AS DATETIME2(7)) AT TIME ZONE @zona) AT TIME ZONE 'UTC' AS DATETIME2(7)),
-               @hastaUtcExclusivo = CAST((CAST(DATEADD(DAY, 1, @hasta) AS DATETIME2(7)) AT TIME ZONE @zona) AT TIME ZONE 'UTC' AS DATETIME2(7));
+        -- PASO 3: rango obligatorio, ordenado y de hasta @maximoDias dias (CAL_001)
+        IF @estadoResultado = 1
+           AND (@desde IS NULL OR @hasta IS NULL OR @hasta < @desde OR DATEDIFF(DAY, @desde, @hasta) + 1 > @maximoDias)
+        BEGIN
+            SELECT @p1 = CONVERT(NVARCHAR(10), @desde, 23), @p2 = CONVERT(NVARCHAR(10), @hasta, 23), @p3 = CONVERT(NVARCHAR(10), @maximoDias);
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'CAL_001', @p_param1 = @p1, @p_param2 = @p2, @p_param3 = @p3,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', CAST(@idCorrelacion AS NVARCHAR(50)));
+            SET @estadoResultado = 0;
+        END
+
+        -- PASO 4: limites del rango en UTC (dias locales de la zona institucional)
+        IF @estadoResultado = 1
+        BEGIN
+            SELECT @desdeUtc = CAST((CAST(@desde AS DATETIME2(7)) AT TIME ZONE @zona) AT TIME ZONE 'UTC' AS DATETIME2(7)),
+                   @hastaUtcExclusivo = CAST((CAST(DATEADD(DAY, 1, @hasta) AS DATETIME2(7)) AT TIME ZONE @zona) AT TIME ZONE 'UTC' AS DATETIME2(7));
+        END
+    END TRY
+    BEGIN CATCH
+        -- PASO 5: el error se propaga igual al llamador (sin triplete propio, como antes)
+        THROW;
+    END CATCH
 END;
 GO

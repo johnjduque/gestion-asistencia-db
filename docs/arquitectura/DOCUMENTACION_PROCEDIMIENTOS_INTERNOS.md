@@ -632,3 +632,22 @@ Vistas nuevas, delgadas y sin cálculos (una tabla cada una, las mismas filas): 
 `uv_sesion_registro` (`uv_sesion` une `uv_grupo`), `uv_detalle_asistencia_registro` y `uv_archivo_soporte_registro`.
 `uv_revision_cancelacion_registro` (creada en el lote 9, aún sin publicar en `develop`) agrega al final el resto de columnas de
 `dbo.RevisionCancelacion`; las columnas previas no cambian.
+
+## Addendum SKILLS-BD lote 13 (2026-11-26): sesiones y horarios
+
+Mismo nombre, misma firma y mismo comportamiento. Los cinco internos que no tenían prueba directa quedan fijados por
+`test/test_skills_lote13_caracterizacion.sql` (corrida sobre el código previo antes del cambio); los demás siguen cubiertos por las
+pruebas de dominio de sesiones (SES-01, SES-GEN-01, MRM, DEC-073, CULM-001 B.1, recesos y PRU-15).
+
+| Interno | Cambio en el lote 13 |
+| :--- | :--- |
+| `usp_validar_sesion_exista_por_id_interno`, `usp_validar_estudiante_pertenece_a_grupo_de_sesion_interno`, `usp_guardar_horarios_grupo_interno` | La inicialización de las salidas pasa de entre `AS` y `BEGIN` al cuerpo (`PASO 0`, mismos valores) |
+| `usp_validar_horarios_grupo_interno` | Igual; las franjas se leen por `uv_horario_registro` |
+| `usp_validar_docente_titular_sesion_interno`, `usp_validar_sesion_mismo_dia_interno`, `usp_validar_rango_calendario_interno` | `DECLARE` en la cabecera (uno por variable), `PASO n`, `IF` con `BEGIN/END` y `TRY/CATCH` que relanza el error al llamador (antes no tenían `TRY`: mismo flujo, sin triplete propio) |
+| `usp_validar_coordinador_sesion_interno` | `PASO 0` y la sesión se lee por `uv_sesion_registro` |
+| `usp_validar_solape_sesion_interno` | `PASO 0`, `IF` con `BEGIN/END` y grupo por `uv_grupo_registro`. La lectura con `UPDLOCK, HOLDLOCK` de `dbo.Sesion` sigue en la tabla |
+| `usp_validar_sesion_ventana_registro_interno` | `PASO 0`, `PASO n` enteros (antes 2.5, 2.6 y 2.7), `IF` con `BEGIN/END`, cancelación y solicitud por `uv_sesion_cancelacion`, `uv_solicitud_sesion_registro` y `uv_estado_solicitud_sesion`. Las lecturas con `HOLDLOCK` y `UPDLOCK, HOLDLOCK` de `dbo.Sesion` siguen en la tabla |
+| `usp_precargar_sesiones_grupo_interno` | `PASO 0`, `PASO n`, `IF` con `BEGIN/END`, `IIF` en lugar de `COALESCE` y lecturas sin bloqueo por vistas (`uv_parametro`, `uv_grupo_registro`, `uv_periodo_academico_fechas`, `uv_horario_registro`, `uv_dia`, `uv_sesion_registro`, `uv_asistencia_registro`, `uv_toma_asistencia_registro`, `uv_sesion_procedencia_clasificacion_registro`). El correlativo con `UPDLOCK, HOLDLOCK` y las escrituras siguen en las tablas |
+
+Vistas nuevas, delgadas y sin cálculos (una tabla cada una, las mismas filas): `uv_programa_registro`, `uv_facultad_registro`,
+`uv_solicitud_sesion_registro`, `uv_horario_registro` y `uv_sesion_procedencia_clasificacion_registro`.

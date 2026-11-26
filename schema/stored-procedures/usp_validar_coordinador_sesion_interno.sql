@@ -16,6 +16,7 @@ GO
 --     INTERSECT ufn_programas_coordinador); si no, SEC_002. En un grupo compartido solo ese coordinador aprueba, rechaza o cancela.
 -- Devuelve el grupo de la sesion en @idGrupo. No escribe ni abre transacciones (compatible con INSERT ... EXEC del llamador).
 -- ============================================================================
+-- SKILLS-BD lote 13 (2026-11-26): PASO 0 y la sesion se lee por uv_sesion_registro (antes, la tabla). Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_coordinador_sesion_interno]
 (
     @idSesion                UNIQUEIDENTIFIER,
@@ -33,6 +34,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
+    -- PASO 0: inicializacion de las salidas desde el catalogo
     SELECT
         @mensajeUsuarioResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
         @mensajeTecnicoResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
@@ -83,7 +85,7 @@ BEGIN
         -- PASO 4: ambito del coordinador sobre el grupo de la sesion (SEC_002)
         IF @estadoResultado = 1
         BEGIN
-            SELECT @idGrupo = s.grupo FROM dbo.Sesion s WHERE s.id = @idSesionDefecto;
+            SELECT @idGrupo = s.idGrupo FROM dbo.uv_sesion_registro s WHERE s.id = @idSesionDefecto;
 
             IF NOT EXISTS (SELECT idPrograma FROM dbo.ufn_programas_grupo_responsable(@idGrupo)
                            INTERSECT

@@ -13,6 +13,8 @@ GO
 -- institucional), con las mismas columnas y orden que usp_consultar_sesiones_calendario_estudiante. @hasta >= @desde y maximo 31
 -- dias; si no, CAL_001. Validacion compartida en usp_validar_rango_calendario_interno (perfil DOCENTE); THROW 51000 si falla.
 -- ============================================================================
+-- SKILLS-BD lote 13 (2026-11-26): DECLARE en la cabecera, PASO n, IF con BEGIN/END, lecturas por vistas uv_* (docente por uv_docente_identidad) y
+-- TRY/CATCH de lectura que relanza (READ_QUERY_RESULTSET). Mismas columnas y mismas filas.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_sesiones_calendario_docente]
 (
     @idUsuario      UNIQUEIDENTIFIER,
@@ -30,21 +32,34 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    EXEC dbo.usp_validar_rango_calendario_interno
-        @idUsuarioEjecutor = @idUsuario, @idCorrelacion = @idCorrelacion, @codigoPerfilRequerido = 'DOCENTE',
-        @desde = @desde, @hasta = @hasta,
-        @idUsuarioValidado = @idUsuarioValidado OUTPUT, @desdeUtc = @desdeUtc OUTPUT, @hastaUtcExclusivo = @hastaUtcExclusivo OUTPUT,
-        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-        @estadoResultado = @estadoResultado OUTPUT;
-    IF @estadoResultado = 0
-        THROW 51000, @mensajeTecnicoResultado, 1;
+    BEGIN TRY
+        -- PASO 1: ejecutor DOCENTE y rango de fechas
+        EXEC dbo.usp_validar_rango_calendario_interno
+            @idUsuarioEjecutor = @idUsuario, @idCorrelacion = @idCorrelacion, @codigoPerfilRequerido = 'DOCENTE',
+            @desde = @desde, @hasta = @hasta,
+            @idUsuarioValidado = @idUsuarioValidado OUTPUT, @desdeUtc = @desdeUtc OUTPUT, @hastaUtcExclusivo = @hastaUtcExclusivo OUTPUT,
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+            @estadoResultado = @estadoResultado OUTPUT;
 
-    SELECT  c.idSesion, c.idGrupo, c.codigoGrupo, c.nombreGrupo, c.idAsignatura, c.codigoAsignatura, c.nombreAsignatura,
-            c.idDocente, c.nombreDocente, c.fechaHoraInicioUtc, c.fechaHoraFinUtc, c.esExtraordinaria, c.estaCancelada,
-            c.motivoCancelacion, c.esCancelacionAutomatica, c.nombreDiaFestivo
-    FROM    dbo.uv_sesion_calendario c
-    WHERE   c.fechaHoraInicioUtc >= @desdeUtc AND c.fechaHoraInicioUtc < @hastaUtcExclusivo
-      AND   c.idDocente IN (SELECT d.id FROM dbo.Docente d WHERE d.usuario = @idUsuarioValidado)
-    ORDER BY c.fechaHoraInicioUtc ASC, c.idSesion ASC;
+        -- PASO 2: rechazo de validacion: se propaga al llamador
+        IF @estadoResultado = 0
+        BEGIN
+            THROW 51000, @mensajeTecnicoResultado, 1;
+        END
+
+        -- PASO 3: sesiones del docente en el rango
+        SELECT  c.idSesion, c.idGrupo, c.codigoGrupo, c.nombreGrupo, c.idAsignatura, c.codigoAsignatura, c.nombreAsignatura,
+                c.idDocente, c.nombreDocente, c.fechaHoraInicioUtc, c.fechaHoraFinUtc, c.esExtraordinaria, c.estaCancelada,
+                c.motivoCancelacion, c.esCancelacionAutomatica, c.nombreDiaFestivo
+        FROM    dbo.uv_sesion_calendario c
+        WHERE   c.fechaHoraInicioUtc >= @desdeUtc AND c.fechaHoraInicioUtc < @hastaUtcExclusivo
+          AND   c.idDocente IN (SELECT d.id FROM dbo.uv_docente_identidad d WHERE d.idUsuario = @idUsuarioValidado)
+        ORDER BY c.fechaHoraInicioUtc ASC, c.idSesion ASC;
+    END TRY
+    BEGIN CATCH
+        -- PASO 4: consulta de lectura (READ_QUERY_RESULTSET): el error, incluido el rechazo de validacion,
+        -- se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
+        THROW;
+    END CATCH
 END;
 GO
