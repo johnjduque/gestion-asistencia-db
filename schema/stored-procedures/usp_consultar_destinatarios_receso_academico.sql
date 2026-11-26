@@ -15,6 +15,7 @@ GO
 -- nombreGrupo ('G01 de <asignatura>'), fecha (DATE local), fechaHoraInicio, fechaHoraFin (UTC), motivoCancelacion (con el prefijo).
 -- Orden: rol, nombre, inicio.
 -- ============================================================================
+-- SKILLS-BD lote 9 (2026-11-26): DECLARE en la cabecera, PASO n, IF con BEGIN/END, cancelaciones por uv_sesion_cancelacion/uv_sesion (antes, las tablas) y TRY/CATCH de lectura que relanza. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_destinatarios_receso_academico]
 (
     @idUsuarioEjecutor UNIQUEIDENTIFIER,
@@ -30,86 +31,103 @@ AS
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado         BIT = 1;
+    DECLARE @p1 NVARCHAR(500) = CONVERT(NVARCHAR(36), @idRecesoDefecto);
 BEGIN
     SET NOCOUNT ON;
 
-    EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
-        @idCorrelacion = @idCorrelacionDefecto,
-        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-        @estadoResultado = @estadoResultado OUTPUT;
-
-    IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'GEN_002', @p_param1 = 'idUsuarioEjecutor',
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @estadoResultado = 0;
-    END
-
-    IF @estadoResultado = 1
-        EXEC dbo.usp_resolver_institucion_gestor_periodo_interno
-            @idUsuario = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacionDefecto,
-            @idInstitucion = @idInstitucion OUTPUT,
+    BEGIN TRY
+        -- PASO 1: Validar el identificador de correlacion
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
+            @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
-    IF @estadoResultado = 1
-    BEGIN
-        SELECT @fechaReceso = r.fecha
-        FROM dbo.uv_periodo_receso_academico r
-        WHERE r.id = @idRecesoDefecto AND r.idInstitucion = @idInstitucion;
-
-        IF @fechaReceso IS NULL
+        -- PASO 2: Ejecutor obligatorio (GEN_002)
+        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
         BEGIN
-            DECLARE @p1 NVARCHAR(500) = CONVERT(NVARCHAR(36), @idRecesoDefecto);
             EXEC dbo.usp_obtener_mensaje_catalogo
-                @p_codigo = 'REC_009', @p_param1 = @p1,
+                @p_codigo = 'GEN_002', @p_param1 = 'idUsuarioEjecutor',
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
             SET @estadoResultado = 0;
         END
-    END
 
-    IF @estadoResultado = 0
-        THROW 51000, @mensajeTecnicoResultado, 1;
+        -- PASO 3: Institucion del administrador ejecutor
+        IF @estadoResultado = 1
+        BEGIN
+            EXEC dbo.usp_resolver_institucion_gestor_periodo_interno
+                @idUsuario = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacionDefecto,
+                @idInstitucion = @idInstitucion OUTPUT,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
 
-    WITH cancelaciones AS (
-        SELECT  sc.sesion AS idSesion, s.grupo AS idGrupo, s.fechaHoraInicio, s.fechaHoraFin, sc.motivo
-        FROM    dbo.SesionCancelacion sc
-        INNER JOIN dbo.Sesion s ON s.id = sc.sesion
-        WHERE   sc.recesoAcademico = @idRecesoDefecto
-    )
-    SELECT  rolDestinatario  = CAST(x.rolDestinatario AS VARCHAR(12)),
-            idUsuario        = x.idUsuario,
-            nombreCompleto   = CAST(x.nombreCompleto AS NVARCHAR(400)),
-            correo           = x.correo,
-            idSesion         = x.idSesion,
-            idGrupo          = x.idGrupo,
-            nombreAsignatura = x.nombreAsignatura,
-            nombreGrupo      = CAST(CONCAT(N'G', FORMAT(x.codigoGrupo, '00'), N' de ', x.nombreAsignatura) AS NVARCHAR(300)),
-            fecha            = @fechaReceso,
-            fechaHoraInicio  = x.fechaHoraInicio,
-            fechaHoraFin     = x.fechaHoraFin,
-            motivoCancelacion = x.motivo
-    FROM (
-        SELECT  rolDestinatario = 'ESTUDIANTE', ei.idUsuario, ei.nombreCompleto, u.correo, c.idSesion, c.idGrupo,
-                g.nombreAsignatura, g.codigo AS codigoGrupo, c.fechaHoraInicio, c.fechaHoraFin, c.motivo
-        FROM    cancelaciones c
-        INNER JOIN dbo.uv_grupo g ON g.id = c.idGrupo
-        INNER JOIN dbo.uv_estudiante_grupo eg ON eg.idGrupo = c.idGrupo AND eg.codigoEstadoEstudiante = @codigoMatriculaActiva
-        INNER JOIN dbo.uv_estudiante_identidad ei ON ei.id = eg.idEstudiante
-        INNER JOIN dbo.uv_usuario u ON u.id = ei.idUsuario
-        UNION ALL
-        SELECT  'DOCENTE', di.idUsuario, di.nombreCompleto, u.correo, c.idSesion, c.idGrupo,
-                g.nombreAsignatura, g.codigo, c.fechaHoraInicio, c.fechaHoraFin, c.motivo
-        FROM    cancelaciones c
-        INNER JOIN dbo.uv_grupo g ON g.id = c.idGrupo
-        INNER JOIN dbo.uv_docente_identidad di ON di.id = g.idDocente
-        INNER JOIN dbo.uv_usuario u ON u.id = di.idUsuario
-    ) x
-    ORDER BY x.rolDestinatario, x.nombreCompleto, x.fechaHoraInicio, x.idSesion;
+        -- PASO 4: Receso activo de esa institucion (REC_009)
+        IF @estadoResultado = 1
+        BEGIN
+            SELECT @fechaReceso = r.fecha
+            FROM dbo.uv_periodo_receso_academico r
+            WHERE r.id = @idRecesoDefecto AND r.idInstitucion = @idInstitucion;
+
+            IF @fechaReceso IS NULL
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'REC_009', @p_param1 = @p1,
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+                SET @estadoResultado = 0;
+            END
+        END
+
+        -- PASO 5: Rechazo: THROW 51000 con el mensaje tecnico
+        IF @estadoResultado = 0
+        BEGIN
+            THROW 51000, @mensajeTecnicoResultado, 1;
+        END;
+
+        -- PASO 6: Estudiantes activos y docentes de las sesiones canceladas por el receso
+        WITH cancelaciones AS (
+            SELECT  sc.idSesion AS idSesion, s.idGrupo AS idGrupo, s.fechaHoraInicio, s.fechaHoraFin, sc.motivo
+            FROM    dbo.uv_sesion_cancelacion sc
+            INNER JOIN dbo.uv_sesion s ON s.id = sc.idSesion
+            WHERE   sc.idRecesoAcademico = @idRecesoDefecto
+        )
+        SELECT  rolDestinatario  = CAST(x.rolDestinatario AS VARCHAR(12)),
+                idUsuario        = x.idUsuario,
+                nombreCompleto   = CAST(x.nombreCompleto AS NVARCHAR(400)),
+                correo           = x.correo,
+                idSesion         = x.idSesion,
+                idGrupo          = x.idGrupo,
+                nombreAsignatura = x.nombreAsignatura,
+                nombreGrupo      = CAST(CONCAT(N'G', FORMAT(x.codigoGrupo, '00'), N' de ', x.nombreAsignatura) AS NVARCHAR(300)),
+                fecha            = @fechaReceso,
+                fechaHoraInicio  = x.fechaHoraInicio,
+                fechaHoraFin     = x.fechaHoraFin,
+                motivoCancelacion = x.motivo
+        FROM (
+            SELECT  rolDestinatario = 'ESTUDIANTE', ei.idUsuario, ei.nombreCompleto, u.correo, c.idSesion, c.idGrupo,
+                    g.nombreAsignatura, g.codigo AS codigoGrupo, c.fechaHoraInicio, c.fechaHoraFin, c.motivo
+            FROM    cancelaciones c
+            INNER JOIN dbo.uv_grupo g ON g.id = c.idGrupo
+            INNER JOIN dbo.uv_estudiante_grupo eg ON eg.idGrupo = c.idGrupo AND eg.codigoEstadoEstudiante = @codigoMatriculaActiva
+            INNER JOIN dbo.uv_estudiante_identidad ei ON ei.id = eg.idEstudiante
+            INNER JOIN dbo.uv_usuario u ON u.id = ei.idUsuario
+            UNION ALL
+            SELECT  'DOCENTE', di.idUsuario, di.nombreCompleto, u.correo, c.idSesion, c.idGrupo,
+                    g.nombreAsignatura, g.codigo, c.fechaHoraInicio, c.fechaHoraFin, c.motivo
+            FROM    cancelaciones c
+            INNER JOIN dbo.uv_grupo g ON g.id = c.idGrupo
+            INNER JOIN dbo.uv_docente_identidad di ON di.id = g.idDocente
+            INNER JOIN dbo.uv_usuario u ON u.id = di.idUsuario
+        ) x
+        ORDER BY x.rolDestinatario, x.nombreCompleto, x.fechaHoraInicio, x.idSesion;
+    END TRY
+    BEGIN CATCH
+        -- PASO 7: consulta de lectura (READ_QUERY_RESULTSET): el error, incluido el rechazo de validacion,
+        -- se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
+        THROW;
+    END CATCH
 END;
 GO

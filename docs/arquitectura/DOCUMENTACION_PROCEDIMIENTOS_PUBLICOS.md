@@ -644,3 +644,22 @@ Misma firma, mismo resultset y mismos códigos; prueba `test/test_skills_lote8_c
 | `usp_registrar_aviso_falta_sesion` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END` y sesión por `uv_sesion`. La lectura idempotente con `UPDLOCK, HOLDLOCK` sigue en la tabla |
 | `usp_consultar_sesiones_pendientes_aviso_falta`, `usp_consultar_faltas_sesion_aviso` | `PASO n`, `IF` con `BEGIN/END`, sin `ISNULL` (`IIF`/`IF` equivalentes), avisos por `uv_aviso_falta_sesion` y `TRY/CATCH` de lectura que relanza |
 | `usp_consultar_contacto_notificacion` | `DECLARE` en la cabecera y `PASO n` |
+
+## Addendum SKILLS-BD lote 9 (2026-11-26): periodos, festivos y recesos
+
+Misma firma, mismo resultset y mismos códigos; prueba `test/test_skills_lote9_caracterizacion.sql` más las de dominio de cada SP
+(`test_culm001_b1_festivos`, `test_culm001_c_cierre_masivo`, `test_fix_cierre_001/002`, `test_receso_academico`,
+`test_usp_periodo_academico_gestion`, `test_val_pru15_periodo_cerrado`, `test_p3_revision_final_bd`).
+
+| SP | Cambio en el lote 9 |
+| :--- | :--- |
+| `usp_crear_periodo_academico`, `usp_actualizar_periodo_academico` | `PASO n`, `IF` con `BEGIN/END`, `DECLARE` del `CATCH` a la cabecera y las lecturas posteriores al bloqueo por `uv_periodo_academico_fechas` (antes, la tabla). El bloqueo `UPDLOCK, HOLDLOCK` sigue en la tabla |
+| `usp_eliminar_periodo_academico` | `PASO n` y cancelaciones por receso por `uv_sesion_cancelacion`/`uv_receso_academico_registro`. Los bloqueos y los `DELETE` siguen en las tablas |
+| `usp_crear_receso_academico` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END`, `IIF` en lugar de `COALESCE` y detalle por `uv_sesion_cancelacion`/`uv_sesion` |
+| `usp_retirar_receso_academico` | `PASO n`, `IF` con `BEGIN/END` y periodo/cancelaciones por `uv_periodo_academico_fechas`/`uv_sesion_cancelacion`. El bloqueo del receso sigue en la tabla |
+| `usp_aplicar_festivos_grupo` | `PASO n`, `IF` con `BEGIN/END` y grupo por `uv_grupo_registro` (antes, `dbo.Grupo`) |
+| `usp_aplicar_festivos_periodo` | `PASO n`, `IF` con `BEGIN/END` y `IIF` en lugar de `ISNULL` sobre variables |
+| `usp_cargar_dias_festivos` | `PASO n` e `IF` con `BEGIN/END` |
+| `usp_ejecutar_cierre_masivo_periodo` | `PASO n` numerados, `IF` con `BEGIN/END` (también los `COMMIT` de una línea) y lecturas sin bloqueo por `uv_estado_estudiante_grupo`, `uv_tipo_alerta_inasistencia`, `uv_estado_revision_cancelacion`, `uv_grupo_registro`, `uv_estudiante_grupo_registro` y `uv_revision_cancelacion_registro`. El orden de bloqueos (§2.0) no cambia: `PeriodoAcademico`, `RevisionCancelacion` y `EstudianteGrupo` con `UPDLOCK, HOLDLOCK` y los `UPDATE` siguen en las tablas |
+| `usp_consultar_carga_festivos_anio`, `usp_consultar_dias_festivos`, `usp_consultar_sesiones_festivo_con_asistencia_paginado`, `usp_consultar_destinatarios_receso_academico`, `usp_consultar_recesos_periodo` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END`, lecturas por vistas y `TRY/CATCH` de lectura que relanza |
+

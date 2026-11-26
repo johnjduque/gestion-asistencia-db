@@ -12,6 +12,7 @@ GO
 -- RBAC ADMINISTRADOR; la validacion y la escritura (transaccion propia o savepoint) las hace
 -- usp_cargar_dias_festivos_interno. Los festivos son nacionales: no dependen de la institucion del administrador.
 -- ============================================================================
+-- SKILLS-BD lote 9 (2026-11-26): comentarios PASO y BEGIN/END en todos los IF.
 CREATE OR ALTER PROCEDURE [dbo].[usp_cargar_dias_festivos]
 (
     @anio                     INT,
@@ -33,12 +34,14 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
     BEGIN TRY
+        -- PASO 1: Validar correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
+        -- PASO 2: Validar parametros obligatorios
         IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -49,6 +52,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 3: Validar perfil ADMINISTRADOR del ejecutor
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_validar_permiso_rbac_usuario_interno
@@ -60,6 +64,7 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
+        -- PASO 4: Cargar los festivos del anio (nucleo interno)
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_cargar_dias_festivos_interno
@@ -78,8 +83,11 @@ BEGIN
         END
     END TRY
     BEGIN CATCH
+        -- PASO 5: Manejo de errores
         IF XACT_STATE() = -1 AND @@TRANCOUNT > 0
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
@@ -89,6 +97,7 @@ BEGIN
         SET @estadoResultado = 0;
     END CATCH
 
+    -- PASO 6: Resultado
     SELECT
         idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,

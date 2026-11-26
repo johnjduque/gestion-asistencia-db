@@ -12,6 +12,7 @@ GO
 -- Administrador.institucion; SEC_002 si no). @soloFuturas = 1 por defecto (mantenimiento: solo sesiones futuras sin
 -- asistencia). Transaccion propia o savepoint; exito FES_008 con los conteos. Idempotente.
 -- ============================================================================
+-- SKILLS-BD lote 9 (2026-11-26): lecturas via vistas, comentarios PASO y BEGIN/END en todos los IF.
 CREATE OR ALTER PROCEDURE [dbo].[usp_aplicar_festivos_grupo]
 (
     @idGrupo           UNIQUEIDENTIFIER,
@@ -39,12 +40,14 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
     BEGIN TRY
+        -- PASO 1: Validar correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
+        -- PASO 2: Validar parametros obligatorios
         IF @estadoResultado = 1 AND (@idUsuarioEjecutor IS NULL OR @idGrupo IS NULL)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -55,6 +58,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 3: Validar perfil ADMINISTRADOR del ejecutor
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_validar_permiso_rbac_usuario_interno
@@ -66,12 +70,12 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
-        -- Grupo existente (aunque este deshabilitado) y de la institucion del administrador
+        -- PASO 4: Grupo existente (aunque este deshabilitado) y su institucion
         IF @estadoResultado = 1
         BEGIN
             SELECT @idInstitucionGrupo = pa.idInstitucion
-            FROM dbo.Grupo g
-            INNER JOIN dbo.uv_periodo_academico pa ON pa.id = g.periodoAcademico
+            FROM dbo.uv_grupo_registro g
+            INNER JOIN dbo.uv_periodo_academico pa ON pa.id = g.idPeriodoAcademico
             WHERE g.id = @idGrupoDefecto;
 
             IF @idInstitucionGrupo IS NULL
@@ -85,6 +89,7 @@ BEGIN
             END
         END
 
+        -- PASO 5: Validar titularidad del administrador sobre la institucion
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_validar_titularidad_jerarquica_interno
@@ -97,6 +102,7 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
+        -- PASO 6: Abrir transaccion propia o savepoint y aplicar festivos
         IF @estadoResultado = 1
         BEGIN
             IF @@TRANCOUNT = 0
@@ -122,7 +128,9 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
 
             IF XACT_STATE() = -1
+            BEGIN
                 THROW 51000, @mensajeTecnicoResultado, 1;
+            END
 
             -- Las ramas de rechazo del nucleo no escriben: se confirma la transaccion propia en ambos casos
             IF @transaccionPropia = 1
@@ -133,17 +141,24 @@ BEGIN
         END
     END TRY
     BEGIN CATCH
+        -- PASO 7: Manejo de errores
         SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
             ROLLBACK TRANSACTION sp_aplicar_festivos_grupo;
+        END
 
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
@@ -153,6 +168,7 @@ BEGIN
         SET @estadoResultado = 0;
     END CATCH
 
+    -- PASO 8: Resultado
     SELECT
         idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,

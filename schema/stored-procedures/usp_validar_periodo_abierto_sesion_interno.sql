@@ -19,6 +19,7 @@ GO
 -- Una sesion inexistente no se rechaza aqui (la existencia la valida el llamador). Sin escrituras ni transacciones; en exito deja
 -- intactos los mensajes y @estadoResultado. No recibe GRANT del runtime.
 -- ============================================================================
+-- SKILLS-BD lote 9 (2026-11-26): PASO n, periodo por uv_sesion/uv_grupo_registro/uv_periodo_academico_fechas (antes, las tablas) y TRY/CATCH (relanza con transaccion abierta). Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_periodo_abierto_sesion_interno]
 (
     @idSesion                UNIQUEIDENTIFIER,
@@ -36,24 +37,44 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    SELECT TOP 1 @idPeriodo = pa.id, @nombrePeriodo = pa.nombre, @fechaCierreUtc = pa.fechaCierreUtc
-    FROM dbo.Sesion s
-    INNER JOIN dbo.Grupo g ON g.id = s.grupo
-    INNER JOIN dbo.PeriodoAcademico pa ON pa.id = g.periodoAcademico
-    WHERE s.id = @idSesion;
+    BEGIN TRY
+        -- PASO 1: Periodo de la sesion (sesion -> grupo -> periodo)
+        SELECT TOP 1 @idPeriodo = pa.id, @nombrePeriodo = pa.nombre, @fechaCierreUtc = pa.fechaCierreUtc
+        FROM dbo.uv_sesion s
+        INNER JOIN dbo.uv_grupo_registro g ON g.id = s.idGrupo
+        INNER JOIN dbo.uv_periodo_academico_fechas pa ON pa.id = g.idPeriodoAcademico
+        WHERE s.id = @idSesion;
 
-    IF @fechaCierreUtc IS NOT NULL
-    BEGIN
-        SET @textoFechaCierre = CONVERT(NVARCHAR(40), @fechaCierreUtc, 126);
+        -- PASO 2: Periodo cerrado: PER_008. Abierto (o sesion inexistente): no toca las salidas, como antes
+        IF @fechaCierreUtc IS NOT NULL
+        BEGIN
+            SET @textoFechaCierre = CONVERT(NVARCHAR(40), @fechaCierreUtc, 126);
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'PER_008',
+                @p_param1 = @nombrePeriodo,
+                @p_param2 = @textoFechaCierre,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Periodo: ', @idPeriodo, ' Sesion: ', @idSesion,
+                                                  ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+    END TRY
+    BEGIN CATCH
+        -- PASO 3: corre dentro de la transaccion del llamador: con transaccion abierta relanza para que el llamador revierta
+        -- (comportamiento previo, sin TRY); sin transaccion devuelve el triplete SYS_001.
+        IF XACT_STATE() <> 0
+        BEGIN
+            THROW;
+        END
+
         EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'PER_008',
-            @p_param1 = @nombrePeriodo,
-            @p_param2 = @textoFechaCierre,
+            @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Periodo: ', @idPeriodo, ' Sesion: ', @idSesion,
-                                              ' Correlacion: ', @idCorrelacionDefecto);
+
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
         SET @estadoResultado = 0;
-    END
+    END CATCH
 END;
 GO
