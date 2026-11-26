@@ -576,3 +576,23 @@ Misma firma, mismo resultset y mismos códigos; prueba `test/test_skills_lote4_c
 | `usp_consultar_programas_creditos_facultad_paginado` | Vínculos asignatura-plan por `uv_asignatura_plan_estudio` (antes, la tabla puente más `uv_asignatura`; mismas filas porque todas las FK del camino son `NOT NULL`); `PASO n` y comentario del `CATCH` de lectura |
 
 Los `ISNULL` que quedan en estas consultas son sobre agregaciones (`MAX`, `COUNT`, `SUM`), permitidos por la skill.
+
+## Addendum SKILLS-BD lote 5 (2026-11-26): docentes y grupos
+
+Misma firma, mismo resultset y mismos códigos; prueba `test/test_skills_lote5_caracterizacion.sql` más las de dominio de cada SP.
+
+| SP | Cambio en el lote 5 |
+| :--- | :--- |
+| `usp_vincular_docente_programa`, `usp_cambiar_estado_docente_programa` | Existencia del vínculo por `uv_docente_programa` (antes, la tabla; el núcleo lo revalida con bloqueo); `DECLARE` del `CATCH` a la cabecera; `IF` con `BEGIN/END` |
+| `usp_actualizar_docente_programa` | `DECLARE` del `CATCH` a la cabecera; `IF` con `BEGIN/END` |
+| `usp_crear_grupo` | `IF` con `BEGIN/END`; orden de programas por `uv_programa` (antes, la tabla) |
+| `usp_actualizar_grupo` | `IF` con `BEGIN/END`; estado de matrícula por `uv_estado_estudiante_grupo`. Las lecturas con `UPDLOCK` (`Grupo`, `EstudianteGrupo`) siguen en la tabla |
+| `usp_consultar_audiencias_realtime_grupo` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END`, `TRY/CATCH` de lectura y lecturas por `uv_grupo`, `uv_docente_identidad`, `uv_estudiante_grupo` y `uv_periodo_academico` (mismas filas: FK `NOT NULL` en todo el camino) |
+| `usp_consultar_programas_grupo` | `PASO n`, `IF` con `BEGIN/END`, `TRY/CATCH` de lectura y titular por `uv_grupo` y `uv_docente_identidad` |
+| `usp_consultar_grupos_facultad_paginado` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END`, `TRY/CATCH` de lectura y facultad del decano por `uv_facultad`, `uv_decano_identidad` y `uv_programa` |
+| `usp_consultar_candidatos_docente_programa` | `DECLARE` en la cabecera, `TRY/CATCH` de lectura y vínculo existente por `uv_docente_programa` |
+| `usp_consultar_grupos_paginado` | `DECLARE` en la cabecera, programa responsable por `uv_programa` y comentario del `CATCH` de lectura |
+| `usp_consultar_docentes_programa`, `usp_consultar_oferta_creacion_grupo_docente` | `DECLARE` en la cabecera; `CATCH` de lectura (comentario o bloque nuevo que relanza) |
+| `usp_consultar_docentes_facultad_paginado` | Solo el comentario del `CATCH` de lectura |
+
+Los `CATCH` de las consultas relanzan el error (READ_QUERY_RESULTSET), igual que en los lotes anteriores.

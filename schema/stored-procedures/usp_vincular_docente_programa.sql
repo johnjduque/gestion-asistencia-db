@@ -12,6 +12,8 @@ GO
 -- RBAC COORDINADOR + titularidad PROGRAMA se validan DENTRO del SP. @password es un parametro obsoleto que se ignora (SEG-11).
 -- Una sola transaccion con ownership (transaccion propia o savepoint si el llamador ya tiene una).
 -- MEJORAS-SERGIO-2026-11-18 (migracion 56): sin tipo de vinculacion (el sistema ya no lo administra; se retiro DOC_004).
+-- SKILLS-BD lote 5 (2026-11-26): vinculo duplicado por uv_docente_programa (antes, la tabla; el nucleo lo revalida con
+-- bloqueo), DECLARE del CATCH en la cabecera e IF con BEGIN/END. Mismo comportamiento.
 CREATE OR ALTER PROCEDURE [dbo].[usp_vincular_docente_programa]
 (
     @idDocente              UNIQUEIDENTIFIER = NULL,
@@ -49,6 +51,7 @@ AS
     DECLARE @conteoTransaccionesInicial INT = 0;
     DECLARE @transaccionPropia          BIT = 0;
     DECLARE @savepointCreado            BIT = 0;
+    DECLARE @estadoTransaccionCatch     INT;
 
 BEGIN
     SET NOCOUNT ON;
@@ -138,12 +141,14 @@ BEGIN
                 END
                 -- DEC-073: el docente nuevo usa el correo institucional (VCE_008)
                 IF @estadoResultado = 1
-                EXEC dbo.usp_validar_correo_institucional_personal_interno
-                    @correo = @correo,
-                    @idCorrelacion = @idCorrelacionDefecto,
-                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-                    @estadoResultado = @estadoResultado OUTPUT;
+                BEGIN
+                    EXEC dbo.usp_validar_correo_institucional_personal_interno
+                        @correo = @correo,
+                        @idCorrelacion = @idCorrelacionDefecto,
+                        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                        @estadoResultado = @estadoResultado OUTPUT;
+                END
             END
             ELSE IF @modoUsuario = 1
             BEGIN
@@ -157,7 +162,9 @@ BEGIN
                     SET @estadoResultado = 0;
                 END
                 ELSE
+                BEGIN
                     SELECT TOP 1 @idDocenteResuelto = id FROM dbo.uv_docente_identidad WHERE idUsuario = @idUsuarioResuelto;
+                END
             END
             ELSE
             BEGIN
@@ -186,7 +193,7 @@ BEGIN
 
             -- Vinculo duplicado
             IF @estadoResultado = 1 AND @idDocenteResuelto IS NOT NULL
-               AND EXISTS (SELECT 1 FROM dbo.DocentePrograma WHERE docente = @idDocenteResuelto AND programa = @idProgramaDefecto)
+               AND EXISTS (SELECT 1 FROM dbo.uv_docente_programa WHERE idDocente = @idDocenteResuelto AND idPrograma = @idProgramaDefecto)
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
                     @p_codigo = 'DOC_006',
@@ -196,7 +203,9 @@ BEGIN
             END
 
             IF @estadoResultado = 0
+            BEGIN
                 SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            END
         END
 
         -- PASO 8: escrituras en una sola transaccion con ownership
@@ -232,7 +241,9 @@ BEGIN
                     @estadoResultado = @estadoResultado OUTPUT;
 
                 IF @estadoResultado = 1
+                BEGIN
                     SELECT TOP 1 @idUsuarioResuelto = id FROM dbo.uv_usuario WHERE correo = @correoNormalizado;
+                END
             END
 
             -- 8B: rol Docente para la persona (modos nuevo y usuario sin rol)
@@ -245,7 +256,9 @@ BEGIN
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                     @estadoResultado = @estadoResultado OUTPUT;
                 IF @estadoResultado = 1
+                BEGIN
                     SELECT TOP 1 @idDocenteResuelto = id FROM dbo.uv_docente_identidad WHERE idUsuario = @idUsuarioResuelto;
+                END
             END
 
             -- 8C: vinculo (revalida la unicidad bajo UPDLOCK, HOLDLOCK)
@@ -265,24 +278,38 @@ BEGIN
             BEGIN
                 IF XACT_STATE() = 1
                 BEGIN
-                    IF @estadoResultado = 1 COMMIT TRANSACTION; ELSE ROLLBACK TRANSACTION;
+                    IF @estadoResultado = 1
+                    BEGIN
+                        COMMIT TRANSACTION;
+                    END
+                    ELSE
+                    BEGIN
+                        ROLLBACK TRANSACTION;
+                    END
                 END
                 ELSE IF XACT_STATE() = -1
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
             END
             ELSE IF @savepointCreado = 1
             BEGIN
                 IF XACT_STATE() = 1 AND @estadoResultado = 0
+                BEGIN
                     ROLLBACK TRANSACTION usp_vincular_docente_programa;
+                END
             END
         END
     END TRY
     BEGIN CATCH
-        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+        SET @estadoTransaccionCatch = XACT_STATE();
 
         IF @transaccionPropia = 1
         BEGIN
-            IF @estadoTransaccionCatch <> 0 ROLLBACK TRANSACTION;
+            IF @estadoTransaccionCatch <> 0
+            BEGIN
+                ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN

@@ -13,6 +13,7 @@ GO
 -- CORREGIR_DOCUMENTO_DOCENTE con los valores anteriores y nuevos. Los nombres afectan a la persona en todos sus
 -- programas. RBAC COORDINADOR + titularidad PROGRAMA + existencia del vinculo se validan DENTRO del SP, y las
 -- validaciones de lectura ocurren antes de abrir la transaccion.
+-- SKILLS-BD lote 5 (2026-11-26): DECLARE del CATCH en la cabecera e IF con BEGIN/END; mismo comportamiento.
 CREATE OR ALTER PROCEDURE [dbo].[usp_actualizar_docente_programa]
 (
     @idDocente          UNIQUEIDENTIFIER,
@@ -53,6 +54,8 @@ AS
     DECLARE @mensajeTecnicoInterno   NVARCHAR(4000);
     DECLARE @estadoInterno           BIT;
     DECLARE @mensajeErrorInterno     NVARCHAR(2048);
+    DECLARE @estadoTransaccionCatch     INT;
+
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
@@ -77,21 +80,25 @@ BEGIN
 
         -- PASO 3: Validar perfil del ejecutor (RBAC COORDINADOR)
         IF @estadoResultado = 1
+        BEGIN
             EXEC dbo.usp_validar_permiso_rbac_usuario_interno
                 @idUsuario = @idUsuarioEjecutorDefecto, @codigoPerfilRequerido = 'COORDINADOR',
                 @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
+        END
 
         -- PASO 4: Validar titularidad del ejecutor sobre PROGRAMA
         IF @estadoResultado = 1
+        BEGIN
             EXEC dbo.usp_validar_titularidad_jerarquica_interno
                 @idUsuario = @idUsuarioEjecutorDefecto, @idEntidadPadre = @idProgramaDefecto,
                 @tipoEntidadPadre = 'PROGRAMA', @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
+        END
 
         -- PASO 5: Al menos un campo a actualizar
         IF @estadoResultado = 1 AND @pn IS NULL AND @sn IS NULL AND @pa IS NULL AND @sa IS NULL
@@ -229,16 +236,25 @@ BEGIN
 
             IF @transaccionPropia = 1
             BEGIN
-                IF XACT_STATE() = 1 COMMIT TRANSACTION;
-                ELSE IF XACT_STATE() = -1 ROLLBACK TRANSACTION;
+                IF XACT_STATE() = 1
+                BEGIN
+                    COMMIT TRANSACTION;
+                END
+                ELSE IF XACT_STATE() = -1
+                BEGIN
+                    ROLLBACK TRANSACTION;
+                END
             END
         END
     END TRY
     BEGIN CATCH
-        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+        SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
-            IF @estadoTransaccionCatch <> 0 ROLLBACK TRANSACTION;
+            IF @estadoTransaccionCatch <> 0
+            BEGIN
+                ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN

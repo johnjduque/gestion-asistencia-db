@@ -17,6 +17,7 @@ GO
 -- (@idProgramaResponsable, o el primero por nombre si viene NULL). Si el coordinador no coordina ningun programa de la
 -- asignatura, o el programa indicado no es uno de ellos: SEC_002. SES-GEN-01 (migracion 64): la asignatura debe tener un vinculo
 -- activo con un plan activo (ASI_014); no se exige custodiar todos sus programas: DEC-077 sustituye esa regla.
+-- SKILLS-BD lote 5 (2026-11-26): IF de una sentencia con BEGIN/END; orden de programas por uv_programa. Misma firma, resultset y codigos.
 CREATE OR ALTER PROCEDURE [dbo].[usp_crear_grupo]
 (
     @idGrupo                 UNIQUEIDENTIFIER,
@@ -154,11 +155,11 @@ BEGIN
             SELECT TOP (1) @idProgramaResponsableResuelto = v.idPrograma
             FROM dbo.uv_asignatura_plan_estudio v
             INNER JOIN dbo.ufn_programas_coordinador(@idUsuarioEjecutorDefecto) cp ON cp.idPrograma = v.idPrograma
-            INNER JOIN dbo.Programa p ON p.id = v.idPrograma
+            INNER JOIN dbo.uv_programa p ON p.id = v.idPrograma
             WHERE v.idAsignatura = @idAsignaturaDefecto
               AND v.estaActivoVinculo = 1
               AND (@idProgramaResponsable IS NULL OR v.idPrograma = @idProgramaResponsable)
-            ORDER BY p.nombre, p.id;
+            ORDER BY p.nombrePrograma, p.id;
 
             IF @idProgramaResponsableResuelto IS NULL
             BEGIN
@@ -186,10 +187,12 @@ BEGIN
                 ORDER BY fechaInicio DESC, id;
 
                 IF @idPeriodoResolved IS NULL
+                BEGIN
                     SELECT TOP (1) @idPeriodoResolved = id
                     FROM [dbo].[uv_periodo_academico]
                     WHERE estado = 'PLANEACION'
                     ORDER BY fechaInicio ASC, id;
+                END
             END
 
             IF @idPeriodoResolved IS NULL OR NOT EXISTS (SELECT 1 FROM [dbo].[uv_periodo_academico] WHERE id = @idPeriodoResolved)
@@ -337,13 +340,19 @@ BEGIN
         -- Cierre de la transaccion propia: confirma el INSERT; las ramas de rechazo no escriben y solo liberan el bloqueo
         IF @transaccionPropia = 1
         BEGIN
-            IF @estadoResultado = 1 COMMIT TRANSACTION;
+            IF @estadoResultado = 1
+            BEGIN
+                COMMIT TRANSACTION;
+            END
             ELSE ROLLBACK TRANSACTION;
         END
 
     END TRY
     BEGIN CATCH
-        IF XACT_STATE() <> 0 AND @transaccionPropia = 1 ROLLBACK TRANSACTION;
+        IF XACT_STATE() <> 0 AND @transaccionPropia = 1
+        BEGIN
+            ROLLBACK TRANSACTION;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',

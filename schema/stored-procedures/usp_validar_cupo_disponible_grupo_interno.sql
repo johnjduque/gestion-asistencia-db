@@ -5,6 +5,7 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
+-- SKILLS-BD lote 5 (2026-11-26): DECLARE de @cuposRestantes en la cabecera; mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_cupo_disponible_grupo_interno]
 (
     @idGrupo                 UNIQUEIDENTIFIER,
@@ -19,6 +20,7 @@ AS
     DECLARE @idGrupoDefecto       UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idGrupo, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @cantidadEstudiantes  INT = 0;
     DECLARE @cupoMaximo           INT = 0;
+    DECLARE @cuposRestantes       INT = 0;
 
     -- Inicialización de respuesta desde parámetros del catálogo
     SELECT 
@@ -51,8 +53,6 @@ BEGIN
         -- PASO 3: Validación de cupo límite frente a estudiantes inscritos
         IF @estadoResultado = 1
         BEGIN
-            DECLARE @cuposRestantes INT = 0;
-
             SELECT TOP 1 
                 @cantidadEstudiantes = estudiantesActivos,
                 @cupoMaximo = capacidadMaximaPermitida,

@@ -8,6 +8,8 @@ GO
 -- HU093 (D12): activa o inactiva el VINCULO del docente con el programa del coordinador (DocentePrograma.estado).
 -- No toca Usuario.estado, ni el rol Docente, ni los grupos ya asignados, ni la cuenta de identidad. Idempotente.
 -- RBAC COORDINADOR + titularidad PROGRAMA + existencia del vinculo se validan DENTRO del SP.
+-- SKILLS-BD lote 5 (2026-11-26): existencia del vinculo por uv_docente_programa (antes, la tabla), DECLARE del CATCH en la
+-- cabecera e IF con BEGIN/END. Mismo comportamiento.
 CREATE OR ALTER PROCEDURE [dbo].[usp_cambiar_estado_docente_programa]
 (
     @idDocente          UNIQUEIDENTIFIER,
@@ -29,6 +31,7 @@ AS
     DECLARE @conteoTransaccionesInicial INT = 0;
     DECLARE @transaccionPropia          BIT = 0;
     DECLARE @savepointCreado            BIT = 0;
+    DECLARE @estadoTransaccionCatch     INT;
 
 BEGIN
     SET NOCOUNT ON;
@@ -54,21 +57,25 @@ BEGIN
 
         -- PASO 3: Validar perfil del ejecutor (RBAC COORDINADOR)
         IF @estadoResultado = 1
+        BEGIN
             EXEC dbo.usp_validar_permiso_rbac_usuario_interno
                 @idUsuario = @idUsuarioEjecutorDefecto, @codigoPerfilRequerido = 'COORDINADOR',
                 @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
+        END
 
         -- PASO 4: Validar titularidad del ejecutor sobre PROGRAMA
         IF @estadoResultado = 1
+        BEGIN
             EXEC dbo.usp_validar_titularidad_jerarquica_interno
                 @idUsuario = @idUsuarioEjecutorDefecto, @idEntidadPadre = @idProgramaDefecto,
                 @tipoEntidadPadre = 'PROGRAMA', @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
+        END
 
         -- PASO 5: Validacion de negocio (GEN_002)
         IF @estadoResultado = 1 AND @estaActivo IS NULL
@@ -83,7 +90,7 @@ BEGIN
 
         -- PASO 6: Validacion de negocio (DOC_008)
         IF @estadoResultado = 1
-           AND NOT EXISTS (SELECT 1 FROM dbo.DocentePrograma WHERE docente = @idDocenteDefecto AND programa = @idProgramaDefecto)
+           AND NOT EXISTS (SELECT 1 FROM dbo.uv_docente_programa WHERE idDocente = @idDocenteDefecto AND idPrograma = @idProgramaDefecto)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'DOC_008',
@@ -119,16 +126,25 @@ BEGIN
 
             IF @transaccionPropia = 1
             BEGIN
-                IF XACT_STATE() = 1 COMMIT TRANSACTION;
-                ELSE IF XACT_STATE() = -1 ROLLBACK TRANSACTION;
+                IF XACT_STATE() = 1
+                BEGIN
+                    COMMIT TRANSACTION;
+                END
+                ELSE IF XACT_STATE() = -1
+                BEGIN
+                    ROLLBACK TRANSACTION;
+                END
             END
         END
     END TRY
     BEGIN CATCH
-        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+        SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
-            IF @estadoTransaccionCatch <> 0 ROLLBACK TRANSACTION;
+            IF @estadoTransaccionCatch <> 0
+            BEGIN
+                ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN

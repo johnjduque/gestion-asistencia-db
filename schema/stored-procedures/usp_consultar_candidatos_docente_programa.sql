@@ -15,6 +15,8 @@ GO
 -- La uv_docente_programa se lee sin contexto de ejecutor porque la autorizacion es explicita (RBAC +
 -- titularidad del programa) y el filtro de institucion se aplica aqui.
 -- ============================================================================
+-- SKILLS-BD lote 5 (2026-11-26): DECLARE en la cabecera, TRY/CATCH de lectura y vinculo existente por uv_docente_programa
+-- (antes, la tabla); mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_candidatos_docente_programa]
 (
     @idUsuarioEjecutor  UNIQUEIDENTIFIER,
@@ -23,8 +25,6 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_candidatos_docente_programa]
     @busqueda           NVARCHAR(50)
 )
 AS
-BEGIN
-    SET NOCOUNT ON;
 
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idUsuarioDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
@@ -41,76 +41,85 @@ BEGIN
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado BIT = 1;
+BEGIN
+    SET NOCOUNT ON;
 
-    -- PASO 1: Validar el identificador de correlacion
-    EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
-        @idCorrelacion = @idCorrelacionDefecto,
-        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-        @estadoResultado = @estadoResultado OUTPUT;
-
-    -- PASO 2: Validar perfil del ejecutor (RBAC COORDINADOR)
-    IF @estadoResultado = 1
-    BEGIN
-        EXEC dbo.usp_validar_permiso_rbac_usuario_interno
-            @idUsuario = @idUsuarioDefecto,
-            @codigoPerfilRequerido = 'COORDINADOR',
+    BEGIN TRY
+        -- PASO 1: Validar el identificador de correlacion
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
-    END
 
-    -- PASO 3: Validar titularidad del ejecutor sobre PROGRAMA
-    IF @estadoResultado = 1
-    BEGIN
-        EXEC dbo.usp_validar_titularidad_jerarquica_interno
-            @idUsuario = @idUsuarioDefecto,
-            @idEntidadPadre = @idProgramaDefecto,
-            @tipoEntidadPadre = 'PROGRAMA',
-            @idCorrelacion = @idCorrelacionDefecto,
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-            @estadoResultado = @estadoResultado OUTPUT;
-    END
+        -- PASO 2: Validar perfil del ejecutor (RBAC COORDINADOR)
+        IF @estadoResultado = 1
+        BEGIN
+            EXEC dbo.usp_validar_permiso_rbac_usuario_interno
+                @idUsuario = @idUsuarioDefecto,
+                @codigoPerfilRequerido = 'COORDINADOR',
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
 
-    -- PASO 4: Validacion de negocio (DOC_007)
-    IF @estadoResultado = 1 AND (@texto IS NULL OR LEN(@texto) < @minimoCaracteres)
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'DOC_007',
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @estadoResultado = 0;
-    END
+        -- PASO 3: Validar titularidad del ejecutor sobre PROGRAMA
+        IF @estadoResultado = 1
+        BEGIN
+            EXEC dbo.usp_validar_titularidad_jerarquica_interno
+                @idUsuario = @idUsuarioDefecto,
+                @idEntidadPadre = @idProgramaDefecto,
+                @tipoEntidadPadre = 'PROGRAMA',
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
 
-    -- PASO 5: Validacion de entrada
-    IF @estadoResultado = 0
-    BEGIN
-        THROW 51000, @mensajeTecnicoResultado, 1;
-    END
+        -- PASO 4: Validacion de negocio (DOC_007)
+        IF @estadoResultado = 1 AND (@texto IS NULL OR LEN(@texto) < @minimoCaracteres)
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'DOC_007',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @estadoResultado = 0;
+        END
 
-    -- PASO 6: Consulta y retorno de resultados
-    SELECT @idInstitucion = idInstitucion FROM dbo.uv_programa WHERE id = @idProgramaDefecto;
+        -- PASO 5: Validacion de entrada
+        IF @estadoResultado = 0
+        BEGIN
+            THROW 51000, @mensajeTecnicoResultado, 1;
+        END
 
-    -- PASO 7: Consulta y retorno de resultados
-    SELECT TOP (@maximo)
-        c.idDocente,
-        c.idUsuario,
-        c.codigoTipoIdentificacion,
-        c.numeroIdentificacion,
-        c.nombreCompleto
-    FROM (
-        SELECT DISTINCT d.idDocente, d.idUsuario, d.codigoTipoIdentificacion, d.numeroIdentificacion, d.nombreCompleto
-        FROM dbo.uv_docente_programa d
-        WHERE d.idInstitucion = @idInstitucion
-          AND d.estaActivoUsuario = 1
-          AND NOT EXISTS (SELECT 1 FROM dbo.DocentePrograma x WHERE x.docente = d.idDocente AND x.programa = @idProgramaDefecto)
-          AND (
-                (@soloDigitos = 1 AND CAST(d.numeroIdentificacion AS NVARCHAR(12)) LIKE @patron ESCAPE '\')
-                OR (@soloDigitos = 0 AND d.nombreCompleto LIKE @patron ESCAPE '\')
-              )
-    ) c
-    ORDER BY c.nombreCompleto ASC, c.idDocente ASC;
+        -- PASO 6: Resolver la institucion del programa
+        SELECT @idInstitucion = idInstitucion FROM dbo.uv_programa WHERE id = @idProgramaDefecto;
+
+        -- PASO 7: Consulta y retorno de resultados
+        SELECT TOP (@maximo)
+            c.idDocente,
+            c.idUsuario,
+            c.codigoTipoIdentificacion,
+            c.numeroIdentificacion,
+            c.nombreCompleto
+        FROM (
+            SELECT DISTINCT d.idDocente, d.idUsuario, d.codigoTipoIdentificacion, d.numeroIdentificacion, d.nombreCompleto
+            FROM dbo.uv_docente_programa d
+            WHERE d.idInstitucion = @idInstitucion
+              AND d.estaActivoUsuario = 1
+              AND NOT EXISTS (SELECT 1 FROM dbo.uv_docente_programa x WHERE x.idDocente = d.idDocente AND x.idPrograma = @idProgramaDefecto)
+              AND (
+                    (@soloDigitos = 1 AND CAST(d.numeroIdentificacion AS NVARCHAR(12)) LIKE @patron ESCAPE '\')
+                    OR (@soloDigitos = 0 AND d.nombreCompleto LIKE @patron ESCAPE '\')
+                  )
+        ) c
+        ORDER BY c.nombreCompleto ASC, c.idDocente ASC;
+    END TRY
+    BEGIN CATCH
+        -- PASO 8: consulta de lectura (READ_QUERY_RESULTSET): el error, incluido el rechazo de validacion,
+        -- se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
+        THROW;
+    END CATCH
 END;
 GO
