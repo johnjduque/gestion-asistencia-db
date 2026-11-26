@@ -31,6 +31,8 @@ GO
 -- previo, aplica el del usuario ejecutor solo durante la consulta y SIEMPRE
 -- restaura el previo (en exito y ante excepcion).
 -- ============================================================================
+-- SKILLS-BD lote 5 (2026-11-26): DECLARE en la cabecera, programa responsable por uv_programa (antes, la tabla) y
+-- comentario del CATCH de lectura; mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_grupos_paginado]
 (
     @idUsuarioEjecutor  UNIQUEIDENTIFIER,
@@ -42,10 +44,6 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_grupos_paginado]
     @tamanoPagina       INT              = 10
 )
 AS
-BEGIN
-    SET NOCOUNT ON;
-    SET XACT_ABORT ON;
-
     -- 1. Normalizacion de parametros con funciones de catalogo (sin valores quemados ni ISNULL)
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idUsuarioDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
@@ -66,6 +64,9 @@ BEGIN
 
     -- Contexto de sesion previo de la conexion (valor original, sin conversion), para restaurarlo.
     DECLARE @contextoPrevio SQL_VARIANT = SESSION_CONTEXT(N'idUsuarioEjecutor');
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
 
     BEGIN TRY
         -- PASO 1: 3. Validacion obligatoria de identificador de correlacion
@@ -120,9 +121,9 @@ BEGIN
             di.nombreCompleto AS nombreDocente
         FROM dbo.uv_auth_grupo g
         LEFT JOIN dbo.uv_docente_identidad di ON di.id = g.idDocente
-        OUTER APPLY (SELECT TOP (1) r.idPrograma, p.nombre
+        OUTER APPLY (SELECT TOP (1) r.idPrograma, nombre = p.nombrePrograma
                      FROM dbo.ufn_programas_grupo_responsable(g.id) r
-                     INNER JOIN dbo.Programa p ON p.id = r.idPrograma) pr
+                     INNER JOIN dbo.uv_programa p ON p.id = r.idPrograma) pr
         WHERE
             (@idPeriodoAcademico IS NULL OR g.idPeriodoAcademico = @idPeriodoAcademico)
             AND (@idAsignatura IS NULL OR g.idAsignatura = @idAsignatura)
@@ -144,7 +145,8 @@ BEGIN
 
     END TRY
     BEGIN CATCH
-        -- Restaurar el contexto previo ante cualquier excepcion, antes de propagar el error
+        -- PASO 7: consulta de lectura (READ_QUERY_RESULTSET): se restaura el contexto y el error, incluido el
+        -- rechazo de validacion, se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
         EXEC sys.sp_set_session_context
             @key = N'idUsuarioEjecutor',
             @value = @contextoPrevio,

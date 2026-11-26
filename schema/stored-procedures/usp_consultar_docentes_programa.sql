@@ -17,6 +17,8 @@ GO
 -- SESSION_CONTEXT se aplica solo durante la consulta y SIEMPRE se restaura.
 -- MEJORAS-SERGIO-2026-11-18 (migracion 56): sin filtro ni columnas de tipo de vinculacion.
 -- ============================================================================
+-- SKILLS-BD lote 5 (2026-11-26): DECLARE en la cabecera (antes, dentro del BEGIN) y comentario del CATCH de lectura;
+-- mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_docentes_programa]
 (
     @idUsuarioEjecutor  UNIQUEIDENTIFIER,
@@ -30,9 +32,6 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_docentes_programa]
     @idUsuario          UNIQUEIDENTIFIER = NULL
 )
 AS
-BEGIN
-    SET NOCOUNT ON;
-
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idUsuarioDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idProgramaDefecto    UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idPrograma, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
@@ -50,6 +49,8 @@ BEGIN
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado BIT = 1;
     DECLARE @contextoPrevio SQL_VARIANT = SESSION_CONTEXT(N'idUsuarioEjecutor');
+BEGIN
+    SET NOCOUNT ON;
 
     BEGIN TRY
         -- PASO 1: Validar el identificador de correlacion
@@ -121,6 +122,8 @@ BEGIN
         EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
     END TRY
     BEGIN CATCH
+        -- PASO 8: consulta de lectura (READ_QUERY_RESULTSET): se restaura el contexto y el error, incluido el
+        -- rechazo de validacion, se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
         EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
         THROW;
     END CATCH;

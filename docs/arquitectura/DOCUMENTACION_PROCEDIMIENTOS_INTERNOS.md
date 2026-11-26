@@ -533,3 +533,16 @@ Mismo nombre, misma firma y mismo comportamiento; prueba `test/test_skills_lote4
 | `usp_validar_programa_academico_interno` | `PASO n`; coordinador actual por `uv_programa` (antes, la tabla); `TRY/CATCH`: dentro de una transacción relanza para que el llamador revierta, sin transacción devuelve `SYS_001`. Las lecturas con `UPDLOCK, HOLDLOCK` (`Coordinador`, `Programa`) siguen en la tabla |
 | `usp_validar_coordinador_de_facultad_interno` | `PASO n` y `@idCorrelacionDefecto` en los mensajes |
 | `usp_actualizar_facultad_interno`, `usp_cambiar_estado_facultad_interno`, `usp_insertar_programa_academico_interno`, `usp_actualizar_programa_academico_interno`, `usp_cambiar_estado_programa_academico_interno` | Solo comentarios `PASO n`; ya cumplían el resto |
+
+## Addendum SKILLS-BD lote 5 (2026-11-26): docentes y grupos
+
+Mismo nombre, misma firma y mismo comportamiento; prueba `test/test_skills_lote5_caracterizacion.sql` (`SKL5_*`).
+
+| Interno | Cambio en el lote 5 |
+| :--- | :--- |
+| `usp_validar_docente_vinculo_activo_programa_interno` | Vínculos por `uv_docente_programa.estaActivoVinculacion` (antes, `dbo.DocentePrograma`); `PASO n`; `TRY/CATCH`: dentro de una transacción relanza para que el llamador revierta, sin transacción devuelve `SYS_001` |
+| `usp_vincular_docente_programa_interno` | `PASO n` y `TRY/CATCH` con el mismo criterio. La lectura con `UPDLOCK, HOLDLOCK` sobre `DocentePrograma` sigue en la tabla |
+| `usp_validar_consulta_grupo_docente_titular_interno` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END` y `TRY/CATCH` con el mismo criterio; mismas validaciones y códigos |
+| `usp_sincronizar_docente_interno` | Unicidad del rol de docente por `uv_docente_identidad` (antes, `dbo.Docente`) |
+| `usp_validar_cupo_disponible_grupo_interno` | `DECLARE` de `@cuposRestantes` en la cabecera |
+| `usp_validar_docente_exista_por_id_interno` | Sin cambios: ya cumplía; queda cubierto por la prueba del lote |

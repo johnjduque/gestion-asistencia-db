@@ -5,6 +5,7 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
+-- SKILLS-BD lote 5 (2026-11-26): IF de una sentencia con BEGIN/END; estado de matricula por uv_estado_estudiante_grupo. Lecturas con UPDLOCK siguen en tabla. Misma firma y codigos.
 CREATE OR ALTER PROCEDURE [dbo].[usp_actualizar_grupo]
 (
     @idGrupo                 UNIQUEIDENTIFIER,
@@ -210,7 +211,7 @@ BEGIN
         -- PASO 5: Validar que el nuevo cupo máximo no sea inferior a la ocupación actual del grupo
         IF @estadoResultado = 1 AND @cupoMaximo IS NOT NULL AND @cupoMaximo > 0
         BEGIN
-            SELECT @estadoMatriculaActiva = e.id FROM dbo.EstadoEstudianteGrupo e WHERE e.codigo = 'A';
+            SELECT @estadoMatriculaActiva = e.id FROM dbo.uv_estado_estudiante_grupo e WHERE e.codigo = 'A';
 
             -- Lectura bloqueante en tablas base (la vista uv_estadistica_grupo no admite hints): rango de matriculas del grupo bajo UPDLOCK, HOLDLOCK
             SELECT @estudiantesActivos = COUNT(1)
@@ -254,13 +255,19 @@ BEGIN
         -- Cierre de la transaccion propia: confirma el UPDATE; las ramas de rechazo no escriben y solo liberan el bloqueo
         IF @transaccionPropia = 1
         BEGIN
-            IF @estadoResultado = 1 COMMIT TRANSACTION;
+            IF @estadoResultado = 1
+            BEGIN
+                COMMIT TRANSACTION;
+            END
             ELSE ROLLBACK TRANSACTION;
         END
 
     END TRY
     BEGIN CATCH
-        IF XACT_STATE() <> 0 AND @transaccionPropia = 1 ROLLBACK TRANSACTION;
+        IF XACT_STATE() <> 0 AND @transaccionPropia = 1
+        BEGIN
+            ROLLBACK TRANSACTION;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
