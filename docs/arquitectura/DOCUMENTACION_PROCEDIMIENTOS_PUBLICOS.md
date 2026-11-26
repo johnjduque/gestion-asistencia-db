@@ -684,3 +684,25 @@ En `usp_consultar_resumen_asistencia_grupo_docente_paginado` (`tieneAdvertenciaV
 sin devolver `NULL`, pero los metadatos del resultset las describen ahora como anulables (así describe SQL Server un `IIF`). Los valores
 no cambian; solo cambia esa marca de los metadatos.
 
+
+## Addendum SKILLS-BD lote 11 (2026-11-26): revisiones de cancelación y reclamos
+
+Misma firma, mismos valores en el resultset y mismos códigos; prueba `test/test_skills_lote11_caracterizacion.sql` más las de dominio
+de cada SP (CULM-001 C y D.1/D.2, reclamos del estudiante y del docente, SES-04, DEC-073, puntos de control, PRU-13, PRU-15, REC3 y
+LB-004D).
+
+| SP | Cambio en el lote 11 |
+| :--- | :--- |
+| `usp_consultar_destinatarios_reclamo_asistencia`, `usp_consultar_destinatarios_revision_cancelacion` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END`, lecturas por vistas y `TRY/CATCH` de lectura que relanza |
+| `usp_consultar_detalle_solicitud_revision_docente`, `usp_consultar_solicitudes_revision_estudiante` | Igual; la cadena reclamo, asistencia, matrícula, estudiante, sesión, grupo, asignatura, soporte, categoría y razón por `uv_solicitud_revision_asistencia_registro`, `uv_asistencia_registro`, `uv_estudiante_grupo_registro`, `uv_estudiante_identidad`, `uv_usuario`, `uv_sesion_registro`, `uv_grupo_registro`, `uv_asignatura`, `uv_archivo_soporte_registro`, `uv_categoria_justificacion` y `uv_razon_causa`. `soportesJson` sale de un `OUTER APPLY` con `IIF` (antes, `ISNULL`) |
+| `usp_consultar_asistencias_grupo_ambito_paginado` | Igual; las comprobaciones de ámbito por `uv_usuario`, `uv_grupo_registro`, `uv_docente_identidad`, `uv_programa`, `uv_facultad`, `uv_administrador`, `uv_coordinador_identidad` y `uv_decano_identidad` |
+| `usp_consultar_revisiones_cancelacion_coordinador_paginado`, `_decano_paginado`, `_docente_paginado` | Igual; estados, transiciones, programas y vínculo estudiante-programa por `uv_estado_revision_cancelacion`, `uv_transicion_revision_cancelacion`, `uv_programa` y `uv_estudiante_programa_semestre`. El `ISNULL` que queda es sobre `STRING_AGG` (agregación, permitido) |
+| `usp_actualizar_resolutores_revisiones_cancelacion` | `PASO n`, `IF` con `BEGIN/END`, `IIF` en lugar de `ISNULL` y la cola del lote, los catálogos y los resolutores por vistas. El `UPDLOCK, HOLDLOCK` de la revisión y las escrituras siguen en las tablas; el JSON de novedades es el mismo |
+| `usp_decidir_revision_cancelacion`, `usp_resolver_revision_cancelacion` | `PASO n`, `IF` con `BEGIN/END` (también los `COMMIT` de una línea), longitudes del motivo con `IIF` (antes, `ISNULL`; mismos 10, 500 y tope 1000) y lecturas sin bloqueo por vistas (`uv_transicion_revision_cancelacion`, `uv_estado_revision_cancelacion`, `uv_estudiante_grupo_registro`, `uv_estado_estudiante_grupo`, `uv_grupo_registro`, `uv_docente_identidad`, `uv_decano_rol`, `uv_tipo_alerta_inasistencia`, `uv_programa`). Los `UPDLOCK, HOLDLOCK` (`RevisionCancelacion`, `EstudianteGrupo`) y las escrituras siguen en las tablas |
+| `usp_radicar_solicitud_revision_asistencia` | `IF` con `BEGIN/END` y sesión, matrícula, asistencia y estado por `uv_sesion_registro`, `uv_estudiante_grupo_registro`, `uv_asistencia_registro` y `uv_estado` |
+| `usp_resolver_solicitud_revision_asistencia` | `IF` con `BEGIN/END`, `IIF` en lugar de `ISNULL`, `PASO` en el `CATCH` y catálogos y llaves por vistas. Los `UPDLOCK, HOLDLOCK` (`SolicitudRevisionAsistencia`, `DetalleAsistencia`) y las escrituras siguen en las tablas |
+| `usp_retirar_solicitud_revision_asistencia` | `IF` con `BEGIN/END`, `PASO` en el `CATCH` y estado, asistencia, matrícula y estudiante por vistas. El `UPDLOCK, HOLDLOCK` del reclamo y la escritura siguen en la tabla |
+
+En `usp_consultar_detalle_solicitud_revision_docente` y `usp_consultar_solicitudes_revision_estudiante` la columna `soportesJson` sigue
+sin devolver `NULL` (`'[]'` sin soportes), pero los metadatos del resultset la describen ahora como anulable (así describe SQL Server un
+`IIF`). Los valores no cambian; solo cambia esa marca de los metadatos.

@@ -12,6 +12,9 @@ GO
 --   * Detalle unico por (asistencia, toma); codigo desde dbo.seq_detalle_asistencia_codigo; registradoPorEstudiante y
 --     fechaRegistroUtc. @soloSiNoExiste = 1 no sobrescribe un detalle existente (QR idempotente y cierre): @detalleCreado = 0.
 --   * Orden de bloqueos: Sesion (lo toma el llamador) -> EstudianteGrupo -> TomaAsistencia -> Asistencia -> DetalleAsistencia.
+-- SKILLS-BD lote 11 (2026-11-26): la inicializacion de las salidas pasa de la cabecera al cuerpo (PASO 0), IF con BEGIN/END y
+-- lecturas sin bloqueo por vistas uv_* (antes, las tablas). Las lecturas con UPDLOCK/HOLDLOCK (EstudianteGrupo, TomaAsistencia,
+-- Asistencia, DetalleAsistencia) y las escrituras siguen en las tablas. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_sincronizar_asistencia_estudiante_interno]
 (
     @idEstudiante            UNIQUEIDENTIFIER,
@@ -49,15 +52,15 @@ AS
     DECLARE @soloSiNoExisteDefecto   BIT = IIF(@soloSiNoExiste IS NULL, 0, @soloSiNoExiste);
     DECLARE @ahoraUtc                DATETIME2(0) = SYSUTCDATETIME();
 
-    -- Inicialización de respuesta desde parámetros del catálogo
+BEGIN
+    SET NOCOUNT ON;
+    -- PASO 0: Inicialización de respuesta desde parámetros del catálogo (antes estaba entre AS y BEGIN)
     SELECT 
         @mensajeUsuarioResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
         @mensajeTecnicoResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
         @estadoResultado = 1,
         @detalleCreado = 0;
 
-BEGIN
-    SET NOCOUNT ON;
     BEGIN TRY
 
         -- PASO 1: Validación del identificador de correlación obligatorio
@@ -71,10 +74,10 @@ BEGIN
         IF @estadoResultado = 1
         BEGIN
             SELECT TOP 1 
-                @idGrupo = grupo,
+                @idGrupo = idGrupo,
                 @fechaInicioSesion = fechaHoraInicio,
                 @fechaFinSesion = fechaHoraFin
-            FROM dbo.Sesion
+            FROM dbo.uv_sesion_registro
             WHERE id = @idSesionDefecto;
 
             IF @idGrupo IS NULL
@@ -96,7 +99,7 @@ BEGIN
             SELECT TOP 1 
                 @idEstudianteGrupo = eg.id
             FROM dbo.EstudianteGrupo eg WITH (UPDLOCK, HOLDLOCK)
-            INNER JOIN dbo.EstadoEstudianteGrupo eeg ON eeg.id = eg.estado
+            INNER JOIN dbo.uv_estado_estudiante_grupo eeg ON eeg.id = eg.estado
             WHERE eg.estudiante = @idEstudianteDefecto 
               AND eg.grupo = @idGrupo
               AND eeg.codigo = 'A';
@@ -122,7 +125,7 @@ BEGIN
             SET @codigoCanonico = @codigoEstadoDefecto;
 
             SELECT TOP 1 @idRazonCausa = id
-            FROM dbo.RazonCausa
+            FROM dbo.uv_razon_causa
             WHERE codigo = @codigoCanonico
               AND codigo IN ('AN', 'SJC', 'EX');
 
@@ -148,13 +151,17 @@ BEGIN
         BEGIN
             -- Registro del estudiante (QR): bloqueo compartido de la toma (NB-4); el cierre (U/X) sigue serializado
             IF @idToma IS NOT NULL AND @registradoPorEstudianteDefecto = 1 AND @soloSiNoExisteDefecto = 1
+            BEGIN
                 SELECT @idTomaResuelta = t.id
                 FROM dbo.TomaAsistencia t WITH (HOLDLOCK)
                 WHERE t.id = @idToma AND t.sesion = @idSesionDefecto;
+            END
             ELSE IF @idToma IS NOT NULL
+            BEGIN
                 SELECT @idTomaResuelta = t.id
                 FROM dbo.TomaAsistencia t WITH (UPDLOCK, HOLDLOCK)
                 WHERE t.id = @idToma AND t.sesion = @idSesionDefecto;
+            END
 
             IF @idToma IS NOT NULL
             BEGIN
@@ -180,21 +187,25 @@ BEGIN
 
                 IF @idTomaResuelta IS NULL
                 BEGIN
-                    SELECT @idDocenteApertura = d.id FROM dbo.Docente d WHERE d.usuario = @idUsuarioEjecutor;
+                    SELECT @idDocenteApertura = d.id FROM dbo.uv_docente_identidad d WHERE d.idUsuario = @idUsuarioEjecutor;
                     IF @idDocenteApertura IS NULL
-                        SELECT @idDocenteApertura = g.docente FROM dbo.Grupo g WHERE g.id = @idGrupo;
+                    BEGIN
+                        SELECT @idDocenteApertura = g.idDocente FROM dbo.uv_grupo_registro g WHERE g.id = @idGrupo;
+                    END
 
                     SET @idTomaResuelta = NEWID();
                     INSERT INTO dbo.TomaAsistencia (id, sesion, numero, modo, estado, esImplicita, docenteApertura, fechaAperturaUtc,
                                                     fechaCierreUtc, totalAusentesMarcados, idCorrelacionApertura, idCorrelacionCierre)
                     SELECT @idTomaResuelta, @idSesionDefecto, 1, m.id, e.id, 1, @idDocenteApertura, @ahoraUtc, @ahoraUtc, 0,
                            @idCorrelacionDefecto, @idCorrelacionDefecto
-                    FROM dbo.ModoTomaAsistencia m
-                    CROSS JOIN dbo.EstadoTomaAsistencia e
+                    FROM dbo.uv_modo_toma_asistencia m
+                    CROSS JOIN dbo.uv_estado_toma_asistencia e
                     WHERE m.usaCodigoQr = 0 AND e.estaAbierta = 0;
 
                     IF @@ROWCOUNT <> 1
+                    BEGIN
                         THROW 52501, 'CULM001_B2_CATALOGO_INCONSISTENTE: faltan ModoTomaAsistencia(usaCodigoQr = 0) o EstadoTomaAsistencia(estaAbierta = 0).', 1;
+                    END
                 END
             END
         END
@@ -252,6 +263,7 @@ BEGIN
 
     END TRY
     BEGIN CATCH
+        -- PASO 6: Error: SYS_001 (el llamador gestiona su transaccion)
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,

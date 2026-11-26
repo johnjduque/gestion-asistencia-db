@@ -618,3 +618,17 @@ Mismo nombre, misma firma y mismo comportamiento; prueba `test/test_skills_lote1
 
 Vista nueva, delgada y sin cálculos: `uv_evaluacion_alerta_grupo` (la tabla `EvaluacionAlertaGrupo` no tenía vista).
 
+
+## Addendum SKILLS-BD lote 11 (2026-11-26): revisiones de cancelación y reclamos
+
+Mismo nombre, misma firma y mismo comportamiento; pruebas de dominio de la toma y del reclamo (CULM-001 B.2, puntos de control,
+SES-01, comandos de asistencia).
+
+| Interno | Cambio en el lote 11 |
+| :--- | :--- |
+| `usp_sincronizar_asistencia_estudiante_interno` | La inicialización de las salidas pasa de entre `AS` y `BEGIN` al cuerpo (`PASO 0`, mismos valores), `IF` con `BEGIN/END`, `PASO` en el `CATCH` y lecturas sin bloqueo por vistas (`uv_sesion_registro`, `uv_estado_estudiante_grupo`, `uv_razon_causa`, `uv_docente_identidad`, `uv_grupo_registro`, `uv_modo_toma_asistencia`, `uv_estado_toma_asistencia`). Los `UPDLOCK`/`HOLDLOCK` (`EstudianteGrupo`, `TomaAsistencia`, `Asistencia`, `DetalleAsistencia`) y las escrituras siguen en las tablas |
+
+Vistas nuevas, delgadas y sin cálculos (una tabla cada una, las mismas filas): `uv_solicitud_revision_asistencia_registro`,
+`uv_sesion_registro` (`uv_sesion` une `uv_grupo`), `uv_detalle_asistencia_registro` y `uv_archivo_soporte_registro`.
+`uv_revision_cancelacion_registro` (creada en el lote 9, aún sin publicar en `develop`) agrega al final el resto de columnas de
+`dbo.RevisionCancelacion`; las columnas previas no cambian.

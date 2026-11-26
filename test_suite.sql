@@ -49,6 +49,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_skills_lote9_caracterizacion.sql
 -- SKILLS-BD lote 10 (2026-11-26): indicadores y consultas (resolutores del periodo de los KPI)
 :r /tmp/test/test_skills_lote10_caracterizacion.sql
+-- SKILLS-BD lote 11 (2026-11-26): revisiones de cancelacion y reclamos (destinatarios del reclamo y lecturas por vistas uv_*)
+:r /tmp/test/test_skills_lote11_caracterizacion.sql
 :r /tmp/test/test_reactive_academic.sql
 :r /tmp/test/test_mass_period_close.sql
 :r /tmp/test/test_usp_registrar_estudiante_en_grupo_usuario_no_existente.sql

@@ -16,6 +16,9 @@ GO
 -- idEstudianteGrupo, idEstudiante, idPrograma, codigoPerfilResolucion, porcentajeActual, tipoPlantillaNotificacion.
 -- Bloqueos: RevisionCancelacion -> EstudianteGrupo.
 -- ============================================================================
+-- SKILLS-BD lote 11 (2026-11-26): PASO n, IF con BEGIN/END, IIF en lugar de ISNULL y lecturas sin bloqueo por vistas uv_* (antes,
+-- las tablas). Las lecturas con UPDLOCK, HOLDLOCK (RevisionCancelacion, EstudianteGrupo) y las escrituras siguen en las tablas.
+-- Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_resolver_revision_cancelacion]
 (
     @idRevision        UNIQUEIDENTIFIER,
@@ -32,9 +35,8 @@ AS
     DECLARE @motivoLimpio             NVARCHAR(MAX)    = TRIM(@motivo);
     DECLARE @codigoInscrita           NVARCHAR(10)     = CAST(dbo.ufn_obtener_parametro('MATRICULA', 'ESTADO_INSCRITA') AS NVARCHAR(10));
     DECLARE @codigoCancelada          NVARCHAR(10)     = CAST(dbo.ufn_obtener_parametro('MATRICULA', 'ESTADO_CANCELADA_INASISTENCIA') AS NVARCHAR(10));
-    DECLARE @motivoMin INT = ISNULL(TRY_CAST(CAST(dbo.ufn_obtener_parametro('REVISION_CANCELACION', 'MOTIVO_LONGITUD_MINIMA') AS NVARCHAR(20)) AS INT), 10);
-    DECLARE @motivoMax INT = IIF(ISNULL(TRY_CAST(CAST(dbo.ufn_obtener_parametro('REVISION_CANCELACION', 'MOTIVO_LONGITUD_MAXIMA') AS NVARCHAR(20)) AS INT), 500) > 1000, 1000,
-                                 ISNULL(TRY_CAST(CAST(dbo.ufn_obtener_parametro('REVISION_CANCELACION', 'MOTIVO_LONGITUD_MAXIMA') AS NVARCHAR(20)) AS INT), 500));
+    DECLARE @motivoMin INT = TRY_CAST(CAST(dbo.ufn_obtener_parametro('REVISION_CANCELACION', 'MOTIVO_LONGITUD_MINIMA') AS NVARCHAR(20)) AS INT);
+    DECLARE @motivoMax INT = TRY_CAST(CAST(dbo.ufn_obtener_parametro('REVISION_CANCELACION', 'MOTIVO_LONGITUD_MAXIMA') AS NVARCHAR(20)) AS INT);
 
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -60,12 +62,18 @@ AS
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
+    -- PASO 1: Longitudes del motivo: 10 y 500 por defecto, maximo 1000
+    SET @motivoMin = IIF(@motivoMin IS NULL, 10, @motivoMin);
+    SET @motivoMax = IIF(@motivoMax IS NULL, 500, @motivoMax);
+    SET @motivoMax = IIF(@motivoMax > 1000, 1000, @motivoMax);
     BEGIN TRY
+        -- PASO 2: Validar correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
+        -- PASO 3: Validar parametros obligatorios (GEN_002)
         IF @estadoResultado = 1 AND (@idUsuarioEjecutor IS NULL OR @idRevision IS NULL)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_002', @p_param1 = 'idUsuarioEjecutor/idRevision',
@@ -74,13 +82,19 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
-        IF @estadoResultado = 1 AND NOT EXISTS (SELECT 1 FROM dbo.TransicionRevisionCancelacion t WHERE t.codigoDecision = @decision AND t.esDecisionResolutor = 1)
+        -- PASO 4: Validar decision (RCN_002) y motivo (RCN_003)
+        IF @estadoResultado = 1 AND NOT EXISTS (SELECT 1 FROM dbo.uv_transicion_revision_cancelacion t WHERE t.codigoDecision = @decision AND t.esDecisionResolutor = 1)
+        BEGIN
             SELECT @err = 'RCN_002', @e1 = @decision;
+        END
         IF @estadoResultado = 1 AND @err IS NULL AND (@motivoLimpio IS NULL OR LEN(@motivoLimpio) < @motivoMin OR LEN(@motivoLimpio) > @motivoMax)
+        BEGIN
             SELECT @err = 'RCN_003', @e1 = CONVERT(NVARCHAR(20), @motivoMin), @e2 = CONVERT(NVARCHAR(20), @motivoMax);
+        END
 
         IF @estadoResultado = 1 AND @err IS NULL
         BEGIN
+            -- PASO 5: Transaccion propia o punto de guardado
             IF @@TRANCOUNT = 0
             BEGIN
                 BEGIN TRANSACTION;
@@ -92,23 +106,33 @@ BEGIN
                 SET @savepointCreado = 1;
             END
 
+            -- PASO 6: Bloquear la revision (RCN_001; el proponente no resuelve: RCN_014)
             SELECT @idEstadoActual = r.estado, @idEstudianteGrupo = r.estudianteGrupo, @usuarioProponente = r.usuarioDecisionDocente
             FROM dbo.RevisionCancelacion r WITH (UPDLOCK, HOLDLOCK)
             WHERE r.id = @idRevisionDefecto;
 
             IF @idEstadoActual IS NULL
+            BEGIN
                 SELECT @err = 'RCN_001', @e1 = CONVERT(NVARCHAR(36), @idRevisionDefecto), @e2 = CONVERT(NVARCHAR(36), @idUsuarioEjecutorDefecto);
+            END
             ELSE IF @usuarioProponente IS NOT NULL AND @usuarioProponente = @idUsuarioEjecutorDefecto
+            BEGIN
                 SELECT @err = 'RCN_014', @e1 = CONVERT(NVARCHAR(36), @idUsuarioEjecutorDefecto), @e2 = CONVERT(NVARCHAR(36), @idRevisionDefecto);
+            END
             ELSE
             BEGIN
+                -- PASO 7: Resolutor vigente y su perfil (RCN_016 decano, RCN_001 ajeno)
                 SELECT f.idUsuario, f.codigoPerfil, f.idPrograma INTO #culmc_res
                 FROM dbo.ufn_revision_cancelacion_resolutores(@idEstudianteGrupo, @usuarioProponente) f;
                 SELECT TOP 1 @perfilEjecutor = x.codigoPerfil FROM #culmc_res x WHERE x.idUsuario = @idUsuarioEjecutorDefecto;
-                IF @perfilEjecutor IS NULL AND EXISTS (SELECT 1 FROM dbo.Decano d WHERE d.usuario = @idUsuarioEjecutorDefecto AND d.estado = 1)
+                IF @perfilEjecutor IS NULL AND EXISTS (SELECT 1 FROM dbo.uv_decano_rol d WHERE d.idUsuario = @idUsuarioEjecutorDefecto AND d.estaActivoRolDecano = 1)
+                BEGIN
                     SELECT @err = 'RCN_016', @e1 = CONVERT(NVARCHAR(36), @idUsuarioEjecutorDefecto), @e2 = CONVERT(NVARCHAR(36), @idRevisionDefecto);
+                END
                 ELSE IF @perfilEjecutor IS NULL
+                BEGIN
                     SELECT @err = 'RCN_001', @e1 = CONVERT(NVARCHAR(36), @idRevisionDefecto), @e2 = CONVERT(NVARCHAR(36), @idUsuarioEjecutorDefecto);
+                END
                 ELSE
                 BEGIN
                     EXEC dbo.usp_validar_permiso_rbac_usuario_interno
@@ -120,53 +144,70 @@ BEGIN
 
             IF @err IS NULL AND @estadoResultado = 1
             BEGIN
-                SELECT @codigoEstadoActual = es.codigo, @nombreEstadoActual = es.nombre FROM dbo.EstadoRevisionCancelacion es WHERE es.id = @idEstadoActual;
-                SELECT @idGrupo = eg.grupo, @idEstudiante = eg.estudiante, @codigoMatricula = ee.codigo
-                FROM dbo.EstudianteGrupo eg INNER JOIN dbo.EstadoEstudianteGrupo ee ON ee.id = eg.estado WHERE eg.id = @idEstudianteGrupo;
+                -- PASO 8: Estado, matricula, porcentaje, umbral y programa del resolutor
+                SELECT @codigoEstadoActual = es.codigo, @nombreEstadoActual = es.nombre FROM dbo.uv_estado_revision_cancelacion es WHERE es.id = @idEstadoActual;
+                SELECT @idGrupo = eg.idGrupo, @idEstudiante = eg.idEstudiante, @codigoMatricula = ee.codigo
+                FROM dbo.uv_estudiante_grupo_registro eg INNER JOIN dbo.uv_estado_estudiante_grupo ee ON ee.id = eg.idEstado WHERE eg.id = @idEstudianteGrupo;
                 SELECT @porcentaje = rs.porcentajeInasistencia FROM dbo.uv_resumen_asistencia_estudiante_grupo rs WHERE rs.idEstudianteGrupo = @idEstudianteGrupo;
-                SELECT TOP 1 @umbral = dbo.ufn_umbral_alerta_inasistencia(t.id) FROM dbo.TipoAlertaInasistencia t WHERE t.creaRevisionCancelacion = 1;
-                SELECT TOP 1 @idPrograma = x.idPrograma FROM #culmc_res x INNER JOIN dbo.Programa p ON p.id = x.idPrograma
-                WHERE x.idUsuario = @idUsuarioEjecutorDefecto ORDER BY p.nombre, p.id;
+                SELECT TOP 1 @umbral = dbo.ufn_umbral_alerta_inasistencia(t.id) FROM dbo.uv_tipo_alerta_inasistencia t WHERE t.creaRevisionCancelacion = 1;
+                SELECT TOP 1 @idPrograma = x.idPrograma FROM #culmc_res x INNER JOIN dbo.uv_programa p ON p.id = x.idPrograma
+                WHERE x.idUsuario = @idUsuarioEjecutorDefecto ORDER BY p.nombrePrograma, p.id;
                 SET @ahora = CAST(SYSUTCDATETIME() AS DATETIME2(3));
 
+                -- PASO 9: Idempotencia o transicion del catalogo (RCN_004, RCN_005, RCN_006)
                 -- Idempotencia: quien pida lo mismo que ya quedo registrado (sea quien sea el que resolvio antes)
-                IF EXISTS (SELECT 1 FROM dbo.TransicionRevisionCancelacion t WHERE t.codigoDecision = @decision AND t.esDecisionResolutor = 1 AND t.estadoDestino = @idEstadoActual)
+                IF EXISTS (SELECT 1 FROM dbo.uv_transicion_revision_cancelacion t WHERE t.codigoDecision = @decision AND t.esDecisionResolutor = 1 AND t.idEstadoDestino = @idEstadoActual)
                 BEGIN
                     SET @sinCambios = 1;
                     SELECT @codigoMensajeOk = 'RCN_011', @p1ok = CONVERT(NVARCHAR(36), @idRevisionDefecto), @p2ok = @codigoEstadoActual;
                 END
                 ELSE
                 BEGIN
-                    SELECT @idTransicion = t.id, @idEstadoDestino = t.estadoDestino, @exigeUmbral = t.exigeUmbralPerdida, @codigoMensajeTransicion = t.codigoMensajeExito,
+                    SELECT @idTransicion = t.id, @idEstadoDestino = t.idEstadoDestino, @exigeUmbral = t.exigeUmbralPerdida, @codigoMensajeTransicion = t.codigoMensajeExito,
                            @plantilla = t.tipoPlantillaNotificacion
-                    FROM dbo.TransicionRevisionCancelacion t
-                    WHERE t.estadoOrigen = @idEstadoActual AND t.codigoDecision = @decision AND t.esDecisionResolutor = 1;
+                    FROM dbo.uv_transicion_revision_cancelacion t
+                    WHERE t.idEstadoOrigen = @idEstadoActual AND t.codigoDecision = @decision AND t.esDecisionResolutor = 1;
                     IF @idTransicion IS NULL
+                    BEGIN
                         SELECT @err = 'RCN_004', @e1 = @nombreEstadoActual, @e2 = @decision;
+                    END
                     ELSE IF @codigoMatricula <> @codigoInscrita
+                    BEGIN
                         SELECT @err = 'RCN_005', @e1 = CONVERT(NVARCHAR(36), @idEstudianteGrupo), @e2 = @codigoMatricula;
+                    END
                     ELSE IF @exigeUmbral = 1 AND (@porcentaje IS NULL OR @umbral IS NULL OR @porcentaje < @umbral)
+                    BEGIN
                         SELECT @err = 'RCN_006', @e1 = CONVERT(NVARCHAR(20), @porcentaje), @e2 = CONVERT(NVARCHAR(20), @umbral);
+                    END
                     ELSE
                     BEGIN
-                        SELECT @cancela = es.cancelaMatricula, @codigoEstadoDestino = es.codigo FROM dbo.EstadoRevisionCancelacion es WHERE es.id = @idEstadoDestino;
+                        -- PASO 10: Cancelar la matricula si el estado destino lo exige (bloqueo de EstudianteGrupo)
+                        SELECT @cancela = es.cancelaMatricula, @codigoEstadoDestino = es.codigo FROM dbo.uv_estado_revision_cancelacion es WHERE es.id = @idEstadoDestino;
                         IF @cancela = 1
                         BEGIN
-                            SELECT @estadoCanceladaId = id FROM dbo.EstadoEstudianteGrupo WHERE codigo = @codigoCancelada;
+                            SELECT @estadoCanceladaId = id FROM dbo.uv_estado_estudiante_grupo WHERE codigo = @codigoCancelada;
                             IF @estadoCanceladaId IS NULL
+                            BEGIN
                                 THROW 52702, 'CULM001_C_CATALOGO_INCONSISTENTE: falta el estado de matricula cancelada por inasistencia.', 1;
+                            END
                             SELECT @estadoMatriculaActualId = eg.estado FROM dbo.EstudianteGrupo eg WITH (UPDLOCK, HOLDLOCK) WHERE eg.id = @idEstudianteGrupo;
-                            IF NOT EXISTS (SELECT 1 FROM dbo.EstadoEstudianteGrupo WHERE id = @estadoMatriculaActualId AND codigo = @codigoInscrita)
-                                SELECT @err = 'RCN_005', @e1 = CONVERT(NVARCHAR(36), @idEstudianteGrupo), @e2 = (SELECT codigo FROM dbo.EstadoEstudianteGrupo WHERE id = @estadoMatriculaActualId);
+                            IF NOT EXISTS (SELECT 1 FROM dbo.uv_estado_estudiante_grupo WHERE id = @estadoMatriculaActualId AND codigo = @codigoInscrita)
+                            BEGIN
+                                SELECT @err = 'RCN_005', @e1 = CONVERT(NVARCHAR(36), @idEstudianteGrupo), @e2 = (SELECT codigo FROM dbo.uv_estado_estudiante_grupo WHERE id = @estadoMatriculaActualId);
+                            END
                             ELSE
                             BEGIN
                                 UPDATE dbo.EstudianteGrupo SET estado = @estadoCanceladaId WHERE id = @idEstudianteGrupo;
                                 SET @cambioMatricula = 1;
                             END
                         END
+                        -- PASO 11: Aplicar la resolucion: revision, historial y auditoria
                         IF @err IS NULL
                         BEGIN
-                            IF @codigoEstadoDestino IS NULL SELECT @codigoEstadoDestino = codigo FROM dbo.EstadoRevisionCancelacion WHERE id = @idEstadoDestino;
+                            IF @codigoEstadoDestino IS NULL
+                            BEGIN
+                                SELECT @codigoEstadoDestino = codigo FROM dbo.uv_estado_revision_cancelacion WHERE id = @idEstadoDestino;
+                            END
                             UPDATE dbo.RevisionCancelacion
                             SET estado = @idEstadoDestino, codigoDecisionResolucion = @decision, motivoResolucion = @motivoLimpio, usuarioResolucion = @idUsuarioEjecutorDefecto,
                                 codigoPerfilResolucion = @perfilEjecutor, programaResolucion = @idPrograma, porcentajeResolucion = @porcentaje, fechaResolucionUtc = @ahora,
@@ -193,12 +234,20 @@ BEGIN
                 END
             END
 
+            -- PASO 12: Confirmar o liberar la transaccion
             IF @err IS NULL AND @estadoResultado = 1
             BEGIN
                 SELECT @codigoEstadoAnteriorOut = @codigoEstadoActual, @codigoEstadoNuevoOut = IIF(@sinCambios = 1, @codigoEstadoActual, @codigoEstadoDestino);
                 IF @transaccionPropia = 1
                 BEGIN
-                    IF XACT_STATE() = 1 COMMIT TRANSACTION; ELSE IF XACT_STATE() = -1 ROLLBACK TRANSACTION;
+                    IF XACT_STATE() = 1
+                    BEGIN
+                        COMMIT TRANSACTION;
+                    END
+                    ELSE IF XACT_STATE() = -1
+                    BEGIN
+                        ROLLBACK TRANSACTION;
+                    END
                     SET @transaccionPropia = 0;
                 END
             END
@@ -208,12 +257,16 @@ BEGIN
                 -- para que el SP tambien funcione dentro de INSERT ... EXEC.
                 IF @transaccionPropia = 1
                 BEGIN
-                    IF XACT_STATE() = 1 COMMIT TRANSACTION;
+                    IF XACT_STATE() = 1
+                    BEGIN
+                        COMMIT TRANSACTION;
+                    END
                     SET @transaccionPropia = 0;
                 END
             END
         END
 
+        -- PASO 13: Mensaje de rechazo o de exito
         IF @err IS NOT NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = @err, @p_param1 = @e1, @p_param2 = @e2, @p_param3 = @e3,
@@ -229,17 +282,24 @@ BEGIN
         END
     END TRY
     BEGIN CATCH
+        -- PASO 14: Error: revertir lo propio, relanzar si la transaccion externa quedo condenada; si no, SYS_001
         SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
             ROLLBACK TRANSACTION sp_resolver_revision;
+        END
 
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
@@ -247,6 +307,7 @@ BEGIN
         SET @estadoResultado = 0;
     END CATCH
 
+    -- PASO 15: Resultado
     SELECT
         idCorrelacion             = @idCorrelacionDefecto,
         mensajeUsuarioResultado   = @mensajeUsuarioResultado,

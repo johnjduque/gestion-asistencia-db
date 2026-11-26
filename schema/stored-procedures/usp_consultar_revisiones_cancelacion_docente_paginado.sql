@@ -18,6 +18,8 @@ GO
 -- requiereAccionDocente, PENDIENTE_DOCENTE). Orden: fecha de cruce (creacion) DESC. @idGrupo que no es suyo -> SEC_002;
 -- @estado inexistente -> RCN_002.
 -- ============================================================================
+-- SKILLS-BD lote 11 (2026-11-26): DECLARE en la cabecera, PASO n, IF con BEGIN/END, lecturas por vistas uv_* (antes, las tablas)
+-- y TRY/CATCH de lectura que relanza. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_revisiones_cancelacion_docente_paginado]
 (
     @idUsuario      UNIQUEIDENTIFIER,
@@ -29,10 +31,6 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_revisiones_cancelacion_docente_pa
     @tamanoPagina   INT = 20
 )
 AS
-BEGIN
-    SET NOCOUNT ON;
-    SET XACT_ABORT ON;
-
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idUsuarioDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuario, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @tamanoMaximo         INT = dbo.ufn_obtener_parametro_int(NULL, 'PAGINACION', 'TAMANO_MAXIMO');
@@ -42,80 +40,102 @@ BEGIN
     DECLARE @codigoInscrita NVARCHAR(10) = CAST(dbo.ufn_obtener_parametro('MATRICULA', 'ESTADO_INSCRITA') AS NVARCHAR(10));
     DECLARE @offset INT;
     DECLARE @p1 NVARCHAR(500), @p2 NVARCHAR(500);
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
 
-    EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
-        @idCorrelacion = @idCorrelacionDefecto,
-        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-        @estadoResultado = @estadoResultado OUTPUT;
-    IF @estadoResultado = 1 AND @idUsuario IS NULL
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_002', @p_param1 = 'idUsuario',
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-    END
-    IF @estadoResultado = 1
-        EXEC dbo.usp_validar_permiso_rbac_usuario_interno
-            @idUsuario = @idUsuarioDefecto, @codigoPerfilRequerido = 'DOCENTE', @idCorrelacion = @idCorrelacionDefecto,
+    BEGIN TRY
+        -- PASO 1: Validar correlacion
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
+            @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
-    IF @estadoResultado = 1
-       AND (@numeroPagina IS NULL OR @numeroPagina < 1 OR @tamanoPagina IS NULL OR @tamanoPagina < 1 OR @tamanoMaximo IS NULL OR @tamanoPagina > @tamanoMaximo)
-    BEGIN
-        SELECT @p1 = CONVERT(NVARCHAR(20), @numeroPagina), @p2 = CONVERT(NVARCHAR(20), @tamanoPagina);
-        EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'PAG_001', @p_param1 = @p1, @p_param2 = @p2,
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @estadoResultado = 0;
-    END
-    IF @estadoResultado = 1 AND @estado IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.EstadoRevisionCancelacion e WHERE e.codigo = UPPER(TRIM(@estado)))
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'RCN_002', @p_param1 = @estado,
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @estadoResultado = 0;
-    END
-    IF @estadoResultado = 1 AND @idGrupo IS NOT NULL
-       AND NOT EXISTS (SELECT 1 FROM dbo.Grupo g INNER JOIN dbo.Docente d ON d.id = g.docente WHERE g.id = @idGrupo AND d.usuario = @idUsuarioDefecto)
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SEC_002', @p_param1 = 'Grupo del docente',
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @estadoResultado = 0;
-    END
-    IF @estadoResultado = 0
-        THROW 51000, @mensajeTecnicoResultado, 1;
+        -- PASO 2: Validar parametros obligatorios (GEN_002)
+        IF @estadoResultado = 1 AND @idUsuario IS NULL
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_002', @p_param1 = 'idUsuario',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+        -- PASO 3: Validar perfil del ejecutor
+        IF @estadoResultado = 1
+        BEGIN
+            EXEC dbo.usp_validar_permiso_rbac_usuario_interno
+                @idUsuario = @idUsuarioDefecto, @codigoPerfilRequerido = 'DOCENTE', @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
+        -- PASO 4: Validar paginacion (PAG_001)
+        IF @estadoResultado = 1
+           AND (@numeroPagina IS NULL OR @numeroPagina < 1 OR @tamanoPagina IS NULL OR @tamanoPagina < 1 OR @tamanoMaximo IS NULL OR @tamanoPagina > @tamanoMaximo)
+        BEGIN
+            SELECT @p1 = CONVERT(NVARCHAR(20), @numeroPagina), @p2 = CONVERT(NVARCHAR(20), @tamanoPagina);
+            EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'PAG_001', @p_param1 = @p1, @p_param2 = @p2,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @estadoResultado = 0;
+        END
+        -- PASO 5: Estado de revision existente (RCN_002)
+        IF @estadoResultado = 1 AND @estado IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.uv_estado_revision_cancelacion e WHERE e.codigo = UPPER(TRIM(@estado)))
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'RCN_002', @p_param1 = @estado,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @estadoResultado = 0;
+        END
+        -- PASO 6: Grupo del docente (SEC_002)
+        IF @estadoResultado = 1 AND @idGrupo IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM dbo.uv_grupo_registro g INNER JOIN dbo.uv_docente_identidad d ON d.id = g.idDocente WHERE g.id = @idGrupo AND d.idUsuario = @idUsuarioDefecto)
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SEC_002', @p_param1 = 'Grupo del docente',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @estadoResultado = 0;
+        END
+        -- PASO 7: Rechazo de validacion: se lanza con el detalle tecnico
+        IF @estadoResultado = 0
+        BEGIN
+            THROW 51000, @mensajeTecnicoResultado, 1;
+        END
 
-    SET @offset = (@numeroPagina - 1) * @tamanoPagina;
-    SELECT
-        rv.*,
-        idPrograma = x.idPrograma,
-        nombrePrograma = x.nombre,
-        porcentajeActual = rs.porcentajeInasistencia,
-        horasFaltaActual = rs.horasFalta,
-        horasDictadasActual = rs.horasDictadas,
-        umbralPerdida = rs.umbralPerdida,
-        esResolutorActual = CAST(0 AS BIT),
-        accionesPermitidas = CAST(CASE WHEN rv.codigoEstadoMatricula = @codigoInscrita THEN ISNULL(acc.acciones, N'') ELSE N'' END AS NVARCHAR(200)),
-        totalRegistros = COUNT(1) OVER(),
-        -- CIERRE-W3I: nivel de permanencia vigente (REGULAR/RIESGO/PERDIDA) con la unica regla y los umbrales del catalogo
-        codigoPermanenciaActual = rs.codigoPermanencia
-    FROM dbo.uv_revision_cancelacion rv
-    OUTER APPLY (
-        SELECT acciones = STRING_AGG(t.codigoDecision, N',') WITHIN GROUP (ORDER BY t.codigoDecision ASC)
-        FROM dbo.TransicionRevisionCancelacion t WHERE t.estadoOrigen = rv.idEstado AND t.esDecisionResolutor = 0
-    ) acc
-    OUTER APPLY (
-        SELECT TOP 1 idPrograma = p.id, p.nombre
-        FROM dbo.EstudiantePrograma ep
-        INNER JOIN dbo.ufn_programas_grupo(rv.idGrupo) pg ON pg.idPrograma = ep.programa
-        INNER JOIN dbo.Programa p ON p.id = pg.idPrograma
-        WHERE ep.estudiante = rv.idEstudiante
-        ORDER BY p.nombre ASC, p.id ASC
-    ) x
-    LEFT JOIN dbo.uv_resumen_asistencia_estudiante_grupo rs ON rs.idEstudianteGrupo = rv.idEstudianteGrupo
-    WHERE rv.idUsuarioDocenteTitular = @idUsuarioDefecto
-      AND (@estado IS NULL OR rv.codigoEstado = UPPER(TRIM(@estado)))
-      AND (@idGrupo IS NULL OR rv.idGrupo = @idGrupo)
-      AND (@soloPendientes IS NULL OR @soloPendientes = 0 OR rv.requiereAccionDocente = 1)
-    ORDER BY rv.fechaCreacionUtc DESC, rv.id ASC
-    OFFSET @offset ROWS FETCH NEXT @tamanoPagina ROWS ONLY;
+        -- PASO 8: Pagina de revisiones de los grupos del docente
+        SET @offset = (@numeroPagina - 1) * @tamanoPagina;
+        SELECT
+            rv.*,
+            idPrograma = x.idPrograma,
+            nombrePrograma = x.nombre,
+            porcentajeActual = rs.porcentajeInasistencia,
+            horasFaltaActual = rs.horasFalta,
+            horasDictadasActual = rs.horasDictadas,
+            umbralPerdida = rs.umbralPerdida,
+            esResolutorActual = CAST(0 AS BIT),
+            accionesPermitidas = CAST(CASE WHEN rv.codigoEstadoMatricula = @codigoInscrita THEN ISNULL(acc.acciones, N'') ELSE N'' END AS NVARCHAR(200)), -- ISNULL sobre agregacion (permitido): STRING_AGG
+            totalRegistros = COUNT(1) OVER(),
+            -- CIERRE-W3I: nivel de permanencia vigente (REGULAR/RIESGO/PERDIDA) con la unica regla y los umbrales del catalogo
+            codigoPermanenciaActual = rs.codigoPermanencia
+        FROM dbo.uv_revision_cancelacion rv
+        OUTER APPLY (
+            SELECT acciones = STRING_AGG(t.codigoDecision, N',') WITHIN GROUP (ORDER BY t.codigoDecision ASC)
+            FROM dbo.uv_transicion_revision_cancelacion t WHERE t.idEstadoOrigen = rv.idEstado AND t.esDecisionResolutor = 0
+        ) acc
+        OUTER APPLY (
+            SELECT TOP 1 idPrograma = p.id, nombre = p.nombrePrograma
+            FROM dbo.uv_estudiante_programa_semestre ep
+            INNER JOIN dbo.ufn_programas_grupo(rv.idGrupo) pg ON pg.idPrograma = ep.idPrograma
+            INNER JOIN dbo.uv_programa p ON p.id = pg.idPrograma
+            WHERE ep.idEstudiante = rv.idEstudiante
+            ORDER BY p.nombrePrograma ASC, p.id ASC
+        ) x
+        LEFT JOIN dbo.uv_resumen_asistencia_estudiante_grupo rs ON rs.idEstudianteGrupo = rv.idEstudianteGrupo
+        WHERE rv.idUsuarioDocenteTitular = @idUsuarioDefecto
+          AND (@estado IS NULL OR rv.codigoEstado = UPPER(TRIM(@estado)))
+          AND (@idGrupo IS NULL OR rv.idGrupo = @idGrupo)
+          AND (@soloPendientes IS NULL OR @soloPendientes = 0 OR rv.requiereAccionDocente = 1)
+        ORDER BY rv.fechaCreacionUtc DESC, rv.id ASC
+        OFFSET @offset ROWS FETCH NEXT @tamanoPagina ROWS ONLY;
+    END TRY
+    BEGIN CATCH
+        -- PASO 9: consulta de lectura (READ_QUERY_RESULTSET): el error, incluido el rechazo de validacion,
+        -- se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
+        THROW;
+    END CATCH
 END;
 GO

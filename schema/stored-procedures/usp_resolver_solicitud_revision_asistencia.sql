@@ -30,6 +30,9 @@ GO
 --   * La auditoria agrega idToma y resultadoAprobacion.
 -- VAL-pendientes-john PRU-15: un reclamo pendiente de una sesion de un periodo cerrado por el cierre masivo ya no se resuelve
 --   (PER_008, despues de la titularidad y sin escrituras); el reintento de una decision ya aplicada sigue siendo idempotente.
+-- SKILLS-BD lote 11 (2026-11-26): IF con BEGIN/END, IIF en lugar de ISNULL, PASO en el CATCH y lecturas de catalogo y llaves por
+-- vistas uv_* (antes, las tablas). Las lecturas con UPDLOCK, HOLDLOCK (SolicitudRevisionAsistencia, DetalleAsistencia) y las
+-- escrituras siguen en las tablas. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_resolver_solicitud_revision_asistencia]
 (
     @idSolicitud        UNIQUEIDENTIFIER,
@@ -50,7 +53,7 @@ AS
     -- DEC-073: limites de la respuesta del docente (RECLAMO/RESPUESTA_*); al rechazar es obligatoria.
     DECLARE @respuestaRechazoMinimo   INT = dbo.ufn_obtener_parametro_int(NULL, 'RECLAMO', 'RESPUESTA_RECHAZO_LONGITUD_MINIMA');
     DECLARE @respuestaMaximo          INT = dbo.ufn_obtener_parametro_int(NULL, 'RECLAMO', 'RESPUESTA_LONGITUD_MAXIMA');
-    DECLARE @respuestaLongitud        INT = ISNULL(LEN(TRIM(@respuestaDocente)), 0);
+    DECLARE @respuestaLongitud        INT = IIF(@respuestaDocente IS NULL, 0, LEN(TRIM(@respuestaDocente)));
 
     DECLARE @docenteTitularGrupo   UNIQUEIDENTIFIER;
     DECLARE @idAsistencia          UNIQUEIDENTIFIER;
@@ -125,7 +128,7 @@ BEGIN
         END
 
         -- PASO 1.7 (PC): resultado de la aprobacion (NULL = EX); solo AN o EX
-        SET @codigoResultado = UPPER(TRIM(ISNULL(@codigoResultadoAprobacion, @codigoExcusa)));
+        SET @codigoResultado = UPPER(TRIM(IIF(@codigoResultadoAprobacion IS NULL, @codigoExcusa, @codigoResultadoAprobacion)));
         IF @estadoResultado = 1 AND (@codigoResultado IS NULL OR @codigoResultado NOT IN (@codigoPresente, @codigoExcusa))
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -165,18 +168,18 @@ BEGIN
             BEGIN TRANSACTION;
 
             SELECT TOP 1
-                @docenteTitularGrupo = g.docente,
+                @docenteTitularGrupo = g.idDocente,
                 @idAsistencia = sra.asistencia,
                 @codigoEstadoActual = e.codigo,
                 @idTomaSolicitud = sra.toma,
                 @idSesionSolicitud = s.id,
                 @codigoResultadoPrevio = rcr.codigo
             FROM dbo.SolicitudRevisionAsistencia sra WITH (UPDLOCK, HOLDLOCK)
-            INNER JOIN dbo.Estado e ON e.id = sra.estado
-            LEFT JOIN dbo.RazonCausa rcr ON rcr.id = sra.razonCausaResolucion
-            INNER JOIN dbo.Asistencia ast ON sra.asistencia = ast.id
-            INNER JOIN dbo.Sesion s ON ast.sesion = s.id
-            INNER JOIN dbo.Grupo g ON s.grupo = g.id
+            INNER JOIN dbo.uv_estado e ON e.id = sra.estado
+            LEFT JOIN dbo.uv_razon_causa rcr ON rcr.id = sra.razonCausaResolucion
+            INNER JOIN dbo.uv_asistencia_registro ast ON sra.asistencia = ast.id
+            INNER JOIN dbo.uv_sesion_registro s ON ast.idSesion = s.id
+            INNER JOIN dbo.uv_grupo_registro g ON s.idGrupo = g.id
             WHERE sra.id = @idSolicitudDefecto;
 
             -- 2.1: solicitud existente con relacion solicitud -> asistencia -> sesion -> grupo
@@ -218,12 +221,14 @@ BEGIN
 
             -- 2.2c (VAL-pendientes-john PRU-15): un reclamo pendiente de un periodo cerrado por el cierre masivo no cambia (PER_008)
             IF @estadoResultado = 1 AND @codigoEstadoActual = 'P'
+            BEGIN
                 EXEC dbo.usp_validar_periodo_abierto_sesion_interno
                     @idSesion = @idSesionSolicitud,
                     @idCorrelacion = @idCorrelacionDefecto,
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                     @estadoResultado = @estadoResultado OUTPUT;
+            END
 
             IF @estadoResultado = 1
             BEGIN
@@ -235,7 +240,7 @@ BEGIN
                 IF @codigoEstadoActual <> 'P'
                 BEGIN
                     IF @codigoEstadoActual <> @codigoEstadoNuevo
-                       OR (@codigoEstadoNuevo = 'A' AND ISNULL(@codigoResultadoPrevio, @codigoExcusa) <> @codigoResultado)
+                       OR (@codigoEstadoNuevo = 'A' AND IIF(@codigoResultadoPrevio IS NULL, @codigoExcusa, @codigoResultadoPrevio) <> @codigoResultado)
                     BEGIN
                         EXEC dbo.usp_obtener_mensaje_catalogo
                             @p_codigo = 'REV_002',
@@ -258,7 +263,7 @@ BEGIN
                         @codigoCausaAnterior = rc.codigo
                     -- PC: con toma, solo el detalle de esa toma.
                     FROM dbo.DetalleAsistencia d WITH (UPDLOCK, HOLDLOCK)
-                    INNER JOIN dbo.RazonCausa rc ON rc.id = d.razonCausa
+                    INNER JOIN dbo.uv_razon_causa rc ON rc.id = d.razonCausa
                     WHERE d.asistencia = @idAsistencia
                       AND (@idTomaSolicitud IS NULL OR d.toma = @idTomaSolicitud)
                     ORDER BY CASE rc.codigo WHEN N'SJC' THEN 0 WHEN N'EX' THEN 1 ELSE 2 END, d.id;
@@ -290,10 +295,12 @@ BEGIN
                     -- 2.6: catalogos cerrados (Estado A/R, RazonCausa EX); nunca se elige otra fila
                     IF @estadoResultado = 1
                     BEGIN
-                        SELECT @idEstadoNuevo = id FROM dbo.Estado WHERE codigo = @codigoEstadoNuevo;
-                        SELECT @idRazonJustificada = id FROM dbo.RazonCausa WHERE codigo = @codigoResultado;
+                        SELECT @idEstadoNuevo = id FROM dbo.uv_estado WHERE codigo = @codigoEstadoNuevo;
+                        SELECT @idRazonJustificada = id FROM dbo.uv_razon_causa WHERE codigo = @codigoResultado;
                         IF @idEstadoNuevo IS NULL OR (@codigoEstadoNuevo = 'A' AND @idRazonJustificada IS NULL)
+                        BEGIN
                             THROW 52401, 'SES04_CATALOGO_INCONSISTENTE: falta Estado A/R o RazonCausa EX.', 1;
+                        END
 
                         SET @modificaDetalle = CASE WHEN @codigoEstadoNuevo = 'A' AND @codigoCausaAnterior <> @codigoResultado THEN 1 ELSE 0 END;
 
@@ -312,7 +319,7 @@ BEGIN
                             SET razonCausa = @idRazonJustificada,
                                 asistio = IIF(@codigoResultado = @codigoPresente, 1, 0)
                             FROM dbo.DetalleAsistencia d
-                            INNER JOIN dbo.RazonCausa rc ON rc.id = d.razonCausa
+                            INNER JOIN dbo.uv_razon_causa rc ON rc.id = d.razonCausa
                             WHERE d.asistencia = @idAsistencia
                               AND (d.id = @idDetalle OR (@idTomaSolicitud IS NULL AND rc.codigo = N'SJC'));
                         END
@@ -369,9 +376,12 @@ BEGIN
 
     END TRY
     BEGIN CATCH
+        -- PASO 3: error: revertir y SYS_001
         -- REC3: solo se revierte si hay una transaccion viva (XACT_STATE <> 0); evita un segundo error en el CATCH.
         IF XACT_STATE() <> 0
+        BEGIN
             ROLLBACK TRANSACTION;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
