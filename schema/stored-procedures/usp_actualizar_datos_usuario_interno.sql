@@ -9,7 +9,6 @@ GO
 -- El tipo y el numero de documento NO se editan (el documento es el username del proveedor de identidad).
 -- El correo debe ser unico excluyendo al propio usuario (VAL_006, leido con UPDLOCK/HOLDLOCK).
 -- Sin transaccion propia (corre dentro de la fachada publica).
--- SKILLS-BD lote 3 (2026-11-25): PASO n y correlacion por defecto en los mensajes; mismo comportamiento.
 CREATE OR ALTER PROCEDURE [dbo].[usp_actualizar_datos_usuario_interno]
 (
     @idUsuario               UNIQUEIDENTIFIER,
@@ -29,18 +28,16 @@ AS
     DECLARE @primerApellidoDefecto  NVARCHAR(50)  = TRIM(dbo.ufn_obtener_parametro_texto(@primerApellido, 'GENERAL', 'CADENA_VACIA'));
     DECLARE @segundoApellidoDefecto NVARCHAR(50)  = TRIM(dbo.ufn_obtener_parametro_texto(@segundoApellido, 'GENERAL', 'CADENA_VACIA'));
     DECLARE @correoDefecto          NVARCHAR(100) = LOWER(TRIM(dbo.ufn_obtener_parametro_texto(@correo, 'GENERAL', 'CADENA_VACIA')));
-    DECLARE @idCorrelacionDefecto   UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
 BEGIN
     SET NOCOUNT ON;
 
-    -- PASO 1: respuesta inicial
     SELECT
         @mensajeUsuarioResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
         @mensajeTecnicoResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
         @estadoResultado = 1;
 
     BEGIN TRY
-        -- PASO 2: existencia del usuario (GEN_001)
+        -- Existencia del usuario
         IF @idUsuario IS NULL OR NOT EXISTS (SELECT 1 FROM dbo.uv_usuario WHERE id = @idUsuario)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -49,11 +46,11 @@ BEGIN
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacion);
             SET @estadoResultado = 0;
         END
 
-        -- PASO 3: textos obligatorios (VAL_003)
+        -- Textos obligatorios
         IF @estadoResultado = 1 AND (dbo.ufn_validar_texto(@primerNombreDefecto) = 0 OR dbo.ufn_validar_texto(@primerApellidoDefecto) = 0)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -61,11 +58,11 @@ BEGIN
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacion);
             SET @estadoResultado = 0;
         END
 
-        -- PASO 4: textos opcionales (VAL_004)
+        -- Textos opcionales
         IF @estadoResultado = 1 AND @segundoNombreDefecto <> '' AND dbo.ufn_validar_texto(@segundoNombreDefecto) = 0
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -74,7 +71,7 @@ BEGIN
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacion);
             SET @estadoResultado = 0;
         END
 
@@ -86,11 +83,11 @@ BEGIN
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacion);
             SET @estadoResultado = 0;
         END
 
-        -- PASO 5: formato del correo (VAL_005)
+        -- Formato del correo
         IF @estadoResultado = 1 AND dbo.ufn_validar_correo(@correoDefecto) = 0
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -98,11 +95,11 @@ BEGIN
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacion);
             SET @estadoResultado = 0;
         END
 
-        -- PASO 6: unicidad del correo excluyendo al propio usuario (VAL_006; lectura con bloqueo en la tabla)
+        -- Unicidad del correo excluyendo al propio usuario
         IF @estadoResultado = 1 AND EXISTS (
             SELECT 1 FROM dbo.Usuario WITH (UPDLOCK, HOLDLOCK)
             WHERE LOWER(correo) = @correoDefecto AND id <> @idUsuario)
@@ -112,11 +109,10 @@ BEGIN
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacion);
             SET @estadoResultado = 0;
         END
 
-        -- PASO 7: actualizacion
         IF @estadoResultado = 1
         BEGIN
             UPDATE dbo.Usuario
@@ -129,13 +125,12 @@ BEGIN
         END
     END TRY
     BEGIN CATCH
-        -- PASO 8: error no controlado (SYS_001). Sin transaccion propia: la revierte el llamador
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacion);
         SET @estadoResultado = 0;
     END CATCH
 END;

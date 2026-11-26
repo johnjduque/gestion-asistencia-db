@@ -826,28 +826,6 @@ try {
 catch {
     $resultFailures += "PARAM_MIG77_RUNNER $($_.Exception.Message)"
 }
-# SKILLS-BD lote 2: migracion 78 (retiro de los usp_internal_*, up/down/up y up desde el estado anterior) en test/test_skills_lote2_migracion_78.ps1.
-try {
-    $skl2Mig78Output = @(& (Join-Path $PSScriptRoot 'test/test_skills_lote2_migracion_78.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
-    foreach ($line in $skl2Mig78Output) { Write-Host $line }
-    if ($skl2Mig78Output -contains 'TEST_PASS:SKL2_MIG78_UP_DOWN_UP') { $clientPassed += 'SKL2_MIG78_UP_DOWN_UP' }
-    else { $resultFailures += 'SKL2_MIG78_UP_DOWN_UP not reported by test_skills_lote2_migracion_78.ps1' }
-}
-catch {
-    $resultFailures += "SKL2_MIG78_RUNNER $($_.Exception.Message)"
-}
-# SKILLS-BD lote 1 (2026-11-25): pruebas de concurrencia real que antes solo se corrian a mano.
-#   T-091-13: dos vinculos simultaneos del mismo (docente, programa) => uno OK y otro DOC_006 (test/test_docente_programa_concurrencia.ps1).
-#   test/test_lb004d_concurrency.ps1 queda MANUAL: depende del tiempo y en el runner de GitHub fallo D2-11 de forma intermitente.
-try {
-    $docConcOutput = @(& (Join-Path $PSScriptRoot 'test/test_docente_programa_concurrencia.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
-    foreach ($line in $docConcOutput) { Write-Host $line }
-    if ($docConcOutput -contains 'TEST_PASS:T-091-13') { $clientPassed += 'T-091-13' }
-    else { $resultFailures += 'T-091-13 not reported by test_docente_programa_concurrencia.ps1' }
-}
-catch {
-    $resultFailures += "DOCENTE_PROGRAMA_CONCURRENCIA_RUNNER $($_.Exception.Message)"
-}
 # SES-GEN-01: migracion 64 (up/down/up) en test/test_ses_gen_01_migracion.ps1.
 try {
     $sesGenMigOutput = @(& (Join-Path $PSScriptRoot 'test/test_ses_gen_01_migracion.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
@@ -1338,21 +1316,6 @@ $criticalIds = @(
     # Regresion P3 2026-11-22 (test/test_p3_regresion_2026_11_22.sql)
     'P3R_D1_01_ADMIN_PROGRAMAS_SOLO_VINCULADOS', 'P3R_D1_02_ADMIN_SIN_VINCULO_SIN_PROGRAMAS', 'P3R_D1_03_ADMIN_FILTRO_FACULTAD_VINCULADA',
     'P3R_D1_04_DECANO_SOLO_VINCULADOS', 'P3R_D2_01_MENSAJE_ESTADO_CANCELADA', 'P3R_TRANCOUNT_ZERO', 'P3R_MIG72_UP_DOWN_UP', 'DEC081_MIG75_UP_DOWN_UP', 'PARAM_MIG77_UP_DOWN_UP',
-    # SKILLS-BD lote 1 2026-11-25 (test/test_skills_lote1_cobertura.sql)
-    'SKL1_F01_VALIDAR_CORREO', 'SKL1_F02_VALIDAR_NUMERO', 'SKL1_F03_VALIDAR_TEXTO', 'SKL1_F04_IDENTIDAD_USUARIO_JSON',
-    'SKL1_F05_PROGRAMAS_AMBITO_EJECUTOR', 'SKL1_V01_CATALOGOS_REFLEJAN_TABLA', 'SKL1_V02_FORMA_VISTAS', 'SKL1_V03_AUDITORIA_EVENTO',
-    'SKL1_V04_ESTADISTICA_GRUPO', 'SKL1_V05_ESTUDIANTE_GRUPO_PROGRAMA', 'SKL1_V06_FACULTAD_RESUMEN', 'SKL1_S01_ASOCIAR_RECHAZOS',
-    'SKL1_S02_ASOCIAR_INSERTA_Y_REACTIVA', 'SKL1_S03_CERRAR_TOMA', 'SKL1_TRANCOUNT_ZERO',
-    # SKILLS-BD lote 2 2026-11-25 (test/test_skills_lote2_caracterizacion.sql; migracion 78 en test/test_skills_lote2_migracion_78.ps1)
-    'SKL2_N01_NOMBRES_INTERNOS', 'SKL2_R01_RESOLVER_TOKEN_ASISTENCIA', 'SKL2_R02_RESOLVER_TOKEN_MATRICULA', 'SKL2_R03_RESUMEN_SESIONES_DOCENTE',
-    'SKL2_R04_RADICAR_V4_SIN_TOMA', 'SKL2_R05_CONTACTO_NOTIFICACION', 'SKL2_R06_RECHAZOS_LECTURA', 'SKL2_TRANCOUNT_ZERO', 'SKL2_MIG78_UP_DOWN_UP',
-    # SKILLS-BD lote 3 2026-11-25 (test/test_skills_lote3_caracterizacion.sql)
-    'SKL3_N01_ESTRUCTURA', 'SKL3_R01_MENSAJE_CATALOGO', 'SKL3_R02_CONTEXTO_EJECUTOR', 'SKL3_R03_VALIDAR_CORRELACION', 'SKL3_R04_VALIDADORES_USUARIO',
-    'SKL3_R05_ACTUALIZAR_DATOS', 'SKL3_R06_CAMBIAR_ESTADO', 'SKL3_R07_CORREGIR_DOCUMENTO', 'SKL3_R08_CORREGIR_IDENTIDAD', 'SKL3_R09_PERFIL_POR_ROL',
-    # SKILLS-BD lote 4 2026-11-25 (test/test_skills_lote4_caracterizacion.sql)
-    'SKL4_N01_ESTRUCTURA', 'SKL4_R01_VALIDAR_COORD_FACULTAD', 'SKL4_R02_VALIDAR_PROGRAMA', 'SKL4_R03_CREAR_COORDINADOR', 'SKL4_R04_PROGRAMA_NUCLEOS',
-    'SKL4_R05_FACULTAD_NUCLEOS', 'SKL4_R06_RESOLVER_COORDINADOR', 'SKL4_R07_RESOLVER_DECANO_ADMIN', 'SKL4_R08_PROGRAMA_EN_FACULTAD',
-    'T-091-13',
     # P3 fase F5 (migracion 71 en test/test_p3_f5_notificaciones_migracion_71.ps1)
     'P3F5_MIG71_UP_DOWN_UP',
     # AUD-BD M-9: ids que las pruebas ya emitian y el resumen no exigia (todos pasan en una corrida completa del gate; scripts/check-test-summary-parity.ps1)

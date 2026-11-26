@@ -9,7 +9,7 @@ GO
 -- usp_radicar_solicitud_revision_asistencia_v3  (CULM-001 D.2, HU014/HU015; CONTRACT §3.2)
 --
 -- Radica el reclamo con CATEGORIA persistida (FK a CategoriaJustificacion) y de 0 a ARCHIVOS/MAXIMO_SOPORTES_POR_RECLAMO soportes
--- (DRAFT -> ATTACHED, todos en la MISMA transaccion). Toda la logica vive en usp_radicar_solicitud_revision_interno (compartida con
+-- (DRAFT -> ATTACHED, todos en la MISMA transaccion). Toda la logica vive en usp_internal_radicar_solicitud_revision (compartida con
 -- v2, DEC-044 (3)); aqui solo se gestiona la transaccion y se emite el resultset (los resultados vuelven por parametros OUTPUT, Msg 3915).
 --
 --   @categoria         codigo (MED, CAL...) o nombre de la categoria (REV_021 si no existe)
@@ -59,7 +59,7 @@ BEGIN
             SET @savepointCreado = 1;
         END
 
-        EXEC dbo.usp_radicar_solicitud_revision_interno
+        EXEC dbo.usp_internal_radicar_solicitud_revision
             @idEstudiante = @idEstudiante,
             @idSesion = @idSesion,
             @categoria = @categoria,
@@ -88,7 +88,7 @@ BEGIN
                 ROLLBACK TRANSACTION;
             END
         END
-        -- Con savepoint (transaccion del llamador) no se revierte aqui: usp_radicar_solicitud_revision_interno ya revierte a su propio
+        -- Con savepoint (transaccion del llamador) no se revierte aqui: usp_internal_radicar_solicitud_revision ya revierte a su propio
         -- savepoint lo que escribio si fallo, y un rechazo previo a las escrituras no deja nada que deshacer (ROLLBACK esta
         -- prohibido dentro de un INSERT-EXEC del llamador, Msg 3915).
     END TRY

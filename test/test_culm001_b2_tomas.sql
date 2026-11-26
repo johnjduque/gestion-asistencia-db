@@ -25,7 +25,7 @@ IF OBJECT_ID(N'dbo.TomaAsistencia', N'U') IS NULL OR OBJECT_ID(N'dbo.TokenAsiste
    OR OBJECT_ID(N'dbo.uv_estado_toma_asistencia', N'V') IS NULL
    OR OBJECT_ID(N'dbo.usp_abrir_toma_asistencia', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_cerrar_toma_asistencia', N'P') IS NULL
    OR OBJECT_ID(N'dbo.usp_cerrar_tomas_vencidas', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_registrar_asistencias_toma', N'P') IS NULL
-   OR OBJECT_ID(N'dbo.usp_marcar_ausentes_toma_interno', N'P') IS NULL
+   OR OBJECT_ID(N'dbo.usp_internal_marcar_ausentes_toma', N'P') IS NULL
    OR OBJECT_ID(N'dbo.usp_consultar_tomas_sesion', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_consultar_faltantes_toma_paginado', N'P') IS NULL
    OR OBJECT_ID(N'dbo.usp_consultar_asistencias_toma_paginado', N'P') IS NULL
    OR OBJECT_ID(N'dbo.ufn_horas_sesion', N'FN') IS NULL OR OBJECT_ID(N'dbo.ufn_horas_toma', N'FN') IS NULL

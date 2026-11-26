@@ -121,7 +121,7 @@ BEGIN
         -- PASO 4.5 (CULM-001 D.1, HU026B): plazo de excusas (REV_020 vencido, REV_025 sin parametros); antes de toda escritura.
         IF @estadoResultado = 1
         BEGIN
-            EXEC dbo.usp_validar_plazo_justificacion_interno
+            EXEC dbo.usp_internal_validar_plazo_justificacion
                 @idSesion = @idSesionDefecto,
                 @idCorrelacion = @idCorrelacionDefecto,
                 @fechaLimiteUtc = @fechaLimiteUtc OUTPUT,

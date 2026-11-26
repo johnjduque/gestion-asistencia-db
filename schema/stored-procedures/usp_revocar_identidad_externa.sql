@@ -8,7 +8,6 @@ GO
 -- SEC-BASELINE-017: revoca el vinculo (emisor, sujeto) -> Usuario.id. Idempotente: revocar un vinculo ya revocado
 -- responde exito sin cambios. La fila se conserva (estado = 0) para que la identidad revocada no pueda reutilizarse
 -- ni reasignarse a otra cuenta sin una decision explicita. Un vinculo inexistente responde GEN_001.
--- SKILLS-BD lote 3 (2026-11-25): DECLARE en la cabecera e IF con BEGIN/END; mismo comportamiento.
 CREATE OR ALTER PROCEDURE [dbo].[usp_revocar_identidad_externa]
 (
     @emisor         NVARCHAR(400),
@@ -25,7 +24,6 @@ AS
     DECLARE @transaccionPropia          BIT = 0;
     DECLARE @savepointCreado            BIT = 0;
     DECLARE @mutacionRealizada          BIT = 0;
-    DECLARE @estadoTransaccionCatch     INT;
 
 BEGIN
     SET NOCOUNT ON;
@@ -101,13 +99,9 @@ BEGIN
             IF XACT_STATE() = 1
             BEGIN
                 IF @estadoResultado = 1 OR @mutacionRealizada = 0
-                BEGIN
                     COMMIT TRANSACTION;
-                END
                 ELSE
-                BEGIN
                     ROLLBACK TRANSACTION;
-                END
             END
             ELSE IF XACT_STATE() = -1
             BEGIN
@@ -117,21 +111,16 @@ BEGIN
         ELSE IF @savepointCreado = 1
         BEGIN
             IF XACT_STATE() = 1 AND @estadoResultado = 0 AND @mutacionRealizada = 1
-            BEGIN
                 ROLLBACK TRANSACTION usp_revocar_identidad_externa;
-            END
         END
     END TRY
     BEGIN CATCH
-        -- PASO 5: error: revertir lo propio; transaccion externa condenada => relanzar; si no, SYS_001
-        SET @estadoTransaccionCatch = XACT_STATE();
+        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
 
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
-            BEGIN
                 ROLLBACK TRANSACTION;
-            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN

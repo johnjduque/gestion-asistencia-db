@@ -22,7 +22,6 @@ GO
 -- @codigoFacultad se acepta por compatibilidad con el formulario; dbo.Facultad no tiene columna de codigo, de modo que no se persiste.
 -- Transaccion propia o SAVE TRANSACTION cuando el llamador ya tiene una.
 -- ============================================================================
--- SKILLS-BD lote 4 (2026-11-25): rol de decano por uv_decano_rol (antes, la tabla) e IF con BEGIN/END; mismo comportamiento.
 CREATE OR ALTER PROCEDURE [dbo].[usp_crear_decano_con_facultad]
 (
     @idDecano               UNIQUEIDENTIFIER = NULL,
@@ -145,7 +144,7 @@ BEGIN
             FROM [dbo].[uv_usuario]
             WHERE correo = LOWER(TRIM(@correo)) OR numeroIdentificacion = CAST(@numeroIdentificacion AS VARCHAR(20));
 
-            IF @idUsuarioExistente IS NOT NULL AND EXISTS (SELECT 1 FROM dbo.uv_decano_rol d WHERE d.idUsuario = @idUsuarioExistente AND d.estaActivoRolDecano = 1)
+            IF @idUsuarioExistente IS NOT NULL AND EXISTS (SELECT 1 FROM dbo.Decano d WHERE d.usuario = @idUsuarioExistente AND d.estado = 1)
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
                     @p_codigo = 'DEC_020',
@@ -231,24 +230,16 @@ BEGIN
                 IF XACT_STATE() = 1
                 BEGIN
                     IF @estadoResultado = 1
-                    BEGIN
                         COMMIT TRANSACTION;
-                    END
                     ELSE
-                    BEGIN
                         ROLLBACK TRANSACTION;
-                    END
                 END
                 ELSE IF XACT_STATE() = -1
-                BEGIN
                     ROLLBACK TRANSACTION;
-                END
                 SET @transaccionPropia = 0;
             END
             ELSE IF @savepointCreado = 1 AND XACT_STATE() = 1 AND @estadoResultado = 0
-            BEGIN
                 ROLLBACK TRANSACTION svp_crear_decano_facultad;
-            END
         END
     END TRY
     BEGIN CATCH
@@ -256,20 +247,14 @@ BEGIN
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
-            BEGIN
                 ROLLBACK TRANSACTION;
-            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
-        BEGIN
             ROLLBACK TRANSACTION svp_crear_decano_facultad;
-        END
 
         -- Transaccion externa condenada que no nos pertenece: se propaga al propietario
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
-        BEGIN
             THROW;
-        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',

@@ -7,7 +7,7 @@ GO
 
 -- CULM-001 B.2 (CONTRACT §2.13): permisos de ejecucion de las tomas de asistencia, el QR de asistencia por toma
 -- (HU175/HU176) y los resumenes por horas. Solo EXECUTE sobre los SP publicos; sin DML directo sobre TomaAsistencia,
--- TokenAsistenciaToma ni DetalleAsistencia. Aditivo e idempotente. Los nucleos *_interno NO se conceden.
+-- TokenAsistenciaToma ni DetalleAsistencia. Aditivo e idempotente. Los nucleos usp_internal_* y *_interno NO se conceden.
 -- SIN REVOKE: usp_registrar_asistencia_estudiante_autonomo conserva su EXECUTE (lo concede rol_asistencias_runtime.sql,
 -- congelado; el REVOKE/DROP pasa al paquete D, [SUPUESTO-B-18], B-5 de REVIEW-1).
 -- Las vistas nuevas las cubre el bucle uv_* de rol_asistencias_runtime.sql cuando deploy_schema.ps1 aplica la seguridad

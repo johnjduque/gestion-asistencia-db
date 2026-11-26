@@ -12,7 +12,7 @@ GO
 -- El ADMINISTRADOR aplica los festivos (@soloFuturas = 1) a los grupos de un periodo de su institucion, o a los grupos
 -- de los periodos de su institucion que se cruzan con un anio. Exactamente uno de los dos filtros (FES_006); periodo
 -- inexistente FES_007, de otra institucion SEC_002; anio fuera de FESTIVOS/ANIO_MINIMO..ANIO_MAXIMO FES_001.
--- Una transaccion por grupo (usp_aplicar_festivos_grupos_interno): si algun grupo falla el resultado es FES_009.
+-- Una transaccion por grupo (usp_internal_aplicar_festivos_grupos): si algun grupo falla el resultado es FES_009.
 -- Lo invoca el backend tras cada recarga del anio ([SUPUESTO-B-21]).
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_aplicar_festivos_periodo]
@@ -35,10 +35,6 @@ AS
     DECLARE @idInstitucionPeriodo UNIQUEIDENTIFIER;
     DECLARE @gruposProcesados INT = 0, @canceladas INT = 0, @conAsistencia INT = 0, @gruposConError INT = 0;
     DECLARE @p1 NVARCHAR(500), @p2 NVARCHAR(500), @mensajeUsuarioExito NVARCHAR(4000);
-    DECLARE @mensajeUsuarioInterno   NVARCHAR(4000);  -- SKILLS-BD lote 2: triplete del nucleo interno
-    DECLARE @mensajeTecnicoInterno   NVARCHAR(4000);
-    DECLARE @estadoInterno           BIT;
-    DECLARE @mensajeErrorInterno     NVARCHAR(2048);
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
@@ -127,7 +123,7 @@ BEGIN
 
         IF @estadoResultado = 1
         BEGIN
-            EXEC dbo.usp_aplicar_festivos_grupos_interno
+            EXEC dbo.usp_internal_aplicar_festivos_grupos
                 @idPeriodoAcademico = @idPeriodoAcademico,
                 @anio = @anio,
                 @idUsuarioAdministrador = @idUsuarioEjecutorDefecto,
@@ -136,15 +132,7 @@ BEGIN
                 @gruposProcesados = @gruposProcesados OUTPUT,
                 @sesionesCanceladas = @canceladas OUTPUT,
                 @sesionesConAsistencia = @conAsistencia OUTPUT,
-                @gruposConError = @gruposConError OUTPUT,
-                @mensajeUsuarioResultado = @mensajeUsuarioInterno OUTPUT,
-                @mensajeTecnicoResultado = @mensajeTecnicoInterno OUTPUT,
-                @estadoResultado = @estadoInterno OUTPUT;
-            IF @estadoInterno = 0
-            BEGIN
-                SET @mensajeErrorInterno = LEFT(@mensajeTecnicoInterno, 2048);
-                THROW 52528, @mensajeErrorInterno, 1;
-            END
+                @gruposConError = @gruposConError OUTPUT;
 
             IF @gruposConError > 0
             BEGIN

@@ -13,8 +13,6 @@ GO
 -- Ambito: las filas salen de uv_auth_programa (fail-closed sin contexto de ejecutor).
 -- SESSION_CONTEXT: se captura el previo y SIEMPRE se restaura (exito y error).
 -- ============================================================================
--- SKILLS-BD lote 4 (2026-11-25): DECLARE en la cabecera (antes, dentro del BEGIN) y comentario del CATCH de lectura;
--- mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_programas_academicos]
 (
     @idUsuarioEjecutor  UNIQUEIDENTIFIER,
@@ -26,6 +24,10 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_programas_academicos]
     @idTipoPrograma     UNIQUEIDENTIFIER = NULL
 )
 AS
+BEGIN
+    SET NOCOUNT ON;
+    -- Consulta de solo lectura: sin XACT_ABORT para no invalidar la transaccion del llamador ante un THROW de validacion.
+
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idUsuarioDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @guidVacio            UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(NULL, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
@@ -38,9 +40,6 @@ AS
     DECLARE @estadoResultado BIT = 1;
 
     DECLARE @contextoPrevio SQL_VARIANT = SESSION_CONTEXT(N'idUsuarioEjecutor');
-BEGIN
-    SET NOCOUNT ON;
-    -- Consulta de solo lectura: sin XACT_ABORT para no invalidar la transaccion del llamador ante un THROW de validacion.
 
     BEGIN TRY
         -- PASO 1: Validar el identificador de correlacion
@@ -121,8 +120,6 @@ BEGIN
             @read_only = 0;
     END TRY
     BEGIN CATCH
-        -- PASO 8: consulta de lectura (READ_QUERY_RESULTSET): se restaura el contexto y el error, incluido el
-        -- rechazo de validacion, se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
         EXEC sys.sp_set_session_context
             @key = N'idUsuarioEjecutor',
             @value = @contextoPrevio,

@@ -22,8 +22,6 @@ GO
 -- ejecutor.
 -- SESSION_CONTEXT: se captura el previo y SIEMPRE se restaura (exito y error).
 -- ============================================================================
--- SKILLS-BD lote 4 (2026-11-25): ambito del decano por uv_facultad/uv_decano_identidad (antes, las tablas) y
--- comentario del CATCH de lectura; mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_estructura_facultad]
 (
     @idUsuarioEjecutor  UNIQUEIDENTIFIER,
@@ -43,7 +41,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    BEGIN TRY
+BEGIN TRY
         -- PASO 1: Validar el identificador de correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
@@ -95,13 +93,13 @@ BEGIN
         LEFT JOIN dbo.uv_auth_programa p ON p.idFacultad = f.id
         LEFT JOIN dbo.uv_plan_estudio pe ON pe.idPrograma = p.id
         OUTER APPLY (
-            SELECT ISNULL(MAX(spe.numeroSemestre), 0) AS totalSemestres   -- ISNULL sobre agregacion (permitido)
+            SELECT ISNULL(MAX(spe.numeroSemestre), 0) AS totalSemestres
             FROM dbo.uv_semestre_plan_estudio spe
             WHERE spe.idPlanEstudio = pe.id
         ) sem
         WHERE f.id IN (
-                SELECT fd.id FROM dbo.uv_facultad fd INNER JOIN dbo.uv_decano_identidad di ON di.id = fd.idDecano
-                WHERE di.idUsuario = @idUsuarioDefecto
+                SELECT fd.id FROM dbo.Facultad fd INNER JOIN dbo.Decano d ON d.id = fd.decano
+                WHERE d.usuario = @idUsuarioDefecto
               )
         ORDER BY f.nombreFacultad ASC, f.id ASC, p.nombrePrograma ASC, p.id ASC, pe.inp ASC, pe.id ASC;
 
@@ -112,8 +110,6 @@ BEGIN
             @read_only = 0;
     END TRY
     BEGIN CATCH
-        -- PASO 7: consulta de lectura (READ_QUERY_RESULTSET): se restaura el contexto y el error, incluido el
-        -- rechazo de validacion, se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
         EXEC sys.sp_set_session_context
             @key = N'idUsuarioEjecutor',
             @value = @contextoPrevio,

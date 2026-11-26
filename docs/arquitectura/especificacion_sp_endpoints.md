@@ -502,7 +502,7 @@
 | `usp_sincronizar_asistencia_estudiante_interno` | Persistencia | Inserta/actualiza `Asistencia` + `DetalleAsistencia` resolviendo una `RazonCausa` existente (catálogo cerrado, `RC_001` si no existe; alias legacy `A→AN`, `F→SJC` solo internos) | `usp_registrar_asistencia*`, `usp_registrar_asistencias_sesion` |
 | `usp_sincronizar_docente_interno` | Persistencia | Crea registro `Docente` desde `Usuario` existente | `DocenteRepositorySqlServerAdapter` |
 | `usp_sincronizar_estudiante_interno` | Persistencia | Crea registro `Estudiante` desde `Usuario` existente | Orquestadores de registro estudiantil |
-| `usp_obtener_mensaje_catalogo` | Mensajería | Traduce códigos de catálogo a mensajes para usuario/técnico; tipo, severidad y `@estadoResultado` (SKILLS-BD lote 3) son OUTPUT opcionales | Todos los SPs |
+| `usp_obtener_mensaje_catalogo` | Mensajería | Traduce códigos de catálogo a mensajes para usuario/técnico | Todos los SPs |
 
 ---
 

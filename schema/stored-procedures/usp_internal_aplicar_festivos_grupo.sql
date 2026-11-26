@@ -6,8 +6,7 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 -- ============================================================================
--- usp_aplicar_festivos_grupo_interno (CULM-001 B.1; CONTRACT §2.7.5) — nucleo, sin EXECUTE para el rol runtime.
--- SKILLS-BD lote 2 (2026-11-25): antes usp_internal_aplicar_festivos_grupo (renombrado, D3); el cuerpo se corrige en su lote de dominio.
+-- usp_internal_aplicar_festivos_grupo (CULM-001 B.1; CONTRACT §2.7.5) — nucleo, sin EXECUTE para el rol runtime.
 --
 -- Marca como canceladas por FESTIVO las sesiones del grupo cuya fecha LOCAL (TIEMPO/ZONA_HORARIA_SQLSERVER) es un
 -- DiaFestivo activo. No abre transaccion: la controla el llamador (publico, generacion v2 o precarga).
@@ -21,7 +20,7 @@ GO
 --   * Tipo = TipoCancelacionSesion con codigo SESION/CODIGO_TIPO_CANCELACION_FESTIVO (DEC-081: ya no por esAutomatica = 1, hay dos tipos automaticos); motivo = FESTIVOS/PREFIJO_MOTIVO_CANCELACION + nombre.
 -- Bloqueo: dbo.Sesion WITH (UPDLOCK, HOLDLOCK) sobre las candidatas antes de escribir (mismo orden que la ventana).
 -- ============================================================================
-CREATE OR ALTER PROCEDURE [dbo].[usp_aplicar_festivos_grupo_interno]
+CREATE OR ALTER PROCEDURE [dbo].[usp_internal_aplicar_festivos_grupo]
 (
     @idGrupo                  UNIQUEIDENTIFIER,
     @soloFuturas              BIT,

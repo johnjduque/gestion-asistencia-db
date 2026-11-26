@@ -598,7 +598,7 @@ def main():
          "    FROM (SELECT *, n = ROW_NUMBER() OVER (PARTITION BY grupo ORDER BY ini) FROM #s1) x;\n    DROP TABLE #s1;\nEND\n\n",
          "DECLARE cur2 CURSOR LOCAL FAST_FORWARD FOR\n  SELECT g.id, d.usuario FROM dbo.Grupo g JOIN dbo.Docente d ON d.id = g.docente WHERE g.periodoAcademico = @p20261;\n",
          "OPEN cur2; FETCH NEXT FROM cur2 INTO @g, @u;\nWHILE @@FETCH_STATUS = 0\nBEGIN\n    SET @c = NEWID();\n    BEGIN TRANSACTION;\n"
-         "    EXEC dbo.usp_aplicar_festivos_grupo_interno @idGrupo = @g, @soloFuturas = 0, @idCorrelacion = @c, @idUsuarioEjecutor = @u,\n"
+         "    EXEC dbo.usp_internal_aplicar_festivos_grupo @idGrupo = @g, @soloFuturas = 0, @idCorrelacion = @c, @idUsuarioEjecutor = @u,\n"
          "         @sesionesCanceladas = @canc OUTPUT, @sesionesConAsistencia = @conAs OUTPUT,\n"
          "         @mensajeUsuarioResultado = @mu OUTPUT, @mensajeTecnicoResultado = @mt OUTPUT, @estadoResultado = @ok OUTPUT;\n"
          "    IF @ok = 1 COMMIT TRANSACTION; ELSE BEGIN ROLLBACK TRANSACTION; PRINT CONCAT(N'festivos 2026-1 fallo: ', @mt); END\n"

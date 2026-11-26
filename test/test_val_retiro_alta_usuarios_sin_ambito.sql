@@ -56,7 +56,7 @@ GO
 DECLARE @faltantes NVARCHAR(4000) = (
     SELECT STRING_AGG(f.nombre, N', ')
     FROM (VALUES (N'usp_crear_decano_interno'), (N'usp_crear_coordinador_interno'), (N'usp_vincular_docente_programa'),
-                 (N'usp_admitir_estudiante'), (N'usp_registrar_estudiante_en_grupo'), (N'usp_matricular_por_token_interno')) f (nombre)
+                 (N'usp_admitir_estudiante'), (N'usp_registrar_estudiante_en_grupo'), (N'usp_internal_matricular_por_token')) f (nombre)
     WHERE OBJECT_ID(N'dbo.' + f.nombre, N'P') IS NULL
        OR OBJECT_DEFINITION(OBJECT_ID(N'dbo.' + f.nombre, N'P')) NOT LIKE N'%usp_sincronizar_usuario_interno%'
 );

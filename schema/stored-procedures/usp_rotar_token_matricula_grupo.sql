@@ -9,7 +9,6 @@ GO
 -- (NULL -> GEN_002). RBAC DOCENTE + titularidad (SEC_002). Rota siempre (no espera ROTACION_SEGUNDOS).
 -- La rotacion automatica del servidor es usp_rotar_token_matricula_automatico (CONTRACT A2).
 -- Resultset: tupla canonica + idVentana, idDocenteEmisor, fechaRotacionUtc, fechaExpiracionUtc.
--- SKILLS-BD lote 2 (2026-11-25): TRY/CATCH con SYS_001, PASO n y nucleo usp_rotar_token_matricula_interno (antes usp_internal_*).
 CREATE OR ALTER PROCEDURE [dbo].[usp_rotar_token_matricula_grupo]
 (
     @idGrupo           UNIQUEIDENTIFIER,
@@ -32,42 +31,27 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    BEGIN TRY
-        -- PASO 1: el ejecutor es obligatorio (GEN_002)
-        IF @idUsuarioEjecutor IS NULL
-        BEGIN
-            EXEC dbo.usp_obtener_mensaje_catalogo
-                @p_codigo = 'GEN_002', @p_param1 = 'idUsuarioEjecutor',
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-            SET @estadoResultado = 0;
-        END
-        ELSE
-        BEGIN
-            -- PASO 2: regeneracion manual (RBAC DOCENTE y titularidad en el nucleo)
-            EXEC dbo.usp_rotar_token_matricula_interno
-                @idCorrelacion = @idCorrelacionDefecto, @idGrupo = @idGrupo, @tokenHash = @tokenHash, @pin = @pin,
-                @forzar = 1, @idUsuarioManual = @idUsuarioEjecutor,
-                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-                @estadoResultado = @estadoResultado OUTPUT,
-                @idVentana = @idVentana OUTPUT, @idDocenteEmisor = @idDocenteEmisor OUTPUT,
-                @fechaRotacionUtc = @fechaRotacionUtc OUTPUT, @fechaExpiracionUtc = @fechaExpiracionUtc OUTPUT;
-        END
-    END TRY
-    BEGIN CATCH
-        -- PASO 3: error no controlado (SYS_001). El nucleo gestiona y revierte su propia transaccion
+    IF @idUsuarioEjecutor IS NULL
+    BEGIN
         EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'SYS_001',
+            @p_codigo = 'GEN_002', @p_param1 = 'idUsuarioEjecutor',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
+        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
         SET @estadoResultado = 0;
-        SELECT @idVentana = NULL, @idDocenteEmisor = NULL, @fechaRotacionUtc = NULL, @fechaExpiracionUtc = NULL;
-    END CATCH
+    END
+    ELSE
+    BEGIN
+        EXEC dbo.usp_internal_rotar_token_matricula
+            @idCorrelacion = @idCorrelacionDefecto, @idGrupo = @idGrupo, @tokenHash = @tokenHash, @pin = @pin,
+            @forzar = 1, @idUsuarioManual = @idUsuarioEjecutor,
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+            @estadoResultado = @estadoResultado OUTPUT,
+            @idVentana = @idVentana OUTPUT, @idDocenteEmisor = @idDocenteEmisor OUTPUT,
+            @fechaRotacionUtc = @fechaRotacionUtc OUTPUT, @fechaExpiracionUtc = @fechaExpiracionUtc OUTPUT;
+    END
 
-    -- PASO 4: resultset unificado (tupla canonica + datos de la ventana)
     SELECT
         idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,

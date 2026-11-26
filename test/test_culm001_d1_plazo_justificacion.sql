@@ -324,9 +324,9 @@ BEGIN TRY
                           WHERE dp.major_id = OBJECT_ID(N'dbo.usp_consultar_sesiones_materia_estudiante') AND dp.permission_name = N'EXECUTE'
                             AND dp.state IN ('G', 'W') AND dp.grantee_principal_id = DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime'))
                   AND NOT EXISTS (SELECT 1 FROM sys.database_permissions dp
-                          WHERE dp.major_id = OBJECT_ID(N'dbo.usp_validar_plazo_justificacion_interno')
+                          WHERE dp.major_id = OBJECT_ID(N'dbo.usp_internal_validar_plazo_justificacion')
                             AND dp.grantee_principal_id = DATABASE_PRINCIPAL_ID(N'rol_asistencias_runtime'))
-                  AND OBJECT_ID(N'dbo.usp_validar_plazo_justificacion_interno', N'P') IS NOT NULL, 1, 0);
+                  AND OBJECT_ID(N'dbo.usp_internal_validar_plazo_justificacion', N'P') IS NOT NULL, 1, 0);
     EXEC #d1_expect 'D1_SEG_PERMISOS', @ok;
     PRINT 'TEST_PASS:CULM001_D1_SEG_PERMISOS';
 
@@ -387,8 +387,8 @@ IF @sx IS NULL
     THROW 52305, 'TEST FAILED: CULM001_D1_03_AUTOCOMMIT fixture ausente: la semilla local no tiene una sesion historica con estudiante inscrito.', 1;
 BEGIN
     -- Sin el validador de plazo, la llamada de abajo radicaria (y confirmaria) una solicitud real: se corta antes.
-    IF OBJECT_ID(N'dbo.usp_validar_plazo_justificacion_interno', N'P') IS NULL
-        THROW 52304, 'TEST FAILED: CULM001_D1_03_AUTOCOMMIT usp_validar_plazo_justificacion_interno ausente.', 1;
+    IF OBJECT_ID(N'dbo.usp_internal_validar_plazo_justificacion', N'P') IS NULL
+        THROW 52304, 'TEST FAILED: CULM001_D1_03_AUTOCOMMIT usp_internal_validar_plazo_justificacion ausente.', 1;
     CREATE TABLE #w2 (idCorrelacion UNIQUEIDENTIFIER NULL, mensajeUsuarioResultado NVARCHAR(MAX),
         mensajeTecnicoResultado NVARCHAR(MAX), estadoResultado INT NOT NULL);
     INSERT INTO #w2 EXEC dbo.usp_radicar_solicitud_revision_asistencia_v2 @idEstudiante = @ex, @idSesion = @sx,

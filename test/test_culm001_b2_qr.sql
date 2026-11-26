@@ -13,10 +13,10 @@ SET XACT_ABORT OFF;
 -- otro grupo o con matricula CI/I nunca escribe. Todo dentro de una transaccion revertida.
 PRINT 'TEST START: test_culm001_b2_qr (CULM-001 B.2, HU175, HU176)';
 
-IF OBJECT_ID(N'dbo.usp_abrir_qr_toma', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_rotar_token_asistencia_interno', N'P') IS NULL
+IF OBJECT_ID(N'dbo.usp_abrir_qr_toma', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_internal_rotar_token_asistencia', N'P') IS NULL
    OR OBJECT_ID(N'dbo.usp_rotar_token_asistencia_toma', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_rotar_token_asistencia_automatico', N'P') IS NULL
    OR OBJECT_ID(N'dbo.usp_consultar_tomas_qr_por_rotar', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_cerrar_qr_toma', N'P') IS NULL
-   OR OBJECT_ID(N'dbo.usp_resolver_token_asistencia_interno', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_registrar_asistencia_por_token', N'P') IS NULL
+   OR OBJECT_ID(N'dbo.usp_internal_resolver_token_asistencia', N'P') IS NULL OR OBJECT_ID(N'dbo.usp_registrar_asistencia_por_token', N'P') IS NULL
     THROW 57400, 'TEST FAILED CULM001_B2_QR_00: faltan los SP del QR de asistencia.', 1;
 IF dbo.ufn_obtener_parametro_int(NULL, 'ASISTENCIA_QR', 'ROTACION_SEGUNDOS') <> 60
    OR dbo.ufn_obtener_parametro_int(NULL, 'ASISTENCIA_QR', 'TOLERANCIA_SEGUNDOS') <> 60

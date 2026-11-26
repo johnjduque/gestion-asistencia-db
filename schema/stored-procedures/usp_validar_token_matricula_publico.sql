@@ -36,10 +36,6 @@ AS
     DECLARE @idGrupo         UNIQUEIDENTIFIER;
     DECLARE @idDocenteEmisor UNIQUEIDENTIFIER;
     DECLARE @codigoRechazo   VARCHAR(20);
-    DECLARE @mensajeUsuarioInterno   NVARCHAR(4000);  -- SKILLS-BD lote 2: triplete del nucleo interno
-    DECLARE @mensajeTecnicoInterno   NVARCHAR(4000);
-    DECLARE @estadoInterno           BIT;
-    DECLARE @mensajeErrorInterno     NVARCHAR(2048);
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
@@ -55,17 +51,10 @@ BEGIN
             SET @savepointCreado = 1;
         END
 
-        EXEC dbo.usp_resolver_token_matricula_interno
-            @tokenHash = @tokenHash, @pin = @pin, @idCorrelacion = @idCorrelacionDefecto,
+        EXEC dbo.usp_internal_resolver_token_matricula
+            @tokenHash = @tokenHash, @pin = @pin,
             @idVentana = @idVentana OUTPUT, @idGrupo = @idGrupo OUTPUT,
-            @idDocenteEmisor = @idDocenteEmisor OUTPUT, @codigoRechazo = @codigoRechazo OUTPUT,
-            @mensajeUsuarioResultado = @mensajeUsuarioInterno OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoInterno OUTPUT,
-            @estadoResultado = @estadoInterno OUTPUT;
-        IF @estadoInterno = 0
-        BEGIN
-            SET @mensajeErrorInterno = LEFT(@mensajeTecnicoInterno, 2048);
-            THROW 52525, @mensajeErrorInterno, 1;
-        END
+            @idDocenteEmisor = @idDocenteEmisor OUTPUT, @codigoRechazo = @codigoRechazo OUTPUT;
 
         -- La unica escritura posible es la expiracion perezosa, que debe persistir aun cuando se rechace.
         IF @transaccionPropia = 1

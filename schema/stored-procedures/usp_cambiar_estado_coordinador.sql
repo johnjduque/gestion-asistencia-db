@@ -9,8 +9,6 @@ GO
 -- Regla D3: no se puede desactivar a quien coordina un programa activo (COO_001).
 -- Regla D1: Usuario.estado pasa a 0 solo si la persona no conserva otro rol activo; al reactivar vuelve a 1.
 -- Idempotente. Devuelve idUsuario y personaSinRolesActivos para que el backend sincronice la cuenta de identidad.
--- SKILLS-BD lote 4 (2026-11-25): correlacion por defecto (@idCorrelacionDefecto) en mensajes y llamadas, DECLARE del
--- CATCH en la cabecera e IF con BEGIN/END; el resultset devuelve el idCorrelacion recibido, como antes.
 CREATE OR ALTER PROCEDURE [dbo].[usp_cambiar_estado_coordinador]
 (
     @idCoordinador      UNIQUEIDENTIFIER,
@@ -20,7 +18,6 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_cambiar_estado_coordinador]
     @idUsuarioEjecutor  UNIQUEIDENTIFIER = NULL
 )
 AS
-    DECLARE @idCorrelacionDefecto    UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado         BIT = 1;
@@ -35,7 +32,6 @@ AS
     -- Solo se hace ROLLBACK si hubo escritura. Un rechazo de negocio antes de escribir no necesita rollback,
     -- y SQL Server prohibe ROLLBACK dentro de INSERT ... EXEC (3915), que es como se consume este SP en las pruebas.
     DECLARE @mutacionRealizada          BIT = 0;
-    DECLARE @estadoTransaccionCatch     INT;
 
 BEGIN
     SET NOCOUNT ON;
@@ -44,7 +40,7 @@ BEGIN
     BEGIN TRY
         -- PASO 1: correlacion, ejecutor y estado destino presentes
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
-            @idCorrelacion = @idCorrelacionDefecto,
+            @idCorrelacion = @idCorrelacion,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
@@ -57,7 +53,7 @@ BEGIN
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacion);
             SET @estadoResultado = 0;
         END
 
@@ -69,7 +65,7 @@ BEGIN
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacion);
             SET @estadoResultado = 0;
         END
 
@@ -79,7 +75,7 @@ BEGIN
             EXEC dbo.usp_validar_permiso_rbac_usuario_interno
                 @idUsuario = @idUsuarioEjecutor,
                 @codigoPerfilRequerido = 'DECANO',
-                @idCorrelacion = @idCorrelacionDefecto,
+                @idCorrelacion = @idCorrelacion,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
@@ -91,7 +87,7 @@ BEGIN
                 @idUsuario = @idUsuarioEjecutor,
                 @idEntidadPadre = @idFacultad,
                 @tipoEntidadPadre = 'FACULTAD',
-                @idCorrelacion = @idCorrelacionDefecto,
+                @idCorrelacion = @idCorrelacion,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
@@ -103,7 +99,7 @@ BEGIN
             EXEC dbo.usp_validar_coordinador_de_facultad_interno
                 @idCoordinador = @idCoordinador,
                 @idFacultad = @idFacultad,
-                @idCorrelacion = @idCorrelacionDefecto,
+                @idCorrelacion = @idCorrelacion,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
@@ -145,7 +141,7 @@ BEGIN
                         @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                         @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-                    SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                    SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacion);
                     SET @estadoResultado = 0;
                 END
             END
@@ -166,7 +162,7 @@ BEGIN
                     EXEC dbo.usp_cambiar_estado_usuario_interno
                         @idUsuario = @idUsuarioCoordinador,
                         @estaActivo = @estaActivo,
-                        @idCorrelacion = @idCorrelacionDefecto,
+                        @idCorrelacion = @idCorrelacion,
                         @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                         @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                         @estadoResultado = @estadoResultado OUTPUT;
@@ -180,7 +176,7 @@ BEGIN
                         @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                         @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-                    SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+                    SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacion);
                 END
             END
         END
@@ -191,13 +187,9 @@ BEGIN
             IF XACT_STATE() = 1
             BEGIN
                 IF @estadoResultado = 1 OR @mutacionRealizada = 0
-                BEGIN
                     COMMIT TRANSACTION;
-                END
                 ELSE
-                BEGIN
                     ROLLBACK TRANSACTION;
-                END
             END
             ELSE IF XACT_STATE() = -1
             BEGIN
@@ -207,20 +199,16 @@ BEGIN
         ELSE IF @savepointCreado = 1
         BEGIN
             IF XACT_STATE() = 1 AND @estadoResultado = 0 AND @mutacionRealizada = 1
-            BEGIN
                 ROLLBACK TRANSACTION usp_cambiar_estado_coordinador;
-            END
         END
     END TRY
     BEGIN CATCH
-        SET @estadoTransaccionCatch = XACT_STATE();
+        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
 
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
-            BEGIN
                 ROLLBACK TRANSACTION;
-            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN
@@ -238,7 +226,7 @@ BEGIN
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
 
-        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacion);
         SET @estadoResultado = 0;
     END CATCH
 

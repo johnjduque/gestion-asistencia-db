@@ -195,7 +195,7 @@ Contrato completo, decisiones y limitaciones: `docs/work-items/CC-003G-01-public
 
 ### 7. ~~`dbo.usp_sincronizar_usuario`~~ (RETIRADO, VAL ROL-05, 2026-11-12)
 - **Estado**: retirado con la migracion `39_val_retiro_alta_usuarios_sin_ambito_up.sql` (decision de John). Era el alta generica de usuario base para `POST /api/v1/usuarios`, que cualquier usuario autenticado podia llamar sin ejecutor ni ambito; el backend retiro esa ruta y el SP quedo sin llamadores. Se retiraron el SP y su `GRANT EXECUTE` a `rol_asistencias_runtime`.
-- **Lo que no cambia**: `dbo.usp_sincronizar_usuario_interno` sigue siendo el nucleo de los altas con ambito (`usp_crear_decano_interno`, `usp_crear_coordinador_interno`, `usp_vincular_docente_programa`, `usp_admitir_estudiante`, `usp_registrar_estudiante_en_grupo`, `usp_matricular_por_token_interno`) y sigue con `DENY EXECUTE` al runtime.
+- **Lo que no cambia**: `dbo.usp_sincronizar_usuario_interno` sigue siendo el nucleo de los altas con ambito (`usp_crear_decano_interno`, `usp_crear_coordinador_interno`, `usp_vincular_docente_programa`, `usp_admitir_estudiante`, `usp_registrar_estudiante_en_grupo`, `usp_internal_matricular_por_token`) y sigue con `DENY EXECUTE` al runtime.
 - **Prueba**: `test/test_val_retiro_alta_usuarios_sin_ambito.sql` (`VAL_ROL05_*`). El down de la migracion 39 recrea el SP y su permiso tal como estaban.
 
 ### 8. `dbo.usp_registrar_o_actualizar_plan_estudio`
@@ -333,7 +333,7 @@ Permiso aditivo: `schema/security/rol_asistencias_runtime_hu008.sql`. Seed: `24_
 
 ## Addendum INT-HU-01 — reactivación de la matrícula retirada al aceptar una solicitud de ingreso (2026-10-28)
 
-> CULM-001 A.1 (DEC-009): la regla se mueve a `dbo.usp_reactivar_matricula_retirada_interno`, que llama
+> CULM-001 A.1 (DEC-009): la regla se mueve a `dbo.usp_internal_reactivar_matricula_retirada`, que llama
 > `usp_registrar_estudiante_en_grupo_interno` (matricula manual HU050 y QR/PIN HU176B). Ver el addendum CULM-001 A.
 
 `dbo.usp_resolver_solicitud_ingreso_grupo`, ACEPTAR con cupo: si el estudiante tiene una matrícula `I` (retirado, HU051) en el grupo, se reactiva (`I` → `A`), se enlaza en la solicitud y responde `SIG_011` (antes: 409 por duplicado desde la matrícula interna). Sin cambios de firma, resultset ni mensajes. Work item: `docs/work-items/INT-HU-01-reactivar-matricula-retirada/`. Prueba: `test/test_int_hu01_reactivar_matricula_retirada.sql` (RM-01..RM-03).
@@ -440,7 +440,7 @@ Migraciones: `13_culm001_a_retiro_solicitudes_up/down.sql` y `14_culm001_a_corre
 | SP | Caso de uso | Ámbito | Códigos |
 |---|---|---|---|
 | `dbo.usp_registrar_estudiante_en_grupo` (cambia) | Matrícula manual; firma y resultset sin cambio | solo DOCENTE titular (F-COO-004) | `SEC_001`, `SEC_002`, `GEN_004`, `ERR_CUPO_SUPERADO`, `ERR_MATRICULA_DUPLICADA` |
-| `dbo.usp_reactivar_matricula_retirada_interno` (interno) | Reactiva la matrícula `MATRICULA/ESTADO_RETIRADA` (misma fila) con cupo bajo bloqueo | interno | `GEN_001`, `ERR_CUPO_SUPERADO`, `SYS_001` |
+| `dbo.usp_internal_reactivar_matricula_retirada` (interno) | Reactiva la matrícula `MATRICULA/ESTADO_RETIRADA` (misma fila) con cupo bajo bloqueo | interno | `GEN_001`, `ERR_CUPO_SUPERADO`, `SYS_001` |
 | `dbo.usp_consultar_oferta_grupos_estudiante` (cambia) | Oferta HU008 con 19 columnas (sin solicitud) | estudiante | `VAL_001` (THROW) |
 | `dbo.usp_consultar_directorio_estudiantes_paginado` | Directorio (listado 12 columnas; detalle 11 + 12 de contexto) | ADMINISTRADOR institución, COORDINADOR programas, DOCENTE grupos propios | `VAL_001` (THROW) |
 | `dbo.usp_consultar_estudiantes_grupo_ambito_paginado` | Estudiantes del grupo en todos los estados; `@tamanoPagina NULL` = todas; `@busqueda` opcional (CIERRE-W1A: subcadena en nombre completo o documento, antes de paginar) | titular, administrador de la institución, coordinador (solo sus programas) | `VAL_001`, `SEC_002` (THROW) |
@@ -547,32 +547,3 @@ Migración `58_hu074_estado_asignatura_reglas_up|down.sql`. Work item: `docs/wor
 | `dbo.usp_consultar_asignaturas_plan_paginado` (malla) | Sin cambio: muestra las inactivas con `estaActivaAsignatura = 0` (reflejo de `Asignatura.estado`) para que el coordinador las reactive | sin cambio | sin cambio |
 
 Los grupos existentes no cambian al inactivar. El modelo no tiene baja lógica de `Grupo`: cuentan todos los grupos del período vigente o futuro.
-
-## Addendum SKILLS-BD lote 3 (2026-11-25): parámetros, usuarios e identidad
-
-Misma firma, mismo resultset y mismos códigos; prueba `test/test_skills_lote3_caracterizacion.sql` más las de dominio de cada SP.
-
-| SP | Cambio en el lote 3 |
-| :--- | :--- |
-| `usp_consultar_perfil_usuario` | Vínculos leídos por `uv_estudiante_identidad`/`uv_estudiante_programa`, `uv_docente_programa`, `uv_coordinador_identidad`, `uv_decano_identidad`, `uv_facultad`, `uv_programa` y `uv_administrador` (antes, tablas base); `TRY/CATCH` que relanza (lectura) |
-| `usp_consultar_reenvio_activacion_cuenta` | Usuario destino por `uv_usuario_autenticacion` y última emisión por la vista nueva `uv_token_verificacion_correo` (solo `id`, `idUsuario` y `fechaEmisionUtc`; nunca el hash); `IF` con `BEGIN/END`; `TRY/CATCH` que relanza (el rechazo sigue siendo `THROW 51000`) |
-| `usp_corregir_identidad_usuario` | Ámbito del coordinador, del administrador y del decano por vistas `uv_*` (la fila del usuario se sigue leyendo con `UPDLOCK, HOLDLOCK` en `dbo.Usuario`); `correo` y `numeroIdentificacion` devueltos desde `uv_usuario`; `IF` con `BEGIN/END` |
-| `usp_vincular_identidad_externa`, `usp_revocar_identidad_externa` | `DECLARE` del `CATCH` movidos a la cabecera; `IF` con `BEGIN/END`. Las lecturas de `IdentidadExterna` y `Usuario` son con bloqueo y siguen en la tabla |
-| `usp_sincronizar_mensaje_usuario` | `IF` con `BEGIN/END`; la fecha nueva se relee con `UPDLOCK, HOLDLOCK` (la fila ya está bloqueada; `uv_mensaje_usuario` filtra los mensajes inactivos y no sirve para esta relectura) |
-
-## Addendum SKILLS-BD lote 4 (2026-11-25): decano, facultad, coordinador y programas
-
-Misma firma, mismo resultset y mismos códigos; prueba `test/test_skills_lote4_caracterizacion.sql` más las de dominio de cada SP.
-
-| SP | Cambio en el lote 4 |
-| :--- | :--- |
-| `usp_crear_decano_con_facultad` | Rol de decano por `uv_decano_rol` (antes, la tabla); `IF` con `BEGIN/END` |
-| `usp_cambiar_estado_decano` | Ámbito del administrador por `uv_facultad` y `uv_administrador`; `IF` con `BEGIN/END`. Las lecturas con `UPDLOCK, HOLDLOCK` (`Decano`, `Programa`) siguen en la tabla |
-| `usp_cambiar_estado_coordinador`, `usp_actualizar_coordinador` | `@idCorrelacionDefecto` en mensajes y llamadas internas (el resultset sigue devolviendo el `idCorrelacion` recibido); `DECLARE` del `CATCH` a la cabecera; `IF` con `BEGIN/END` |
-| `usp_actualizar_programa_academico`, `usp_cambiar_estado_programa_academico` | `PASO n` y `SET XACT_ABORT ON` (fachadas que mutan) |
-| `usp_consultar_coordinadores_facultad_paginado` | Búsqueda sin `ISNULL` (un `CHARINDEX` sobre `NULL` no coincide, igual que sobre cadena vacía); `PASO n` y comentario del `CATCH` de lectura |
-| `usp_consultar_estructura_facultad` | Ámbito del decano por `uv_facultad` y `uv_decano_identidad` (antes, las tablas); comentario del `CATCH` de lectura |
-| `usp_consultar_programas_academicos` | `DECLARE` en la cabecera (antes, dentro del `BEGIN`); comentario del `CATCH` de lectura |
-| `usp_consultar_programas_creditos_facultad_paginado` | Vínculos asignatura-plan por `uv_asignatura_plan_estudio` (antes, la tabla puente más `uv_asignatura`; mismas filas porque todas las FK del camino son `NOT NULL`); `PASO n` y comentario del `CATCH` de lectura |
-
-Los `ISNULL` que quedan en estas consultas son sobre agregaciones (`MAX`, `COUNT`, `SUM`), permitidos por la skill.

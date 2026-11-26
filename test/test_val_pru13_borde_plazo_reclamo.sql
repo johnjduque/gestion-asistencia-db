@@ -128,7 +128,7 @@ BEGIN TRY
         -- 03: ultimo minuto valido. El limite es manana 00:00 local, asi que hoy 23:59 local todavia se admite y la radicacion pasa.
         SET @limiteValida = NULL;
         SELECT @descU = N'', @descT = N'', @descE = 1;
-        EXEC dbo.usp_validar_plazo_justificacion_interno @idSesion = @sValida, @idCorrelacion = NULL, @fechaLimiteUtc = @limiteValida OUTPUT,
+        EXEC dbo.usp_internal_validar_plazo_justificacion @idSesion = @sValida, @idCorrelacion = NULL, @fechaLimiteUtc = @limiteValida OUTPUT,
             @mensajeUsuarioResultado = @descU OUTPUT, @mensajeTecnicoResultado = @descT OUTPUT, @estadoResultado = @descE OUTPUT;
         TRUNCATE TABLE #pru13;
         SET @corr = NEWID();
@@ -149,7 +149,7 @@ BEGIN TRY
         -- 04: primer minuto vencido. El limite fue hoy 00:00 local (ultimo minuto valido: ayer 23:59 local): REV_020 sin escrituras.
         SET @limiteVencida = NULL;
         SELECT @descU = N'', @descT = N'', @descE = 1;
-        EXEC dbo.usp_validar_plazo_justificacion_interno @idSesion = @sVencida, @idCorrelacion = NULL, @fechaLimiteUtc = @limiteVencida OUTPUT,
+        EXEC dbo.usp_internal_validar_plazo_justificacion @idSesion = @sVencida, @idCorrelacion = NULL, @fechaLimiteUtc = @limiteVencida OUTPUT,
             @mensajeUsuarioResultado = @descU OUTPUT, @mensajeTecnicoResultado = @descT OUTPUT, @estadoResultado = @descE OUTPUT;
         SET @ultimoDiaEsperado = CONVERT(NVARCHAR(10), DATEADD(DAY, -1, @hoyLocal), 23);
         SELECT @filasAntes = COUNT(*) FROM dbo.SolicitudRevisionAsistencia;

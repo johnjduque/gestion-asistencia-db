@@ -6,8 +6,6 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 -- HU176B (D2 rotativo): nucleo interno de la rotacion de token/PIN de la ventana ACTIVA de un grupo.
--- SKILLS-BD lote 2 (2026-11-25): antes usp_internal_rotar_token_matricula (renombrado, D3); DECLARE en la cabecera, PASO n y
--- titularidad por vistas (uv_grupo, uv_docente_identidad). La ventana se lee con UPDLOCK/HOLDLOCK (excepcion de lecturas con bloqueo).
 -- Lo invocan las fachadas usp_rotar_token_matricula_grupo (manual, con ejecutor) y usp_rotar_token_matricula_automatico
 -- (job, sin ejecutor). NO se concede EXECUTE al rol de runtime. CONTRACT A2.
 --   * @idUsuarioManual NO NULL: regeneracion del docente: RBAC DOCENTE + titularidad (SEC_002); rota siempre.
@@ -16,7 +14,7 @@ GO
 --   * Ventana vencida: la marca EXPIRADA (se persiste) y rechaza con MQR_001, sin token nuevo.
 --   * PIN nuevo repetido en el vigente o anterior de otra ventana activa -> MQR_006 sin cambios.
 -- Gestiona su propia transaccion (propia o savepoint) y devuelve el resultado por parametros OUTPUT.
-CREATE OR ALTER PROCEDURE [dbo].[usp_rotar_token_matricula_interno]
+CREATE OR ALTER PROCEDURE [dbo].[usp_internal_rotar_token_matricula]
 (
     @idCorrelacion            UNIQUEIDENTIFIER,
     @idGrupo                  UNIQUEIDENTIFIER,
@@ -40,25 +38,16 @@ AS
     DECLARE @transaccionPropia          BIT = 0;
     DECLARE @savepointCreado            BIT = 0;
     DECLARE @codigoRechazo              VARCHAR(20) = NULL;
-    DECLARE @estadoActiva               NVARCHAR(10);
-    DECLARE @estadoExpirada             NVARCHAR(10);
-    DECLARE @rotacionSegundos           INT;
-    DECLARE @ahora                      DATETIME2(0);
-    DECLARE @debeRotar                  BIT = 0;
-    DECLARE @idVentanaActual            UNIQUEIDENTIFIER = NULL;
-    DECLARE @estadoTransaccionCatch     INT;
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;   -- AUD-BD M-6: un error no capturado condena la transaccion; el CATCH ya maneja XACT_STATE() = -1 (THROW si no es propia)
 
-    -- PASO 1: respuesta inicial
     SELECT @mensajeUsuarioResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
            @mensajeTecnicoResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
            @estadoResultado = 1,
            @idVentana = NULL, @idDocenteEmisor = NULL, @fechaRotacionUtc = NULL, @fechaExpiracionUtc = NULL;
 
     BEGIN TRY
-        -- PASO 2: correlacion y parametros obligatorios (GEN_002)
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
@@ -75,7 +64,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
-        -- PASO 3: regeneracion manual: RBAC DOCENTE y titularidad (SEC_002)
+        -- Regeneracion manual: RBAC DOCENTE y titularidad
         IF @estadoResultado = 1 AND @idUsuarioManual IS NOT NULL
         BEGIN
             EXEC dbo.usp_validar_permiso_rbac_usuario_interno
@@ -87,8 +76,8 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
 
             IF @estadoResultado = 1 AND NOT EXISTS (
-                SELECT 1 FROM dbo.uv_grupo g INNER JOIN dbo.uv_docente_identidad d ON d.id = g.idDocente
-                WHERE g.id = @idGrupoDefecto AND d.idUsuario = @idUsuarioManual
+                SELECT 1 FROM dbo.Grupo g INNER JOIN dbo.Docente d ON d.id = g.docente
+                WHERE g.id = @idGrupoDefecto AND d.usuario = @idUsuarioManual
             )
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
@@ -100,13 +89,14 @@ BEGIN
             END
         END
 
-        -- PASO 4: transaccion propia o savepoint; ventana ACTIVA del grupo con bloqueo
         IF @estadoResultado = 1
         BEGIN
-            SET @estadoActiva = CAST(dbo.ufn_obtener_parametro('MATRICULA_QR', 'ESTADO_ACTIVA') AS NVARCHAR(10));
-            SET @estadoExpirada = CAST(dbo.ufn_obtener_parametro('MATRICULA_QR', 'ESTADO_EXPIRADA') AS NVARCHAR(10));
-            SET @rotacionSegundos = dbo.ufn_obtener_parametro_int(NULL, 'MATRICULA_QR', 'ROTACION_SEGUNDOS');
-            SET @ahora = SYSUTCDATETIME();
+            DECLARE @estadoActiva   NVARCHAR(10) = CAST(dbo.ufn_obtener_parametro('MATRICULA_QR', 'ESTADO_ACTIVA') AS NVARCHAR(10));
+            DECLARE @estadoExpirada NVARCHAR(10) = CAST(dbo.ufn_obtener_parametro('MATRICULA_QR', 'ESTADO_EXPIRADA') AS NVARCHAR(10));
+            DECLARE @rotacionSegundos INT = dbo.ufn_obtener_parametro_int(NULL, 'MATRICULA_QR', 'ROTACION_SEGUNDOS');
+            DECLARE @ahora DATETIME2(0) = SYSUTCDATETIME();
+            DECLARE @debeRotar BIT = 0;
+            DECLARE @idVentanaActual UNIQUEIDENTIFIER = NULL;
 
             SET @conteoTransaccionesInicial = @@TRANCOUNT;
             IF @conteoTransaccionesInicial = 0
@@ -125,11 +115,8 @@ BEGIN
             FROM dbo.TokenMatriculaGrupo t WITH (UPDLOCK, HOLDLOCK)
             WHERE t.grupo = @idGrupoDefecto AND t.estado = @estadoActiva;
 
-            -- PASO 5: ventana vencida (se expira y se persiste), rotacion o rechazo (MQR_001, MQR_006)
             IF @idVentanaActual IS NULL
-            BEGIN
                 SET @codigoRechazo = 'MQR_001';
-            END
             ELSE IF @ahora >= @fechaExpiracionUtc
             BEGIN
                 -- Fin de la ventana: expira (se persiste) y no se genera token nuevo
@@ -147,9 +134,7 @@ BEGIN
                         SELECT 1 FROM dbo.TokenMatriculaGrupo t WITH (UPDLOCK, HOLDLOCK)
                         WHERE t.estado = @estadoActiva AND t.id <> @idVentanaActual AND (t.pin = @pin OR t.pinAnterior = @pin)
                     )
-                    BEGIN
                         SET @codigoRechazo = 'MQR_006';
-                    END
                     ELSE
                     BEGIN
                         UPDATE dbo.TokenMatriculaGrupo
@@ -165,7 +150,6 @@ BEGIN
                 END
             END
 
-            -- PASO 6: mensaje de rechazo o de exito (GEN_004)
             IF @codigoRechazo IS NOT NULL
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
@@ -189,35 +173,24 @@ BEGIN
             IF @transaccionPropia = 1
             BEGIN
                 IF XACT_STATE() = 1
-                BEGIN
                     COMMIT TRANSACTION;
-                END
                 ELSE IF XACT_STATE() = -1
-                BEGIN
                     ROLLBACK TRANSACTION;
-                END
             END
         END
     END TRY
     BEGIN CATCH
-        -- PASO 7: error: revierte lo propio; una transaccion externa condenada se relanza
-        SET @estadoTransaccionCatch = XACT_STATE();
+        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
-            BEGIN
                 ROLLBACK TRANSACTION;
-            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
-        BEGIN
             ROLLBACK TRANSACTION sp_hu176b_rotar;
-        END
 
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
-        BEGIN
             THROW;
-        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
@@ -228,10 +201,8 @@ BEGIN
         SELECT @idVentana = NULL, @idDocenteEmisor = NULL, @fechaRotacionUtc = NULL, @fechaExpiracionUtc = NULL;
     END CATCH
 
-    -- PASO 8: los datos de la ventana solo se devuelven en exito
+    -- Los datos de la ventana solo se devuelven en exito
     IF @estadoResultado = 0
-    BEGIN
         SELECT @idVentana = NULL, @idDocenteEmisor = NULL, @fechaRotacionUtc = NULL, @fechaExpiracionUtc = NULL;
-    END
 END;
 GO

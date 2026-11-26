@@ -21,8 +21,6 @@ GO
 -- Ambito: perfil DECANO; solo coordinadores cuya facultad es la que tiene a su cargo. Un decano sin facultad no ve filas.
 -- SESSION_CONTEXT: se captura el previo y SIEMPRE se restaura (exito y error).
 -- ============================================================================
--- SKILLS-BD lote 4 (2026-11-25): busqueda sin ISNULL (CHARINDEX sobre NULL no coincide, igual que sobre cadena vacia),
--- PASO n y comentario del CATCH de lectura; mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_coordinadores_facultad_paginado]
 (
     @idUsuarioEjecutor  UNIQUEIDENTIFIER,
@@ -100,19 +98,16 @@ BEGIN
                 @busquedaFiltro IS NULL
                 OR CHARINDEX(@busquedaFiltro, c.nombreCompleto) > 0
                 OR CHARINDEX(@busquedaFiltro, CONVERT(NVARCHAR(20), c.numeroIdentificacion)) > 0
-                OR CHARINDEX(@busquedaFiltro, c.correo) > 0
-                OR CHARINDEX(@busquedaFiltro, c.nombrePrograma) > 0
+                OR CHARINDEX(@busquedaFiltro, ISNULL(c.correo, N'')) > 0
+                OR CHARINDEX(@busquedaFiltro, ISNULL(c.nombrePrograma, N'')) > 0
             )
         ORDER BY c.nombreCompleto ASC, c.id ASC
         OFFSET @offset ROWS
         FETCH NEXT @tamanoPagina ROWS ONLY;
 
-        -- PASO 3: Restaurar el contexto de sesion previo
         EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
     END TRY
     BEGIN CATCH
-        -- PASO 4: consulta de lectura (READ_QUERY_RESULTSET): se restaura el contexto y el error, incluido el
-        -- rechazo de validacion, se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
         EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
         THROW;
     END CATCH;

@@ -132,11 +132,6 @@ procedimientos (`usp_evaluar_alertas_inasistencia_grupo`, `usp_consultar_alertas
 parámetros de `ALERTA_INASISTENCIA`, cuatro plantillas de cancelación y los permisos, y dos procedimientos
 (`usp_ejecutar_cierre_masivo_periodo` y `usp_consultar_resumen_asistencia_grupo_docente_paginado`) tenían una versión anterior. Después de `deploy_schema.ps1` la base quedó igual a un despliegue limpio. Por eso este paso no es opcional.
 
-Migración 78 (SKILLS-BD lote 2, 2026-11-25): retira los 16 núcleos `usp_internal_*`, renombrados a `usp_*_interno`. Si corre antes de
-este paso, crea cada nombre nuevo como copia del viejo y recompila a sus llamadores para que la base siga funcionando; este paso deja
-después los cuerpos del lote 2. Quien solo use `deploy_schema.ps1` debe correr también `.\scripts\migrar.ps1 -Modo Aplicar` (o la 78 a
-mano): `deploy_schema.ps1` crea los nombres nuevos pero no borra los viejos.
-
 Qué hace `deploy_schema.ps1` sobre una base con datos:
 
 - Tablas: solo crea las que faltan (`IF OBJECT_ID ... IS NULL`); no cambia columnas ni borra datos.

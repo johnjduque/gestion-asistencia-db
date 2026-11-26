@@ -11,11 +11,11 @@ GO
 --   * elimina las sesiones futuras GENERADAS (procedenciaTemporal = UTC_GENERADOR) que ya no encajan en el horario y no
 --     tienen asistencia ni clasificacion. Nunca toca sesiones del pasado ni las creadas a mano por el docente.
 -- No abre transaccion: la controla el SP publico (propia o savepoint). No modifica usp_generar_sesiones_grupo (congelado).
--- CULM-001 B.1 (CONTRACT §2.7.6): al final aplica los festivos (usp_aplicar_festivos_grupo_interno, @soloFuturas = 0)
+-- CULM-001 B.1 (CONTRACT §2.7.6): al final aplica los festivos (usp_internal_aplicar_festivos_grupo, @soloFuturas = 0)
 -- en la misma transaccion del llamador: toda sesion creada en un dia festivo nace cancelada. Una sesion futura que se
 -- borra porque ya no encaja en el horario pierde antes su SesionCancelacion. Las canceladas que siguen encajando no se
 -- borran ni se recrean (idempotencia por grupo, inicio y fin).
--- DEC-081: despues de los festivos aplica los dias de receso academico del periodo (usp_cancelar_sesiones_receso_interno). B.2 agrega la condicion NOT EXISTS TomaAsistencia.
+-- DEC-081: despues de los festivos aplica los dias de receso academico del periodo (usp_internal_cancelar_sesiones_receso). B.2 agrega la condicion NOT EXISTS TomaAsistencia.
 CREATE OR ALTER PROCEDURE [dbo].[usp_precargar_sesiones_grupo_interno]
 (
     @idGrupo                 UNIQUEIDENTIFIER,
@@ -195,7 +195,7 @@ BEGIN
             SET @sesionesCreadas = @@ROWCOUNT;
 
             -- PASO 6 (CULM-001 B.1): festivos de las sesiones del grupo, en la misma transaccion del llamador
-            EXEC dbo.usp_aplicar_festivos_grupo_interno
+            EXEC dbo.usp_internal_aplicar_festivos_grupo
                 @idGrupo = @idGrupoDefecto,
                 @soloFuturas = 0,
                 @idCorrelacion = @idCorrelacionDefecto,
@@ -209,7 +209,7 @@ BEGIN
             -- PASO 7 (DEC-081): dias de receso academico activos del periodo; un festivo ya aplicado gana. Si falla, informa su mensaje
             IF @estadoResultado = 1
             BEGIN
-                EXEC dbo.usp_cancelar_sesiones_receso_interno
+                EXEC dbo.usp_internal_cancelar_sesiones_receso
                     @idGrupo = @idGrupoDefecto,
                     @idReceso = NULL,
                     @soloFuturas = 0,

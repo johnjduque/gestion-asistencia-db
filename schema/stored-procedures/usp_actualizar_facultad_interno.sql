@@ -10,7 +10,6 @@ GO
 -- Historias de Usuario: HU110 / HU117
 -- Ambito: operacion atomica de persistencia. Un parametro NULL conserva el valor actual.
 -- =============================================================================
--- SKILLS-BD lote 4 (2026-11-25): comentarios PASO n; sin cambios de logica.
 CREATE OR ALTER PROCEDURE [dbo].[usp_actualizar_facultad_interno]
 (
     @id                      UNIQUEIDENTIFIER,
@@ -36,14 +35,12 @@ BEGIN
     SET @estadoResultado = 1;
 
     BEGIN TRY
-        -- PASO 1: correlacion obligatoria
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- PASO 2: transaccion propia o savepoint
         IF @estadoResultado = 1
         BEGIN
             IF @@TRANCOUNT = 0
@@ -57,7 +54,6 @@ BEGIN
                 SET @savepointCreado = 1;
             END
 
-            -- PASO 3: persistencia y mensaje
             UPDATE dbo.Facultad
             SET nombre = CASE WHEN @nombre IS NULL THEN nombre ELSE @nombre END,
                 decano = CASE WHEN @idDecano IS NULL THEN decano ELSE @idDecano END
@@ -71,7 +67,6 @@ BEGIN
 
             SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' IdFacultad: ', @id, ' Correlacion: ', @idCorrelacionDefecto);
 
-            -- PASO 4: cierre de la transaccion propia
             IF @transaccionPropia = 1
             BEGIN
                 COMMIT TRANSACTION;

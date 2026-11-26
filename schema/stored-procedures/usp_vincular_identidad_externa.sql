@@ -12,7 +12,6 @@ GO
 --   * Una identidad externa que ya ocupa otra cuenta, o que fue revocada, se rechaza (GEN_003).
 --   * Una cuenta con otra identidad vigente del mismo emisor se rechaza (GEN_003).
 -- El correo recibido solo se guarda como evidencia de la vinculacion inicial; no se usa para resolver el vinculo.
--- SKILLS-BD lote 3 (2026-11-25): DECLARE en la cabecera e IF con BEGIN/END; mismo comportamiento.
 CREATE OR ALTER PROCEDURE [dbo].[usp_vincular_identidad_externa]
 (
     @emisor             NVARCHAR(400),
@@ -34,8 +33,6 @@ AS
     DECLARE @transaccionPropia          BIT = 0;
     DECLARE @savepointCreado            BIT = 0;
     DECLARE @mutacionRealizada          BIT = 0;
-    DECLARE @estadoTransaccionCatch     INT;
-    DECLARE @numeroError                INT;
 
 BEGIN
     SET NOCOUNT ON;
@@ -116,13 +113,9 @@ BEGIN
                 IF @usuarioVinculado IS NOT NULL
                 BEGIN
                     IF @usuarioVinculado = @idUsuario AND @estadoVinculo = 1
-                    BEGIN
                         SET @yaVinculada = 1;
-                    END
                     ELSE
-                    BEGIN
                         SET @conflicto = 1;
-                    END
                 END
             END
 
@@ -130,9 +123,7 @@ BEGIN
             IF @estadoResultado = 1 AND @conflicto = 0 AND @yaVinculada = 0
                AND EXISTS (SELECT 1 FROM dbo.IdentidadExterna WITH (UPDLOCK, HOLDLOCK)
                            WHERE usuario = @idUsuario AND emisor = @emisor AND estado = 1)
-            BEGIN
                 SET @conflicto = 1;
-            END
 
             IF @conflicto = 1
             BEGIN
@@ -168,13 +159,9 @@ BEGIN
             IF XACT_STATE() = 1
             BEGIN
                 IF @estadoResultado = 1 OR @mutacionRealizada = 0
-                BEGIN
                     COMMIT TRANSACTION;
-                END
                 ELSE
-                BEGIN
                     ROLLBACK TRANSACTION;
-                END
             END
             ELSE IF XACT_STATE() = -1
             BEGIN
@@ -184,22 +171,17 @@ BEGIN
         ELSE IF @savepointCreado = 1
         BEGIN
             IF XACT_STATE() = 1 AND @estadoResultado = 0 AND @mutacionRealizada = 1
-            BEGIN
                 ROLLBACK TRANSACTION usp_vincular_identidad_externa;
-            END
         END
     END TRY
     BEGIN CATCH
-        -- PASO 8: error: revertir lo propio; transaccion externa condenada => relanzar; carrera en indice unico => GEN_003; si no, SYS_001
-        SET @estadoTransaccionCatch = XACT_STATE();
-        SET @numeroError = ERROR_NUMBER();
+        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+        DECLARE @numeroError INT = ERROR_NUMBER();
 
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
-            BEGIN
                 ROLLBACK TRANSACTION;
-            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN

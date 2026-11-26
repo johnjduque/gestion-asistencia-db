@@ -54,7 +54,7 @@ BEGIN
             SET @savepointCreado = 1;
         END
 
-        EXEC dbo.usp_rotar_token_asistencia_interno
+        EXEC dbo.usp_internal_rotar_token_asistencia
             @idCorrelacion = @idCorrelacionDefecto, @idToma = @idToma, @tokenHash = @tokenHash, @pin = @pin,
             @forzar = @forzar, @idUsuarioManual = NULL,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,

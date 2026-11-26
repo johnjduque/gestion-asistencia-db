@@ -22,8 +22,6 @@ GO
 -- codigo nuevo en MessageUcoLab no crea filas) -> texto igual en comparacion binaria: exito sin escritura (huboCambio = 0)
 -- -> UPDATE contenido y fechaModificacion. No cambia estaActivo, tipoMensaje ni severidad. El exito es GEN_005.
 -- Transaccion propia o SAVE TRANSACTION. Las ramas de rechazo no escriben.
--- SKILLS-BD lote 3 (2026-11-25): IF con BEGIN/END y la fecha nueva se relee con el bloqueo que ya tiene la fila (la vista
--- uv_mensaje_usuario filtra los inactivos, asi que no sirve para esta relectura); mismo comportamiento.
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_sincronizar_mensaje_usuario]
 (
@@ -120,7 +118,7 @@ BEGIN
                     SET contenido = @contenidoLimpio, fechaModificacion = SYSUTCDATETIME()
                     WHERE id = @idMensaje;
 
-                    SELECT @fechaNueva = fechaModificacion FROM dbo.CatalogoMensajeUsuario WITH (UPDLOCK, HOLDLOCK) WHERE id = @idMensaje;
+                    SELECT @fechaNueva = fechaModificacion FROM dbo.CatalogoMensajeUsuario WHERE id = @idMensaje;
                     SET @huboCambio = 1;
                 END
 
@@ -135,37 +133,26 @@ BEGIN
             IF @transaccionPropia = 1
             BEGIN
                 IF XACT_STATE() = 1
-                BEGIN
                     COMMIT TRANSACTION;
-                END
                 ELSE IF XACT_STATE() = -1
-                BEGIN
                     ROLLBACK TRANSACTION;
-                END
                 SET @transaccionPropia = 0;
             END
         END
     END TRY
     BEGIN CATCH
-        -- PASO 4: error: revertir lo propio; transaccion externa condenada => relanzar; si no, SYS_001
         SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
-            BEGIN
                 ROLLBACK TRANSACTION;
-            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
-        BEGIN
             ROLLBACK TRANSACTION sp_sincronizar_mensaje_usuario;
-        END
 
         -- Transaccion externa condenada que no nos pertenece: se propaga al propietario
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
-        BEGIN
             THROW;
-        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
