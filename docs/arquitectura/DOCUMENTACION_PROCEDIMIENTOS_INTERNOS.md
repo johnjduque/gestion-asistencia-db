@@ -587,3 +587,24 @@ Mismo nombre, misma firma y mismo comportamiento; prueba `test/test_skills_lote8
 
 Vistas nuevas, delgadas y sin cálculos: `uv_notificacion_saliente`, `uv_estado_notificacion` y `uv_aviso_falta_sesion` (las tablas del
 outbox y de avisos de falta no tenían vista). Las escrituras y las lecturas con bloqueo siguen en las tablas.
+
+## Addendum SKILLS-BD lote 9 (2026-11-26): periodos, festivos y recesos
+
+Mismo nombre, misma firma y mismo comportamiento; prueba `test/test_skills_lote9_caracterizacion.sql` (`SKL9_*`).
+
+| Interno | Cambio en el lote 9 |
+| :--- | :--- |
+| `usp_resolver_institucion_gestor_periodo_interno` | `PASO n` e institución del administrador por `uv_administrador` (con `estaActivaInstitucion = 1`, el mismo filtro que antes) |
+| `usp_validar_fechas_periodo_academico_interno`, `usp_validar_solape_periodo_academico_interno` | `PASO n`, `IF` con `BEGIN/END` y periodos/grupos por `uv_periodo_academico_fechas` y `uv_grupo_registro` (antes, las tablas) |
+| `usp_validar_periodo_abierto_sesion_interno` | `PASO n`, sesión, grupo y periodo por `uv_sesion`, `uv_grupo_registro` y `uv_periodo_academico_fechas`, y `TRY/CATCH` (con transacción abierta relanza; sin ella, `SYS_001`) |
+| `usp_validar_ejecutor_administrador_periodo_interno` | `PASO n`, `IF` con `BEGIN/END` y `TRY/CATCH` (con transacción abierta relanza; sin ella, `SYS_001`) |
+| `usp_validar_receso_academico_interno` | `PASO n`, `IF` con `BEGIN/END` y lecturas por vistas |
+| `usp_aplicar_festivos_grupo_interno`, `usp_cancelar_sesiones_receso_interno` | `PASO n` y lecturas laterales por `uv_receso_academico_registro`, `uv_grupo_registro`, `uv_asistencia_registro`, `uv_toma_asistencia_registro` y `uv_sesion_cancelacion`. El bloqueo de `dbo.Sesion` y las escrituras siguen en las tablas |
+| `usp_cargar_dias_festivos_interno` | `PASO n` y `IIF` en lugar de `ISNULL` sobre variables; los `ISNULL` sobre `SUM`/conteos quedan (agregaciones, permitidos) |
+
+Vistas nuevas, delgadas y sin cálculos: `uv_periodo_academico_fechas` (`uv_periodo_academico` no expone `fechaCierreUtc`),
+`uv_receso_academico_registro` (`uv_periodo_receso_academico` filtra los activos y agrega conteos), `uv_sesion_cancelacion`,
+`uv_asistencia_registro`, `uv_toma_asistencia_registro`, `uv_grupo_registro` (`uv_grupo` calcula estadísticas por grupo),
+`uv_estudiante_grupo_registro` y `uv_revision_cancelacion_registro` (las vistas existentes unen identidad y catálogos). La skill
+prohíbe cambiar la forma de una vista existente, por eso se crearon vistas nuevas.
+

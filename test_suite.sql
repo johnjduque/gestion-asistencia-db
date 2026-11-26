@@ -45,6 +45,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_skills_lote7_caracterizacion.sql
 -- SKILLS-BD lote 8 (2026-11-26): notificaciones (internos del outbox, avisos de falta y verificacion de correo)
 :r /tmp/test/test_skills_lote8_caracterizacion.sql
+-- SKILLS-BD lote 9 (2026-11-26): periodos, festivos y recesos (validadores de periodo y lecturas por vistas uv_*)
+:r /tmp/test/test_skills_lote9_caracterizacion.sql
 :r /tmp/test/test_reactive_academic.sql
 :r /tmp/test/test_mass_period_close.sql
 :r /tmp/test/test_usp_registrar_estudiante_en_grupo_usuario_no_existente.sql

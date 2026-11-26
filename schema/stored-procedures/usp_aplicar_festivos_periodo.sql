@@ -15,6 +15,7 @@ GO
 -- Una transaccion por grupo (usp_aplicar_festivos_grupos_interno): si algun grupo falla el resultado es FES_009.
 -- Lo invoca el backend tras cada recarga del anio ([SUPUESTO-B-21]).
 -- ============================================================================
+-- SKILLS-BD lote 9 (2026-11-26): ISNULL de variables por IIF, comentarios PASO y BEGIN/END en todos los IF.
 CREATE OR ALTER PROCEDURE [dbo].[usp_aplicar_festivos_periodo]
 (
     @idPeriodoAcademico UNIQUEIDENTIFIER = NULL,
@@ -43,12 +44,14 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
     BEGIN TRY
+        -- PASO 1: Validar correlacion
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
+        -- PASO 2: Validar parametros obligatorios
         IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -59,6 +62,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 3: Validar perfil ADMINISTRADOR del ejecutor
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_validar_permiso_rbac_usuario_interno
@@ -70,7 +74,7 @@ BEGIN
                 @estadoResultado = @estadoResultado OUTPUT;
         END
 
-        -- Exactamente uno de los dos filtros (FES_006)
+        -- PASO 4: Exactamente uno de los dos filtros (FES_006)
         IF @estadoResultado = 1 AND ((@idPeriodoAcademico IS NULL AND @anio IS NULL) OR (@idPeriodoAcademico IS NOT NULL AND @anio IS NOT NULL))
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -81,7 +85,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
-        -- Filtro por periodo: existente (FES_007) y de la institucion del administrador (SEC_002)
+        -- PASO 5: Filtro por periodo: existente (FES_007) y de la institucion del administrador (SEC_002)
         IF @estadoResultado = 1 AND @idPeriodoAcademico IS NOT NULL
         BEGIN
             SELECT @idInstitucionPeriodo = pa.idInstitucion FROM dbo.uv_periodo_academico pa WHERE pa.id = @idPeriodoAcademico;
@@ -110,7 +114,7 @@ BEGIN
 
         END
 
-        -- Filtro por anio: grupos de los periodos de la institucion del administrador que se cruzan con el anio
+        -- PASO 6: Filtro por anio: dentro de FESTIVOS/ANIO_MINIMO..ANIO_MAXIMO (FES_001)
         IF @estadoResultado = 1 AND @anio IS NOT NULL
         BEGIN
             IF @anioMinimo IS NULL OR @anioMaximo IS NULL OR @anio < @anioMinimo OR @anio > @anioMaximo
@@ -125,6 +129,7 @@ BEGIN
             END
         END
 
+        -- PASO 7: Aplicar festivos a los grupos (una transaccion por grupo)
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_aplicar_festivos_grupos_interno
@@ -146,6 +151,7 @@ BEGIN
                 THROW 52528, @mensajeErrorInterno, 1;
             END
 
+            -- PASO 8: Mensaje de resultado (FES_009 si algun grupo fallo, FES_008 si no)
             IF @gruposConError > 0
             BEGIN
                 SET @p1 = CONVERT(NVARCHAR(20), @gruposConError);
@@ -163,7 +169,7 @@ BEGIN
                     @p_codigo = 'FES_008', @p_param1 = @p1, @p_param2 = @p2,
                     @mensajeUsuarioResultado = @mensajeUsuarioExito OUTPUT,
                     @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-                SET @p1 = ISNULL(CONVERT(NVARCHAR(36), @idPeriodoAcademico), CONVERT(NVARCHAR(20), @anio));
+                SET @p1 = IIF(@idPeriodoAcademico IS NOT NULL, CONVERT(NVARCHAR(36), @idPeriodoAcademico), CONVERT(NVARCHAR(20), @anio));
                 EXEC dbo.usp_obtener_mensaje_catalogo
                     @p_codigo = 'FES_008', @p_param1 = @p1,
                     @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
@@ -175,8 +181,11 @@ BEGIN
         END
     END TRY
     BEGIN CATCH
+        -- PASO 9: Manejo de errores
         IF XACT_STATE() = -1 AND @@TRANCOUNT > 0
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
@@ -186,6 +195,7 @@ BEGIN
         SET @estadoResultado = 0;
     END CATCH
 
+    -- PASO 10: Resultado
     SELECT
         idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,

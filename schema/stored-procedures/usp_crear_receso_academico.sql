@@ -23,6 +23,7 @@ GO
 --   @incluirDetalle = 0 omite el resultset 2 (las pruebas T-SQL lo usan porque INSERT ... EXEC no admite dos resultsets distintos).
 -- @idReceso opcional: NULL => el SP genera el identificador. Mensaje de exito REC_001 (fecha dd/MM/yyyy, clases canceladas).
 -- ============================================================================
+-- SKILLS-BD lote 9 (2026-11-26): DECLARE en la cabecera, IF con BEGIN/END, sin COALESCE (un IIF equivalente) y detalle por uv_sesion_cancelacion/uv_sesion (antes, las tablas). Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_crear_receso_academico]
 (
     @idPeriodo               UNIQUEIDENTIFIER,
@@ -37,7 +38,7 @@ AS
     DECLARE @idCorrelacionDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idUsuarioEjecutorDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idInstitucion            UNIQUEIDENTIFIER;
-    DECLARE @idRecesoNuevo            UNIQUEIDENTIFIER = COALESCE(@idReceso, NEWID());
+    DECLARE @idRecesoNuevo            UNIQUEIDENTIFIER = IIF(@idReceso IS NULL, NEWID(), @idReceso);
     DECLARE @motivoNormalizado        NVARCHAR(200);
     DECLARE @sesionesCanceladas       INT = 0;
     DECLARE @sesionesConAsistencia    INT = 0;
@@ -53,6 +54,7 @@ AS
     DECLARE @transaccionPropia          BIT = 0;
     DECLARE @savepointCreado            BIT = 0;
     DECLARE @estadoTransaccionCatch     INT;
+    DECLARE @mensajeUsuarioExito NVARCHAR(4000);
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
@@ -101,7 +103,9 @@ BEGIN
                     @estadoResultado = @estadoResultado OUTPUT;
 
                 IF XACT_STATE() = -1
+                BEGIN
                     THROW 51000, @mensajeTecnicoResultado, 1;
+                END
 
                 IF @estadoResultado = 1
                 BEGIN
@@ -113,7 +117,7 @@ BEGIN
                         @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
                     SELECT @p1 = CONVERT(NVARCHAR(36), @idRecesoNuevo), @p2 = CONVERT(NVARCHAR(20), @sesionesCanceladas),
                            @p3 = CONVERT(NVARCHAR(20), @sesionesConAsistencia);
-                    DECLARE @mensajeUsuarioExito NVARCHAR(4000) = @mensajeUsuarioResultado;
+                    SET @mensajeUsuarioExito = @mensajeUsuarioResultado;
                     EXEC dbo.usp_obtener_mensaje_catalogo
                         @p_codigo = 'REC_001', @p_param1 = @p1, @p_param2 = @p2, @p_param3 = @p3,
                         @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
@@ -128,9 +132,13 @@ BEGIN
             IF @transaccionPropia = 1
             BEGIN
                 IF XACT_STATE() = 1
+                BEGIN
                     COMMIT TRANSACTION;
+                END
                 ELSE IF XACT_STATE() = -1
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
                 SET @transaccionPropia = 0;
             END
         END
@@ -140,7 +148,9 @@ BEGIN
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN
@@ -170,14 +180,16 @@ BEGIN
 
     -- Resultset 2: sesiones canceladas por este receso (solo en exito)
     IF @estadoResultado = 1 AND @incluirDetalle = 1
+    BEGIN
         SELECT
             idSesion  = s.id,
-            idGrupo   = s.grupo,
+            idGrupo   = s.idGrupo,
             fecha     = @fecha,
             inicioUtc = s.fechaHoraInicio
-        FROM dbo.SesionCancelacion sc
-        INNER JOIN dbo.Sesion s ON s.id = sc.sesion
-        WHERE sc.recesoAcademico = @idRecesoNuevo
+        FROM dbo.uv_sesion_cancelacion sc
+        INNER JOIN dbo.uv_sesion s ON s.id = sc.idSesion
+        WHERE sc.idRecesoAcademico = @idRecesoNuevo
         ORDER BY s.fechaHoraInicio, s.id;
+    END
 END;
 GO

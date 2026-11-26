@@ -20,6 +20,7 @@ GO
 --   7. La fecha no es un festivo activo (REC_005, con el nombre del festivo).
 --   8. No hay otro receso activo del mismo periodo en esa fecha (REC_006).
 -- ============================================================================
+-- SKILLS-BD lote 9 (2026-11-26): PASO n, IF con BEGIN/END y TRY/CATCH (relanza con transaccion abierta; sin ella, SYS_001). Las lecturas con UPDLOCK/HOLDLOCK siguen en las tablas. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_receso_academico_interno]
 (
     @idPeriodo                UNIQUEIDENTIFIER,
@@ -57,110 +58,131 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- 1. Fecha obligatoria
-    IF @fecha IS NULL
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'GEN_002', @p_param1 = 'fecha',
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SELECT @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto), @estadoResultado = 0;
-        RETURN;
-    END
-
-    -- 2. Motivo: parametro de longitud y valor recortado
-    IF @longitudMaxima IS NULL OR @longitudMaxima < 1
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'GEN_001', @p_param1 = 'RECESO/MOTIVO_LONGITUD_MAXIMA',
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SELECT @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto), @estadoResultado = 0;
-        RETURN;
-    END
-    IF @motivoLimpio IS NULL OR LEN(@motivoLimpio) = 0 OR LEN(@motivoLimpio) > @longitudMaxima
-    BEGIN
-        SET @p1 = CONVERT(NVARCHAR(20), @longitudMaxima);
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'REC_008', @p_param1 = @p1,
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SELECT @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto), @estadoResultado = 0;
-        RETURN;
-    END
-    SET @motivoNormalizado = CAST(@motivoLimpio AS NVARCHAR(200));
-
-    -- 3-5. Periodo de la institucion (bloqueado), cierre y rango de fechas
-    SELECT  @idPeriodoEncontrado = pa.id, @nombrePeriodo = pa.nombre, @fechaInicio = pa.fechaInicio, @fechaFin = pa.fechaFin,
-            @fechaCierreUtc = pa.fechaCierreUtc
-    FROM    dbo.PeriodoAcademico pa WITH (UPDLOCK, HOLDLOCK)
-    WHERE   pa.id = @idPeriodoDefecto AND pa.institucion = @idInstitucion;
-
-    IF @idPeriodoEncontrado IS NULL
-        SET @codigoRechazo = 'PER_001';
-    ELSE IF @fechaCierreUtc IS NOT NULL
-    BEGIN
-        SET @codigoRechazo = 'REC_007';
-        SET @p1 = @nombrePeriodo;
-    END
-    ELSE IF @fecha < @fechaInicio OR @fecha > @fechaFin
-    BEGIN
-        SET @codigoRechazo = 'REC_003';
-        SELECT @p1 = CONVERT(NVARCHAR(10), @fechaInicio, 103), @p2 = CONVERT(NVARCHAR(10), @fechaFin, 103);
-    END
-
-    -- 6. Fecha futura en la zona horaria institucional
-    IF @codigoRechazo IS NULL
-    BEGIN
-        SELECT TOP 1 @zonaHorariaSqlServer = CONVERT(SYSNAME, p.valor)
-        FROM dbo.uv_parametro p
-        WHERE p.grupo = 'TIEMPO' AND p.clave = 'ZONA_HORARIA_SQLSERVER' AND p.estaActivo = 1;
-
-        IF @zonaHorariaSqlServer IS NULL OR NOT EXISTS (SELECT 1 FROM sys.time_zone_info WHERE [name] = @zonaHorariaSqlServer)
+    BEGIN TRY
+        -- PASO 1: Fecha obligatoria
+        IF @fecha IS NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
-                @p_codigo = 'GEN_001', @p_param1 = 'TIEMPO/ZONA_HORARIA_SQLSERVER',
+                @p_codigo = 'GEN_002', @p_param1 = 'fecha',
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
             SELECT @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto), @estadoResultado = 0;
             RETURN;
         END
 
-        SET @hoy = CAST((SYSUTCDATETIME() AT TIME ZONE 'UTC') AT TIME ZONE @zonaHorariaSqlServer AS DATE);
-        IF @fecha <= @hoy
+        -- PASO 2: Motivo: parametro de longitud y valor recortado
+        IF @longitudMaxima IS NULL OR @longitudMaxima < 1
         BEGIN
-            SET @codigoRechazo = 'REC_004';
-            SELECT @p1 = CONVERT(NVARCHAR(10), @fecha, 103), @p2 = CONVERT(NVARCHAR(10), @hoy, 103);
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'GEN_001', @p_param1 = 'RECESO/MOTIVO_LONGITUD_MAXIMA',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SELECT @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto), @estadoResultado = 0;
+            RETURN;
         END
-    END
-
-    -- 7. No es festivo
-    IF @codigoRechazo IS NULL
-    BEGIN
-        SELECT TOP 1 @nombreFestivo = df.nombre FROM dbo.uv_dia_festivo df WHERE df.fecha = @fecha AND df.estaActivo = 1;
-        IF @nombreFestivo IS NOT NULL
+        IF @motivoLimpio IS NULL OR LEN(@motivoLimpio) = 0 OR LEN(@motivoLimpio) > @longitudMaxima
         BEGIN
-            SET @codigoRechazo = 'REC_005';
-            SET @p1 = @nombreFestivo;
+            SET @p1 = CONVERT(NVARCHAR(20), @longitudMaxima);
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'REC_008', @p_param1 = @p1,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SELECT @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto), @estadoResultado = 0;
+            RETURN;
         END
-    END
+        SET @motivoNormalizado = CAST(@motivoLimpio AS NVARCHAR(200));
 
-    -- 8. No esta repetida en el periodo
-    IF @codigoRechazo IS NULL
-       AND EXISTS (SELECT 1 FROM dbo.PeriodoRecesoAcademico r WITH (UPDLOCK, HOLDLOCK)
-                   WHERE r.periodoAcademico = @idPeriodoDefecto AND r.fecha = @fecha AND r.estaActivo = 1)
-    BEGIN
-        SET @codigoRechazo = 'REC_006';
-        SET @p1 = CONVERT(NVARCHAR(10), @fecha, 103);
-    END
+        -- PASO 3: Periodo de la institucion (bloqueado), cierre y rango de fechas
+        SELECT  @idPeriodoEncontrado = pa.id, @nombrePeriodo = pa.nombre, @fechaInicio = pa.fechaInicio, @fechaFin = pa.fechaFin,
+                @fechaCierreUtc = pa.fechaCierreUtc
+        FROM    dbo.PeriodoAcademico pa WITH (UPDLOCK, HOLDLOCK)
+        WHERE   pa.id = @idPeriodoDefecto AND pa.institucion = @idInstitucion;
 
-    IF @codigoRechazo IS NOT NULL
-    BEGIN
+        IF @idPeriodoEncontrado IS NULL
+        BEGIN
+            SET @codigoRechazo = 'PER_001';
+        END
+        ELSE IF @fechaCierreUtc IS NOT NULL
+        BEGIN
+            SET @codigoRechazo = 'REC_007';
+            SET @p1 = @nombrePeriodo;
+        END
+        ELSE IF @fecha < @fechaInicio OR @fecha > @fechaFin
+        BEGIN
+            SET @codigoRechazo = 'REC_003';
+            SELECT @p1 = CONVERT(NVARCHAR(10), @fechaInicio, 103), @p2 = CONVERT(NVARCHAR(10), @fechaFin, 103);
+        END
+
+        -- PASO 4: Fecha futura en la zona horaria institucional
+        IF @codigoRechazo IS NULL
+        BEGIN
+            SELECT TOP 1 @zonaHorariaSqlServer = CONVERT(SYSNAME, p.valor)
+            FROM dbo.uv_parametro p
+            WHERE p.grupo = 'TIEMPO' AND p.clave = 'ZONA_HORARIA_SQLSERVER' AND p.estaActivo = 1;
+
+            IF @zonaHorariaSqlServer IS NULL OR NOT EXISTS (SELECT 1 FROM sys.time_zone_info WHERE [name] = @zonaHorariaSqlServer)
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'GEN_001', @p_param1 = 'TIEMPO/ZONA_HORARIA_SQLSERVER',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+                SELECT @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto), @estadoResultado = 0;
+                RETURN;
+            END
+
+            SET @hoy = CAST((SYSUTCDATETIME() AT TIME ZONE 'UTC') AT TIME ZONE @zonaHorariaSqlServer AS DATE);
+            IF @fecha <= @hoy
+            BEGIN
+                SET @codigoRechazo = 'REC_004';
+                SELECT @p1 = CONVERT(NVARCHAR(10), @fecha, 103), @p2 = CONVERT(NVARCHAR(10), @hoy, 103);
+            END
+        END
+
+        -- PASO 5: No es festivo
+        IF @codigoRechazo IS NULL
+        BEGIN
+            SELECT TOP 1 @nombreFestivo = df.nombre FROM dbo.uv_dia_festivo df WHERE df.fecha = @fecha AND df.estaActivo = 1;
+            IF @nombreFestivo IS NOT NULL
+            BEGIN
+                SET @codigoRechazo = 'REC_005';
+                SET @p1 = @nombreFestivo;
+            END
+        END
+
+        -- PASO 6: No esta repetida en el periodo
+        IF @codigoRechazo IS NULL
+           AND EXISTS (SELECT 1 FROM dbo.PeriodoRecesoAcademico r WITH (UPDLOCK, HOLDLOCK)
+                       WHERE r.periodoAcademico = @idPeriodoDefecto AND r.fecha = @fecha AND r.estaActivo = 1)
+        BEGIN
+            SET @codigoRechazo = 'REC_006';
+            SET @p1 = CONVERT(NVARCHAR(10), @fecha, 103);
+        END
+
+        -- PASO 7: Rechazo por codigo del catalogo
+        IF @codigoRechazo IS NOT NULL
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = @codigoRechazo, @p_param1 = @p1, @p_param2 = @p2,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SELECT @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto), @estadoResultado = 0;
+        END
+    END TRY
+    BEGIN CATCH
+        -- PASO 8: corre dentro de la transaccion del llamador: con transaccion abierta relanza para que el llamador revierta
+        -- (comportamiento previo, sin TRY); sin transaccion devuelve el triplete SYS_001.
+        IF XACT_STATE() <> 0
+        BEGIN
+            THROW;
+        END
+
         EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = @codigoRechazo, @p_param1 = @p1, @p_param2 = @p2,
+            @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SELECT @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto), @estadoResultado = 0;
-    END
+
+        SET @mensajeTecnicoResultado = dbo.ufn_obtener_detalle_error(@idCorrelacionDefecto);
+        SET @estadoResultado = 0;
+    END CATCH
 END;
 GO

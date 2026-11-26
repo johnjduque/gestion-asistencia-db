@@ -13,6 +13,7 @@ GO
 -- Columnas: id, idPeriodoAcademico, fecha, motivo, sesionesCanceladas (INT), estaAplicado (BIT), puedeRetirarse (BIT: no aplicado y periodo
 -- sin cerrar), fechaCreacionUtc, totalRegistros.
 -- ============================================================================
+-- SKILLS-BD lote 9 (2026-11-26): PASO n, IF con BEGIN/END, periodo y ambito por uv_periodo_academico_fechas, uv_administrador, uv_decano_identidad, uv_facultad, uv_coordinador_identidad, uv_programa, uv_docente_programa, uv_docente_identidad y uv_grupo_registro (antes, las tablas) y TRY/CATCH de lectura que relanza. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_recesos_periodo]
 (
     @idPeriodo         UNIQUEIDENTIFIER,
@@ -32,73 +33,90 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
-        @idCorrelacion = @idCorrelacionDefecto,
-        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-        @estadoResultado = @estadoResultado OUTPUT;
-
-    IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'GEN_002', @p_param1 = 'idUsuarioEjecutor',
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @estadoResultado = 0;
-    END
-
-    IF @estadoResultado = 1
-        EXEC dbo.usp_validar_permiso_rbac_usuario_interno
-            @idUsuario = @idUsuarioDefecto, @codigoPerfilRequerido = 'ADMINISTRADOR,DECANO,COORDINADOR,DOCENTE',
+    BEGIN TRY
+        -- PASO 1: Validar el identificador de correlacion
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
-    IF @estadoResultado = 1
-    BEGIN
-        SELECT @idInstitucion = pa.institucion, @fechaCierreUtc = pa.fechaCierreUtc
-        FROM dbo.PeriodoAcademico pa WHERE pa.id = @idPeriodoDefecto;
-
-        IF @idInstitucion IS NOT NULL
-           AND (EXISTS (SELECT 1 FROM dbo.Administrador a WHERE a.usuario = @idUsuarioDefecto AND a.institucion = @idInstitucion)
-             OR EXISTS (SELECT 1 FROM dbo.Decano d INNER JOIN dbo.Facultad f ON f.decano = d.id
-                        WHERE d.usuario = @idUsuarioDefecto AND f.institucion = @idInstitucion)
-             OR EXISTS (SELECT 1 FROM dbo.Coordinador c INNER JOIN dbo.Programa p ON p.coordinador = c.id
-                        INNER JOIN dbo.Facultad f ON f.id = p.facultad
-                        WHERE c.usuario = @idUsuarioDefecto AND f.institucion = @idInstitucion)
-             OR EXISTS (SELECT 1 FROM dbo.Docente dc INNER JOIN dbo.DocentePrograma dp ON dp.docente = dc.id AND dp.estado = 1
-                        INNER JOIN dbo.Programa p ON p.id = dp.programa INNER JOIN dbo.Facultad f ON f.id = p.facultad
-                        WHERE dc.usuario = @idUsuarioDefecto AND f.institucion = @idInstitucion)
-             OR EXISTS (SELECT 1 FROM dbo.Docente dc INNER JOIN dbo.Grupo g ON g.docente = dc.id AND g.periodoAcademico = @idPeriodoDefecto
-                        WHERE dc.usuario = @idUsuarioDefecto))
-            SET @enAmbito = 1;
-
-        IF @enAmbito = 0
+        -- PASO 2: Ejecutor obligatorio (GEN_002)
+        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
-                @p_codigo = 'PER_001',
+                @p_codigo = 'GEN_002', @p_param1 = 'idUsuarioEjecutor',
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
             SET @estadoResultado = 0;
         END
-    END
 
-    IF @estadoResultado = 0
-        THROW 51000, @mensajeTecnicoResultado, 1;
+        -- PASO 3: Perfil ADMINISTRADOR, DECANO, COORDINADOR o DOCENTE
+        IF @estadoResultado = 1
+        BEGIN
+            EXEC dbo.usp_validar_permiso_rbac_usuario_interno
+                @idUsuario = @idUsuarioDefecto, @codigoPerfilRequerido = 'ADMINISTRADOR,DECANO,COORDINADOR,DOCENTE',
+                @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
 
-    SELECT
-        id                 = r.id,
-        idPeriodoAcademico = r.idPeriodoAcademico,
-        fecha              = r.fecha,
-        motivo             = r.motivo,
-        sesionesCanceladas = r.sesionesCanceladas,
-        estaAplicado       = r.estaAplicado,
-        puedeRetirarse     = CAST(IIF(r.estaAplicado = 0 AND @fechaCierreUtc IS NULL, 1, 0) AS BIT),
-        fechaCreacionUtc   = r.fechaCreacionUtc,
-        totalRegistros     = COUNT(1) OVER()
-    FROM dbo.uv_periodo_receso_academico r
-    WHERE r.idPeriodoAcademico = @idPeriodoDefecto
-    ORDER BY r.fecha, r.id;
+        -- PASO 4: Ambito sobre la institucion del periodo (PER_001)
+        IF @estadoResultado = 1
+        BEGIN
+            SELECT @idInstitucion = pa.idInstitucion, @fechaCierreUtc = pa.fechaCierreUtc
+            FROM dbo.uv_periodo_academico_fechas pa WHERE pa.id = @idPeriodoDefecto;
+
+            IF @idInstitucion IS NOT NULL
+               AND (EXISTS (SELECT 1 FROM dbo.uv_administrador a WHERE a.idUsuario = @idUsuarioDefecto AND a.idInstitucion = @idInstitucion)
+                 OR EXISTS (SELECT 1 FROM dbo.uv_decano_identidad d INNER JOIN dbo.uv_facultad f ON f.idDecano = d.id
+                            WHERE d.idUsuario = @idUsuarioDefecto AND f.idInstitucion = @idInstitucion)
+                 OR EXISTS (SELECT 1 FROM dbo.uv_coordinador_identidad c INNER JOIN dbo.uv_programa p ON p.idCoordinador = c.id
+                            WHERE c.idUsuario = @idUsuarioDefecto AND p.idInstitucion = @idInstitucion)
+                 OR EXISTS (SELECT 1 FROM dbo.uv_docente_programa dp
+                            WHERE dp.idUsuario = @idUsuarioDefecto AND dp.estaActivoVinculacion = 1 AND dp.idInstitucion = @idInstitucion)
+                 OR EXISTS (SELECT 1 FROM dbo.uv_docente_identidad dc INNER JOIN dbo.uv_grupo_registro g ON g.idDocente = dc.id AND g.idPeriodoAcademico = @idPeriodoDefecto
+                            WHERE dc.idUsuario = @idUsuarioDefecto))
+            BEGIN
+                SET @enAmbito = 1;
+            END
+
+            IF @enAmbito = 0
+            BEGIN
+                EXEC dbo.usp_obtener_mensaje_catalogo
+                    @p_codigo = 'PER_001',
+                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+                SET @estadoResultado = 0;
+            END
+        END
+
+        -- PASO 5: Rechazo: THROW 51000 con el mensaje tecnico
+        IF @estadoResultado = 0
+        BEGIN
+            THROW 51000, @mensajeTecnicoResultado, 1;
+        END
+
+        -- PASO 6: Recesos activos del periodo
+        SELECT
+            id                 = r.id,
+            idPeriodoAcademico = r.idPeriodoAcademico,
+            fecha              = r.fecha,
+            motivo             = r.motivo,
+            sesionesCanceladas = r.sesionesCanceladas,
+            estaAplicado       = r.estaAplicado,
+            puedeRetirarse     = CAST(IIF(r.estaAplicado = 0 AND @fechaCierreUtc IS NULL, 1, 0) AS BIT),
+            fechaCreacionUtc   = r.fechaCreacionUtc,
+            totalRegistros     = COUNT(1) OVER()
+        FROM dbo.uv_periodo_receso_academico r
+        WHERE r.idPeriodoAcademico = @idPeriodoDefecto
+        ORDER BY r.fecha, r.id;
+    END TRY
+    BEGIN CATCH
+        -- PASO 7: consulta de lectura (READ_QUERY_RESULTSET): el error, incluido el rechazo de validacion,
+        -- se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
+        THROW;
+    END CATCH
 END;
 GO

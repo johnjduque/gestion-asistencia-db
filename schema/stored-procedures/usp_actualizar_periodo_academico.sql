@@ -10,6 +10,7 @@ GO
 -- para no revelar su existencia), fechaInicio < fechaFin (PER_002) y nombre unico en la institucion (PER_003). BD-3: las fechas
 -- nuevas no pueden solaparse con las de otro periodo de la institucion (PER_012, usp_validar_solape_periodo_academico_interno).
 -- codigo y anio se recalculan desde fechaInicio con la misma regla de usp_crear_periodo_academico.
+-- SKILLS-BD lote 9 (2026-11-26): lecturas posteriores al bloqueo por uv_periodo_academico_fechas (antes, la tabla) e IF con BEGIN/END. El bloqueo UPDLOCK/HOLDLOCK de los periodos de la institucion sigue en la tabla. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_actualizar_periodo_academico]
 (
     @idPeriodo               UNIQUEIDENTIFIER,
@@ -91,7 +92,10 @@ BEGIN
         IF @estadoResultado = 1 AND @fechaInicio IS NOT NULL AND @semanasDuracion IS NOT NULL
         BEGIN
             SET @fechaFinCalculada = DATEADD(DAY, 7 * @semanasDuracion - 1, CAST(@fechaInicio AS DATE));
-            IF @fechaFin IS NULL SET @fechaFin = CAST(@fechaFinCalculada AS DATETIME2);
+            IF @fechaFin IS NULL
+            BEGIN
+                SET @fechaFin = CAST(@fechaFinCalculada AS DATETIME2);
+            END
         END
 
         -- PASO 5: Validar la accion y el motivo (codigo de rechazo)
@@ -115,16 +119,16 @@ BEGIN
 
             SET @codigoRechazo =
                 CASE
-                    WHEN NOT EXISTS (SELECT 1 FROM dbo.PeriodoAcademico pa WHERE pa.id = @idPeriodoDefecto AND pa.institucion = @idInstitucion)
+                    WHEN NOT EXISTS (SELECT 1 FROM dbo.uv_periodo_academico_fechas pa WHERE pa.id = @idPeriodoDefecto AND pa.idInstitucion = @idInstitucion)
                         THEN 'PER_001'
                     WHEN @fechaInicio IS NULL OR @fechaFin IS NULL OR @fechaInicio >= @fechaFin
                         THEN 'PER_002'
-                    WHEN EXISTS (SELECT 1 FROM dbo.PeriodoAcademico pa
-                                 WHERE pa.institucion = @idInstitucion AND pa.id <> @idPeriodoDefecto AND LOWER(pa.nombre) = LOWER(@nombreDef))
+                    WHEN EXISTS (SELECT 1 FROM dbo.uv_periodo_academico_fechas pa
+                                 WHERE pa.idInstitucion = @idInstitucion AND pa.id <> @idPeriodoDefecto AND LOWER(pa.nombre) = LOWER(@nombreDef))
                         THEN 'PER_003'
                     -- SES-GEN-01 B2 (DR-03): la duracion exacta solo se exige si cambian las fechas; un periodo historico que solo cambia de
                     -- nombre se conserva. Parametro ausente: fail-closed.
-                    WHEN EXISTS (SELECT 1 FROM dbo.PeriodoAcademico pa
+                    WHEN EXISTS (SELECT 1 FROM dbo.uv_periodo_academico_fechas pa
                                  WHERE pa.id = @idPeriodoDefecto
                                    AND (pa.fechaInicio <> CAST(@fechaInicio AS DATE) OR pa.fechaFin <> CAST(@fechaFin AS DATE)))
                          AND (@semanasDuracion IS NULL OR CAST(@fechaFin AS DATE) <> @fechaFinCalculada)
@@ -134,7 +138,7 @@ BEGIN
             -- BD-3: las fechas nuevas no pueden solaparse con otro periodo de la institucion (PER_012). Solo se valida si cambian las
             -- fechas: un periodo historico que solo cambia de nombre se conserva aunque ya se solapara.
             IF @codigoRechazo IS NULL
-               AND EXISTS (SELECT 1 FROM dbo.PeriodoAcademico pa
+               AND EXISTS (SELECT 1 FROM dbo.uv_periodo_academico_fechas pa
                            WHERE pa.id = @idPeriodoDefecto
                              AND (pa.fechaInicio <> CAST(@fechaInicio AS DATE) OR pa.fechaFin <> CAST(@fechaFin AS DATE)))
             BEGIN

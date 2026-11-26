@@ -24,6 +24,7 @@ GO
 -- fechaCargaUtc es estrictamente creciente por anio (si coincide con la ultima carga se toma el segundo siguiente)
 -- para que uv_carga_dia_festivo.esUltimaCargaAnio sea determinista.
 -- ============================================================================
+-- SKILLS-BD lote 9 (2026-11-26): PASO n, IF con BEGIN/END y sin ISNULL sobre variables (IIF equivalentes; quedan los ISNULL sobre agregaciones, permitidos). Los bloqueos y el MERGE siguen en las tablas. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_cargar_dias_festivos_interno]
 (
     @anio                     INT,
@@ -97,19 +98,28 @@ BEGIN
         IF @estadoResultado = 1
         BEGIN
             IF @anio IS NULL OR @anioMinimo IS NULL OR @anioMaximo IS NULL OR @anio < @anioMinimo OR @anio > @anioMaximo
-                SELECT @codigoRechazo = 'FES_001', @detalleRechazo = ISNULL(@anioTexto, N'NULL');
+            BEGIN
+                SELECT @codigoRechazo = 'FES_001', @detalleRechazo = IIF(@anioTexto IS NULL, N'NULL', @anioTexto);
+            END
             ELSE IF @fuenteLimpia IS NULL OR @fuenteLimpia = N''
                  OR NOT EXISTS (SELECT 1 FROM STRING_SPLIT(@fuentesValidas, N',') f
                                 WHERE LTRIM(RTRIM(f.value)) COLLATE Latin1_General_BIN2 = @fuenteLimpia COLLATE Latin1_General_BIN2)
-                SELECT @codigoRechazo = 'FES_004', @detalleRechazo = ISNULL(@fuenteLimpia, N'NULL');
+            BEGIN
+                SELECT @codigoRechazo = 'FES_004', @detalleRechazo = IIF(@fuenteLimpia IS NULL, N'NULL', @fuenteLimpia);
+            END
             ELSE IF @diferenciasCalculoLocal IS NULL OR @diferenciasCalculoLocal < 0
+            BEGIN
                 SELECT @codigoRechazo = 'FES_002', @detalleRechazo = N'diferenciasCalculoLocal NULL o negativo';
+            END
             ELSE IF @festivosJSON IS NULL OR ISJSON(@festivosJSON) <> 1 OR LEFT(LTRIM(@festivosJSON), 1) <> N'['
+            BEGIN
                 SELECT @codigoRechazo = 'FES_002', @detalleRechazo = N'no es un arreglo JSON';
+            END
         END
 
         IF @estadoResultado = 1 AND @codigoRechazo IS NULL
         BEGIN
+            -- PASO 2.1: elementos del JSON (ISNULL sobre agregacion (permitido): COUNT/SUM del OUTER APPLY)
             INSERT INTO @items (idx, tipoElemento, claves, clavesExtra, fechaTexto, tipoFecha, nombre, tipoNombre)
             SELECT  TRY_CAST(e.[key] AS INT),
                     e.[type],
@@ -138,19 +148,32 @@ BEGIN
             SET @totalFestivos = (SELECT COUNT(1) FROM @items);
 
             IF EXISTS (SELECT 1 FROM @items WHERE tipoElemento <> 5)
+            BEGIN
                 SELECT @codigoRechazo = 'FES_002', @detalleRechazo = N'un elemento no es un objeto';
+            END
             ELSE IF EXISTS (SELECT 1 FROM @items WHERE claves <> 2 OR clavesExtra <> 0 OR tipoFecha IS NULL OR tipoNombre IS NULL)
+            BEGIN
                 SELECT @codigoRechazo = 'FES_002', @detalleRechazo = N'cada elemento debe tener exactamente las claves fecha y nombre';
+            END
             ELSE IF EXISTS (SELECT 1 FROM @items WHERE fecha IS NULL OR YEAR(fecha) <> @anio)
+            BEGIN
                 SELECT @codigoRechazo = 'FES_002', @detalleRechazo = CONCAT(N'fecha invalida o fuera del anio ', @anioTexto);
+            END
             ELSE IF EXISTS (SELECT 1 FROM @items GROUP BY fecha HAVING COUNT(1) > 1)
+            BEGIN
                 SELECT @codigoRechazo = 'FES_002', @detalleRechazo = N'fecha repetida';
+            END
             ELSE IF EXISTS (SELECT 1 FROM @items WHERE tipoNombre <> 1 OR nombre IS NULL OR LEN(nombre) = 0 OR LEN(nombre) > 120)
+            BEGIN
                 SELECT @codigoRechazo = 'FES_002', @detalleRechazo = N'nombre vacio o de mas de 120 caracteres';
+            END
             ELSE IF @minimoPorAnio IS NULL OR @maximoPorAnio IS NULL OR @totalFestivos < @minimoPorAnio OR @totalFestivos > @maximoPorAnio
+            BEGIN
                 SELECT @codigoRechazo = 'FES_003', @detalleRechazo = CONVERT(NVARCHAR(20), @totalFestivos);
+            END
         END
 
+        -- PASO 2.2: rechazo de validacion por codigo del catalogo
         IF @estadoResultado = 1 AND @codigoRechazo IS NOT NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -181,7 +204,9 @@ BEGIN
 
             SET @fechaCarga = CAST(SYSUTCDATETIME() AS DATETIME2(0));
             IF @ultimaCarga IS NOT NULL AND @ultimaCarga >= @fechaCarga
+            BEGIN
                 SET @fechaCarga = DATEADD(SECOND, 1, @ultimaCarga);
+            END
 
             MERGE dbo.DiaFestivo WITH (HOLDLOCK) AS destino
             USING (SELECT fecha, nombre FROM @items) AS origen
@@ -199,6 +224,7 @@ BEGIN
                 UPDATE SET destino.estaActivo = 0
             OUTPUT $action, inserted.estaActivo INTO @acciones (accion, activo);
 
+            -- ISNULL sobre agregacion (permitido): SUM sin filas devuelve NULL
             SELECT
                 @festivosInsertados = ISNULL(SUM(IIF(accion = N'INSERT', 1, 0)), 0),
                 @festivosActualizados = ISNULL(SUM(IIF(accion = N'UPDATE' AND activo = 1, 1, 0)), 0),
@@ -222,7 +248,9 @@ BEGIN
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
             IF CHARINDEX(N'{}', @mensajeTecnicoResultado) > 0
+            BEGIN
                 SET @mensajeTecnicoResultado = STUFF(@mensajeTecnicoResultado, CHARINDEX(N'{}', @mensajeTecnicoResultado), 2, CONVERT(NVARCHAR(20), @festivosDesactivados));
+            END
             SET @mensajeUsuarioResultado = @mensajeUsuarioExito;
             SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, N' Fuente: ', @fuenteLimpia, N'. Correlacion: ', @idCorrelacionDefecto);
 
@@ -234,17 +262,24 @@ BEGIN
         END
     END TRY
     BEGIN CATCH
+        -- PASO 4: Revertir lo propio; con transaccion del llamador no confirmable relanza, si no responde SYS_001
         SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
             ROLLBACK TRANSACTION sp_cargar_dias_festivos;
+        END
 
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',

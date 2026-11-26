@@ -10,6 +10,7 @@ GO
 -- de la transaccion que ya bloquea los periodos de la institucion). Dos periodos se solapan si comparten al menos un dia (limites inclusivos):
 -- existente.fechaInicio <= @fechaFin AND existente.fechaFin >= @fechaInicio. @idPeriodoExcluir omite el periodo que se esta editando.
 -- Si se solapa: estadoResultado = 0, PER_012 con el nombre del primer periodo en conflicto (el de inicio mas antiguo).
+-- SKILLS-BD lote 9 (2026-11-26): PASO n y periodos por uv_periodo_academico_fechas (antes, la tabla). Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_solape_periodo_academico_interno]
 (
     @idInstitucion           UNIQUEIDENTIFIER,
@@ -32,14 +33,16 @@ AS
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
+        -- PASO 1: Primer periodo de la institucion cuyas fechas se cruzan (sin contar el excluido)
         SELECT TOP (1) @nombreEnConflicto = pa.nombre
-        FROM dbo.PeriodoAcademico pa
-        WHERE pa.institucion = @idInstitucion
+        FROM dbo.uv_periodo_academico_fechas pa
+        WHERE pa.idInstitucion = @idInstitucion
           AND (@idPeriodoExcluir IS NULL OR pa.id <> @idPeriodoExcluir)
           AND pa.fechaInicio <= @fechaFin
           AND pa.fechaFin >= @fechaInicio
         ORDER BY pa.fechaInicio, pa.id;
 
+        -- PASO 2: Solape: PER_012 con el nombre del periodo en conflicto
         IF @nombreEnConflicto IS NOT NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -51,6 +54,7 @@ BEGIN
         END
     END TRY
     BEGIN CATCH
+        -- PASO 3: error del motor: triplete SYS_001 (comportamiento previo)
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,

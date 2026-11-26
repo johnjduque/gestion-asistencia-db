@@ -10,6 +10,7 @@ GO
 -- otra institucion o inexistente responde PER_001. No es el cierre masivo de periodo.
 -- BD-2 (2026-11-22): los dias de receso del periodo (dbo.PeriodoRecesoAcademico, activos o retirados) se borran con el periodo, en la misma
 -- transaccion, porque sin grupos ninguno pudo cancelar sesiones; si alguno aparece enlazado a una cancelacion se rechaza con PER_004.
+-- SKILLS-BD lote 9 (2026-11-26): cancelaciones por receso por uv_sesion_cancelacion/uv_receso_academico_registro (antes, las tablas). Los bloqueos y los DELETE siguen en las tablas. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_eliminar_periodo_academico]
 (
     @idPeriodo               UNIQUEIDENTIFIER,
@@ -92,9 +93,9 @@ BEGIN
                     WHEN @periodoBloqueado IS NULL THEN 'PER_001'
                     WHEN EXISTS (SELECT 1 FROM dbo.Grupo g WITH (UPDLOCK, HOLDLOCK) WHERE g.periodoAcademico = @idPeriodoDefecto) THEN 'PER_004'
                     -- BD-2: un receso que ya cancelo sesiones nunca se borra (defensa; sin grupos no deberia existir ninguna)
-                    WHEN EXISTS (SELECT 1 FROM dbo.SesionCancelacion sc
-                                 INNER JOIN dbo.PeriodoRecesoAcademico r ON r.id = sc.recesoAcademico
-                                 WHERE r.periodoAcademico = @idPeriodoDefecto) THEN 'PER_004'
+                    WHEN EXISTS (SELECT 1 FROM dbo.uv_sesion_cancelacion sc
+                                 INNER JOIN dbo.uv_receso_academico_registro r ON r.id = sc.idRecesoAcademico
+                                 WHERE r.idPeriodoAcademico = @idPeriodoDefecto) THEN 'PER_004'
                 END;
 
             IF @codigoRechazo IS NOT NULL

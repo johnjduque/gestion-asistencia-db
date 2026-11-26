@@ -5,6 +5,7 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
+-- SKILLS-BD lote 9 (2026-11-26): grupo y periodo por uv_grupo_registro/uv_periodo_academico_fechas (antes, las tablas). Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_fechas_periodo_academico_interno]
 (
     @idGrupo                 UNIQUEIDENTIFIER,
@@ -43,8 +44,8 @@ BEGIN
         IF @estadoResultado = 1
         BEGIN
             SELECT TOP 1 
-                @idPeriodo = periodoAcademico
-            FROM dbo.Grupo
+                @idPeriodo = idPeriodoAcademico
+            FROM dbo.uv_grupo_registro
             WHERE id = @idGrupoDefecto;
 
             IF @idPeriodo IS NULL
@@ -66,7 +67,7 @@ BEGIN
             SELECT TOP 1 
                 @fechaInicio = fechaInicio,
                 @fechaFin = fechaFin
-            FROM dbo.PeriodoAcademico
+            FROM dbo.uv_periodo_academico_fechas
             WHERE id = @idPeriodo;
 
             IF @fechaInicio IS NULL OR @fechaFin IS NULL
@@ -96,6 +97,7 @@ BEGIN
 
     END TRY
     BEGIN CATCH
+        -- PASO 4: error del motor: triplete SYS_001 (comportamiento previo)
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,

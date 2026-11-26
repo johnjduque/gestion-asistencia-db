@@ -13,6 +13,7 @@ GO
 --   * el dia ya cancelo sesiones (SesionCancelacion.recesoAcademico) => REC_010 con el conteo: no se retira ni se cambia.
 -- Exito: REC_002. Resultset: tupla canonica de 4 columnas. Corregir un dia = retirarlo (si no esta aplicado) y crear otro.
 -- ============================================================================
+-- SKILLS-BD lote 9 (2026-11-26): periodo y cancelaciones por uv_periodo_academico_fechas/uv_sesion_cancelacion (antes, las tablas) e IF con BEGIN/END. El bloqueo del receso sigue en la tabla. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_retirar_receso_academico]
 (
     @idReceso                UNIQUEIDENTIFIER,
@@ -68,11 +69,13 @@ BEGIN
 
             SELECT  @idRecesoEncontrado = r.id, @fechaReceso = r.fecha, @nombrePeriodo = pa.nombre, @fechaCierreUtc = pa.fechaCierreUtc
             FROM    dbo.PeriodoRecesoAcademico r WITH (UPDLOCK, HOLDLOCK)
-            INNER JOIN dbo.PeriodoAcademico pa ON pa.id = r.periodoAcademico AND pa.institucion = @idInstitucion
+            INNER JOIN dbo.uv_periodo_academico_fechas pa ON pa.id = r.periodoAcademico AND pa.idInstitucion = @idInstitucion
             WHERE   r.id = @idRecesoDefecto AND r.estaActivo = 1;
 
             IF @idRecesoEncontrado IS NOT NULL
-                SELECT @sesionesCanceladas = COUNT(1) FROM dbo.SesionCancelacion sc WHERE sc.recesoAcademico = @idRecesoEncontrado;
+            BEGIN
+                SELECT @sesionesCanceladas = COUNT(1) FROM dbo.uv_sesion_cancelacion sc WHERE sc.idRecesoAcademico = @idRecesoEncontrado;
+            END
 
             IF @idRecesoEncontrado IS NULL
             BEGIN
@@ -114,9 +117,13 @@ BEGIN
             IF @transaccionPropia = 1
             BEGIN
                 IF XACT_STATE() = 1
+                BEGIN
                     COMMIT TRANSACTION;
+                END
                 ELSE IF XACT_STATE() = -1
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
                 SET @transaccionPropia = 0;
             END
         END
@@ -126,7 +133,9 @@ BEGIN
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN
