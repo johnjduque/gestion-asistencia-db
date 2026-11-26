@@ -26,6 +26,8 @@ GO
 -- Resultset: MUTATION_COMMAND_RESULTSET (4 columnas canonicas) + idUsuario, correo y numeroIdentificacion
 -- (nulos si falla) para la sincronizacion de la cuenta de identidad.
 -- Codigos: GEN_002 ejecutor nulo, IDE_001 motivo, GEN_001 registro fuera del ambito, IDE_002 exito.
+-- SKILLS-BD lote 3 (2026-11-25): el ambito se lee en vistas uv_* (la fila del usuario sigue bloqueada en la tabla), IF con
+-- BEGIN/END y los datos devueltos salen de uv_usuario; mismo comportamiento.
 -- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_corregir_identidad_usuario]
 (
@@ -138,32 +140,31 @@ BEGIN
                 SET @savepointCreado = 1;
             END
 
-            -- Ambito por jerarquia, en tablas base.
+            -- Ambito por jerarquia: la fila del usuario se lee con bloqueo en la tabla; el ambito, en las vistas uv_*.
             SELECT @idUsuarioRegistro = u.id
             FROM dbo.Usuario u WITH (UPDLOCK, HOLDLOCK)
             WHERE (@esDecano = 0 AND (EXISTS (
                       -- Ambito del coordinador: estudiante de un programa que el ejecutor coordina
                       SELECT 1
-                      FROM dbo.Estudiante e
-                      INNER JOIN dbo.EstudiantePrograma ep ON ep.estudiante = e.id
-                      INNER JOIN dbo.Programa p ON p.id = ep.programa
-                      INNER JOIN dbo.Coordinador c ON c.id = p.coordinador
-                      WHERE e.id = @idRegistroDefecto AND e.usuario = u.id AND c.usuario = @idUsuarioEjecutorDefecto)
+                      FROM dbo.uv_estudiante_identidad e
+                      INNER JOIN dbo.uv_estudiante_programa ep ON ep.idEstudiante = e.id
+                      INNER JOIN dbo.uv_programa p ON p.id = ep.idPrograma
+                      INNER JOIN dbo.uv_coordinador_identidad c ON c.id = p.idCoordinador
+                      WHERE e.id = @idRegistroDefecto AND e.idUsuario = u.id AND c.idUsuario = @idUsuarioEjecutorDefecto)
                   OR EXISTS (
                       -- Ambito del administrador: estudiante de un programa de la institucion del ejecutor
                       SELECT 1
-                      FROM dbo.Estudiante e
-                      INNER JOIN dbo.EstudiantePrograma ep ON ep.estudiante = e.id
-                      INNER JOIN dbo.Programa p ON p.id = ep.programa
-                      INNER JOIN dbo.Facultad f ON f.id = p.facultad
-                      INNER JOIN dbo.Administrador a ON a.institucion = f.institucion
-                      WHERE e.id = @idRegistroDefecto AND e.usuario = u.id AND a.usuario = @idUsuarioEjecutorDefecto)))
+                      FROM dbo.uv_estudiante_identidad e
+                      INNER JOIN dbo.uv_estudiante_programa ep ON ep.idEstudiante = e.id
+                      INNER JOIN dbo.uv_programa p ON p.id = ep.idPrograma
+                      INNER JOIN dbo.uv_administrador a ON a.idInstitucion = p.idInstitucion
+                      WHERE e.id = @idRegistroDefecto AND e.idUsuario = u.id AND a.idUsuario = @idUsuarioEjecutorDefecto)))
                OR (@esDecano = 1 AND EXISTS (
                       SELECT 1
-                      FROM dbo.Decano d
-                      INNER JOIN dbo.Administrador a ON a.usuario = @idUsuarioEjecutorDefecto
-                      WHERE d.id = @idRegistroDefecto AND d.usuario = u.id
-                        AND NOT EXISTS (SELECT 1 FROM dbo.Facultad f WHERE f.decano = d.id AND f.institucion <> a.institucion)));
+                      FROM dbo.uv_decano_identidad d
+                      INNER JOIN dbo.uv_administrador a ON a.idUsuario = @idUsuarioEjecutorDefecto
+                      WHERE d.id = @idRegistroDefecto AND d.idUsuario = u.id
+                        AND NOT EXISTS (SELECT 1 FROM dbo.uv_facultad f WHERE f.idDecano = d.id AND f.idInstitucion <> a.idInstitucion)));
 
             IF @idUsuarioRegistro IS NULL
             BEGIN
@@ -205,9 +206,13 @@ BEGIN
                 IF XACT_STATE() = 1
                 BEGIN
                     IF @estadoResultado = 1 OR @mutacionRealizada = 0
+                    BEGIN
                         COMMIT TRANSACTION;
+                    END
                     ELSE
+                    BEGIN
                         ROLLBACK TRANSACTION;
+                    END
                 END
                 ELSE IF XACT_STATE() = -1
                 BEGIN
@@ -217,7 +222,9 @@ BEGIN
             ELSE IF @savepointCreado = 1
             BEGIN
                 IF XACT_STATE() = 1 AND @estadoResultado = 0 AND @mutacionRealizada = 1
+                BEGIN
                     ROLLBACK TRANSACTION sp_corregir_identidad_usuario;
+                END
             END
         END
 
@@ -237,7 +244,9 @@ BEGIN
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN
@@ -262,8 +271,8 @@ BEGIN
         mensajeTecnicoResultado = @mensajeTecnicoResultado,
         estadoResultado         = @estadoResultado,
         idUsuario               = IIF(@estadoResultado = 1, @idUsuarioRegistro, NULL),
-        correo                  = (SELECT u.correo FROM dbo.Usuario u WHERE @estadoResultado = 1 AND u.id = @idUsuarioRegistro),
-        numeroIdentificacion    = (SELECT u.numeroIdentificacion FROM dbo.Usuario u
+        correo                  = (SELECT u.correo FROM dbo.uv_usuario u WHERE @estadoResultado = 1 AND u.id = @idUsuarioRegistro),
+        numeroIdentificacion    = (SELECT u.numeroIdentificacion FROM dbo.uv_usuario u
                                    WHERE @estadoResultado = 1 AND u.id = @idUsuarioRegistro);
 END;
 GO

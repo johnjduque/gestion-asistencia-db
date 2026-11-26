@@ -5,6 +5,16 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
+-- ============================================================================
+-- usp_obtener_mensaje_catalogo
+--
+-- Resuelve un codigo del catalogo en el mensaje de usuario y el tecnico ("DBCODE=<codigo>|<detalle>"), con hasta tres
+-- parametros de plantilla, y devuelve el tipo y la severidad. Un codigo sin texto configurado devuelve los textos de reserva
+-- ("... no configurado para el codigo: <codigo>"), tipo SYSTEM_ERROR y severidad ALTO (usuario) o CRITICO (tecnico).
+-- Lo llaman casi todos los SP, por eso su firma no cambia: los parametros @p_* se conservan (excepcion E8 de
+-- docs/arquitectura/excepciones-skills-bd.md) y el triplete se completa con @estadoResultado OUTPUT opcional al final.
+-- SKILLS-BD lote 3 (2026-11-25): DECLARE en la cabecera, sin ISNULL, PASO n, TRY/CATCH y @estadoResultado; mismos textos.
+-- ============================================================================
 CREATE OR ALTER PROCEDURE [dbo].[usp_obtener_mensaje_catalogo]
     @p_codigo                  VARCHAR(100),
     @p_param1                  NVARCHAR(500) = NULL,
@@ -13,65 +23,100 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_obtener_mensaje_catalogo]
     @mensajeUsuarioResultado   NVARCHAR(4000) OUTPUT,
     @mensajeTecnicoResultado   NVARCHAR(4000) OUTPUT,
     @tipoMensajeResultado      VARCHAR(50) = NULL OUTPUT,
-    @severidadResultado        VARCHAR(20) = NULL OUTPUT
+    @severidadResultado        VARCHAR(20) = NULL OUTPUT,
+    @estadoResultado           BIT = NULL OUTPUT
 AS
+    DECLARE @codigoLimpio    VARCHAR(100) = dbo.ufn_obtener_parametro_texto(@p_codigo, 'GENERAL', 'CADENA_VACIA');
+    DECLARE @rawUsuario      NVARCHAR(4000) = NULL;
+    DECLARE @rawTecnico      NVARCHAR(4000) = NULL;
+    DECLARE @tipoUsr         VARCHAR(50) = NULL;
+    DECLARE @sevUsr          VARCHAR(20) = NULL;
+    DECLARE @tipoTec         VARCHAR(50) = NULL;
+    DECLARE @sevTec          VARCHAR(20) = NULL;
+    DECLARE @codigoResultado VARCHAR(100) = IIF(@codigoLimpio = '', 'DESCONOCIDO', @codigoLimpio);
+    DECLARE @detalleTecnico  NVARCHAR(3900) = NULL;
 BEGIN
     SET NOCOUNT ON;
 
-    DECLARE @codigoLimpio VARCHAR(100) = TRIM(ISNULL(@p_codigo, ''));
-    DECLARE @rawUsuario NVARCHAR(4000) = NULL;
-    DECLARE @rawTecnico NVARCHAR(4000) = NULL;
-    DECLARE @tipoUsr VARCHAR(50) = NULL;
-    DECLARE @sevUsr VARCHAR(20) = NULL;
-    DECLARE @tipoTec VARCHAR(50) = NULL;
-    DECLARE @sevTec VARCHAR(20) = NULL;
-    DECLARE @codigoResultado VARCHAR(100) = CASE WHEN @codigoLimpio = '' THEN 'DESCONOCIDO' ELSE @codigoLimpio END;
-    DECLARE @detalleTecnico NVARCHAR(3900) = NULL;
+    -- PASO 1: respuesta inicial
+    SET @estadoResultado = 1;
 
-    -- Consulta EXCLUSIVA mediante VISTA uv_mensaje_usuario
-    SELECT 
-        @rawUsuario = contenido,
-        @tipoUsr    = tipoMensaje,
-        @sevUsr     = severidad
-    FROM dbo.uv_mensaje_usuario
-    WHERE codigo = @codigoLimpio;
+    BEGIN TRY
+        -- PASO 2: textos del catalogo (solo vistas)
+        SELECT
+            @rawUsuario = contenido,
+            @tipoUsr    = tipoMensaje,
+            @sevUsr     = severidad
+        FROM dbo.uv_mensaje_usuario
+        WHERE codigo = @codigoLimpio;
 
-    -- Consulta EXCLUSIVA mediante VISTA uv_mensaje_tecnico
-    SELECT 
-        @rawTecnico = contenido,
-        @tipoTec    = tipoMensaje,
-        @sevTec     = severidad
-    FROM dbo.uv_mensaje_tecnico
-    WHERE codigo = @codigoLimpio;
+        SELECT
+            @rawTecnico = contenido,
+            @tipoTec    = tipoMensaje,
+            @sevTec     = severidad
+        FROM dbo.uv_mensaje_tecnico
+        WHERE codigo = @codigoLimpio;
 
-    -- Gestión interna de NULOS y Fallbacks para Mensaje de Usuario
-    IF @rawUsuario IS NULL
-    BEGIN
-        SET @mensajeUsuarioResultado = CONCAT('Mensaje de usuario no configurado para el código: ', ISNULL(@codigoLimpio, 'DESCONOCIDO'));
-        SET @tipoUsr = 'SYSTEM_ERROR';
-        SET @sevUsr  = 'ALTO';
-    END
-    ELSE
-    BEGIN
-        SET @mensajeUsuarioResultado = dbo.ufn_reemplazar_plantilla_mensaje(@rawUsuario, @p_param1, @p_param2, @p_param3);
-    END
+        -- PASO 3: mensaje de usuario (texto de reserva si el codigo no esta configurado)
+        IF @rawUsuario IS NULL
+        BEGIN
+            SET @mensajeUsuarioResultado = CONCAT('Mensaje de usuario no configurado para el código: ', @codigoLimpio);
+            SET @tipoUsr = 'SYSTEM_ERROR';
+            SET @sevUsr  = 'ALTO';
+        END
+        ELSE
+        BEGIN
+            SET @mensajeUsuarioResultado = dbo.ufn_reemplazar_plantilla_mensaje(@rawUsuario, @p_param1, @p_param2, @p_param3);
+        END
 
-    -- Gestión interna de NULOS y Fallbacks para Mensaje Técnico
-    IF @rawTecnico IS NULL
-    BEGIN
-        SET @detalleTecnico = CONCAT('Mensaje técnico no configurado para el código: ', @codigoResultado);
-        SET @tipoTec = 'SYSTEM_ERROR';
-        SET @sevTec  = 'CRITICO';
-    END
-    ELSE
-    BEGIN
-        SET @detalleTecnico = dbo.ufn_reemplazar_plantilla_mensaje(@rawTecnico, @p_param1, @p_param2, @p_param3);
-    END
+        -- PASO 4: mensaje tecnico (texto de reserva si el codigo no esta configurado)
+        IF @rawTecnico IS NULL
+        BEGIN
+            SET @detalleTecnico = CONCAT('Mensaje técnico no configurado para el código: ', @codigoResultado);
+            SET @tipoTec = 'SYSTEM_ERROR';
+            SET @sevTec  = 'CRITICO';
+        END
+        ELSE
+        BEGIN
+            SET @detalleTecnico = dbo.ufn_reemplazar_plantilla_mensaje(@rawTecnico, @p_param1, @p_param2, @p_param3);
+        END
 
-    SET @mensajeTecnicoResultado = CONCAT('DBCODE=', @codigoResultado, '|', @detalleTecnico);
+        SET @mensajeTecnicoResultado = CONCAT('DBCODE=', @codigoResultado, '|', @detalleTecnico);
 
-    -- Asignación de tipoMensaje y severidad garantizando NO NULOS
-    SET @tipoMensajeResultado = ISNULL(@tipoUsr, ISNULL(@tipoTec, 'BUSINESS_ERROR'));
-    SET @severidadResultado   = ISNULL(@sevUsr, ISNULL(@sevTec, 'MEDIO'));
+        -- PASO 5: tipo y severidad sin nulos (primero los del mensaje de usuario, luego los del tecnico)
+        SET @tipoMensajeResultado = @tipoUsr;
+        IF @tipoMensajeResultado IS NULL
+        BEGIN
+            SET @tipoMensajeResultado = @tipoTec;
+        END
+        IF @tipoMensajeResultado IS NULL
+        BEGIN
+            SET @tipoMensajeResultado = 'BUSINESS_ERROR';
+        END
+
+        SET @severidadResultado = @sevUsr;
+        IF @severidadResultado IS NULL
+        BEGIN
+            SET @severidadResultado = @sevTec;
+        END
+        IF @severidadResultado IS NULL
+        BEGIN
+            SET @severidadResultado = 'MEDIO';
+        END
+    END TRY
+    BEGIN CATCH
+        -- PASO 6: error. Este SP es el que resuelve SYS_001 para los demas, asi que no puede llamarse a si mismo:
+        -- arma los textos de reserva con el detalle del error (excepcion E8).
+        SET @mensajeUsuarioResultado = CONCAT('Mensaje de usuario no configurado para el código: ', @codigoLimpio);
+        SET @mensajeTecnicoResultado = LEFT(CONCAT('DBCODE=SYS_001|', dbo.ufn_obtener_detalle_error(NULL)), 4000);
+        SET @tipoMensajeResultado = 'SYSTEM_ERROR';
+        SET @severidadResultado = 'CRITICO';
+        SET @estadoResultado = 0;
+        -- Transaccion del llamador condenada: se relanza el error original a su CATCH
+        IF XACT_STATE() = -1
+        BEGIN
+            THROW;
+        END
+    END CATCH
 END;
 GO
