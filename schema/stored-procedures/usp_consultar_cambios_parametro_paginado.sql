@@ -13,6 +13,8 @@ GO
 -- mas de una Institucion activa falla con PRM_012. Resultset READ_QUERY_RESULTSET (filas + totalRegistros); las fallas de
 -- validacion se propagan con THROW. Sin XACT_ABORT; restaura el SESSION_CONTEXT.
 -- ============================================================================
+-- SKILLS-BD lote 14 (2026-11-26, objeto congelado, decision D5): PASO n y PASO en el CATCH.
+-- Misma firma, mismo resultset y mismos codigos; el hash del manifiesto se actualiza en el mismo commit.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_cambios_parametro_paginado]
 (
     @idUsuarioEjecutor  UNIQUEIDENTIFIER,
@@ -32,6 +34,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
+        -- PASO 1: correlacion, ejecutor, perfil ADMINISTRADOR y paginacion; fija el contexto
         EXEC dbo.usp_validar_consulta_paginada_interno
             @idUsuarioEjecutor = @idUsuarioEjecutor,
             @idCorrelacion = @idCorrelacion,
@@ -44,6 +47,7 @@ BEGIN
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
+        -- PASO 2: una sola institucion activa (PRM_012)
         IF @estadoResultado = 1 AND (SELECT COUNT(1) FROM dbo.uv_institucion WHERE estaActivaInstitucion = 1) <> 1
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -54,6 +58,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 3: parametro existente (PRM_002)
         IF @estadoResultado = 1 AND (@idParametro IS NULL OR NOT EXISTS (SELECT 1 FROM dbo.uv_parametro WHERE id = @idParametro))
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -64,11 +69,13 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 4: rechazo de validacion: se propaga al llamador
         IF @estadoResultado = 0
         BEGIN
             THROW 51000, @mensajeTecnicoResultado, 1;
         END;
 
+        -- PASO 5: cambios del parametro, paginados
         SELECT
             c.id,
             c.idParametro,
@@ -88,9 +95,12 @@ BEGIN
         OFFSET @offset ROWS
         FETCH NEXT @tamanoPagina ROWS ONLY;
 
+        -- PASO 6: restaurar el contexto de sesion previo
         EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
     END TRY
     BEGIN CATCH
+        -- PASO 7: consulta de lectura (READ_QUERY_RESULTSET): restaurar el contexto previo y propagar el error al llamador,
+        -- que lo traduce a SYS_001 (sin triplete propio).
         EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
         THROW;
     END CATCH;

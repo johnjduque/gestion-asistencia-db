@@ -741,3 +741,28 @@ la de caracterización del lote dan el mismo resultado antes y después.
 | `usp_aprobar_solicitud_sesion`, `usp_rechazar_solicitud_sesion` | `IF` con `BEGIN/END`, `PASO` en el `CATCH` y solicitud, estado y cancelación por vistas. La lectura con `UPDLOCK, HOLDLOCK` de `dbo.Sesion` y las escrituras siguen en las tablas |
 | `usp_cancelar_sesion`, `usp_cancelar_sesion_coordinador` | Igual; cancelación, asistencias y tomas por `uv_sesion_cancelacion`, `uv_asistencia_registro` y `uv_toma_asistencia_registro` |
 | `usp_generar_sesiones_grupo_v2` | `PASO n` e `IF` con `BEGIN/END` |
+
+## Addendum SKILLS-BD lote 14 (2026-11-26): objetos congelados (decisión D5)
+
+Misma firma, mismo resultset (los metadatos de `sys.dm_exec_describe_first_result_set_for_object` de los 37 SP intervenidos no
+cambian) y mismos códigos; las pruebas de dominio de los SP congelados y la de caracterización del lote dan el mismo resultado antes y
+después. Los hashes de `docs/contracts/` se actualizan en el mismo commit (el manifiesto DB-GP-001C no se reescribe: las líneas
+`SUPERSEDES` siguen apuntando a su hash original).
+
+| SP | Cambio en el lote 14 |
+| :--- | :--- |
+| `usp_crear_sesion`, `usp_crear_sesion_v2`, `usp_actualizar_sesion`, `usp_actualizar_sesion_v2` | `PASO 1` (delegación al núcleo) dentro de un `TRY` cuyo `CATCH` solo relanza (`PASO 2`; el núcleo ya captura sus errores) y `PASO 3` de retorno |
+| `usp_generar_sesiones_grupo`, `usp_registrar_asistencias_sesion` | `DECLARE` del cuerpo a la cabecera, `PASO n`, `IF` con `BEGIN/END` y lecturas sin bloqueo por vistas (grupo, periodo, zona, horario, día, sesión y matrícula). El correlativo con `UPDLOCK, HOLDLOCK` y las escrituras siguen en las tablas; sin `INSERT ... EXEC` ni tablas `#` |
+| `usp_clasificar_procedencia_sesion` | `DECLARE` del `CATCH` a la cabecera, `PASO n`, `IF` con `BEGIN/END` y ambiente por `uv_parametro`; el `UPDLOCK` de la sesión y las escrituras siguen en las tablas |
+| `usp_consultar_comparativa_facultades`, `usp_consultar_comparativa_programas_facultad`, `usp_consultar_tendencia_ausentismo`, `usp_consultar_configuracion_reclamos`, `usp_consultar_periodos_academicos_paginado`, `usp_consultar_grupo_facultad_detalle`, `usp_consultar_programas_institucion_paginado`, `usp_consultar_sesiones_materia_estudiante` | `DECLARE` en la cabecera (uno por variable), `PASO n`, `IIF` en lugar de `ISNULL` sobre variables, lecturas por vistas y `TRY/CATCH` de lectura que relanza (los `ISNULL` que quedan son sobre agregaciones, permitido) |
+| `usp_consultar_archivo_soporte_autorizado`, `usp_consultar_solicitudes_revision_docente` | Igual; todas las uniones por vistas `uv_*` (soporte, reclamo, asistencia, sesión, grupo, matrícula, usuario, asignatura, categoría y estado) |
+| `usp_consultar_auditoria_eventos_paginado`, `usp_consultar_parametros_paginado`, `usp_consultar_consolidado_asistencia_grupos_paginado`, `usp_consultar_cambios_parametro_paginado`, `usp_validar_acceso_reporte_grupo` | `PASO n` (también en la restauración del contexto y en el `CATCH`) e `IIF` en lugar de `ISNULL` |
+| `usp_actualizar_parametro`, `usp_sincronizar_parametro_catalogo_externo` | `PASO n`, `IF` con `BEGIN/END`, `IS NULL` en lugar de `ISNULL` y lecturas sin bloqueo por `uv_parametro_registro`, `uv_parametro_edicion_registro` y `uv_sincronizacion_parametro_externo_registro`. Los `UPDLOCK, HOLDLOCK` y las escrituras siguen en las tablas |
+| `usp_admitir_estudiante`, `usp_crear_coordinador`, `usp_crear_decano` | `DECLARE` del cuerpo y del `CATCH` a la cabecera, `PASO` en el `CATCH`, `IF` con `BEGIN/END`, `IIF` en lugar de `COALESCE` y lecturas sin bloqueo por vistas (`uv_administrador_registro`, `uv_estudiante_identidad`, `uv_estudiante_programa_registro`, `uv_usuario`, `uv_decano_rol`). Las lecturas con `UPDLOCK` de `dbo.Usuario` y las escrituras siguen en las tablas |
+| `usp_registrar_archivo_soporte`, `usp_radicar_solicitud_revision_asistencia_v2`, `usp_radicar_solicitud_revision_asistencia_v3` | `DECLARE` del `CATCH` a la cabecera, `PASO n`, `IF` con `BEGIN/END`; estudiante y archivo por `uv_estudiante_identidad` y `uv_archivo_soporte_registro`. El `UPDLOCK` del soporte y el `INSERT` siguen en la tabla |
+| `usp_validar_token_matricula_publico` | `DECLARE` del `CATCH` a la cabecera, `PASO n`, `IF` con `BEGIN/END`; ventana, programa, estudiante y vínculo por `uv_token_matricula_grupo_registro`, `uv_programa_registro`, `uv_estudiante_identidad` y `uv_estudiante_programa_registro` |
+
+Marca `SP_SISTEMA` (excepción E1): se agrega a los congelados `usp_sincronizar_parametro_catalogo_externo` y
+`usp_validar_token_matricula_publico`. `usp_validar_carga_masiva_usuarios` ya está retirado (su archivo solo lo borra) y no se toca.
+
+Vistas nuevas: `uv_administrador_registro`, `uv_asignatura_registro`, `uv_parametro_registro` (todas las filas de `CatalogoParametro`, sin el filtro de activos de `uv_parametro`), `uv_parametro_edicion_registro`, `uv_sincronizacion_parametro_externo_registro` (sin los valores), `uv_estudiante_programa_registro` y `uv_token_matricula_grupo_registro` (sin `tokenHash`, `tokenHashAnterior`, `pin` ni `pinAnterior`, excepción E7).

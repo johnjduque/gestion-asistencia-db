@@ -1369,6 +1369,8 @@ $criticalIds = @(
     'SKL11_R01_DESTINATARIOS_RECLAMO',
     # SKILLS-BD lote 13 2026-11-26 (test/test_skills_lote13_caracterizacion.sql)
     'SKL13_R01_SESION_EXISTE', 'SKL13_R02_DOCENTE_TITULAR', 'SKL13_R03_ESTUDIANTE_EN_SESION', 'SKL13_R04_HORARIOS_GRUPO',
+    # SKILLS-BD lote 14 2026-11-26 (test/test_skills_lote14_caracterizacion.sql)
+    'SKL14_R01_VALOR_PARAMETRO_EXTERNO', 'SKL14_R02_ACTUALIZAR_SESION',
     'T-091-13',
     # P3 fase F5 (migracion 71 en test/test_p3_f5_notificaciones_migracion_71.ps1)
     'P3F5_MIG71_UP_DOWN_UP',

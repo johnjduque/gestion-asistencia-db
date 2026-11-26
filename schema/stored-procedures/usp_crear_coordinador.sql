@@ -5,6 +5,8 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
+-- SKILLS-BD lote 14 (2026-11-26, objeto congelado, decision D5): DECLARE del CATCH a la cabecera, PASO en el CATCH e IF con BEGIN/END.
+-- Misma firma, mismo resultset y mismos codigos; el hash del manifiesto se actualiza en el mismo commit.
 CREATE OR ALTER PROCEDURE [dbo].[usp_crear_coordinador]
 (
     @idCoordinador           UNIQUEIDENTIFIER = NULL,
@@ -38,6 +40,7 @@ AS
     DECLARE @conteoTransaccionesInicial INT = 0;
     DECLARE @transaccionPropia          BIT = 0;
     DECLARE @savepointCreado            BIT = 0;
+    DECLARE @estadoTransaccionCatch     INT;
 
 BEGIN
     SET NOCOUNT ON;
@@ -193,9 +196,13 @@ BEGIN
             IF XACT_STATE() = 1
             BEGIN
                 IF @estadoResultado = 1
+                BEGIN
                     COMMIT TRANSACTION;
+                END
                 ELSE
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
             END
             ELSE IF XACT_STATE() = -1
             BEGIN
@@ -205,18 +212,23 @@ BEGIN
         ELSE IF @savepointCreado = 1
         BEGIN
             IF XACT_STATE() = 1 AND @estadoResultado = 0
+            BEGIN
                 ROLLBACK TRANSACTION usp_crear_coordinador;
+            END
             -- XACT_STATE() = -1 con transacción externa: no es propietaria, no se toca (ver PASO 10 del contrato)
         END
 
     END TRY
     BEGIN CATCH
-        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+        -- PASO 6: reversion respetando ownership; transaccion externa condenada se propaga; si no, SYS_001
+        SET @estadoTransaccionCatch = XACT_STATE();
 
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN

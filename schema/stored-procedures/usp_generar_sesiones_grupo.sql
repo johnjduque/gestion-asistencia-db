@@ -5,6 +5,9 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
+-- SKILLS-BD lote 14 (2026-11-26, objeto congelado, decision D5): DECLARE del bloque a la cabecera, PASO n, IF con BEGIN/END y lecturas sin bloqueo de grupo, periodo, zona,
+-- horario, dia y sesiones existentes por vistas uv_* (antes, las tablas); el correlativo con UPDLOCK y el INSERT siguen en la tabla.
+-- Misma firma, mismo resultset y mismos codigos; el hash del manifiesto se actualiza en el mismo commit.
 CREATE OR ALTER PROCEDURE [dbo].[usp_generar_sesiones_grupo]
 (
     @idGrupo           UNIQUEIDENTIFIER,
@@ -40,6 +43,7 @@ AS
     DECLARE @horaFin              TIME;
     DECLARE @hTotal               INT;
     DECLARE @hIterador            INT;
+    DECLARE @fechaHoraLocalInexistente DATETIME2;
 
     -- Tablas temporales locales para resolver franjas horarias por día
     DECLARE @HorariosDelDia TABLE (
@@ -147,7 +151,7 @@ BEGIN
         IF @estadoResultado = 1
         BEGIN
             SELECT TOP 1 @zonaHorariaSqlServer = CONVERT(SYSNAME, valor)
-            FROM dbo.CatalogoParametro
+            FROM dbo.uv_parametro
             WHERE grupo = 'TIEMPO'
               AND clave = 'ZONA_HORARIA_SQLSERVER'
               AND estaActivo = 1;
@@ -174,10 +178,8 @@ BEGIN
         -- Horas ambiguas (solape DST) se resuelven de forma determinista por AT TIME ZONE (primer offset).
         IF @estadoResultado = 1
         BEGIN
-            DECLARE @fechaHoraLocalInexistente DATETIME2;
-
-            SELECT TOP 1 @idPeriodo = periodoAcademico FROM dbo.Grupo WHERE id = @idGrupoDefecto;
-            SELECT TOP 1 @fechaInicio = fechaInicio, @fechaFin = fechaFin FROM dbo.PeriodoAcademico WHERE id = @idPeriodo;
+            SELECT TOP 1 @idPeriodo = g.idPeriodoAcademico FROM dbo.uv_grupo_registro g WHERE g.id = @idGrupoDefecto;
+            SELECT TOP 1 @fechaInicio = pa.fechaInicio, @fechaFin = pa.fechaFin FROM dbo.uv_periodo_academico_fechas pa WHERE pa.id = @idPeriodo;
 
             WITH fechas AS (
                 SELECT fecha = @fechaInicio
@@ -187,8 +189,8 @@ BEGIN
             franjas AS (
                 SELECT f.fecha, h.horaInicio, h.horaFin
                 FROM fechas f
-                INNER JOIN dbo.Horario h ON h.grupo = @idGrupoDefecto
-                INNER JOIN dbo.Dia d ON d.id = h.dia
+                INNER JOIN dbo.uv_horario_registro h ON h.idGrupo = @idGrupoDefecto
+                INNER JOIN dbo.uv_dia d ON d.id = h.idDia
                 WHERE d.codigo =
                     CASE LTRIM(RTRIM(LOWER(DATENAME(dw, f.fecha))))
                         WHEN 'monday' THEN 'LU' WHEN 'lunes' THEN 'LU'
@@ -228,8 +230,8 @@ BEGIN
         -- PASO 5: Generación recurrente de sesiones de clase según el periodo académico y franjas horarias
         IF @estadoResultado = 1
         BEGIN
-            SELECT TOP 1 @idPeriodo = periodoAcademico FROM dbo.Grupo WHERE id = @idGrupoDefecto;
-            SELECT TOP 1 @fechaInicio = fechaInicio, @fechaFin = fechaFin FROM dbo.PeriodoAcademico WHERE id = @idPeriodo;
+            SELECT TOP 1 @idPeriodo = g.idPeriodoAcademico FROM dbo.uv_grupo_registro g WHERE g.id = @idGrupoDefecto;
+            SELECT TOP 1 @fechaInicio = pa.fechaInicio, @fechaFin = pa.fechaFin FROM dbo.uv_periodo_academico_fechas pa WHERE pa.id = @idPeriodo;
 
             SET @currentDate = @fechaInicio;
             SET @sesionesCreadas = 0;
@@ -269,9 +271,9 @@ BEGIN
 
                 INSERT INTO @HorariosDelDia (idHorario, horaInicio, horaFin)
                 SELECT h.id, h.horaInicio, h.horaFin
-                FROM dbo.Horario h
-                INNER JOIN dbo.Dia d ON h.dia = d.id
-                WHERE h.grupo = @idGrupoDefecto AND d.codigo = @codigoDia;
+                FROM dbo.uv_horario_registro h
+                INNER JOIN dbo.uv_dia d ON h.idDia = d.id
+                WHERE h.idGrupo = @idGrupoDefecto AND d.codigo = @codigoDia;
 
                 IF EXISTS (SELECT 1 FROM @HorariosDelDia)
                 BEGIN
@@ -296,10 +298,10 @@ BEGIN
 
                         -- Inserción controlada evitando duplicación de fechas/horas
                         IF NOT EXISTS (
-                            SELECT 1 FROM dbo.Sesion 
-                            WHERE grupo = @idGrupoDefecto 
-                              AND fechaHoraInicio = @fechaHoraInicio 
-                              AND fechaHoraFin = @fechaHoraFin
+                            SELECT 1 FROM dbo.uv_sesion_registro s
+                            WHERE s.idGrupo = @idGrupoDefecto
+                              AND s.fechaHoraInicio = @fechaHoraInicio
+                              AND s.fechaHoraFin = @fechaHoraFin
                         )
                         BEGIN
                             SET @numSemana = DATEDIFF(week, @fechaInicio, @currentDate) + 1;
@@ -339,10 +341,12 @@ BEGIN
 
     END TRY
     BEGIN CATCH
-        -- BLOQUE CATCH: Captura centralizada de excepciones e inicio de reversión transaccional
+        -- PASO 7: captura centralizada de excepciones e inicio de reversión transaccional
         -- REC3: solo se revierte si hay una transaccion viva (XACT_STATE <> 0); evita un segundo error en el CATCH.
         IF XACT_STATE() <> 0
+        BEGIN
             ROLLBACK TRANSACTION;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
@@ -353,7 +357,7 @@ BEGIN
         SET @estadoResultado = 0;
     END CATCH
 
-    -- BLOQUE FINAL: Retorno unificado de resultados garantizando el nombre de columna idCorrelacion
+    -- PASO 8: retorno unificado de resultados garantizando el nombre de columna idCorrelacion
     SELECT 
         idCorrelacion = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,

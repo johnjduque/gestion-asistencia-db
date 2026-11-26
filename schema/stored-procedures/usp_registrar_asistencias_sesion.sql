@@ -17,6 +17,9 @@ GO
 --     y ninguna fila modificada. Sin tolerancia posterior al cierre. Las rectificaciones posteriores solo
 --     ocurren por el flujo formal de reclamos (usp_resolver_solicitud_revision_asistencia).
 --   * Result set canonico (una unica fila): idCorrelacion, mensajeUsuarioResultado, mensajeTecnicoResultado, estadoResultado.
+-- SKILLS-BD lote 14 (2026-11-26, objeto congelado, decision D5): DECLARE del CATCH a la cabecera, PASO n, IF con BEGIN/END y lecturas sin bloqueo de sesion y matricula
+-- por vistas uv_* (antes, las tablas); las escrituras siguen en el nucleo interno.
+-- Misma firma, mismo resultset y mismos codigos; el hash del manifiesto se actualiza en el mismo commit.
 CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_asistencias_sesion]
 (
     @idSesion       UNIQUEIDENTIFIER,
@@ -54,6 +57,7 @@ AS
     -- Control de ownership transaccional (ver docs/procedimiento-transacciones)
     DECLARE @transaccionPropia BIT = 0;
     DECLARE @savepointCreado   BIT = 0;
+    DECLARE @estadoTransaccionCatch INT;
 
 BEGIN
     SET NOCOUNT ON;
@@ -106,9 +110,9 @@ BEGIN
         -- PASO 2.1: Titularidad del docente sobre la sesión (Usuario.id -> Docente.id del grupo)
         IF @estadoResultado = 1
         BEGIN
-            SELECT TOP 1 @idGrupoSesion = grupo
-            FROM dbo.Sesion
-            WHERE id = @idSesionDefecto;
+            SELECT TOP 1 @idGrupoSesion = s.idGrupo
+            FROM dbo.uv_sesion_registro s
+            WHERE s.id = @idSesionDefecto;
 
             EXEC dbo.usp_validar_titularidad_jerarquica_interno
                 @idUsuario = @idUsuarioEjecutorDefecto,
@@ -251,11 +255,11 @@ BEGIN
                 FROM @EstudiantesATrabajar et
                 WHERE NOT EXISTS (
                     SELECT 1
-                    FROM dbo.Estudiante e
-                    INNER JOIN dbo.EstudianteGrupo eg ON eg.estudiante = e.id
-                    INNER JOIN dbo.EstadoEstudianteGrupo eeg ON eeg.id = eg.estado
+                    FROM dbo.uv_estudiante_identidad e
+                    INNER JOIN dbo.uv_estudiante_grupo_registro eg ON eg.idEstudiante = e.id
+                    INNER JOIN dbo.uv_estado_estudiante_grupo eeg ON eeg.id = eg.idEstado
                     WHERE e.id = et.idEstudiante
-                      AND eg.grupo = @idGrupoSesion
+                      AND eg.idGrupo = @idGrupoSesion
                       AND eeg.codigo = 'A'
                 )
                 ORDER BY et.secuencia;
@@ -336,18 +340,24 @@ BEGIN
                     @estadoResultado = @estadoResultado OUTPUT;
             END
 
-            -- Control transaccional de cierre del bloque de asistencias respetando ownership
+            -- PASO 4.3: control transaccional de cierre del bloque de asistencias respetando ownership
             IF @transaccionPropia = 1
             BEGIN
                 IF XACT_STATE() = 1 AND @estadoResultado = 1
+                BEGIN
                     COMMIT TRANSACTION;
+                END
                 ELSE IF XACT_STATE() <> 0
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
             END
             ELSE IF @savepointCreado = 1
             BEGIN
                 IF XACT_STATE() = 1 AND @estadoResultado = 0
+                BEGIN
                     ROLLBACK TRANSACTION sp_asistencias_sesion;
+                END
             END
         END
 
@@ -365,13 +375,15 @@ BEGIN
 
     END TRY
     BEGIN CATCH
-        -- BLOQUE CATCH: Captura centralizada de excepciones y reversión respetando ownership transaccional
-        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+        -- PASO 6: captura centralizada de excepciones y reversión respetando ownership transaccional
+        SET @estadoTransaccionCatch = XACT_STATE();
 
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN
@@ -393,7 +405,7 @@ BEGIN
         SET @estadoResultado = 0;
     END CATCH
 
-    -- BLOQUE FINAL: Retorno unificado de resultados garantizando el nombre de columna idCorrelacion
+    -- PASO 7: retorno unificado de resultados garantizando el nombre de columna idCorrelacion
     SELECT
         idCorrelacion = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,

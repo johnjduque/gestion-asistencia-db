@@ -651,3 +651,22 @@ pruebas de dominio de sesiones (SES-01, SES-GEN-01, MRM, DEC-073, CULM-001 B.1, 
 
 Vistas nuevas, delgadas y sin cálculos (una tabla cada una, las mismas filas): `uv_programa_registro`, `uv_facultad_registro`,
 `uv_solicitud_sesion_registro`, `uv_horario_registro` y `uv_sesion_procedencia_clasificacion_registro`.
+
+## Addendum SKILLS-BD lote 14 (2026-11-26): objetos congelados (decisión D5)
+
+Mismo nombre, misma firma y mismo comportamiento. Son internos con hash en los manifiestos de `docs/contracts/`; el hash se
+actualiza en el mismo commit (`freeze-manifest.ps1 -Mode GeneratePostFreeze` y `-Mode UpdateCulm001D`, `lb004d-manifest.ps1 -Mode
+Generate`). `usp_validar_valor_parametro_externo_interno` y `usp_actualizar_sesion_interno` no tenían prueba directa y quedan fijados
+por `test/test_skills_lote14_caracterizacion.sql` (corrida sobre el código previo antes del cambio).
+
+| Interno | Cambio en el lote 14 |
+| :--- | :--- |
+| `usp_validar_valor_parametro_externo_interno` | `DECLARE` en la cabecera, `PASO 0` (salidas vacías), `PASO n`, `IF` con `BEGIN/END`, parámetro y reglas de edición por `uv_parametro_registro` y `uv_parametro_edicion_registro`, y `TRY/CATCH` que relanza (antes sin `TRY`: mismo flujo) |
+| `usp_validar_plazo_justificacion_interno` | `DECLARE` en la cabecera (uno por variable), `PASO n`, fin de la sesión por `uv_sesion_registro` y `TRY/CATCH` que relanza (antes sin `TRY`: mismo flujo) |
+| `usp_actualizar_sesion_interno`, `usp_crear_sesion_interno` | `PASO n`, `IF` con `BEGIN/END`, `DECLARE` del `CATCH` a la cabecera; sesión, grupo, periodo y zona horaria por `uv_sesion_registro`, `uv_grupo_registro`, `uv_periodo_academico_fechas` y `uv_parametro`, e `IIF` en lugar de `COALESCE` sobre variables (el `COALESCE(MAX(numero), 0)` del correlativo es sobre agregación, permitido). Los `UPDLOCK, HOLDLOCK` de `dbo.Sesion` y las escrituras siguen en las tablas |
+| `usp_matricular_por_token_interno` | `DECLARE` del cuerpo a la cabecera, `PASO n`, `IF` con `BEGIN/END`, `IIF` en lugar de `COALESCE` y lecturas sin bloqueo por vistas (`uv_estudiante_identidad`, `uv_usuario`, `uv_estudiante_grupo_registro`, `uv_estudiante_programa_registro`, `uv_token_matricula_grupo_registro`). El token se sigue resolviendo en `usp_resolver_token_matricula_interno` (E7) y el `UPDATE` del contador sigue en la tabla |
+| `usp_radicar_solicitud_revision_interno` | `DECLARE` de entre `BEGIN` y el cuerpo a la cabecera (entre `AS` y `BEGIN`), `PASO 0`, `IF` con `BEGIN/END` y lecturas sin bloqueo por vistas (estudiante, soportes, toma, sesión, matrícula, asistencia, estado, razón y categoría). Las lecturas con `UPDLOCK, HOLDLOCK` y las escrituras siguen en las tablas |
+
+`usp_validar_sesion_operacion_interno` ya cumplía y no cambia (su hash tampoco).
+
+Vistas nuevas, delgadas y sin cálculos (una tabla cada una, las mismas filas): `uv_administrador_registro`, `uv_asignatura_registro`, `uv_parametro_registro` (todas las filas de `CatalogoParametro`, sin el filtro de activos de `uv_parametro`), `uv_parametro_edicion_registro`, `uv_sincronizacion_parametro_externo_registro` (sin los valores), `uv_estudiante_programa_registro` y `uv_token_matricula_grupo_registro` (sin `tokenHash`, `tokenHashAnterior`, `pin` ni `pinAnterior`, excepción E7).

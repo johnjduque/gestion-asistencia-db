@@ -19,6 +19,9 @@ GO
 -- mismo id; si aun asi se viola la PK, el CATCH reevalua la idempotencia fuera de la transaccion.
 -- Ownership transaccional: transaccion propia o SAVE TRANSACTION si el llamador ya tiene una.
 -- ============================================================================
+-- SKILLS-BD lote 14 (2026-11-26, objeto congelado, decision D5): DECLARE del CATCH a la cabecera, PASO en el CATCH, IF con BEGIN/END y lecturas sin bloqueo de estudiante y
+-- archivo por vistas uv_* (antes, las tablas); la lectura con UPDLOCK y el INSERT siguen en la tabla.
+-- Misma firma, mismo resultset y mismos codigos; el hash del manifiesto se actualiza en el mismo commit.
 CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_archivo_soporte]
 (
     @idArchivoSoporte   UNIQUEIDENTIFIER,
@@ -43,6 +46,8 @@ AS
     DECLARE @conteoTransaccionesInicial INT;
     DECLARE @transaccionPropia    BIT = 0;
     DECLARE @savepointCreado      BIT = 0;
+    DECLARE @numeroError          INT;
+    DECLARE @estadoTransaccionCatch INT;
 
     -- Variables locales de respuesta
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -86,7 +91,7 @@ BEGIN
 
         -- PASO 4: El ejecutor debe ser un estudiante institucional
         IF @estadoResultado = 1
-           AND NOT EXISTS (SELECT 1 FROM dbo.Estudiante e WHERE e.usuario = @idUsuarioEjecutorDefecto)
+           AND NOT EXISTS (SELECT 1 FROM dbo.uv_estudiante_identidad e WHERE e.idUsuario = @idUsuarioEjecutorDefecto)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'ARC_002',
@@ -178,9 +183,13 @@ BEGIN
             IF XACT_STATE() = 1
             BEGIN
                 IF @estadoResultado = 1
+                BEGIN
                     COMMIT TRANSACTION;
+                END
                 ELSE
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
             END
             ELSE IF XACT_STATE() = -1
             BEGIN
@@ -190,12 +199,15 @@ BEGIN
         -- Con savepoint (transaccion del llamador) un rechazo no escribio nada: no hay nada que revertir.
     END TRY
     BEGIN CATCH
-        DECLARE @numeroError INT = ERROR_NUMBER();
-        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+        -- PASO 8: reversion respetando ownership; carrera perdida contra otro alta del mismo id => exito idempotente; si no, SYS_001
+        SET @numeroError = ERROR_NUMBER();
+        SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN
@@ -212,10 +224,10 @@ BEGIN
         SET @propietarioExistente = NULL;
         IF @numeroError IN (2601, 2627) AND @transaccionPropia = 1
         BEGIN
-            SELECT @propietarioExistente = a.usuarioPropietario
-            FROM dbo.ArchivoSoporte a
+            SELECT @propietarioExistente = a.idUsuarioPropietario
+            FROM dbo.uv_archivo_soporte_registro a
             WHERE a.id = @idArchivoDefecto
-              AND a.usuarioPropietario = @idUsuarioEjecutorDefecto
+              AND a.idUsuarioPropietario = @idUsuarioEjecutorDefecto
               AND a.nombreOriginal = @nombreDefecto
               AND a.tipoContenido = @tipoDefecto
               AND a.tamanioBytes = @tamanioBytes

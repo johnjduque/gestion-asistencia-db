@@ -26,6 +26,8 @@ GO
 -- Resultset: MUTATION_COMMAND_RESULTSET (4 columnas canonicas).
 -- Ownership transaccional: transaccion propia o SAVE TRANSACTION si el llamador ya tiene una.
 -- ============================================================================
+-- SKILLS-BD lote 14 (2026-11-26, objeto congelado, decision D5): DECLARE del CATCH a la cabecera, PASO n e IF con BEGIN/END.
+-- Misma firma, mismo resultset y mismos codigos; el hash del manifiesto se actualiza en el mismo commit.
 CREATE OR ALTER PROCEDURE [dbo].[usp_radicar_solicitud_revision_asistencia_v2]
 (
     @idEstudiante       UNIQUEIDENTIFIER,
@@ -45,6 +47,7 @@ AS
     DECLARE @conteoTransaccionesInicial INT;
     DECLARE @transaccionPropia    BIT = 0;
     DECLARE @savepointCreado      BIT = 0;
+    DECLARE @estadoTransaccionCatch INT;
 
     -- Variables locales de respuesta
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -55,6 +58,7 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
     BEGIN TRY
+        -- PASO 1: transaccion propia o savepoint si el llamador ya tiene una
         SET @conteoTransaccionesInicial = @@TRANCOUNT;
         IF @conteoTransaccionesInicial = 0
         BEGIN
@@ -67,6 +71,7 @@ BEGIN
             SET @savepointCreado = 1;
         END
 
+        -- PASO 2: radicacion en el nucleo interno
         EXEC dbo.usp_radicar_solicitud_revision_interno
             @idEstudiante = @idEstudiante,
             @idSesion = @idSesion,
@@ -81,15 +86,19 @@ BEGIN
             @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
 
-        -- Finalizacion respetando ownership: commit solo si el resultado es exitoso
+        -- PASO 3: finalizacion respetando ownership: commit solo si el resultado es exitoso
         IF @transaccionPropia = 1
         BEGIN
             IF XACT_STATE() = 1
             BEGIN
                 IF @estadoResultado = 1
+                BEGIN
                     COMMIT TRANSACTION;
+                END
                 ELSE
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
             END
             ELSE IF XACT_STATE() = -1
             BEGIN
@@ -101,11 +110,14 @@ BEGIN
         -- prohibido dentro de un INSERT-EXEC del llamador, Msg 3915).
     END TRY
     BEGIN CATCH
-        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+        -- PASO 4: reversion respetando ownership; transaccion externa condenada se propaga; si no, SYS_001
+        SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN
@@ -127,7 +139,7 @@ BEGIN
         SET @estadoResultado = 0;
     END CATCH
 
-    -- BLOQUE FINAL: Retorno unificado de resultados (4 columnas canonicas)
+    -- PASO 5: retorno unificado de resultados (4 columnas canonicas)
     SELECT
         idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,

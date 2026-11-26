@@ -16,6 +16,9 @@ GO
 --     solo se verifica, distintos si el manifiesto aprueba una conversion individual).
 -- El UPDATE de horas+marca y la fila de bitacora se escriben en la MISMA transaccion.
 -- El rol runtime del backend tiene DENY EXECUTE sobre este SP.
+-- SKILLS-BD lote 14 (2026-11-26, objeto congelado, decision D5): DECLARE del CATCH a la cabecera, PASO n, IF con BEGIN/END y ambiente por uv_parametro (antes, la tabla);
+-- el UPDLOCK de la sesion, el UPDATE y el INSERT siguen en las tablas.
+-- Misma firma, mismo resultset y mismos codigos; el hash del manifiesto se actualiza en el mismo commit.
 CREATE OR ALTER PROCEDURE [dbo].[usp_clasificar_procedencia_sesion]
 (
     @idSesion                  UNIQUEIDENTIFIER,
@@ -51,6 +54,7 @@ AS
 
     DECLARE @transaccionPropia BIT = 0;
     DECLARE @savepointCreado   BIT = 0;
+    DECLARE @estadoTransaccionCatch INT;
 
 BEGIN
     SET NOCOUNT ON;
@@ -130,7 +134,7 @@ BEGIN
         IF @estadoResultado = 1
         BEGIN
             SELECT TOP 1 @ambienteConfigurado = CONVERT(NVARCHAR(32), valor)
-            FROM dbo.CatalogoParametro
+            FROM dbo.uv_parametro
             WHERE grupo = 'OPERACION'
               AND clave = 'AMBIENTE'
               AND estaActivo = 1;
@@ -225,7 +229,9 @@ BEGIN
                 SET @filasClasificadas = @@ROWCOUNT;
 
                 IF @filasClasificadas <> 1
+                BEGIN
                     THROW 52111, 'UTC_D06_CLASIFICACION_CONCURRENTE: la sesion cambio durante la clasificacion.', 1;
+                END
 
                 INSERT INTO dbo.SesionProcedenciaClasificacion (
                     id, sesion, ambiente, idManifiesto, hashEvidencia, procedenciaAnterior, procedenciaNueva,
@@ -245,23 +251,31 @@ BEGIN
                 SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
             END
 
+            -- PASO 6: cierre de la transaccion propia
             IF @transaccionPropia = 1
             BEGIN
                 IF XACT_STATE() = 1
+                BEGIN
                     COMMIT TRANSACTION;
+                END
                 ELSE IF XACT_STATE() <> 0
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
             END
         END
 
     END TRY
     BEGIN CATCH
-        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+        -- PASO 7: reversion respetando ownership transaccional, relanzar si la externa quedo condenada y si no SYS_001
+        SET @estadoTransaccionCatch = XACT_STATE();
 
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN
@@ -282,6 +296,7 @@ BEGIN
         SET @estadoResultado = 0;
     END CATCH
 
+    -- PASO 8: retorno unificado de resultados
     SELECT
         idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,
