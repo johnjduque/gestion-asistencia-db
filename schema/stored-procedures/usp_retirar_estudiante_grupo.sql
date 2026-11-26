@@ -18,6 +18,7 @@ GO
 -- Codigos: GEN_002 ejecutor nulo, RET_004 motivo, RET_001 grupo inexistente o no titular (indistinguibles),
 -- RET_003 periodo terminado, RET_002 sin matricula activa, RET_005 exito.
 -- ============================================================================
+-- SKILLS-BD lote 7 (2026-11-26): catalogo de estados por uv_estado_estudiante_grupo; docente/periodo por uv_docente_identidad/uv_periodo_academico; el bloqueo UPDLOCK/HOLDLOCK sigue en tabla base. Comportamiento sin cambio.
 CREATE OR ALTER PROCEDURE [dbo].[usp_retirar_estudiante_grupo]
 (
     @idGrupo                 UNIQUEIDENTIFIER,
@@ -37,8 +38,8 @@ AS
     DECLARE @grupoBloqueado           UNIQUEIDENTIFIER;
     DECLARE @fechaFinPeriodo          DATE;
     DECLARE @idEstudianteGrupo        UNIQUEIDENTIFIER;
-    DECLARE @estadoActivo             UNIQUEIDENTIFIER = (SELECT id FROM dbo.EstadoEstudianteGrupo WHERE codigo = 'A');
-    DECLARE @estadoInactivo           UNIQUEIDENTIFIER = (SELECT id FROM dbo.EstadoEstudianteGrupo WHERE codigo = 'I');
+    DECLARE @estadoActivo             UNIQUEIDENTIFIER = (SELECT id FROM dbo.uv_estado_estudiante_grupo WHERE codigo = 'A');
+    DECLARE @estadoInactivo           UNIQUEIDENTIFIER = (SELECT id FROM dbo.uv_estado_estudiante_grupo WHERE codigo = 'I');
 
     DECLARE @mensajeUsuarioResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -82,7 +83,7 @@ BEGIN
             SET @codigoRechazo = 'RET_004';
         END
 
-        -- PASO 4: Validar la accion y el motivo (codigo de rechazo)
+        -- PASO 4: Bloquear grupo y matricula (lectura con UPDLOCK/HOLDLOCK en tabla base), retirar y auditar
         IF @estadoResultado = 1 AND @codigoRechazo IS NULL
         BEGIN
             SET @conteoTransaccionesInicial = @@TRANCOUNT;
@@ -97,12 +98,13 @@ BEGIN
                 SET @savepointCreado = 1;
             END
 
-            -- Titularidad en tablas base: un grupo ajeno es indistinguible de uno inexistente (RET_001).
+            -- Titularidad: un grupo ajeno es indistinguible de uno inexistente (RET_001). El bloqueo (UPDLOCK/HOLDLOCK)
+            -- se toma sobre la tabla base Grupo; docente y periodo se leen por sus vistas.
             SELECT @grupoBloqueado = g.id, @fechaFinPeriodo = pa.fechaFin
             FROM dbo.Grupo g WITH (UPDLOCK, HOLDLOCK)
-            INNER JOIN dbo.Docente d ON d.id = g.docente
-            INNER JOIN dbo.PeriodoAcademico pa ON pa.id = g.periodoAcademico
-            WHERE g.id = @idGrupoDefecto AND d.usuario = @idUsuarioEjecutorDefecto;
+            INNER JOIN dbo.uv_docente_identidad d ON d.id = g.docente
+            INNER JOIN dbo.uv_periodo_academico pa ON pa.id = g.periodoAcademico
+            WHERE g.id = @idGrupoDefecto AND d.idUsuario = @idUsuarioEjecutorDefecto;
 
             IF @grupoBloqueado IS NOT NULL
             BEGIN

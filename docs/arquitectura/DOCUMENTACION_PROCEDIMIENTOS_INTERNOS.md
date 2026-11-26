@@ -555,3 +555,20 @@ Mismo nombre, misma firma y mismo comportamiento; prueba `test/test_skills_lote6
 | :--- | :--- |
 | `usp_validar_asignatura_activa_interno` | `IF` con `BEGIN/END`; `TRY/CATCH`: dentro de una transacción relanza para que el llamador revierta, sin transacción devuelve `SYS_001`. La lectura con `UPDLOCK, HOLDLOCK` (`@bloquearFila = 1`) sigue en la tabla |
 | `usp_validar_gestion_asignatura_coordinador_interno` | Asignatura, plan y vínculo por `uv_asignatura`, `uv_plan_estudio` y `uv_asignatura_plan_estudio` (antes, las tablas); `IF` con `BEGIN/END` y `PASO n`; mismos códigos (`GEN_002`, `VAL_002`, `PLA_002`, `SEC_002`, `ASI_004`, `ASI_006`) |
+
+## Addendum SKILLS-BD lote 7 (2026-11-26): estudiantes y matrícula en grupo
+
+Mismo nombre, misma firma y mismo comportamiento; prueba `test/test_skills_lote7_caracterizacion.sql` (`SKL7_*`).
+
+| Interno | Cambio en el lote 7 |
+| :--- | :--- |
+| `usp_validar_programa_comun_estudiante_grupo_interno` | Vínculos del estudiante por `uv_estudiante_programa` (antes, la tabla); `PASO n` e `IF` con `BEGIN/END`; mismos códigos (`EST_005`, `EST_006`, `EST_010`) |
+| `usp_validar_estudiante_en_programa_interno` | `DECLARE` en la cabecera, `PASO n` y `TRY/CATCH` que relanza; mismo `THROW` y códigos |
+| `usp_sincronizar_estudiante_interno` | Unicidad del rol por `uv_estudiante_identidad` (antes, la tabla) |
+| `usp_registrar_estudiante_en_programa_interno` | Matrículas, estudiante y vínculo por `uv_estudiante_grupo`, `uv_estudiante_identidad` y la vista nueva `uv_estudiante_programa_semestre` (antes, las tablas) |
+| `usp_registrar_estudiante_en_grupo_interno` | `DECLARE` en la cabecera (asignados con `SET` en su paso) e `IF` con `BEGIN/END` |
+| `usp_reactivar_matricula_retirada_interno` | Búsqueda sin bloqueo por `uv_estudiante_grupo` (antes, la tabla) e `IF` con `BEGIN/END`. Las lecturas con `UPDLOCK, HOLDLOCK` siguen en la tabla |
+| `usp_validar_estudiante_exista_por_id_interno`, `usp_validar_registro_estudiante_en_grupo_interno` | Sin cambio (ya cumplían); quedan cubiertos por la prueba del lote |
+
+Vista nueva `uv_estudiante_programa_semestre` (`id`, `idEstudiante`, `idPrograma`, `semestreActual` de `EstudiantePrograma`): se creó porque
+`uv_estudiante_programa` no expone `semestreActual` y la skill prohíbe cambiar la forma de una vista existente.

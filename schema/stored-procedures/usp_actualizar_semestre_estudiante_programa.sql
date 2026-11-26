@@ -15,6 +15,8 @@ GO
 --   * Rango: entre el menor y el mayor Semestre.numero del catalogo dbo.Semestre (sin literales): EST_009.
 --   * Exito: EST_007. La validacion ocurre antes de abrir la transaccion; la auditoria la deja el backend (AuditableOperation).
 -- ============================================================================
+-- SKILLS-BD lote 7 (2026-11-26): vinculo y semestres por uv_estudiante_programa y uv_semestre (antes, las tablas), PASO n,
+-- IF con BEGIN/END y DECLARE del CATCH en la cabecera. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_actualizar_semestre_estudiante_programa]
 (
     @idEstudiante      UNIQUEIDENTIFIER,
@@ -37,10 +39,13 @@ AS
     DECLARE @msgP1 NVARCHAR(500), @msgP2 NVARCHAR(500);
     DECLARE @transaccionPropia BIT = 0;
     DECLARE @savepointCreado   BIT = 0;
+    DECLARE @estadoTransaccionCatch     INT;
+
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
     BEGIN TRY
+        -- PASO 1: Validar el identificador de correlacion y el ejecutor (GEN_002)
         EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
             @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
@@ -57,24 +62,31 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 2: Validar perfil del ejecutor (RBAC COORDINADOR)
         IF @estadoResultado = 1
+        BEGIN
             EXEC dbo.usp_validar_permiso_rbac_usuario_interno
                 @idUsuario = @idUsuarioEjecutorDefecto, @codigoPerfilRequerido = 'COORDINADOR',
                 @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
+        END
 
+        -- PASO 3: Validar titularidad del ejecutor sobre PROGRAMA
         IF @estadoResultado = 1
+        BEGIN
             EXEC dbo.usp_validar_titularidad_jerarquica_interno
                 @idUsuario = @idUsuarioEjecutorDefecto, @idEntidadPadre = @idProgramaDefecto,
                 @tipoEntidadPadre = 'PROGRAMA', @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
+        END
 
+        -- PASO 4: El estudiante debe estar vinculado al programa (EST_008)
         IF @estadoResultado = 1
-           AND NOT EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep WHERE ep.estudiante = @idEstudianteDefecto AND ep.programa = @idProgramaDefecto)
+           AND NOT EXISTS (SELECT 1 FROM dbo.uv_estudiante_programa ep WHERE ep.idEstudiante = @idEstudianteDefecto AND ep.idPrograma = @idProgramaDefecto)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'EST_008',
@@ -84,9 +96,10 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
+        -- PASO 5: Semestre dentro del rango del catalogo (EST_009)
         IF @estadoResultado = 1 AND @semestreActual IS NOT NULL
         BEGIN
-            SELECT @semestreMinimo = MIN(s.numero), @semestreMaximo = MAX(s.numero) FROM dbo.Semestre s;
+            SELECT @semestreMinimo = MIN(s.numero), @semestreMaximo = MAX(s.numero) FROM dbo.uv_semestre s;
             IF @semestreMinimo IS NULL OR @semestreActual < @semestreMinimo OR @semestreActual > @semestreMaximo
             BEGIN
                 SET @msgP1 = CAST(@semestreMinimo AS NVARCHAR(500));
@@ -100,6 +113,7 @@ BEGIN
             END
         END
 
+        -- PASO 6: Escritura transaccional (transaccion propia o savepoint)
         IF @estadoResultado = 1
         BEGIN
             IF @@TRANCOUNT = 0
@@ -125,16 +139,26 @@ BEGIN
 
             IF @transaccionPropia = 1
             BEGIN
-                IF XACT_STATE() = 1 COMMIT TRANSACTION;
-                ELSE IF XACT_STATE() = -1 ROLLBACK TRANSACTION;
+                IF XACT_STATE() = 1
+                BEGIN
+                    COMMIT TRANSACTION;
+                END
+                ELSE IF XACT_STATE() = -1
+                BEGIN
+                    ROLLBACK TRANSACTION;
+                END
             END
         END
     END TRY
     BEGIN CATCH
-        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+        -- PASO 7: Error inesperado: revierte lo propio y devuelve SYS_001
+        SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
-            IF @estadoTransaccionCatch <> 0 ROLLBACK TRANSACTION;
+            IF @estadoTransaccionCatch <> 0
+            BEGIN
+                ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN

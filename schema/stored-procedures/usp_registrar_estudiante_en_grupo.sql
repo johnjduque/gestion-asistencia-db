@@ -17,6 +17,7 @@ GO
 --     sp_registrar_estudiante_negocio; un rechazo posterior a crear Usuario/Estudiante revierte ese savepoint (sin filas
 --     parciales). El resultset canonico va fuera de la transaccion. Firma y resultset sin cambio.
 -- ============================================================================
+-- SKILLS-BD lote 7 (2026-11-26): DECLARE en cabecera, IF con BEGIN/END, lecturas por uv_usuario/uv_estudiante_identidad/uv_tipo_identificacion. Comportamiento sin cambio.
 CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_estudiante_en_grupo]
 (
     @idGrupo                 UNIQUEIDENTIFIER,
@@ -49,6 +50,12 @@ AS
     DECLARE @savepointCreado            BIT = 0;
     DECLARE @identidadEscrita           BIT = 0;
     DECLARE @estadoTransaccionCatch     INT;
+
+    -- Variables de pasos intermedios (declaradas en la cabecera, asignadas en su paso)
+    DECLARE @idEstudianteExistente      UNIQUEIDENTIFIER;
+    DECLARE @idTipoIdTarget             UNIQUEIDENTIFIER;
+    DECLARE @idUsuarioTarget            UNIQUEIDENTIFIER;
+    DECLARE @dominioInstitucional       NVARCHAR(255);
 
 BEGIN
     SET NOCOUNT ON;
@@ -138,10 +145,9 @@ BEGIN
         -- el estudiante nuevo creado en este acto queda vinculado al programa elegido del grupo (sin cambio). Antes de escribir nada.
         IF @estadoResultado = 1
         BEGIN
-            DECLARE @idEstudianteExistente UNIQUEIDENTIFIER;
             SELECT TOP 1 @idEstudianteExistente = e.id
-            FROM dbo.Usuario u
-            INNER JOIN dbo.Estudiante e ON e.usuario = u.id
+            FROM dbo.uv_usuario u
+            INNER JOIN dbo.uv_estudiante_identidad e ON e.idUsuario = u.id
             WHERE u.correo = LOWER(TRIM(@correo));
 
             EXEC dbo.usp_validar_programa_comun_estudiante_grupo_interno
@@ -159,21 +165,23 @@ BEGIN
         BEGIN
             SAVE TRANSACTION sp_registrar_estudiante_negocio;
 
-            DECLARE @idTipoIdTarget UNIQUEIDENTIFIER = @idTipoIdIdentificacion;
+            SET @idTipoIdTarget = @idTipoIdIdentificacion;
             IF @idTipoIdTarget IS NULL
             BEGIN
-                SELECT TOP 1 @idTipoIdTarget = id FROM dbo.TipoIdentificacion WHERE tipoIdentificacion = 'CC';
-                IF @idTipoIdTarget IS NULL SELECT TOP 1 @idTipoIdTarget = id FROM dbo.TipoIdentificacion;
+                SELECT TOP 1 @idTipoIdTarget = id FROM dbo.uv_tipo_identificacion WHERE tipoIdentificacion = 'CC';
+                IF @idTipoIdTarget IS NULL
+                BEGIN
+                    SELECT TOP 1 @idTipoIdTarget = id FROM dbo.uv_tipo_identificacion;
+                END
             END
 
-            DECLARE @idUsuarioTarget UNIQUEIDENTIFIER;
-            SELECT TOP 1 @idUsuarioTarget = id FROM dbo.Usuario WHERE correo = LOWER(TRIM(@correo));
+            SELECT TOP 1 @idUsuarioTarget = id FROM dbo.uv_usuario WHERE correo = LOWER(TRIM(@correo));
 
             -- IDENT-001: en un alta nueva (sin usuario con ese correo) el correo debe ser institucional. El dominio es el
             -- parametro REGISTRO/DOMINIO_CORREO_ESTUDIANTE; un usuario existente no se revalida (D5).
             IF @estadoResultado = 1 AND @idUsuarioTarget IS NULL
             BEGIN
-                DECLARE @dominioInstitucional NVARCHAR(255) = dbo.ufn_obtener_parametro('REGISTRO', 'DOMINIO_CORREO_ESTUDIANTE');
+                SET @dominioInstitucional = dbo.ufn_obtener_parametro('REGISTRO', 'DOMINIO_CORREO_ESTUDIANTE');
                 IF dbo.ufn_correo_cumple_dominio_institucional(@correo, @dominioInstitucional) = 0
                 BEGIN
                     EXEC dbo.usp_obtener_mensaje_catalogo
@@ -205,12 +213,14 @@ BEGIN
                     @estadoResultado = @estadoResultado OUTPUT;
 
                 IF @estadoResultado = 1
-                    SELECT TOP 1 @idUsuarioTarget = id FROM dbo.Usuario WHERE correo = LOWER(TRIM(@correo));
+                BEGIN
+                    SELECT TOP 1 @idUsuarioTarget = id FROM dbo.uv_usuario WHERE correo = LOWER(TRIM(@correo));
+                END
             END
 
             IF @estadoResultado = 1 AND @idUsuarioTarget IS NOT NULL
             BEGIN
-                SELECT TOP 1 @idEstudianteResultado = id FROM dbo.Estudiante WHERE usuario = @idUsuarioTarget;
+                SELECT TOP 1 @idEstudianteResultado = id FROM dbo.uv_estudiante_identidad WHERE idUsuario = @idUsuarioTarget;
 
                 IF @idEstudianteResultado IS NULL
                 BEGIN
@@ -223,7 +233,9 @@ BEGIN
                         @estadoResultado = @estadoResultado OUTPUT;
 
                     IF @estadoResultado = 1
-                        SELECT TOP 1 @idEstudianteResultado = id FROM dbo.Estudiante WHERE usuario = @idUsuarioTarget;
+                    BEGIN
+                        SELECT TOP 1 @idEstudianteResultado = id FROM dbo.uv_estudiante_identidad WHERE idUsuario = @idUsuarioTarget;
+                    END
                 END
             END
 
@@ -243,16 +255,22 @@ BEGIN
             -- no hay nada que revertir (el interno no deja escrituras en sus rechazos de negocio), y se evita un
             -- ROLLBACK innecesario, que SQL Server prohibe bajo INSERT ... EXEC.
             IF @estadoResultado = 0 AND @identidadEscrita = 1 AND XACT_STATE() = 1
+            BEGIN
                 ROLLBACK TRANSACTION sp_registrar_estudiante_negocio;
+            END
         END
 
         -- Cierre de la transaccion propia
         IF @transaccionPropia = 1
         BEGIN
             IF XACT_STATE() = 1
+            BEGIN
                 COMMIT TRANSACTION;
+            END
             ELSE IF XACT_STATE() = -1
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
 
     END TRY
@@ -261,13 +279,19 @@ BEGIN
         IF @transaccionPropia = 1
         BEGIN
             IF @@TRANCOUNT > 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
             ROLLBACK TRANSACTION sp_registrar_estudiante_grupo;
+        END;
 
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',

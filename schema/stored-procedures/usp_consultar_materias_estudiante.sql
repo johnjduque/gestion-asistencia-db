@@ -14,6 +14,7 @@ GO
 -- retiradas, canceladas o finalizadas (I, CI, CVP, F) no aparecen. Columnas de MateriaEstudianteQueryRow
 -- (idAsignatura, nombreAsignatura, idGrupo, nombreGrupo), orden nombreAsignatura, nombreGrupo. Solo lectura.
 -- ============================================================================
+-- SKILLS-BD lote 7 (2026-11-26): TRY/CATCH de lectura; mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_materias_estudiante]
 (
     @idUsuarioEjecutor UNIQUEIDENTIFIER,
@@ -29,41 +30,48 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
-    -- PASO 1: correlacion obligatoria
-    EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
-        @idCorrelacion = @idCorrelacionDefecto,
-        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-        @estadoResultado = @estadoResultado OUTPUT;
-
-    -- PASO 2: ejecutor obligatorio (VAL_001)
-    IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'VAL_001', @p_param1 = 'UsuarioEjecutor',
+    BEGIN TRY
+        -- PASO 1: correlacion obligatoria
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
+            @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-    END
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+            @estadoResultado = @estadoResultado OUTPUT;
 
-    IF @estadoResultado = 0
-    BEGIN
-        THROW 51000, @mensajeTecnicoResultado, 1;
-    END
+        -- PASO 2: ejecutor obligatorio (VAL_001)
+        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'VAL_001', @p_param1 = 'UsuarioEjecutor',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
 
-    -- PASO 3: materias con matricula inscrita del estudiante del ejecutor (CIERRE-W2B: la lee de uv_materia_estudiante, la misma
-    -- fuente de usp_consultar_resumen_materias_estudiante)
-    SELECT DISTINCT
-        idAsignatura     = m.idAsignatura,
-        nombreAsignatura = m.nombreAsignatura,
-        idGrupo          = m.idGrupo,
-        nombreGrupo      = m.nombreGrupo,
-        -- CULM-001 D.9-a (F-EST-006): creditos de la asignatura (quinta columna).
-        creditos         = m.creditos
-    FROM dbo.uv_materia_estudiante m
-    WHERE m.idUsuario = @idUsuarioEjecutor
-      AND m.codigoEstadoEstudiante = @codigoInscrita
-    ORDER BY m.nombreAsignatura ASC, m.nombreGrupo ASC;
+        IF @estadoResultado = 0
+        BEGIN
+            THROW 51000, @mensajeTecnicoResultado, 1;
+        END
+
+        -- PASO 3: materias con matricula inscrita del estudiante del ejecutor (CIERRE-W2B: la lee de uv_materia_estudiante, la misma
+        -- fuente de usp_consultar_resumen_materias_estudiante)
+        SELECT DISTINCT
+            idAsignatura     = m.idAsignatura,
+            nombreAsignatura = m.nombreAsignatura,
+            idGrupo          = m.idGrupo,
+            nombreGrupo      = m.nombreGrupo,
+            -- CULM-001 D.9-a (F-EST-006): creditos de la asignatura (quinta columna).
+            creditos         = m.creditos
+        FROM dbo.uv_materia_estudiante m
+        WHERE m.idUsuario = @idUsuarioEjecutor
+          AND m.codigoEstadoEstudiante = @codigoInscrita
+        ORDER BY m.nombreAsignatura ASC, m.nombreGrupo ASC;
+    END TRY
+    BEGIN CATCH
+        -- PASO 4: consulta de lectura (READ_QUERY_RESULTSET): el error, incluido el rechazo de validacion,
+        -- se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
+        THROW;
+    END CATCH
 END;
 GO

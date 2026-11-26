@@ -20,6 +20,7 @@ GO
 -- P3 regresion 2026-11-22 (D1): facultades y programas salen solo de los EstudiantePrograma del estudiante (tieneVinculoPrograma = 1);
 -- uv_estudiante expande cada grupo a TODOS los programas de su asignatura compartida y inflaba la lista. totalGrupos sigue contando sus grupos.
 -- ============================================================================
+-- SKILLS-BD lote 7 (2026-11-26): PASO n y comentario del CATCH de lectura; mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_buscar_estudiantes_institucion_paginado]
 (
     @idUsuarioEjecutor  UNIQUEIDENTIFIER,
@@ -107,9 +108,12 @@ BEGIN
         OFFSET @offset ROWS
         FETCH NEXT @tamanoPagina ROWS ONLY;
 
+        -- PASO 3: Restaurar el contexto de sesion previo
         EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
     END TRY
     BEGIN CATCH
+        -- PASO 4: consulta de lectura (READ_QUERY_RESULTSET): se restaura el contexto y el error, incluido el
+        -- rechazo de validacion, se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
         EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
         THROW;
     END CATCH;

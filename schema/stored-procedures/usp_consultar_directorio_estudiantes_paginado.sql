@@ -25,6 +25,9 @@ GO
 -- facultad, programa, plan, asignatura y grupo, con id y nombre) LIMITADAS AL AMBITO del ejecutor: una fila por
 -- contexto visible o una sola con contexto NULL. Fuera de ambito: 0 filas (el backend responde 404). Solo lectura.
 -- ============================================================================
+-- SKILLS-BD lote 7 (2026-11-26): ambito y contexto por uv_administrador, uv_coordinador_identidad, uv_docente_identidad,
+-- uv_programa, uv_asignatura_plan_estudio, uv_grupo, uv_estudiante_grupo, uv_estudiante_programa y la vista nueva
+-- uv_estudiante_programa_semestre (antes, las tablas), IF con BEGIN/END y TRY/CATCH de lectura; mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_directorio_estudiantes_paginado]
 (
     @idUsuarioEjecutor    UNIQUEIDENTIFIER,
@@ -62,210 +65,211 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
-    -- PASO 1: correlacion obligatoria
-    EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
-        @idCorrelacion = @idCorrelacionDefecto,
-        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-        @estadoResultado = @estadoResultado OUTPUT;
-
-    -- PASO 2: ejecutor obligatorio (VAL_001)
-    IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'VAL_001', @p_param1 = 'UsuarioEjecutor',
+    BEGIN TRY
+        -- PASO 1: correlacion obligatoria
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
+            @idCorrelacion = @idCorrelacionDefecto,
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-    END
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+            @estadoResultado = @estadoResultado OUTPUT;
 
-    -- PASO 2.1 (CULM-001 B2NM, S4/A.2): un programa fuera de la coordinacion del ejecutor -> COO_003 (403); no aplica a administrador ni docente.
-    IF @estadoResultado = 1 AND @idPrograma IS NOT NULL
-       AND EXISTS (SELECT 1 FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutor))
-       AND NOT EXISTS (SELECT 1 FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutor) cp WHERE cp.idPrograma = @idPrograma)
-       AND NOT EXISTS (SELECT 1 FROM dbo.Administrador ad WHERE ad.usuario = @idUsuarioEjecutor)
-       AND NOT EXISTS (SELECT 1 FROM dbo.Docente dd WHERE dd.usuario = @idUsuarioEjecutor)
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo
-            @p_codigo = 'COO_003',
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-    END
+        -- PASO 2: ejecutor obligatorio (VAL_001)
+        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'VAL_001', @p_param1 = 'UsuarioEjecutor',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
 
-    IF @estadoResultado = 0
-    BEGIN
-        THROW 51000, @mensajeTecnicoResultado, 1;
-    END
+        -- PASO 2.1 (CULM-001 B2NM, S4/A.2): un programa fuera de la coordinacion del ejecutor -> COO_003 (403); no aplica a administrador ni docente.
+        IF @estadoResultado = 1 AND @idPrograma IS NOT NULL
+           AND EXISTS (SELECT 1 FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutor))
+           AND NOT EXISTS (SELECT 1 FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutor) cp WHERE cp.idPrograma = @idPrograma)
+           AND NOT EXISTS (SELECT 1 FROM dbo.uv_administrador ad WHERE ad.idUsuario = @idUsuarioEjecutor)
+           AND NOT EXISTS (SELECT 1 FROM dbo.uv_docente_identidad dd WHERE dd.idUsuario = @idUsuarioEjecutor)
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo
+                @p_codigo = 'COO_003',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
 
-    SET @ejecutorActivo = IIF(EXISTS (SELECT 1 FROM dbo.Usuario u WHERE u.id = @idUsuarioEjecutor AND u.estado = 1), 1, 0);
+        IF @estadoResultado = 0
+        BEGIN
+            THROW 51000, @mensajeTecnicoResultado, 1;
+        END
 
-    -- PASO 3: modo listado
-    IF @idEstudiante IS NULL
-    BEGIN
-        ;WITH ambito AS (
-            -- ADMINISTRADOR: matriculas en grupos de su institucion
-            SELECT eg.estudiante AS idEstudiante
-            FROM dbo.Administrador ad
-            INNER JOIN dbo.Facultad f ON f.institucion = ad.institucion
-            INNER JOIN dbo.Programa p ON p.facultad = f.id
-            INNER JOIN dbo.PlanEstudio pe ON pe.programa = p.id
-            INNER JOIN dbo.SemestrePlanEstudio spe ON spe.planEstudio = pe.id
-            INNER JOIN dbo.AsignaturaPlanEstudio ape ON ape.semestrePlanEstudio = spe.id AND ape.estaActivo = 1 INNER JOIN dbo.Asignatura a ON a.id = ape.asignatura
-            INNER JOIN dbo.Grupo g ON g.asignatura = a.id
-            INNER JOIN dbo.EstudianteGrupo eg ON eg.grupo = g.id
-            WHERE ad.usuario = @idUsuarioEjecutor AND @ejecutorActivo = 1
-            UNION
-            -- ADMINISTRADOR: inscripciones en programas de su institucion
-            SELECT ep.estudiante
-            FROM dbo.Administrador ad
-            INNER JOIN dbo.Facultad f ON f.institucion = ad.institucion
-            INNER JOIN dbo.Programa p ON p.facultad = f.id
-            INNER JOIN dbo.EstudiantePrograma ep ON ep.programa = p.id
-            WHERE ad.usuario = @idUsuarioEjecutor AND @ejecutorActivo = 1
-            UNION
-            -- COORDINADOR activo: inscripciones en sus programas
-            SELECT ep.estudiante
-            FROM dbo.Coordinador c
-            INNER JOIN dbo.Programa p ON p.coordinador = c.id
-            INNER JOIN dbo.EstudiantePrograma ep ON ep.programa = p.id
-            WHERE c.usuario = @idUsuarioEjecutor AND c.estado = 1 AND @ejecutorActivo = 1
-            UNION
-            -- DOCENTE: matriculas (cualquier estado) en sus grupos
-            SELECT eg.estudiante
-            FROM dbo.Docente d
-            INNER JOIN dbo.Grupo g ON g.docente = d.id
-            INNER JOIN dbo.EstudianteGrupo eg ON eg.grupo = g.id
-            WHERE d.usuario = @idUsuarioEjecutor AND @ejecutorActivo = 1
-        )
-        SELECT
-            id                   = e.id,
-            idUsuario            = u.id,
-            tipoIdentificacionId = u.idTipoIdentificacion,
-            numeroIdentificacion = u.numeroIdentificacion,
-            primerApellido       = u.primerApellido,
-            segundoApellido      = u.segundoApellido,
-            primerNombre         = u.primerNombre,
-            segundoNombre        = u.segundoNombre,
-            nombreCompleto       = CAST(u.nombreCompleto AS NVARCHAR(400)),
-            correo               = u.correo,
-            estaActivoUsuario    = u.estaActivoUsuario,
-            totalRegistros       = COUNT(*) OVER(),
-            idPrograma           = pr.idPrograma,
-            nombrePrograma       = pr.nombrePrograma,
-            semestreActual       = pr.semestreActual
-        FROM dbo.uv_estudiante_identidad e
-        INNER JOIN dbo.uv_usuario u ON u.id = e.idUsuario
-        -- Programa del estudiante dentro del ambito del ejecutor (coordinador: los que coordina; administrador: su institucion) y,
-        -- con @idPrograma, solo ese; si hay varios, el de menor nombre. Docente: sin programa.
-        OUTER APPLY (
-            SELECT TOP (1) idPrograma = p.id, nombrePrograma = p.nombre, semestreActual = CAST(ep.semestreActual AS INT)
-            FROM dbo.EstudiantePrograma ep
-            INNER JOIN dbo.Programa p ON p.id = ep.programa
-            WHERE ep.estudiante = e.id
-              AND (@idPrograma IS NULL OR ep.programa = @idPrograma)
-              AND (EXISTS (SELECT 1 FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutor) cp WHERE cp.idPrograma = p.id)
-                   OR EXISTS (SELECT 1 FROM dbo.Administrador ad INNER JOIN dbo.Facultad f ON f.institucion = ad.institucion
-                              WHERE ad.usuario = @idUsuarioEjecutor AND f.id = p.facultad))
-            ORDER BY p.nombre ASC, p.id ASC
-        ) pr
-        WHERE e.id IN (SELECT amb.idEstudiante FROM ambito amb)
-          AND (@idTipoIdentificacion IS NULL OR u.idTipoIdentificacion = @idTipoIdentificacion)
-          AND (@numeroIdentificacion IS NULL OR u.numeroIdentificacion = @numeroIdentificacion)
-          AND (@patronNombre IS NULL OR UPPER(u.nombreCompleto) LIKE @patronNombre ESCAPE N'\')
-          AND (@patronCorreo IS NULL OR LOWER(u.correo) LIKE @patronCorreo ESCAPE N'\')
-          AND (@activo IS NULL OR u.estaActivoUsuario = @activo)
-          AND (@filtroAcademico = 0 OR EXISTS (
-                SELECT 1 FROM dbo.uv_estudiante x
-                WHERE x.id = e.id
-                  AND (@idInstitucion IS NULL OR x.idInstitucion = @idInstitucion)
-                  AND (@idFacultad IS NULL OR x.idFacultad = @idFacultad)
-                  AND (@idPrograma IS NULL OR (x.idPrograma = @idPrograma AND x.tieneVinculoPrograma = 1))
-                  AND (@idGrupo IS NULL OR x.idGrupo = @idGrupo)))
-        ORDER BY u.primerApellido ASC, u.primerNombre ASC, u.numeroIdentificacion ASC, e.id ASC
-        OFFSET @offset ROWS
-        FETCH NEXT @tamano ROWS ONLY;
-    END
-    ELSE
-    -- PASO 4: modo detalle (contextos limitados al ambito del ejecutor)
-    BEGIN
-        ;WITH ambito AS (
-            SELECT eg.estudiante AS idEstudiante
-            FROM dbo.Administrador ad
-            INNER JOIN dbo.Facultad f ON f.institucion = ad.institucion
-            INNER JOIN dbo.Programa p ON p.facultad = f.id
-            INNER JOIN dbo.PlanEstudio pe ON pe.programa = p.id
-            INNER JOIN dbo.SemestrePlanEstudio spe ON spe.planEstudio = pe.id
-            INNER JOIN dbo.AsignaturaPlanEstudio ape ON ape.semestrePlanEstudio = spe.id AND ape.estaActivo = 1 INNER JOIN dbo.Asignatura a ON a.id = ape.asignatura
-            INNER JOIN dbo.Grupo g ON g.asignatura = a.id
-            INNER JOIN dbo.EstudianteGrupo eg ON eg.grupo = g.id
-            WHERE ad.usuario = @idUsuarioEjecutor AND @ejecutorActivo = 1 AND eg.estudiante = @idEstudiante
-            UNION
-            SELECT ep.estudiante
-            FROM dbo.Administrador ad
-            INNER JOIN dbo.Facultad f ON f.institucion = ad.institucion
-            INNER JOIN dbo.Programa p ON p.facultad = f.id
-            INNER JOIN dbo.EstudiantePrograma ep ON ep.programa = p.id
-            WHERE ad.usuario = @idUsuarioEjecutor AND @ejecutorActivo = 1 AND ep.estudiante = @idEstudiante
-            UNION
-            SELECT ep.estudiante
-            FROM dbo.Coordinador c
-            INNER JOIN dbo.Programa p ON p.coordinador = c.id
-            INNER JOIN dbo.EstudiantePrograma ep ON ep.programa = p.id
-            WHERE c.usuario = @idUsuarioEjecutor AND c.estado = 1 AND @ejecutorActivo = 1 AND ep.estudiante = @idEstudiante
-            UNION
-            SELECT eg.estudiante
-            FROM dbo.Docente d
-            INNER JOIN dbo.Grupo g ON g.docente = d.id
-            INNER JOIN dbo.EstudianteGrupo eg ON eg.grupo = g.id
-            WHERE d.usuario = @idUsuarioEjecutor AND @ejecutorActivo = 1 AND eg.estudiante = @idEstudiante
-        ),
-        contexto AS (
-            SELECT DISTINCT
-                x.idInstitucion, x.nombreInstitucion, x.idFacultad, x.nombreFacultad, x.idPrograma, x.nombrePrograma,
-                x.idPlanEstudio, inpPlanEstudio = CAST(x.inpPlanEstudio AS NVARCHAR(20)), x.idAsignatura, x.nombreAsignatura,
-                x.idGrupo, x.nombreGrupo
-            FROM dbo.uv_estudiante x
-            WHERE x.id = @idEstudiante
-              AND @ejecutorActivo = 1
-              AND (EXISTS (SELECT 1 FROM dbo.Administrador ad WHERE ad.usuario = @idUsuarioEjecutor AND ad.institucion = x.idInstitucion)
-                   OR EXISTS (SELECT 1 FROM dbo.Coordinador c INNER JOIN dbo.Programa p ON p.coordinador = c.id
-                              WHERE c.usuario = @idUsuarioEjecutor AND c.estado = 1 AND p.id = x.idPrograma AND x.tieneVinculoPrograma = 1)
-                   OR EXISTS (SELECT 1 FROM dbo.Docente d INNER JOIN dbo.Grupo g ON g.docente = d.id
-                              WHERE d.usuario = @idUsuarioEjecutor AND g.id = x.idGrupo))
-        )
-        SELECT
-            id                   = e.id,
-            idUsuario            = u.id,
-            tipoIdentificacionId = u.idTipoIdentificacion,
-            numeroIdentificacion = u.numeroIdentificacion,
-            primerApellido       = u.primerApellido,
-            segundoApellido      = u.segundoApellido,
-            primerNombre         = u.primerNombre,
-            segundoNombre        = u.segundoNombre,
-            nombreCompleto       = CAST(u.nombreCompleto AS NVARCHAR(400)),
-            correo               = u.correo,
-            estaActivoUsuario    = u.estaActivoUsuario,
-            idInstitucion        = c.idInstitucion,
-            nombreInstitucion    = c.nombreInstitucion,
-            idFacultad           = c.idFacultad,
-            nombreFacultad       = c.nombreFacultad,
-            idPrograma           = c.idPrograma,
-            nombrePrograma       = c.nombrePrograma,
-            idPlanEstudio        = c.idPlanEstudio,
-            inpPlanEstudio       = c.inpPlanEstudio,
-            idAsignatura         = c.idAsignatura,
-            nombreAsignatura     = c.nombreAsignatura,
-            idGrupo              = c.idGrupo,
-            nombreGrupo          = c.nombreGrupo
-        FROM dbo.uv_estudiante_identidad e
-        INNER JOIN dbo.uv_usuario u ON u.id = e.idUsuario
-        LEFT JOIN contexto c ON 1 = 1
-        WHERE e.id = @idEstudiante
-          AND e.id IN (SELECT amb.idEstudiante FROM ambito amb)
-        ORDER BY c.nombreInstitucion ASC, c.nombreFacultad ASC, c.nombrePrograma ASC, c.nombreAsignatura ASC, c.nombreGrupo ASC, c.idGrupo ASC;
-    END
+        SET @ejecutorActivo = IIF(EXISTS (SELECT 1 FROM dbo.uv_usuario u WHERE u.id = @idUsuarioEjecutor AND u.estaActivoUsuario = 1), 1, 0);
+
+        -- PASO 3: modo listado
+        IF @idEstudiante IS NULL
+        BEGIN
+            ;WITH ambito AS (
+                -- ADMINISTRADOR: matriculas en grupos de su institucion
+                SELECT eg.idEstudiante
+                FROM dbo.uv_administrador ad
+                INNER JOIN dbo.uv_asignatura_plan_estudio v ON v.idInstitucion = ad.idInstitucion AND v.estaActivoVinculo = 1
+                INNER JOIN dbo.uv_grupo g ON g.idAsignatura = v.idAsignatura
+                INNER JOIN dbo.uv_estudiante_grupo eg ON eg.idGrupo = g.id
+                WHERE ad.idUsuario = @idUsuarioEjecutor AND @ejecutorActivo = 1
+                UNION
+                -- ADMINISTRADOR: inscripciones en programas de su institucion
+                SELECT ep.idEstudiante
+                FROM dbo.uv_administrador ad
+                INNER JOIN dbo.uv_programa p ON p.idInstitucion = ad.idInstitucion
+                INNER JOIN dbo.uv_estudiante_programa ep ON ep.idPrograma = p.id
+                WHERE ad.idUsuario = @idUsuarioEjecutor AND @ejecutorActivo = 1
+                UNION
+                -- COORDINADOR activo: inscripciones en sus programas
+                SELECT ep.idEstudiante
+                FROM dbo.uv_coordinador_identidad c
+                INNER JOIN dbo.uv_programa p ON p.idCoordinador = c.id
+                INNER JOIN dbo.uv_estudiante_programa ep ON ep.idPrograma = p.id
+                WHERE c.idUsuario = @idUsuarioEjecutor AND c.estaActivoRolCoordinador = 1 AND @ejecutorActivo = 1
+                UNION
+                -- DOCENTE: matriculas (cualquier estado) en sus grupos
+                SELECT eg.idEstudiante
+                FROM dbo.uv_docente_identidad d
+                INNER JOIN dbo.uv_grupo g ON g.idDocente = d.id
+                INNER JOIN dbo.uv_estudiante_grupo eg ON eg.idGrupo = g.id
+                WHERE d.idUsuario = @idUsuarioEjecutor AND @ejecutorActivo = 1
+            )
+            SELECT
+                id                   = e.id,
+                idUsuario            = u.id,
+                tipoIdentificacionId = u.idTipoIdentificacion,
+                numeroIdentificacion = u.numeroIdentificacion,
+                primerApellido       = u.primerApellido,
+                segundoApellido      = u.segundoApellido,
+                primerNombre         = u.primerNombre,
+                segundoNombre        = u.segundoNombre,
+                nombreCompleto       = CAST(u.nombreCompleto AS NVARCHAR(400)),
+                correo               = u.correo,
+                estaActivoUsuario    = u.estaActivoUsuario,
+                totalRegistros       = COUNT(*) OVER(),
+                idPrograma           = pr.idPrograma,
+                nombrePrograma       = pr.nombrePrograma,
+                semestreActual       = pr.semestreActual
+            FROM dbo.uv_estudiante_identidad e
+            INNER JOIN dbo.uv_usuario u ON u.id = e.idUsuario
+            -- Programa del estudiante dentro del ambito del ejecutor (coordinador: los que coordina; administrador: su institucion) y,
+            -- con @idPrograma, solo ese; si hay varios, el de menor nombre. Docente: sin programa.
+            OUTER APPLY (
+                SELECT TOP (1) idPrograma = p.id, nombrePrograma = p.nombrePrograma, semestreActual = CAST(ep.semestreActual AS INT)
+                FROM dbo.uv_estudiante_programa_semestre ep
+                INNER JOIN dbo.uv_programa p ON p.id = ep.idPrograma
+                WHERE ep.idEstudiante = e.id
+                  AND (@idPrograma IS NULL OR ep.idPrograma = @idPrograma)
+                  AND (EXISTS (SELECT 1 FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutor) cp WHERE cp.idPrograma = p.id)
+                       OR EXISTS (SELECT 1 FROM dbo.uv_administrador ad
+                                  WHERE ad.idUsuario = @idUsuarioEjecutor AND ad.idInstitucion = p.idInstitucion))
+                ORDER BY p.nombrePrograma ASC, p.id ASC
+            ) pr
+            WHERE e.id IN (SELECT amb.idEstudiante FROM ambito amb)
+              AND (@idTipoIdentificacion IS NULL OR u.idTipoIdentificacion = @idTipoIdentificacion)
+              AND (@numeroIdentificacion IS NULL OR u.numeroIdentificacion = @numeroIdentificacion)
+              AND (@patronNombre IS NULL OR UPPER(u.nombreCompleto) LIKE @patronNombre ESCAPE N'\')
+              AND (@patronCorreo IS NULL OR LOWER(u.correo) LIKE @patronCorreo ESCAPE N'\')
+              AND (@activo IS NULL OR u.estaActivoUsuario = @activo)
+              AND (@filtroAcademico = 0 OR EXISTS (
+                    SELECT 1 FROM dbo.uv_estudiante x
+                    WHERE x.id = e.id
+                      AND (@idInstitucion IS NULL OR x.idInstitucion = @idInstitucion)
+                      AND (@idFacultad IS NULL OR x.idFacultad = @idFacultad)
+                      AND (@idPrograma IS NULL OR (x.idPrograma = @idPrograma AND x.tieneVinculoPrograma = 1))
+                      AND (@idGrupo IS NULL OR x.idGrupo = @idGrupo)))
+            ORDER BY u.primerApellido ASC, u.primerNombre ASC, u.numeroIdentificacion ASC, e.id ASC
+            OFFSET @offset ROWS
+            FETCH NEXT @tamano ROWS ONLY;
+        END
+        ELSE
+        BEGIN
+            -- PASO 4: modo detalle (contextos limitados al ambito del ejecutor)
+            ;WITH ambito AS (
+                -- ADMINISTRADOR: matriculas en grupos de su institucion
+                SELECT eg.idEstudiante
+                FROM dbo.uv_administrador ad
+                INNER JOIN dbo.uv_asignatura_plan_estudio v ON v.idInstitucion = ad.idInstitucion AND v.estaActivoVinculo = 1
+                INNER JOIN dbo.uv_grupo g ON g.idAsignatura = v.idAsignatura
+                INNER JOIN dbo.uv_estudiante_grupo eg ON eg.idGrupo = g.id
+                WHERE ad.idUsuario = @idUsuarioEjecutor AND @ejecutorActivo = 1 AND eg.idEstudiante = @idEstudiante
+                UNION
+                -- ADMINISTRADOR: inscripciones en programas de su institucion
+                SELECT ep.idEstudiante
+                FROM dbo.uv_administrador ad
+                INNER JOIN dbo.uv_programa p ON p.idInstitucion = ad.idInstitucion
+                INNER JOIN dbo.uv_estudiante_programa ep ON ep.idPrograma = p.id
+                WHERE ad.idUsuario = @idUsuarioEjecutor AND @ejecutorActivo = 1 AND ep.idEstudiante = @idEstudiante
+                UNION
+                -- COORDINADOR activo: inscripciones en sus programas
+                SELECT ep.idEstudiante
+                FROM dbo.uv_coordinador_identidad c
+                INNER JOIN dbo.uv_programa p ON p.idCoordinador = c.id
+                INNER JOIN dbo.uv_estudiante_programa ep ON ep.idPrograma = p.id
+                WHERE c.idUsuario = @idUsuarioEjecutor AND c.estaActivoRolCoordinador = 1 AND @ejecutorActivo = 1 AND ep.idEstudiante = @idEstudiante
+                UNION
+                -- DOCENTE: matriculas (cualquier estado) en sus grupos
+                SELECT eg.idEstudiante
+                FROM dbo.uv_docente_identidad d
+                INNER JOIN dbo.uv_grupo g ON g.idDocente = d.id
+                INNER JOIN dbo.uv_estudiante_grupo eg ON eg.idGrupo = g.id
+                WHERE d.idUsuario = @idUsuarioEjecutor AND @ejecutorActivo = 1 AND eg.idEstudiante = @idEstudiante
+            ),
+            contexto AS (
+                SELECT DISTINCT
+                    x.idInstitucion, x.nombreInstitucion, x.idFacultad, x.nombreFacultad, x.idPrograma, x.nombrePrograma,
+                    x.idPlanEstudio, inpPlanEstudio = CAST(x.inpPlanEstudio AS NVARCHAR(20)), x.idAsignatura, x.nombreAsignatura,
+                    x.idGrupo, x.nombreGrupo
+                FROM dbo.uv_estudiante x
+                WHERE x.id = @idEstudiante
+                  AND @ejecutorActivo = 1
+                  AND (EXISTS (SELECT 1 FROM dbo.uv_administrador ad WHERE ad.idUsuario = @idUsuarioEjecutor AND ad.idInstitucion = x.idInstitucion)
+                       OR EXISTS (SELECT 1 FROM dbo.uv_coordinador_identidad c INNER JOIN dbo.uv_programa p ON p.idCoordinador = c.id
+                                  WHERE c.idUsuario = @idUsuarioEjecutor AND c.estaActivoRolCoordinador = 1 AND p.id = x.idPrograma AND x.tieneVinculoPrograma = 1)
+                       OR EXISTS (SELECT 1 FROM dbo.uv_docente_identidad d INNER JOIN dbo.uv_grupo g ON g.idDocente = d.id
+                                  WHERE d.idUsuario = @idUsuarioEjecutor AND g.id = x.idGrupo))
+            )
+            SELECT
+                id                   = e.id,
+                idUsuario            = u.id,
+                tipoIdentificacionId = u.idTipoIdentificacion,
+                numeroIdentificacion = u.numeroIdentificacion,
+                primerApellido       = u.primerApellido,
+                segundoApellido      = u.segundoApellido,
+                primerNombre         = u.primerNombre,
+                segundoNombre        = u.segundoNombre,
+                nombreCompleto       = CAST(u.nombreCompleto AS NVARCHAR(400)),
+                correo               = u.correo,
+                estaActivoUsuario    = u.estaActivoUsuario,
+                idInstitucion        = c.idInstitucion,
+                nombreInstitucion    = c.nombreInstitucion,
+                idFacultad           = c.idFacultad,
+                nombreFacultad       = c.nombreFacultad,
+                idPrograma           = c.idPrograma,
+                nombrePrograma       = c.nombrePrograma,
+                idPlanEstudio        = c.idPlanEstudio,
+                inpPlanEstudio       = c.inpPlanEstudio,
+                idAsignatura         = c.idAsignatura,
+                nombreAsignatura     = c.nombreAsignatura,
+                idGrupo              = c.idGrupo,
+                nombreGrupo          = c.nombreGrupo
+            FROM dbo.uv_estudiante_identidad e
+            INNER JOIN dbo.uv_usuario u ON u.id = e.idUsuario
+            LEFT JOIN contexto c ON 1 = 1
+            WHERE e.id = @idEstudiante
+              AND e.id IN (SELECT amb.idEstudiante FROM ambito amb)
+            ORDER BY c.nombreInstitucion ASC, c.nombreFacultad ASC, c.nombrePrograma ASC, c.nombreAsignatura ASC, c.nombreGrupo ASC, c.idGrupo ASC;
+        END
+    END TRY
+    BEGIN CATCH
+        -- PASO 5: consulta de lectura (READ_QUERY_RESULTSET): el error, incluido el rechazo de validacion,
+        -- se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
+        THROW;
+    END CATCH
 END;
 GO
