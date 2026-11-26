@@ -21,6 +21,9 @@ GO
 -- Resultset: MUTATION_COMMAND_RESULTSET (4 columnas canonicas) + idUsuario, idEstudiante, esUsuarioNuevo, esEstudianteNuevo
 -- (nulos si falla, salvo ADS_002 que devuelve la persona ya admitida para que el backend repare su cuenta de identidad).
 -- ============================================================================
+-- SKILLS-BD lote 14 (2026-11-26, objeto congelado, decision D5): PASO n, IF con BEGIN/END y lecturas sin bloqueo de administrador, estudiante, vinculo y usuario por
+-- vistas uv_* (antes, las tablas); las lecturas con UPDLOCK de Usuario y las escrituras siguen en las tablas.
+-- Misma firma, mismo resultset y mismos codigos; el hash del manifiesto se actualiza en el mismo commit.
 CREATE OR ALTER PROCEDURE [dbo].[usp_admitir_estudiante]
 (
     @idTipoIdIdentificacion  UNIQUEIDENTIFIER,
@@ -98,9 +101,9 @@ BEGIN
         -- PASO 4: programa activo de la institucion del administrador (ADS_003; indistinguible de uno inexistente)
         IF @estadoResultado = 1
         BEGIN
-            SELECT TOP 1 @idInstitucion = a.institucion
-            FROM dbo.Administrador a
-            WHERE a.usuario = @idUsuarioEjecutorDefecto
+            SELECT TOP 1 @idInstitucion = a.idInstitucion
+            FROM dbo.uv_administrador_registro a
+            WHERE a.idUsuario = @idUsuarioEjecutorDefecto
             ORDER BY a.id;
 
             IF @idInstitucion IS NULL
@@ -156,7 +159,7 @@ BEGIN
                 SET @idUsuarioResultado = @idUsuarioPorDocumento;
             END
 
-            -- Alta nueva: correo institucional (ADS_005); la clave la gestiona la identidad externa (SEG-11)
+            -- PASO 5.1: alta nueva, correo institucional (ADS_005); la clave la gestiona la identidad externa (SEG-11)
             IF @estadoResultado = 1 AND @idUsuarioResultado IS NULL
             BEGIN
                 SET @dominioInstitucional = dbo.ufn_obtener_parametro('REGISTRO', 'DOMINIO_CORREO_ESTUDIANTE');
@@ -171,13 +174,13 @@ BEGIN
                 END
             END
 
-            -- Persona existente: estudiante y vinculo previos (ADS_002 si ya esta admitida en el programa)
+            -- PASO 5.2: persona existente, estudiante y vinculo previos (ADS_002 si ya esta admitida en el programa)
             IF @estadoResultado = 1 AND @idUsuarioResultado IS NOT NULL
             BEGIN
-                SELECT TOP 1 @idEstudianteResultado = e.id FROM dbo.Estudiante e WHERE e.usuario = @idUsuarioResultado;
+                SELECT TOP 1 @idEstudianteResultado = e.id FROM dbo.uv_estudiante_identidad e WHERE e.idUsuario = @idUsuarioResultado;
                 IF @idEstudianteResultado IS NOT NULL
-                   AND EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep
-                               WHERE ep.estudiante = @idEstudianteResultado AND ep.programa = @idProgramaDefecto)
+                   AND EXISTS (SELECT 1 FROM dbo.uv_estudiante_programa_registro ep
+                               WHERE ep.idEstudiante = @idEstudianteResultado AND ep.idPrograma = @idProgramaDefecto)
                 BEGIN
                     EXEC dbo.usp_obtener_mensaje_catalogo
                         @p_codigo = 'ADS_002',
@@ -208,7 +211,7 @@ BEGIN
                     @estadoResultado = @estadoResultado OUTPUT;
                 IF @estadoResultado = 1
                 BEGIN
-                    SELECT TOP 1 @idUsuarioResultado = u.id FROM dbo.Usuario u WHERE u.correo = @correoNormalizado;
+                    SELECT TOP 1 @idUsuarioResultado = u.id FROM dbo.uv_usuario u WHERE u.correo = @correoNormalizado;
                     SET @esUsuarioNuevo = 1;
                 END
             END
@@ -224,7 +227,7 @@ BEGIN
                     @estadoResultado = @estadoResultado OUTPUT;
                 IF @estadoResultado = 1
                 BEGIN
-                    SELECT TOP 1 @idEstudianteResultado = e.id FROM dbo.Estudiante e WHERE e.usuario = @idUsuarioResultado;
+                    SELECT TOP 1 @idEstudianteResultado = e.id FROM dbo.uv_estudiante_identidad e WHERE e.idUsuario = @idUsuarioResultado;
                     SET @esEstudianteNuevo = 1;
                 END
             END
@@ -248,26 +251,37 @@ BEGIN
                 IF XACT_STATE() = 1
                 BEGIN
                     IF @estadoResultado = 1 OR @escrituraRealizada = 0
+                    BEGIN
                         COMMIT TRANSACTION;
+                    END
                     ELSE
+                    BEGIN
                         ROLLBACK TRANSACTION;
+                    END
                 END
                 ELSE IF XACT_STATE() = -1
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
             END
             ELSE IF @savepointCreado = 1
             BEGIN
                 IF XACT_STATE() = 1 AND @estadoResultado = 0 AND @escrituraRealizada = 1
+                BEGIN
                     ROLLBACK TRANSACTION sp_admitir_estudiante;
+                END
             END
         END
     END TRY
     BEGIN CATCH
+        -- PASO 8: reversion respetando ownership; transaccion externa condenada se propaga; si no, SYS_001
         SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN
@@ -289,6 +303,7 @@ BEGIN
         SET @esEstudianteNuevo = 0;
     END CATCH
 
+    -- PASO 9: retorno unificado de resultados
     SELECT
         idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,

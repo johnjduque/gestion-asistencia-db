@@ -18,6 +18,9 @@ GO
 -- Salida: @codigoRechazo NULL si el valor es valido, o PRM_004 / PRM_005 / PRM_006 / PRM_017 con los marcadores del mensaje en @param1/@param2.
 -- @idCorrelacion es el de la llamada (trazabilidad: este SP no registra ni escribe). No abre transacciones ni escribe.
 -- ============================================================================
+-- SKILLS-BD lote 14 (2026-11-26, objeto congelado, decision D5): DECLARE en la cabecera, PASO n, IF con BEGIN/END, parametro y reglas de edicion por
+-- uv_parametro_registro y uv_parametro_edicion_registro (antes, las tablas) y TRY/CATCH que relanza (antes, sin TRY).
+-- Misma firma, mismo resultset y mismos codigos; el hash del manifiesto se actualiza en el mismo commit.
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_valor_parametro_externo_interno]
 (
     @idParametro    UNIQUEIDENTIFIER,
@@ -28,36 +31,51 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_validar_valor_parametro_externo_interno]
     @param2         NVARCHAR(500) OUTPUT
 )
 AS
-BEGIN
-    SET NOCOUNT ON;
-
     DECLARE @tipoDato    VARCHAR(20);
     DECLARE @valorMinimo DECIMAL(19,4);
     DECLARE @valorMaximo DECIMAL(19,4);
     DECLARE @permitidos  NVARCHAR(500);
     DECLARE @formato     VARCHAR(20);
+BEGIN
+    SET NOCOUNT ON;
 
-    SET @codigoRechazo = NULL;
-    SET @param1 = NULL;
-    SET @param2 = NULL;
+    BEGIN TRY
+        -- PASO 0: salidas vacias
+        SET @codigoRechazo = NULL;
+        SET @param1 = NULL;
+        SET @param2 = NULL;
 
-    SELECT @tipoDato = p.tipoDato, @valorMinimo = e.valorMinimo, @valorMaximo = e.valorMaximo, @permitidos = e.valoresPermitidos, @formato = e.formato
-    FROM dbo.CatalogoParametro p
-    LEFT JOIN dbo.CatalogoParametroEdicion e ON e.parametro = p.id
-    WHERE p.id = @idParametro;
+        -- PASO 1: tipo y reglas de edicion del parametro (sin filtrar por estado)
+        SELECT @tipoDato = p.tipoDato, @valorMinimo = e.valorMinimo, @valorMaximo = e.valorMaximo, @permitidos = e.valoresPermitidos, @formato = e.formato
+        FROM dbo.uv_parametro_registro p
+        LEFT JOIN dbo.uv_parametro_edicion_registro e ON e.idParametro = p.id
+        WHERE p.id = @idParametro;
 
-    SET @codigoRechazo = dbo.ufn_validar_valor_parametro(@tipoDato, @valor, @valorMinimo, @valorMaximo, @permitidos);
-    IF @codigoRechazo IS NULL
-        SET @codigoRechazo = dbo.ufn_validar_formato_valor(@formato, TRIM(@valor));
+        -- PASO 2: tipo, rango y lista permitida; despues, el formato
+        SET @codigoRechazo = dbo.ufn_validar_valor_parametro(@tipoDato, @valor, @valorMinimo, @valorMaximo, @permitidos);
+        IF @codigoRechazo IS NULL
+        BEGIN
+            SET @codigoRechazo = dbo.ufn_validar_formato_valor(@formato, TRIM(@valor));
+        END
 
-    IF @codigoRechazo = 'PRM_004'
-        SET @param1 = @tipoDato;
-    ELSE IF @codigoRechazo = 'PRM_005'
-    BEGIN
-        SET @param1 = IIF(@valorMinimo IS NULL, N'-', IIF(@valorMinimo = FLOOR(@valorMinimo), CONVERT(NVARCHAR(40), CONVERT(BIGINT, @valorMinimo)), CONVERT(NVARCHAR(40), @valorMinimo)));
-        SET @param2 = IIF(@valorMaximo IS NULL, N'-', IIF(@valorMaximo = FLOOR(@valorMaximo), CONVERT(NVARCHAR(40), CONVERT(BIGINT, @valorMaximo)), CONVERT(NVARCHAR(40), @valorMaximo)));
-    END
-    ELSE IF @codigoRechazo = 'PRM_006'
-        SET @param1 = @permitidos;
+        -- PASO 3: parametros del mensaje segun el rechazo
+        IF @codigoRechazo = 'PRM_004'
+        BEGIN
+            SET @param1 = @tipoDato;
+        END
+        ELSE IF @codigoRechazo = 'PRM_005'
+        BEGIN
+            SET @param1 = IIF(@valorMinimo IS NULL, N'-', IIF(@valorMinimo = FLOOR(@valorMinimo), CONVERT(NVARCHAR(40), CONVERT(BIGINT, @valorMinimo)), CONVERT(NVARCHAR(40), @valorMinimo)));
+            SET @param2 = IIF(@valorMaximo IS NULL, N'-', IIF(@valorMaximo = FLOOR(@valorMaximo), CONVERT(NVARCHAR(40), CONVERT(BIGINT, @valorMaximo)), CONVERT(NVARCHAR(40), @valorMaximo)));
+        END
+        ELSE IF @codigoRechazo = 'PRM_006'
+        BEGIN
+            SET @param1 = @permitidos;
+        END
+    END TRY
+    BEGIN CATCH
+        -- PASO 4: el error se propaga igual al llamador (sin triplete propio, como antes)
+        THROW;
+    END CATCH
 END;
 GO

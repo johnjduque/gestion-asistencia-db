@@ -14,6 +14,8 @@ GO
 -- CULM-001 A.2-10 (F-DOC-017): si cambian fechaHoraInicio o fechaHoraFin respecto de la fila guardada (N6), la sesion no
 -- puede cruzarse con otra del grupo o de otro grupo del mismo docente (SES_017, excluida ella misma); un cambio de solo
 -- nombre no se valida, asi una sesion con un solape heredado puede seguir renombrandose. Transaccion propia o savepoint.
+-- SKILLS-BD lote 14 (2026-11-26, objeto congelado, decision D5): PASO n, IF con BEGIN/END y lectura sin bloqueo de la sesion por uv_sesion_registro; el UPDLOCK y el UPDATE siguen en la tabla.
+-- Misma firma, mismo resultset y mismos codigos; el hash del manifiesto se actualiza en el mismo commit.
 CREATE OR ALTER PROCEDURE [dbo].[usp_actualizar_sesion_interno]
 (
     @idSesion                UNIQUEIDENTIFIER,
@@ -64,9 +66,9 @@ BEGIN
         IF @estadoResultado = 1
         BEGIN
             SELECT TOP 1
-                @idGrupoSesion = grupo
-            FROM [dbo].[Sesion]
-            WHERE id = @idSesionDefecto;
+                @idGrupoSesion = s.idGrupo
+            FROM dbo.uv_sesion_registro s
+            WHERE s.id = @idSesionDefecto;
 
             IF @idGrupoSesion IS NULL
             BEGIN
@@ -140,18 +142,21 @@ BEGIN
                     @estadoResultado = @estadoResultado OUTPUT;
 
                 IF @estadoResultado = 1
-                EXEC dbo.usp_validar_solape_sesion_interno
-                    @idGrupo = @idGrupoSesion,
-                    @idSesionExcluir = @idSesionDefecto,
-                    @fechaHoraInicio = @fechaHoraInicio,
-                    @fechaHoraFin = @fechaHoraFin,
-                    @idCorrelacion = @idCorrelacionDefecto,
-                    @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-                    @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-                    @estadoResultado = @estadoResultado OUTPUT;
+                BEGIN
+                    EXEC dbo.usp_validar_solape_sesion_interno
+                        @idGrupo = @idGrupoSesion,
+                        @idSesionExcluir = @idSesionDefecto,
+                        @fechaHoraInicio = @fechaHoraInicio,
+                        @fechaHoraFin = @fechaHoraFin,
+                        @idCorrelacion = @idCorrelacionDefecto,
+                        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+                        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                        @estadoResultado = @estadoResultado OUTPUT;
+                END
             END
         END
 
+        -- PASO 6: escritura de la sesion
         IF @estadoResultado = 1
         BEGIN
             -- Horas y procedencia en la MISMA sentencia (UTC-D06).
@@ -163,15 +168,20 @@ BEGIN
             WHERE id = @idSesionDefecto;
         END
 
-        -- Cierre de la transaccion propia (el rechazo por solape o por SES_028 no escribe)
+        -- PASO 7: cierre de la transaccion propia (el rechazo por solape o por SES_028 no escribe)
         IF @transaccionPropia = 1
         BEGIN
             IF XACT_STATE() = 1
+            BEGIN
                 COMMIT TRANSACTION;
+            END
             ELSE IF XACT_STATE() <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
 
+        -- PASO 8: mensaje de exito
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_004', @p_param1 = 'Sesion', @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
@@ -180,11 +190,14 @@ BEGIN
 
     END TRY
     BEGIN CATCH
+        -- PASO 9: deshacer lo propio, relanzar si la transaccion externa quedo condenada y si no SYS_001
         SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN

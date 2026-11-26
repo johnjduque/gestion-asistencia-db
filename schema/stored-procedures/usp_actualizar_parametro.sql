@@ -22,6 +22,9 @@ GO
 -- ROLLBACK, compatible con INSERT ... EXEC). Las filas relacionadas por la regla cruzada se bloquean tambien para que dos
 -- ediciones simultaneas de un par no violen la regla.
 -- ============================================================================
+-- SKILLS-BD lote 14 (2026-11-26, objeto congelado, decision D5): PASO n, IF con BEGIN/END, IS NULL en lugar de ISNULL y lecturas sin bloqueo de la edicion y de la
+-- fecha nueva por vistas uv_* (antes, las tablas); los UPDLOCK, el UPDATE y el INSERT siguen en las tablas.
+-- Misma firma, mismo resultset y mismos codigos; el hash del manifiesto se actualiza en el mismo commit.
 CREATE OR ALTER PROCEDURE [dbo].[usp_actualizar_parametro]
 (
     @idParametro               UNIQUEIDENTIFIER,
@@ -142,40 +145,54 @@ BEGIN
             WHERE p.id = @idParametroDefecto AND p.estaActivo = 1;
 
             IF @clave IS NULL
+            BEGIN
                 SET @codigoRechazo = 'PRM_002';
+            END
 
             IF @codigoRechazo IS NULL
             BEGIN
                 SELECT @esEditable = e.esEditable, @valorMinimo = e.valorMinimo, @valorMaximo = e.valorMaximo,
-                       @permitidos = e.valoresPermitidos, @idReferido = e.parametroDebeSerMenorQue, @formato = e.formato
-                FROM dbo.CatalogoParametroEdicion e
-                WHERE e.parametro = @idParametroDefecto;
+                       @permitidos = e.valoresPermitidos, @idReferido = e.idParametroDebeSerMenorQue, @formato = e.formato
+                FROM dbo.uv_parametro_edicion_registro e
+                WHERE e.idParametro = @idParametroDefecto;
 
-                IF ISNULL(@esEditable, 0) = 0
+                IF @esEditable IS NULL OR @esEditable = 0
                    OR EXISTS (SELECT 1 FROM STRING_SPLIT(dbo.ufn_obtener_parametro('PARAMETROS', 'GRUPOS_NO_EDITABLES'), ',') n WHERE TRIM(n.value) = @grupo)
+                BEGIN
                     SET @codigoRechazo = 'PRM_003';
+                END
             END
 
+            -- PASO 6: concurrencia optimista (PRM_008)
             IF @codigoRechazo IS NULL AND (@fechaModificacionEsperada IS NULL OR @fechaActual <> @fechaModificacionEsperada)
+            BEGIN
                 SET @codigoRechazo = 'PRM_008';
+            END
 
+            -- PASO 7: tipo, rango, valores permitidos y formato
             IF @codigoRechazo IS NULL
             BEGIN
                 SET @codigoRechazo = dbo.ufn_validar_valor_parametro(@tipoDato, @valorLimpio, @valorMinimo, @valorMaximo, @permitidos);
                 IF @codigoRechazo = 'PRM_004'
+                BEGIN
                     SET @param1 = @tipoDato;
+                END
                 ELSE IF @codigoRechazo = 'PRM_005'
                 BEGIN
                     SET @param1 = IIF(@valorMinimo IS NULL, N'-', IIF(@valorMinimo = FLOOR(@valorMinimo), CONVERT(NVARCHAR(40), CONVERT(BIGINT, @valorMinimo)), CONVERT(NVARCHAR(40), @valorMinimo)));
                     SET @param2 = IIF(@valorMaximo IS NULL, N'-', IIF(@valorMaximo = FLOOR(@valorMaximo), CONVERT(NVARCHAR(40), CONVERT(BIGINT, @valorMaximo)), CONVERT(NVARCHAR(40), @valorMaximo)));
                 END
                 ELSE IF @codigoRechazo = 'PRM_006'
+                BEGIN
                     SET @param1 = @permitidos;
+                END
                 ELSE IF @codigoRechazo IS NULL
+                BEGIN
                     SET @codigoRechazo = dbo.ufn_validar_formato_valor(@formato, @valorLimpio);
+                END
             END
 
-            -- Reglas cruzadas estrictas (PRM_007): este < referido y cada dependiente < este
+            -- PASO 8: reglas cruzadas estrictas (PRM_007): este < referido y cada dependiente < este
             IF @codigoRechazo IS NULL
             BEGIN
                 SET @numeroNuevo = TRY_CONVERT(DECIMAL(19,4), @valorLimpio);
@@ -194,9 +211,9 @@ BEGIN
                 IF @codigoRechazo IS NULL AND @numeroNuevo IS NOT NULL
                 BEGIN
                     SELECT TOP 1 @claveDependiente = d.clave
-                    FROM dbo.CatalogoParametroEdicion de
-                    INNER JOIN dbo.CatalogoParametro d WITH (UPDLOCK, HOLDLOCK) ON d.id = de.parametro
-                    WHERE de.parametroDebeSerMenorQue = @idParametroDefecto
+                    FROM dbo.uv_parametro_edicion_registro de
+                    INNER JOIN dbo.CatalogoParametro d WITH (UPDLOCK, HOLDLOCK) ON d.id = de.idParametro
+                    WHERE de.idParametroDebeSerMenorQue = @idParametroDefecto
                       AND TRY_CONVERT(DECIMAL(19,4), d.valor) >= @numeroNuevo
                     ORDER BY d.clave;
                     IF @claveDependiente IS NOT NULL
@@ -208,17 +225,20 @@ BEGIN
                 END
             END
 
-            -- Valor igual: exito sin escritura (PRM_011)
+            -- PASO 9: valor igual, exito sin escritura (PRM_011)
             IF @codigoRechazo IS NULL AND @valorLimpio COLLATE Latin1_General_BIN2 = @valorAnterior COLLATE Latin1_General_BIN2
+            BEGIN
                 SET @sinCambios = 1;
+            END
 
+            -- PASO 10: escritura y auditoria, o mensaje de rechazo
             IF @codigoRechazo IS NULL AND @sinCambios = 0
             BEGIN
                 UPDATE dbo.CatalogoParametro
                 SET valor = @valorLimpio, fechaModificacion = SYSUTCDATETIME()
                 WHERE id = @idParametroDefecto;
 
-                SELECT @fechaNueva = fechaModificacion FROM dbo.CatalogoParametro WHERE id = @idParametroDefecto;
+                SELECT @fechaNueva = r.fechaModificacion FROM dbo.uv_parametro_registro r WHERE r.id = @idParametroDefecto;
 
                 INSERT INTO dbo.CambioParametro (id, parametro, valorAnterior, valorNuevo, motivo, idUsuarioEjecutor, idCorrelacion, fechaCambioUtc)
                 VALUES (NEWID(), @idParametroDefecto, @valorAnterior, @valorLimpio, @motivoLimpio, @idUsuarioEjecutorDefecto, @idCorrelacionDefecto, SYSUTCDATETIME());
@@ -248,30 +268,40 @@ BEGIN
                 SET @estadoResultado = 0;
             END
 
-            -- La rama de rechazo no escribe: solo se confirma la transaccion propia (libera los bloqueos).
+            -- PASO 11: la rama de rechazo no escribe; solo se confirma la transaccion propia (libera los bloqueos).
             IF @transaccionPropia = 1
             BEGIN
                 IF XACT_STATE() = 1
+                BEGIN
                     COMMIT TRANSACTION;
+                END
                 ELSE IF XACT_STATE() = -1
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
                 SET @transaccionPropia = 0;
             END
         END
     END TRY
     BEGIN CATCH
+        -- PASO 12: reversion respetando ownership; transaccion externa condenada se propaga al propietario; si no, SYS_001
         SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
             ROLLBACK TRANSACTION sp_actualizar_parametro;
+        END
 
-        -- Transaccion externa condenada que no nos pertenece: se propaga al propietario
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
@@ -281,6 +311,7 @@ BEGIN
         SET @estadoResultado = 0;
     END CATCH
 
+    -- PASO 13: retorno unificado de resultados
     SELECT
         idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,

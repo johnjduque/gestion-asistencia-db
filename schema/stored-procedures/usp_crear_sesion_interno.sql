@@ -16,6 +16,9 @@ GO
 -- CULM-001 / DEC-065 (2): la sesion creada por el docente nace con una solicitud PENDIENTE (SesionSolicitud, estado con esFinal = 0)
 -- de aprobacion del coordinador, en la misma transaccion; el exito es SES_022. El ejecutor siempre es DOCENTE titular (PASOS 0-2.1).
 -- DEC-072/DEC-073 (PASO 2.6): una sesion que cruza la medianoche en la zona institucional se rechaza con SES_028, sin escribir.
+-- SKILLS-BD lote 14 (2026-11-26, objeto congelado, decision D5): DECLARE del CATCH a la cabecera, PASO n, IF con BEGIN/END, IIF en lugar de COALESCE sobre variables y grupo, periodo y
+-- zona horaria por vistas uv_* (antes, las tablas); el correlativo con UPDLOCK y los INSERT siguen en las tablas.
+-- Misma firma, mismo resultset y mismos codigos; el hash del manifiesto se actualiza en el mismo commit.
 CREATE OR ALTER PROCEDURE [dbo].[usp_crear_sesion_interno]
 (
     @idGrupo                 UNIQUEIDENTIFIER,
@@ -45,6 +48,8 @@ AS
     -- Ownership transaccional (propia o savepoint bajo transacción externa)
     DECLARE @transaccionPropia BIT = 0;
     DECLARE @savepointCreado   BIT = 0;
+    DECLARE @estadoTransaccionCatch INT;
+    DECLARE @zona              NVARCHAR(100);
 
 BEGIN
     SET NOCOUNT ON;
@@ -160,6 +165,7 @@ BEGIN
             END
         END
 
+        -- PASO 3.1: correlativo bajo bloqueo (COALESCE sobre agregacion, permitido), semana del periodo e insercion
         IF @estadoResultado = 1
         BEGIN
             SELECT @numeroSiguiente = COALESCE(MAX(numero), 0) + 1
@@ -169,15 +175,16 @@ BEGIN
             -- BD-5: numeroSemana = semana del PERIODO (bloques de 7 dias desde fechaInicio, como el generador: SES-GEN-01 B2b) segun la fecha
             -- LOCAL institucional del inicio de la sesion; antes se escribia el numero de orden de la sesion (una extraordinaria del 5-dic
             -- salia en la semana 11 en vez de la 18). Minimo 1 (una fecha anterior al inicio del periodo cae en la semana 1).
+            -- Zona horaria institucional del catalogo (por defecto, SA Pacific Standard Time)
+            SELECT TOP 1 @zona = valor FROM dbo.uv_parametro WHERE grupo = 'TIEMPO' AND clave = 'ZONA_HORARIA_SQLSERVER' AND estaActivo = 1;
+            SET @zona = IIF(@zona IS NULL, 'SA Pacific Standard Time', @zona);
+
             SELECT @numeroSemana = IIF(DATEDIFF(DAY, pa.fechaInicio, f.fechaLocal) < 0, 1, DATEDIFF(DAY, pa.fechaInicio, f.fechaLocal) / 7 + 1)
-            FROM dbo.Grupo g
-            INNER JOIN dbo.PeriodoAcademico pa ON pa.id = g.periodoAcademico
-            CROSS APPLY (SELECT zona = COALESCE((SELECT TOP 1 valor FROM dbo.CatalogoParametro
-                                                 WHERE grupo = 'TIEMPO' AND clave = 'ZONA_HORARIA_SQLSERVER' AND estaActivo = 1),
-                                                'SA Pacific Standard Time')) z
-            CROSS APPLY (SELECT fechaLocal = CAST(CAST(@fechaHoraInicio AS DATETIME2) AT TIME ZONE 'UTC' AT TIME ZONE z.zona AS DATE)) f
+            FROM dbo.uv_grupo_registro g
+            INNER JOIN dbo.uv_periodo_academico_fechas pa ON pa.id = g.idPeriodoAcademico
+            CROSS APPLY (SELECT fechaLocal = CAST(CAST(@fechaHoraInicio AS DATETIME2) AT TIME ZONE 'UTC' AT TIME ZONE @zona AS DATE)) f
             WHERE g.id = @idGrupoDefecto;
-            SET @numeroSemana = COALESCE(@numeroSemana, @numeroSiguiente);
+            SET @numeroSemana = IIF(@numeroSemana IS NULL, @numeroSiguiente, @numeroSemana);
 
             SET @codigoSesion = CASE
                 WHEN @numeroSiguiente < 100 THEN CONCAT('SES-', RIGHT('0' + CAST(@numeroSiguiente AS VARCHAR(10)), 2))
@@ -205,15 +212,20 @@ BEGIN
             VALUES (@idNuevoSesion, @idEstadoPendiente, @idUsuarioEjecutorDefecto, SYSUTCDATETIME(), @idCorrelacionDefecto);
         END
 
-        -- Cierre de la transaccion propia (el rechazo por solape no escribe)
+        -- PASO 4: cierre de la transaccion propia (el rechazo por solape no escribe)
         IF @transaccionPropia = 1
         BEGIN
             IF XACT_STATE() = 1
+            BEGIN
                 COMMIT TRANSACTION;
+            END
             ELSE IF XACT_STATE() <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
 
+        -- PASO 5: mensaje de exito (SES_022)
         IF @estadoResultado = 1
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SES_022', @p_param1 = @idNuevoSesion, @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
@@ -222,13 +234,15 @@ BEGIN
 
     END TRY
     BEGIN CATCH
-        -- BLOQUE CATCH: Captura centralizada de excepciones y reversión respetando ownership transaccional
-        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+        -- PASO 6: captura centralizada de excepciones y reversión respetando ownership transaccional
+        SET @estadoTransaccionCatch = XACT_STATE();
 
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN

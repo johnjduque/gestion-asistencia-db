@@ -20,6 +20,9 @@ GO
 -- opcional @idGrupo (NULL = todos los grupos de la asignatura en los que el estudiante esta inscrito): un grupo en el que el
 -- ejecutor no esta inscrito devuelve 0 filas, igual que una materia ajena.
 -- ============================================================================
+-- SKILLS-BD lote 14 (2026-11-26, objeto congelado, decision D5): DECLARE en la cabecera (uno por variable), PASO n, IF con BEGIN/END, estudiante por
+-- uv_estudiante_identidad (antes, la tabla) y TRY/CATCH de lectura que relanza (antes, sin TRY).
+-- Misma firma, mismo resultset y mismos codigos; el hash del manifiesto se actualiza en el mismo commit.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_sesiones_materia_estudiante]
 (
     @idUsuarioEjecutor UNIQUEIDENTIFIER,
@@ -30,10 +33,6 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_sesiones_materia_estudiante]
     @idGrupo           UNIQUEIDENTIFIER = NULL
 )
 AS
-BEGIN
-    SET NOCOUNT ON;
-    SET XACT_ABORT ON;
-
     DECLARE @idCorrelacionDefecto UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idUsuarioDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idUsuarioEjecutor, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @tamanoMaximo         INT = dbo.ufn_obtener_parametro_int(NULL, 'PAGINACION', 'TAMANO_MAXIMO');
@@ -42,78 +41,99 @@ BEGIN
     DECLARE @mensajeTecnicoResultado NVARCHAR(4000) = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
     DECLARE @estadoResultado BIT = 1;
     DECLARE @offset INT;
-    DECLARE @p1 NVARCHAR(500), @p2 NVARCHAR(500);
+    DECLARE @p1 NVARCHAR(500);
+    DECLARE @p2 NVARCHAR(500);
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
 
-    EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
-        @idCorrelacion = @idCorrelacionDefecto,
-        @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
-        @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
-        @estadoResultado = @estadoResultado OUTPUT;
-    IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_002', @p_param1 = 'idUsuarioEjecutor',
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-    END
-    IF @estadoResultado = 1 AND @idMateria IS NULL
-    BEGIN
-        EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_002', @p_param1 = 'idMateria',
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
-        SET @estadoResultado = 0;
-    END
-    IF @estadoResultado = 1
-        EXEC dbo.usp_validar_permiso_rbac_usuario_interno
-            @idUsuario = @idUsuarioDefecto, @codigoPerfilRequerido = 'ESTUDIANTE', @idCorrelacion = @idCorrelacionDefecto,
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+    BEGIN TRY
+        -- PASO 1: correlacion obligatoria
+        EXEC dbo.usp_validar_id_correlacion_esta_presente_interno
+            @idCorrelacion = @idCorrelacionDefecto,
+            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
+            @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
             @estadoResultado = @estadoResultado OUTPUT;
-    IF @estadoResultado = 1
-       AND (@numeroPagina IS NULL OR @numeroPagina < 1 OR @tamanoPagina IS NULL OR @tamanoPagina < 1
-            OR @tamanoMaximo IS NULL OR @tamanoPagina > @tamanoMaximo)
-    BEGIN
-        SELECT @p1 = CONVERT(NVARCHAR(20), @numeroPagina), @p2 = CONVERT(NVARCHAR(20), @tamanoPagina);
-        EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'PAG_001', @p_param1 = @p1, @p_param2 = @p2,
-            @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
-        SET @estadoResultado = 0;
-    END
-    IF @estadoResultado = 0
-        THROW 51000, @mensajeTecnicoResultado, 1;
+        -- PASO 2: ejecutor y materia obligatorios (GEN_002)
+        IF @estadoResultado = 1 AND @idUsuarioEjecutor IS NULL
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_002', @p_param1 = 'idUsuarioEjecutor',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+        IF @estadoResultado = 1 AND @idMateria IS NULL
+        BEGIN
+            EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'GEN_002', @p_param1 = 'idMateria',
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            SET @estadoResultado = 0;
+        END
+        -- PASO 3: RBAC ESTUDIANTE
+        IF @estadoResultado = 1
+        BEGIN
+            EXEC dbo.usp_validar_permiso_rbac_usuario_interno
+                @idUsuario = @idUsuarioDefecto, @codigoPerfilRequerido = 'ESTUDIANTE', @idCorrelacion = @idCorrelacionDefecto,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
+                @estadoResultado = @estadoResultado OUTPUT;
+        END
+        -- PASO 4: paginacion valida (PAG_001)
+        IF @estadoResultado = 1
+           AND (@numeroPagina IS NULL OR @numeroPagina < 1 OR @tamanoPagina IS NULL OR @tamanoPagina < 1
+                OR @tamanoMaximo IS NULL OR @tamanoPagina > @tamanoMaximo)
+        BEGIN
+            SELECT @p1 = CONVERT(NVARCHAR(20), @numeroPagina), @p2 = CONVERT(NVARCHAR(20), @tamanoPagina);
+            EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'PAG_001', @p_param1 = @p1, @p_param2 = @p2,
+                @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
+            SET @estadoResultado = 0;
+        END
+        -- PASO 5: rechazo de validacion: se propaga al llamador
+        IF @estadoResultado = 0
+        BEGIN
+            THROW 51000, @mensajeTecnicoResultado, 1;
+        END
 
-    SET @offset = (@numeroPagina - 1) * @tamanoPagina;
-    -- PERF-EST-MM: primero se filtran las matriculas inscritas del ejecutor en la materia (y el grupo opcional), se cuentan y se
-    -- toma la pagina con las columnas baratas; la fecha limite (ufn_calcular_fecha_limite_justificacion_conjunto, la misma regla
-    -- de la vista) se calcula solo para las filas de la pagina. Mismas columnas, mismo orden, mismo total y mismo plazo que
-    -- cuando se leian fechaLimiteJustificacionUtc / plazoJustificacionVigente de uv_sesion_estudiante_reclamo.
-    SELECT
-        id                          = pag.idSesion,
-        nombre                      = pag.nombre,
-        numero                      = pag.numero,
-        codigo                      = pag.codigo,
-        numeroSemana                = pag.numeroSemana,
-        idGrupo                     = pag.idGrupo,
-        codigoGrupo                 = pag.codigoGrupo,
-        nombreGrupo                 = pag.nombreGrupo,
-        fechaHoraInicio             = pag.fechaHoraInicio,
-        fechaHoraFin                = pag.fechaHoraFin,
-        fechaLimiteJustificacionUtc = lim.fechaLimiteUtc,
-        plazoJustificacionVigente   = CAST(IIF(pag.estaCancelada = 0 AND lim.fechaLimiteUtc IS NOT NULL
-                                               AND SYSUTCDATETIME() < lim.fechaLimiteUtc, 1, 0) AS BIT),
-        totalRegistros              = pag.totalRegistros
-    FROM (
-        SELECT  r.idSesion, r.nombre, r.numero, r.codigo, r.numeroSemana, r.idGrupo, r.codigoGrupo, r.nombreGrupo,
-                r.fechaHoraInicio, r.fechaHoraFin, r.estaCancelada,
-                totalRegistros = COUNT(1) OVER()
-        FROM dbo.uv_sesion_estudiante_reclamo r
-        INNER JOIN dbo.Estudiante e ON e.id = r.idEstudiante
-        WHERE e.usuario = @idUsuarioDefecto
-          AND r.idAsignatura = @idMateria
-          AND r.codigoEstadoEstudiante = @codigoInscrita
-          AND (@idGrupo IS NULL OR r.idGrupo = @idGrupo)
-        ORDER BY r.fechaHoraInicio ASC, r.numero ASC, r.idSesion ASC
-        OFFSET @offset ROWS FETCH NEXT @tamanoPagina ROWS ONLY
-    ) pag
-    CROSS APPLY dbo.ufn_calcular_fecha_limite_justificacion_conjunto(pag.fechaHoraFin) lim
-    ORDER BY pag.fechaHoraInicio ASC, pag.numero ASC, pag.idSesion ASC;
+        -- PASO 6: sesiones de la materia del estudiante, paginadas, con su plazo de justificacion
+        SET @offset = (@numeroPagina - 1) * @tamanoPagina;
+        -- PERF-EST-MM: primero se filtran las matriculas inscritas del ejecutor en la materia (y el grupo opcional), se cuentan y se
+        -- toma la pagina con las columnas baratas; la fecha limite (ufn_calcular_fecha_limite_justificacion_conjunto, la misma regla
+        -- de la vista) se calcula solo para las filas de la pagina. Mismas columnas, mismo orden, mismo total y mismo plazo que
+        -- cuando se leian fechaLimiteJustificacionUtc / plazoJustificacionVigente de uv_sesion_estudiante_reclamo.
+        SELECT
+            id                          = pag.idSesion,
+            nombre                      = pag.nombre,
+            numero                      = pag.numero,
+            codigo                      = pag.codigo,
+            numeroSemana                = pag.numeroSemana,
+            idGrupo                     = pag.idGrupo,
+            codigoGrupo                 = pag.codigoGrupo,
+            nombreGrupo                 = pag.nombreGrupo,
+            fechaHoraInicio             = pag.fechaHoraInicio,
+            fechaHoraFin                = pag.fechaHoraFin,
+            fechaLimiteJustificacionUtc = lim.fechaLimiteUtc,
+            plazoJustificacionVigente   = CAST(IIF(pag.estaCancelada = 0 AND lim.fechaLimiteUtc IS NOT NULL
+                                                   AND SYSUTCDATETIME() < lim.fechaLimiteUtc, 1, 0) AS BIT),
+            totalRegistros              = pag.totalRegistros
+        FROM (
+            SELECT  r.idSesion, r.nombre, r.numero, r.codigo, r.numeroSemana, r.idGrupo, r.codigoGrupo, r.nombreGrupo,
+                    r.fechaHoraInicio, r.fechaHoraFin, r.estaCancelada,
+                    totalRegistros = COUNT(1) OVER()
+            FROM dbo.uv_sesion_estudiante_reclamo r
+            INNER JOIN dbo.uv_estudiante_identidad e ON e.id = r.idEstudiante
+            WHERE e.idUsuario = @idUsuarioDefecto
+              AND r.idAsignatura = @idMateria
+              AND r.codigoEstadoEstudiante = @codigoInscrita
+              AND (@idGrupo IS NULL OR r.idGrupo = @idGrupo)
+            ORDER BY r.fechaHoraInicio ASC, r.numero ASC, r.idSesion ASC
+            OFFSET @offset ROWS FETCH NEXT @tamanoPagina ROWS ONLY
+        ) pag
+        CROSS APPLY dbo.ufn_calcular_fecha_limite_justificacion_conjunto(pag.fechaHoraFin) lim
+        ORDER BY pag.fechaHoraInicio ASC, pag.numero ASC, pag.idSesion ASC;
+    END TRY
+    BEGIN CATCH
+        -- PASO 7: consulta de lectura (READ_QUERY_RESULTSET): el error, incluido el rechazo de validacion,
+        -- se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
+        THROW;
+    END CATCH
 END;
 GO

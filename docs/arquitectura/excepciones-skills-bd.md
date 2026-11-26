@@ -31,7 +31,8 @@ Origen: auditoría y plan por lotes del 2026-11-25. Las decisiones son de John (
 - ningún endpoint los expone recibiendo la identidad del usuario como parámetro libre;
 - los públicos por token validan el token, su vigencia y su ámbito;
 - su cabecera lleva la marca `SP_SISTEMA` con el motivo (se agrega al intervenirlos en su lote; el lote 12 la puso también en los de
-  lotes anteriores que no la tenían; los congelados la reciben en el lote 14).
+  lotes anteriores que no la tenían; el lote 14 la puso en los congelados `usp_sincronizar_parametro_catalogo_externo` y
+  `usp_validar_token_matricula_publico`).
 
 ## E2. Ejecutor recibido como `@idUsuario`
 
@@ -74,7 +75,9 @@ Origen: auditoría y plan por lotes del 2026-11-25. Las decisiones son de John (
 
 ## E6. Objetos congelados
 
-**Regla afectada:** ninguna directamente. Los 38 SP con hash en `docs/contracts/*.sha256` o en `test_golden_path_immutability.sql` se corrigen en el lote 14 sin cambiar su firma ni su resultset, y se regeneran sus manifiestos.
+**Regla afectada:** ninguna directamente. Los 38 SP con hash en `docs/contracts/*.sha256` o en `test_golden_path_immutability.sql` se corrigen en el lote 14 sin cambiar su firma ni su resultset, y se regeneran sus manifiestos. Hecho en el lote 14 (2026-11-26): 37 de los 38 SP corregidos (`usp_validar_sesion_operacion_interno` ya cumplía);
+`usp_validar_carga_masiva_usuarios` ya estaba retirado; el manifiesto DB-GP-001C no se reescribe (las líneas `SUPERSEDES` de `DB_UTC_D06_POST_FREEZE_MANIFEST.sha256` siguen
+nombrando su hash original) y los de UTC-D06, CULM-001 D y LB-004D se regeneraron en el mismo commit.
 
 ## E7. Búsqueda del token QR de asistencia en la tabla
 
@@ -90,6 +93,9 @@ Origen: auditoría y plan por lotes del 2026-11-25. Las decisiones son de John (
 Por el mismo motivo (lote 12), `usp_consultar_token_verificacion_correo` busca el token de verificación de correo por `tokenHash` en
 `dbo.TokenVerificacionCorreo` (`uv_token_verificacion_correo` no expone el hash y no debe exponerlo); el usuario lo lee por `uv_usuario`.
 Es solo lectura y devuelve 0 filas para cualquier token inválido.
+
+Por el mismo motivo (lote 14), `uv_token_matricula_grupo_registro` no expone `tokenHash`, `tokenHashAnterior`, `pin` ni
+`pinAnterior`: la ventana de matrícula se sigue resolviendo por hash o PIN en `usp_resolver_token_matricula_interno`.
 
 En `usp_registrar_asistencia_por_token` (lote 12) las dos búsquedas de la fila propia (`dbo.Asistencia` y `dbo.DetalleAsistencia`
 con `WITH (FORCESEEK)`) siguen en la tabla: la pista evita que, con pocas filas, el plan recorra la PK y espere las filas aún sin

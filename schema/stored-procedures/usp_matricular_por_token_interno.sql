@@ -18,6 +18,10 @@ GO
 --     cualquier falla posterior a la escritura.
 -- SKILLS-BD lote 2 (2026-11-25): antes usp_internal_matricular_por_token (renombrado, D3); llama a los nucleos renombrados
 -- con el triplete OUTPUT. El cuerpo se corrige en su lote de dominio.
+-- SKILLS-BD lote 14 (2026-11-26, objeto congelado, decision D5): DECLARE del cuerpo a la cabecera, PASO n, IF con BEGIN/END, IIF en lugar de COALESCE y lecturas sin
+-- bloqueo de estudiante, usuario, matricula, programas y ventana por vistas uv_* (antes, las tablas); el token se resuelve en el
+-- nucleo (E7) y el UPDATE del contador sigue en la tabla.
+-- Misma firma, mismo resultset y mismos codigos; el hash del manifiesto se actualiza en el mismo commit.
 CREATE OR ALTER PROCEDURE [dbo].[usp_matricular_por_token_interno]
 (
     @idCorrelacion            UNIQUEIDENTIFIER,
@@ -61,16 +65,22 @@ AS
     DECLARE @mensajeTecnicoInterno   NVARCHAR(4000);
     DECLARE @estadoInterno           BIT;
     DECLARE @mensajeErrorInterno     NVARCHAR(2048);
+    DECLARE @codigoMatricula         NVARCHAR(10) = CAST(dbo.ufn_obtener_parametro('MATRICULA_QR', 'ESTADO_MATRICULA') AS NVARCHAR(10));
+    DECLARE @programaVentana         UNIQUEIDENTIFIER;
+    DECLARE @programasComunes        INT;
+    DECLARE @estadoTransaccionCatch  INT;
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;   -- AUD-BD M-6: un error no capturado condena la transaccion; el CATCH ya maneja XACT_STATE() = -1 (THROW si no es propia)
 
+    -- PASO 0: inicializacion de las salidas
     SELECT @mensajeUsuarioResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
            @mensajeTecnicoResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA'),
            @estadoResultado = 1,
            @idEstudianteResultado = NULL, @idUsuarioResultado = NULL, @idGrupoResultado = NULL;
 
     BEGIN TRY
+        -- PASO 0.1: transaccion propia o savepoint
         SET @conteoTransaccionesInicial = @@TRANCOUNT;
         IF @conteoTransaccionesInicial = 0
         BEGIN
@@ -107,8 +117,6 @@ BEGIN
         END
 
         -- PASO 3: validaciones sin escritura
-        DECLARE @codigoMatricula NVARCHAR(10) = CAST(dbo.ufn_obtener_parametro('MATRICULA_QR', 'ESTADO_MATRICULA') AS NVARCHAR(10));
-
         IF @estadoResultado = 1 AND @codigoRechazo IS NULL AND @idUsuarioAutenticado IS NOT NULL
         BEGIN
             -- Modo autenticado: el usuario debe ser un ESTUDIANTE
@@ -123,7 +131,7 @@ BEGIN
             IF @estadoResultado = 1
             BEGIN
                 SET @idUsuarioTarget = @idUsuarioAutenticado;
-                SELECT TOP 1 @idEstudianteTarget = e.id FROM dbo.Estudiante e WHERE e.usuario = @idUsuarioAutenticado;
+                SELECT TOP 1 @idEstudianteTarget = e.id FROM dbo.uv_estudiante_identidad e WHERE e.idUsuario = @idUsuarioAutenticado;
 
                 IF @idEstudianteTarget IS NULL
                 BEGIN
@@ -147,11 +155,13 @@ BEGIN
             END
             -- Persona ya registrada (documento o correo): debe iniciar sesion
             ELSE IF EXISTS (
-                SELECT 1 FROM dbo.Usuario u
+                SELECT 1 FROM dbo.uv_usuario u
                 WHERE u.correo = @correoNormalizado
-                   OR (u.tipoIdIdentificacion = @idTipoIdentificacion AND u.numeroIdentificacion = @numeroIdentificacion)
+                   OR (u.idTipoIdentificacion = @idTipoIdentificacion AND u.numeroIdentificacion = @numeroIdentificacion)
             )
+            BEGIN
                 SET @codigoRechazo = 'MQR_005';
+            END
             -- IDENT-001: el correo de un alta nueva debe ser institucional
             ELSE IF dbo.ufn_correo_cumple_dominio_institucional(@correo, dbo.ufn_obtener_parametro('REGISTRO', 'DOMINIO_CORREO_ESTUDIANTE')) = 0
             BEGIN
@@ -160,56 +170,70 @@ BEGIN
             END
         END
 
-        -- Ya matriculado (solo se puede evaluar con estudiante conocido: modo autenticado)
+        -- PASO 3.1: ya matriculado (solo se puede evaluar con estudiante conocido: modo autenticado)
         IF @estadoResultado = 1 AND @codigoRechazo IS NULL AND @idEstudianteTarget IS NOT NULL
            AND EXISTS (
                 SELECT 1
-                FROM dbo.EstudianteGrupo eg
-                INNER JOIN dbo.uv_estado_estudiante_grupo es ON es.id = eg.estado
-                WHERE eg.estudiante = @idEstudianteTarget AND eg.grupo = @idGrupo AND es.codigo = @codigoMatricula
+                FROM dbo.uv_estudiante_grupo_registro eg
+                INNER JOIN dbo.uv_estado_estudiante_grupo es ON es.id = eg.idEstado
+                WHERE eg.idEstudiante = @idEstudianteTarget AND eg.idGrupo = @idGrupo AND es.codigo = @codigoMatricula
            )
+        BEGIN
             SET @codigoRechazo = 'MQR_004';
+        END
 
-        -- DEC-078: el programa de la ventana (si el docente lo fijo) o el que eligio el estudiante.
-        DECLARE @programaVentana UNIQUEIDENTIFIER = COALESCE(
-            (SELECT t.programaPorDefecto FROM dbo.TokenMatriculaGrupo t WHERE t.id = @idVentana), @idProgramaElegido);
+        -- PASO 3.2 (DEC-078): el programa de la ventana (si el docente lo fijo) o el que eligio el estudiante.
+        SET @programaVentana = (SELECT t.idProgramaPorDefecto FROM dbo.uv_token_matricula_grupo_registro t WHERE t.id = @idVentana);
+        SET @programaVentana = IIF(@programaVentana IS NULL, @idProgramaElegido, @programaVentana);
         -- DEC-078: un programa elegido que no es del grupo se rechaza antes de crear usuario o matricula (EST_006).
         IF @estadoResultado = 1 AND @codigoRechazo IS NULL AND @programaVentana IS NOT NULL
            AND NOT EXISTS (SELECT 1 FROM dbo.ufn_programas_grupo(@idGrupo) pg WHERE pg.idPrograma = @programaVentana)
+        BEGIN
             SET @codigoRechazo = 'EST_006';
+        END
         -- Revision final P3 (decision 2026-11-22, igual que la matricula manual BD-4): un estudiante EXISTENTE con vinculos en EstudiantePrograma solo se
         -- matricula con un programa comun con el grupo. Ninguno comun: EST_010; programa de la ventana o elegido que no es suyo: EST_011; un unico programa
         -- comun y ninguno fijado: se usa ese; varios y ninguno fijado: MQR_008. Nunca se crea un vinculo nuevo a quien ya tiene programas (usp_asegurar_estudiante_programa_grupo_interno
         -- devuelve el existente). Estudiante nuevo o sin ningun vinculo: sin cambio (elige entre los programas del grupo).
         IF @estadoResultado = 1 AND @codigoRechazo IS NULL AND @idEstudianteTarget IS NOT NULL
-           AND EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep WHERE ep.estudiante = @idEstudianteTarget)
+           AND EXISTS (SELECT 1 FROM dbo.uv_estudiante_programa_registro ep WHERE ep.idEstudiante = @idEstudianteTarget)
         BEGIN
-            DECLARE @programasComunes INT = (SELECT COUNT(*) FROM dbo.EstudiantePrograma ep
-                                             INNER JOIN dbo.ufn_programas_grupo(@idGrupo) pg ON pg.idPrograma = ep.programa
-                                             WHERE ep.estudiante = @idEstudianteTarget);
+            SET @programasComunes = (SELECT COUNT(*) FROM dbo.uv_estudiante_programa_registro ep
+                                     INNER JOIN dbo.ufn_programas_grupo(@idGrupo) pg ON pg.idPrograma = ep.idPrograma
+                                     WHERE ep.idEstudiante = @idEstudianteTarget);
             IF @programasComunes = 0
+            BEGIN
                 SET @codigoRechazo = 'EST_010';
+            END
             ELSE IF @programaVentana IS NOT NULL
-                AND NOT EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep WHERE ep.estudiante = @idEstudianteTarget AND ep.programa = @programaVentana)
+                AND NOT EXISTS (SELECT 1 FROM dbo.uv_estudiante_programa_registro ep WHERE ep.idEstudiante = @idEstudianteTarget AND ep.idPrograma = @programaVentana)
+            BEGIN
                 SET @codigoRechazo = 'EST_011';
+            END
             ELSE IF @programaVentana IS NULL AND @programasComunes = 1
-                SELECT @programaVentana = ep.programa FROM dbo.EstudiantePrograma ep
-                INNER JOIN dbo.ufn_programas_grupo(@idGrupo) pg ON pg.idPrograma = ep.programa
-                WHERE ep.estudiante = @idEstudianteTarget;
+            BEGIN
+                SELECT @programaVentana = ep.idPrograma FROM dbo.uv_estudiante_programa_registro ep
+                INNER JOIN dbo.ufn_programas_grupo(@idGrupo) pg ON pg.idPrograma = ep.idPrograma
+                WHERE ep.idEstudiante = @idEstudianteTarget;
+            END
             ELSE IF @programaVentana IS NULL AND @programasComunes > 1
+            BEGIN
                 SET @codigoRechazo = 'MQR_008';
+            END
         END
         -- CULM-001 B2NM (S3) / DEC-078: grupo multiprograma sin programa (ni de la ventana ni elegido) y sin vinculo previo ->
         -- MQR_008 (el estudiante debe elegir su programa), antes de crear usuario o matricula.
         IF @estadoResultado = 1 AND @codigoRechazo IS NULL
            AND (SELECT COUNT(*) FROM dbo.ufn_programas_grupo(@idGrupo)) > 1
            AND @programaVentana IS NULL
-           AND NOT EXISTS (SELECT 1 FROM dbo.EstudiantePrograma ep
-                           INNER JOIN dbo.ufn_programas_grupo(@idGrupo) pg ON pg.idPrograma = ep.programa
-                           WHERE ep.estudiante = @idEstudianteTarget)
+           AND NOT EXISTS (SELECT 1 FROM dbo.uv_estudiante_programa_registro ep
+                           INNER JOIN dbo.ufn_programas_grupo(@idGrupo) pg ON pg.idPrograma = ep.idPrograma
+                           WHERE ep.idEstudiante = @idEstudianteTarget)
+        BEGIN
             SET @codigoRechazo = 'MQR_008';
+        END
 
-        -- Cupo, antes de crear nada
+        -- PASO 3.3: cupo, antes de crear nada
         IF @estadoResultado = 1 AND @codigoRechazo IS NULL
         BEGIN
             EXEC dbo.usp_validar_cupo_disponible_grupo_interno
@@ -233,7 +257,7 @@ BEGIN
             SET @estadoResultado = 0;
         END
 
-        -- Mensaje del rechazo por catalogo
+        -- PASO 3.4: mensaje del rechazo por catalogo
         IF @estadoResultado = 1 AND @codigoRechazo IS NOT NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -267,7 +291,9 @@ BEGIN
                     @estadoResultado = @estadoResultado OUTPUT;
 
                 IF @estadoResultado = 1
-                    SELECT TOP 1 @idUsuarioTarget = u.id FROM dbo.Usuario u WHERE u.correo = @correoNormalizado;
+                BEGIN
+                    SELECT TOP 1 @idUsuarioTarget = u.id FROM dbo.uv_usuario u WHERE u.correo = @correoNormalizado;
+                END
 
                 IF @estadoResultado = 1
                 BEGIN
@@ -279,7 +305,9 @@ BEGIN
                         @estadoResultado = @estadoResultado OUTPUT;
 
                     IF @estadoResultado = 1
-                        SELECT TOP 1 @idEstudianteTarget = e.id FROM dbo.Estudiante e WHERE e.usuario = @idUsuarioTarget;
+                    BEGIN
+                        SELECT TOP 1 @idEstudianteTarget = e.id FROM dbo.uv_estudiante_identidad e WHERE e.idUsuario = @idUsuarioTarget;
+                    END
                 END
             END
 
@@ -312,23 +340,34 @@ BEGIN
         IF @transaccionPropia = 1
         BEGIN
             IF XACT_STATE() = 1
+            BEGIN
                 COMMIT TRANSACTION;
+            END
             ELSE IF XACT_STATE() = -1
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
     END TRY
     BEGIN CATCH
-        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+        -- PASO 6: reversion respetando ownership; transaccion externa condenada se propaga; si no, SYS_001
+        SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
             ROLLBACK TRANSACTION sp_hu176b_matricular;
+        END
 
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
@@ -340,6 +379,8 @@ BEGIN
     END CATCH
 
     IF @estadoResultado = 1
+    BEGIN
         SELECT @idEstudianteResultado = @idEstudianteTarget, @idUsuarioResultado = @idUsuarioTarget, @idGrupoResultado = @idGrupo;
+    END
 END;
 GO

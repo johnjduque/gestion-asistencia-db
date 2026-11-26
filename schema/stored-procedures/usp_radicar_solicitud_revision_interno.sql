@@ -33,6 +33,10 @@ GO
 -- Ownership transaccional: transaccion propia si @@TRANCOUNT = 0, si no SAVE TRANSACTION (solo se revierte lo escrito).
 -- En @estadoResultado = 1 con reejecucion idempotente no se escribe nada.
 -- ============================================================================
+-- SKILLS-BD lote 14 (2026-11-26, objeto congelado, decision D5): DECLARE a la cabecera (entre AS y BEGIN), PASO n, IF con BEGIN/END y lecturas sin bloqueo de
+-- estudiante, soportes, toma, sesion, matricula, asistencia, estado y categoria por vistas uv_* (antes, las tablas); las
+-- lecturas con UPDLOCK y las escrituras siguen en las tablas.
+-- Misma firma, mismo resultset y mismos codigos; el hash del manifiesto se actualiza en el mismo commit.
 CREATE OR ALTER PROCEDURE [dbo].[usp_radicar_solicitud_revision_interno]
 (
     @idEstudiante             UNIQUEIDENTIFIER,
@@ -50,10 +54,6 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_radicar_solicitud_revision_interno]
     @idToma                   UNIQUEIDENTIFIER = NULL
 )
 AS
-BEGIN
-    SET NOCOUNT ON;
-    SET XACT_ABORT ON;
-
     DECLARE @idCorrelacionDefecto     UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idCorrelacion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idEstudianteDefecto      UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idEstudiante, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
     DECLARE @idSesionDefecto          UNIQUEIDENTIFIER = dbo.ufn_obtener_parametro_guid(@idSesion, 'GENERAL', 'GUID_DEFECTO_CORRELACION');
@@ -106,7 +106,12 @@ BEGIN
     DECLARE @conteoTransaccionesInicial INT;
     DECLARE @transaccionPropia    BIT = 0;
     DECLARE @savepointCreado      BIT = 0;
+    DECLARE @estadoTransaccionCatch INT;
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
 
+    -- PASO 0: inicializacion de las salidas
     SET @idSolicitudRevision     = NULL;
     SET @totalSoportes           = 0;
     SET @mensajeUsuarioResultado = dbo.ufn_obtener_parametro('GENERAL', 'CADENA_VACIA');
@@ -159,8 +164,8 @@ BEGIN
         -- PASO 5: El estudiante debe corresponder al ejecutor autenticado (H-01)
         IF @estadoResultado = 1
            AND NOT EXISTS (
-                SELECT 1 FROM dbo.Estudiante e
-                WHERE e.id = @idEstudianteDefecto AND e.usuario = @idUsuarioEjecutorDefecto)
+                SELECT 1 FROM dbo.uv_estudiante_identidad e
+                WHERE e.id = @idEstudianteDefecto AND e.idUsuario = @idUsuarioEjecutorDefecto)
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = 'ARC_005',
@@ -204,10 +209,14 @@ BEGIN
                 ORDER BY CAST(j.[key] AS INT);
                 IF EXISTS (SELECT 1 FROM OPENJSON(@idsArchivoSoporte) j WHERE j.[type] <> 1)
                    OR EXISTS (SELECT 1 FROM @ids WHERE id IS NULL)
+                BEGIN
                     SET @jsonValido = 0;
+                END
             END
             ELSE
+            BEGIN
                 SET @jsonValido = 0;
+            END
         END
         SELECT @cantidad = COUNT(*), @distintos = COUNT(DISTINCT id) FROM @ids;
 
@@ -231,12 +240,12 @@ BEGIN
         -- devuelve el exito original). Es un soporte ya vinculado con ESTA correlacion y del mismo dueno.
         IF @estadoResultado = 1 AND @jsonValido = 1 AND @cantidad > 0
         BEGIN
-            SELECT TOP 1 @solicitudSoporte = a.solicitudRevisionAsistencia
-            FROM dbo.ArchivoSoporte a
+            SELECT TOP 1 @solicitudSoporte = a.idSolicitudRevisionAsistencia
+            FROM dbo.uv_archivo_soporte_registro a
             INNER JOIN @ids i ON i.id = a.id
             WHERE a.estado = @estadoAdjunto
               AND a.idCorrelacionAdjuncion = @idCorrelacionDefecto
-              AND a.usuarioPropietario = @idUsuarioEjecutorDefecto
+              AND a.idUsuarioPropietario = @idUsuarioEjecutorDefecto
             ORDER BY a.id;
             IF @solicitudSoporte IS NOT NULL
             BEGIN
@@ -249,7 +258,7 @@ BEGIN
         -- ella (REV_026; cabecera y detalle bloqueados) y no debe existir otra solicitud no retirada de la misma toma (REV_027).
         IF @estadoResultado = 1 AND @esReintento = 0 AND @idToma IS NOT NULL
         BEGIN
-            SELECT @numeroToma = t.numero FROM dbo.TomaAsistencia t WHERE t.id = @idToma AND t.sesion = @idSesionDefecto;
+            SELECT @numeroToma = t.numero FROM dbo.uv_toma_asistencia_registro t WHERE t.id = @idToma AND t.idSesion = @idSesionDefecto;
             IF @numeroToma IS NULL
             BEGIN
                 EXEC dbo.usp_obtener_mensaje_catalogo
@@ -262,14 +271,14 @@ BEGIN
             BEGIN
                 SET @textoNumeroToma = CONVERT(NVARCHAR(20), @numeroToma);
                 SELECT TOP 1 @idEstudianteGrupo = eg.id
-                FROM dbo.Sesion s
-                INNER JOIN dbo.EstudianteGrupo eg ON eg.grupo = s.grupo
-                WHERE s.id = @idSesionDefecto AND eg.estudiante = @idEstudianteDefecto;
+                FROM dbo.uv_sesion_registro s
+                INNER JOIN dbo.uv_estudiante_grupo_registro eg ON eg.idGrupo = s.idGrupo
+                WHERE s.id = @idSesionDefecto AND eg.idEstudiante = @idEstudianteDefecto;
 
                 SELECT TOP 1 @idAsistencia = a.id, @codigoRazonToma = rc.codigo
                 FROM dbo.Asistencia a WITH (UPDLOCK, HOLDLOCK)
                 LEFT JOIN dbo.DetalleAsistencia d WITH (UPDLOCK, HOLDLOCK) ON d.asistencia = a.id AND d.toma = @idToma
-                LEFT JOIN dbo.RazonCausa rc ON rc.id = d.razonCausa
+                LEFT JOIN dbo.uv_razon_causa rc ON rc.id = d.razonCausa
                 WHERE a.estudianteGrupo = @idEstudianteGrupo AND a.sesion = @idSesionDefecto;
 
                 IF @codigoRazonToma IS NULL OR @codigoRazonToma <> @codigoSinJustaCausa
@@ -284,7 +293,7 @@ BEGIN
                 BEGIN
                     SELECT TOP 1 @solicitudTomaExistente = sra.id
                     FROM dbo.SolicitudRevisionAsistencia sra WITH (UPDLOCK, HOLDLOCK)
-                    INNER JOIN dbo.Estado e ON e.id = sra.estado
+                    INNER JOIN dbo.uv_estado e ON e.id = sra.estado
                     WHERE sra.asistencia = @idAsistencia AND sra.toma = @idToma AND e.codigo <> @codigoRetirado
                     ORDER BY sra.id;
                     IF @solicitudTomaExistente IS NOT NULL
@@ -298,18 +307,22 @@ BEGIN
                 END
             END
             IF @estadoResultado = 0
+            BEGIN
                 SET @mensajeTecnicoResultado = CONCAT(@mensajeTecnicoResultado, ' Correlacion: ', @idCorrelacionDefecto);
+            END
         END
 
         -- PASO 10c (VAL-pendientes-john PRU-15): un periodo cerrado por el cierre masivo no admite reclamos nuevos (PER_008, antes
         -- del plazo). Como el plazo, no aplica a la reejecucion idempotente de una radicacion ya exitosa.
         IF @estadoResultado = 1 AND @esReintento = 0
+        BEGIN
             EXEC dbo.usp_validar_periodo_abierto_sesion_interno
                 @idSesion = @idSesionDefecto,
                 @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,
                 @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
+        END
 
         -- PASO 11: Plazo de excusas (D.1). Solo cuando NO es la reejecucion idempotente de una radicacion ya exitosa.
         IF @estadoResultado = 1 AND @esReintento = 0
@@ -327,7 +340,7 @@ BEGIN
         IF @estadoResultado = 1 AND @esReintento = 0
         BEGIN
             SELECT TOP 1 @idCategoria = c.id, @nombreCategoria = c.nombre, @requiereSoporte = c.requiereSoporte
-            FROM dbo.CategoriaJustificacion c
+            FROM dbo.uv_categoria_justificacion c
             WHERE c.codigo = @categoriaDefecto OR c.nombre = @categoriaDefecto
             ORDER BY IIF(c.codigo = @categoriaDefecto, 0, 1), c.id;
             IF @idCategoria IS NULL
@@ -452,18 +465,18 @@ BEGIN
             SET @fechaLocalRadicacion = CAST((SYSUTCDATETIME() AT TIME ZONE 'UTC') AT TIME ZONE @zonaLocal AS DATE);
 
             SELECT TOP 1 @idEstudianteGrupo = eg.id
-            FROM dbo.Sesion s
-            INNER JOIN dbo.EstudianteGrupo eg ON eg.grupo = s.grupo
-            WHERE s.id = @idSesionDefecto AND eg.estudiante = @idEstudianteDefecto;
+            FROM dbo.uv_sesion_registro s
+            INNER JOIN dbo.uv_estudiante_grupo_registro eg ON eg.idGrupo = s.idGrupo
+            WHERE s.id = @idSesionDefecto AND eg.idEstudiante = @idEstudianteDefecto;
 
-            SELECT TOP 1 @idAsistencia = id
-            FROM dbo.Asistencia
-            WHERE estudianteGrupo = @idEstudianteGrupo AND sesion = @idSesionDefecto;
+            SELECT TOP 1 @idAsistencia = a.id
+            FROM dbo.uv_asistencia_registro a
+            WHERE a.idEstudianteGrupo = @idEstudianteGrupo AND a.idSesion = @idSesionDefecto;
 
-            SELECT TOP 1 @idEstadoPendiente = id FROM dbo.Estado WHERE codigo = @codigoPendiente ORDER BY id ASC;
+            SELECT TOP 1 @idEstadoPendiente = e.id FROM dbo.uv_estado e WHERE e.codigo = @codigoPendiente ORDER BY e.id ASC;
             IF @idEstadoPendiente IS NULL
             BEGIN
-                SELECT TOP 1 @idEstadoPendiente = id FROM dbo.Estado ORDER BY id ASC;
+                SELECT TOP 1 @idEstadoPendiente = e.id FROM dbo.uv_estado e ORDER BY e.id ASC;
             END
 
             SET @nombreSolicitud = CONCAT('REC-', UPPER(SUBSTRING(CAST(@nuevaSolicitudId AS VARCHAR(36)), 1, 8)));
@@ -508,8 +521,8 @@ BEGIN
 
                 -- Postcondicion verificada por lectura (no solo @@ROWCOUNT): los N soportes quedaron vinculados a ESTA solicitud.
                 IF @filasActualizadas <> @cantidad
-                   OR (SELECT COUNT(*) FROM dbo.ArchivoSoporte a INNER JOIN @ordenados o ON o.id = a.id
-                       WHERE a.estado = @estadoAdjunto AND a.solicitudRevisionAsistencia = @nuevaSolicitudId) <> @cantidad
+                   OR (SELECT COUNT(*) FROM dbo.uv_archivo_soporte_registro a INNER JOIN @ordenados o ON o.id = a.id
+                       WHERE a.estado = @estadoAdjunto AND a.idSolicitudRevisionAsistencia = @nuevaSolicitudId) <> @cantidad
                 BEGIN
                     EXEC dbo.usp_obtener_mensaje_catalogo
                         @p_codigo = 'ARC_001',
@@ -520,9 +533,12 @@ BEGIN
                 END
             END
             IF @estadoResultado = 1
+            BEGIN
                 SET @idSolicitudRevision = @nuevaSolicitudId;
+            END
         END
 
+        -- PASO 17b: total de soportes y mensaje de exito, o salidas vacias
         IF @estadoResultado = 1
         BEGIN
             SELECT @totalSoportes = COUNT(*) FROM dbo.uv_soporte_reclamo WHERE idSolicitud = @idSolicitudRevision;
@@ -545,9 +561,13 @@ BEGIN
             IF XACT_STATE() = 1
             BEGIN
                 IF @estadoResultado = 1
+                BEGIN
                     COMMIT TRANSACTION;
+                END
                 ELSE
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
             END
             ELSE IF XACT_STATE() = -1
             BEGIN
@@ -558,15 +578,20 @@ BEGIN
         BEGIN
             -- Solo se revierte lo escrito (un rechazo previo a las escrituras no deja nada que deshacer).
             IF XACT_STATE() = 1 AND @estadoResultado = 0 AND @escrituraRealizada = 1
+            BEGIN
                 ROLLBACK TRANSACTION sp_culm001_d2_radicar;
+            END
         END
     END TRY
     BEGIN CATCH
-        DECLARE @estadoTransaccionCatch INT = XACT_STATE();
+        -- PASO 19: reversion respetando ownership; transaccion externa condenada se propaga; si no, SYS_001
+        SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
         BEGIN
