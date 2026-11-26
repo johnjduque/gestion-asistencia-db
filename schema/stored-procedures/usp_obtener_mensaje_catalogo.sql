@@ -15,6 +15,7 @@ GO
 -- docs/arquitectura/excepciones-skills-bd.md) y el triplete se completa con @estadoResultado OUTPUT opcional al final.
 -- SKILLS-BD lote 3 (2026-11-25): DECLARE en la cabecera, sin ISNULL, PASO n, TRY/CATCH y @estadoResultado; mismos textos.
 -- ============================================================================
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): utilidad transversal sin ejecutor propio (la llaman otros SP).
 CREATE OR ALTER PROCEDURE [dbo].[usp_obtener_mensaje_catalogo]
     @p_codigo                  VARCHAR(100),
     @p_param1                  NVARCHAR(500) = NULL,

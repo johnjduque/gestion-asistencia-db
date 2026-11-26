@@ -13,6 +13,7 @@ GO
 --         intentos, creadoEn, idCorrelacion, traceId, spanId)
 -- =============================================================================
 -- SKILLS-BD lote 8 (2026-11-26): PASO n y TRY/CATCH que relanza el mismo error. Mismo resultado.
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): notificaciones y correo: lo invoca el backend sin usuario con perfil; exige @idCorrelacion.
 CREATE OR ALTER PROCEDURE [dbo].[usp_reservar_notificaciones_salientes]
 (
     @lote          INT              = 50,

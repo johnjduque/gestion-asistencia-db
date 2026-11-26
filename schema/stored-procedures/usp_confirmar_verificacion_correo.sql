@@ -10,6 +10,7 @@ GO
 -- Publico sin ejecutor: la credencial es el hash del token. Cualquier token invalido (inexistente, vencido, usado,
 -- revocado, nulo o de usuario inactivo) responde exactamente igual (VCE_002). Resultset canonico de 4 columnas.
 -- SKILLS-BD lote 8 (2026-11-26): DECLARE del CATCH a la cabecera, PASO n, IF con BEGIN/END y usuario activo por uv_usuario (antes, la tabla). El bloqueo del token sigue en la tabla. Mismo resultado.
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): notificaciones y correo: lo invoca el backend sin usuario con perfil; exige @idCorrelacion.
 CREATE OR ALTER PROCEDURE [dbo].[usp_confirmar_verificacion_correo]
 (
     @tokenHash     VARBINARY(32),

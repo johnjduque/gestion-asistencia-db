@@ -20,6 +20,8 @@ GO
 -- estaAbierta = 1. Bloqueos: Sesion (ventana) -> TomaAsistencia -> TokenAsistenciaToma. Las ramas de rechazo no escriben y
 -- solo confirman la transaccion propia (compatible con INSERT ... EXEC). Exito TOM_008.
 -- ============================================================================
+-- SKILLS-BD lote 12 (2026-11-26): PASO n, IF con BEGIN/END y lecturas sin bloqueo por vistas uv_* (antes, las tablas).
+-- Las lecturas con UPDLOCK/HOLDLOCK y las escrituras siguen en las tablas. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_abrir_toma_asistencia]
 (
     @idSesion          UNIQUEIDENTIFIER,
@@ -87,30 +89,36 @@ BEGIN
 
         -- PASO 2: RBAC (DOCENTE), sesion existente y titularidad
         IF @estadoResultado = 1
+        BEGIN
             EXEC dbo.usp_validar_permiso_rbac_usuario_interno
                 @idUsuario = @idUsuarioEjecutorDefecto, @codigoPerfilRequerido = 'DOCENTE', @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
+        END
         IF @estadoResultado = 1
+        BEGIN
             EXEC dbo.usp_validar_sesion_exista_por_id_interno
                 @idSesion = @idSesionDefecto, @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
+        END
         IF @estadoResultado = 1
+        BEGIN
             EXEC dbo.usp_validar_titularidad_jerarquica_interno
                 @idUsuario = @idUsuarioEjecutorDefecto, @idEntidadPadre = @idSesionDefecto, @tipoEntidadPadre = 'SESION',
                 @idCorrelacion = @idCorrelacionDefecto,
                 @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT,
                 @estadoResultado = @estadoResultado OUTPUT;
+        END
 
         -- PASO 3: modo de la toma (TOM_002) y estado ABIERTA por bandera
         IF @estadoResultado = 1
         BEGIN
             SELECT @idModo = m.id, @codigoModoResuelto = m.codigo, @usaCodigoQr = m.usaCodigoQr
-            FROM dbo.ModoTomaAsistencia m
+            FROM dbo.uv_modo_toma_asistencia m
             WHERE m.codigo = @codigoModoLimpio;
-            SELECT @idEstadoAbierta = e.id FROM dbo.EstadoTomaAsistencia e WHERE e.estaAbierta = 1;
-            SELECT @idDocente = d.id FROM dbo.Docente d WHERE d.usuario = @idUsuarioEjecutorDefecto;
+            SELECT @idEstadoAbierta = e.id FROM dbo.uv_estado_toma_asistencia e WHERE e.estaAbierta = 1;
+            SELECT @idDocente = d.id FROM dbo.uv_docente_identidad d WHERE d.idUsuario = @idUsuarioEjecutorDefecto;
 
             IF @idModo IS NULL
             BEGIN
@@ -121,7 +129,9 @@ BEGIN
                 SET @estadoResultado = 0;
             END
             ELSE IF @idEstadoAbierta IS NULL OR @maximoTomas IS NULL
+            BEGIN
                 THROW 52510, 'CULM001_B2_CATALOGO_INCONSISTENTE: falta EstadoTomaAsistencia(estaAbierta = 1) o TOMA_ASISTENCIA/MAXIMO_TOMAS_POR_SESION.', 1;
+            END
         END
 
         -- PASO 4: escritura atomica bajo el bloqueo de la sesion
@@ -147,7 +157,7 @@ BEGIN
 
             IF @estadoResultado = 1
             BEGIN
-                SELECT @totalTomas = COUNT(1), @numero = ISNULL(MAX(t.numero), 0) + 1,
+                SELECT @totalTomas = COUNT(1), @numero = ISNULL(MAX(t.numero), 0) + 1, -- ISNULL sobre agregacion (permitido): MAX
                        @idTomaAbierta = CAST(MAX(IIF(t.fechaCierreUtc IS NULL, CAST(t.id AS NVARCHAR(36)), NULL)) AS UNIQUEIDENTIFIER)
                 FROM dbo.TomaAsistencia t WITH (UPDLOCK, HOLDLOCK)
                 WHERE t.sesion = @idSesionDefecto;
@@ -167,8 +177,8 @@ BEGIN
                 BEGIN
                     IF @idTomaAbierta IS NOT NULL
                     BEGIN
-                        SELECT @numeroAnterior = t.numero, @idGrupo = s.grupo
-                        FROM dbo.TomaAsistencia t INNER JOIN dbo.Sesion s ON s.id = t.sesion
+                        SELECT @numeroAnterior = t.numero, @idGrupo = s.idGrupo
+                        FROM dbo.uv_toma_asistencia_registro t INNER JOIN dbo.uv_sesion_registro s ON s.id = t.idSesion
                         WHERE t.id = @idTomaAbierta;
                         EXEC dbo.usp_cerrar_toma_interno
                             @idToma = @idTomaAbierta, @idSesion = @idSesionDefecto, @idGrupo = @idGrupo, @marcarAusentes = NULL,
@@ -192,7 +202,7 @@ BEGIN
                             @idCorrelacionDefecto, NULL);
 
                     SELECT @ventanaCierre = CAST(DATEADD(MINUTE, IIF(@margenMinutos IS NULL OR @margenMinutos < 0, 0, @margenMinutos), s.fechaHoraFin) AS DATETIME2(0))
-                    FROM dbo.Sesion s WHERE s.id = @idSesionDefecto;
+                    FROM dbo.uv_sesion_registro s WHERE s.id = @idSesionDefecto;
                     SET @totalTomas = @totalTomas + 1;
                     SET @horasToma = dbo.ufn_horas_toma(@idSesionDefecto);
 
@@ -210,25 +220,36 @@ BEGIN
             IF @transaccionPropia = 1
             BEGIN
                 IF XACT_STATE() = 1
+                BEGIN
                     COMMIT TRANSACTION;
+                END
                 ELSE IF XACT_STATE() = -1
+                BEGIN
                     ROLLBACK TRANSACTION;
+                END
                 SET @transaccionPropia = 0;
             END
         END
     END TRY
     BEGIN CATCH
+        -- PASO 5: error: revertir lo propio, relanzar si la transaccion externa quedo condenada; si no, SYS_001
         SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
             ROLLBACK TRANSACTION sp_abrir_toma;
+        END
 
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;

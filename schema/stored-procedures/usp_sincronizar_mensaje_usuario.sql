@@ -25,6 +25,7 @@ GO
 -- SKILLS-BD lote 3 (2026-11-25): IF con BEGIN/END y la fecha nueva se relee con el bloqueo que ya tiene la fila (la vista
 -- uv_mensaje_usuario filtra los inactivos, asi que no sirve para esta relectura); mismo comportamiento.
 -- ============================================================================
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): integracion externa sin usuario con perfil; exige @idCorrelacion.
 CREATE OR ALTER PROCEDURE [dbo].[usp_sincronizar_mensaje_usuario]
 (
     @codigo        VARCHAR(100),

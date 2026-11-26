@@ -9,6 +9,7 @@ GO
 -- responde exito sin cambios. La fila se conserva (estado = 0) para que la identidad revocada no pueda reutilizarse
 -- ni reasignarse a otra cuenta sin una decision explicita. Un vinculo inexistente responde GEN_001.
 -- SKILLS-BD lote 3 (2026-11-25): DECLARE en la cabecera e IF con BEGIN/END; mismo comportamiento.
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): integracion externa sin usuario con perfil; exige @idCorrelacion.
 CREATE OR ALTER PROCEDURE [dbo].[usp_revocar_identidad_externa]
 (
     @emisor         NVARCHAR(400),

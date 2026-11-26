@@ -17,6 +17,7 @@ GO
 -- ============================================================================
 -- SKILLS-BD lote 11 (2026-11-26): PASO n, IF con BEGIN/END, IIF en lugar de ISNULL y lecturas sin bloqueo por vistas uv_* (antes,
 -- las tablas). La lectura con UPDLOCK, HOLDLOCK de dbo.RevisionCancelacion y las escrituras siguen en las tablas. Mismo resultado.
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): job del servidor sin @idUsuarioEjecutor; exige @idCorrelacion.
 CREATE OR ALTER PROCEDURE [dbo].[usp_actualizar_resolutores_revisiones_cancelacion]
 (
     @idCorrelacion UNIQUEIDENTIFIER,

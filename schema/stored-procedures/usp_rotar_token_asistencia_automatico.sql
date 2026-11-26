@@ -14,6 +14,8 @@ GO
 -- usp_rotar_token_matricula_automatico; solo el rol de runtime del backend tiene EXECUTE). Con @forzar = 0 solo rota si el
 -- token debe rotar; si otra instancia ya roto responde exito con rotado = 0 (multi-instancia segura).
 -- ============================================================================
+-- SKILLS-BD lote 12 (2026-11-26): PASO n. Mismo resultado.
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): job del servidor sin @idUsuarioEjecutor; exige @idCorrelacion.
 CREATE OR ALTER PROCEDURE [dbo].[usp_rotar_token_asistencia_automatico]
 (
     @idToma        UNIQUEIDENTIFIER,
@@ -43,6 +45,7 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
     BEGIN TRY
+        -- PASO 1: Transaccion propia o punto de guardado
         IF @@TRANCOUNT = 0
         BEGIN
             BEGIN TRANSACTION;
@@ -54,6 +57,7 @@ BEGIN
             SET @savepointCreado = 1;
         END
 
+        -- PASO 2: Rotar el token de la toma (nucleo interno, sin usuario)
         EXEC dbo.usp_rotar_token_asistencia_interno
             @idCorrelacion = @idCorrelacionDefecto, @idToma = @idToma, @tokenHash = @tokenHash, @pin = @pin,
             @forzar = @forzar, @idUsuarioManual = NULL,
@@ -62,27 +66,39 @@ BEGIN
             @idTokenAsistencia = @idTokenAsistencia OUTPUT, @idDocenteEmisor = @idDocenteEmisor OUTPUT, @idGrupo = @idGrupo OUTPUT,
             @fechaRotacionUtc = @fechaRotacionUtc OUTPUT, @fechaExpiracionUtc = @fechaExpiracionUtc OUTPUT, @rotado = @rotado OUTPUT;
 
+        -- PASO 3: Confirmar la transaccion propia
         IF @transaccionPropia = 1
         BEGIN
             IF XACT_STATE() = 1
+            BEGIN
                 COMMIT TRANSACTION;
+            END
             ELSE IF XACT_STATE() = -1
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
             SET @transaccionPropia = 0;
         END
     END TRY
     BEGIN CATCH
+        -- PASO 4: Error: revertir lo propio, relanzar si la transaccion externa quedo condenada; si no, SYS_001
         SET @estadoTransaccionCatch = XACT_STATE();
         IF @transaccionPropia = 1
         BEGIN
             IF @estadoTransaccionCatch <> 0
+            BEGIN
                 ROLLBACK TRANSACTION;
+            END
         END
         ELSE IF @savepointCreado = 1 AND @estadoTransaccionCatch = 1
+        BEGIN
             ROLLBACK TRANSACTION sp_rotar_token_asistencia_auto;
+        END
 
         IF @transaccionPropia = 0 AND @estadoTransaccionCatch = -1
+        BEGIN
             THROW;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT, @mensajeTecnicoResultado = @mensajeTecnicoResultado OUTPUT;
@@ -90,6 +106,7 @@ BEGIN
         SET @estadoResultado = 0;
     END CATCH
 
+    -- PASO 5: Resultado
     SELECT
         idCorrelacion           = @idCorrelacionDefecto,
         mensajeUsuarioResultado = @mensajeUsuarioResultado,

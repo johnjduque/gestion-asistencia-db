@@ -13,6 +13,7 @@ GO
 -- 12 SP y las pruebas de RBAC (excepcion E8 de docs/arquitectura/excepciones-skills-bd.md).
 -- SKILLS-BD lote 3 (2026-11-25): PASO n y TRY/CATCH (relanza el error al llamador); mismo comportamiento.
 -- ============================================================================
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): utilidad transversal sin ejecutor propio (la llaman otros SP).
 CREATE OR ALTER PROCEDURE [dbo].[usp_establecer_contexto_usuario_ejecutor]
     @p_idUsuario UNIQUEIDENTIFIER
 AS

@@ -16,6 +16,7 @@ GO
 -- Lote: @tamanoLote o, si es NULL, AVISO_FALTA_SESION/LOTE. Con AVISO_FALTA_SESION/HABILITADO = false devuelve 0 filas.
 -- ============================================================================
 -- SKILLS-BD lote 8 (2026-11-26): PASO n, IF con BEGIN/END, sin ISNULL (IIF/IF equivalentes), avisos por uv_aviso_falta_sesion (antes, la tabla) y TRY/CATCH de lectura que relanza. Mismo resultado.
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): job del servidor sin @idUsuarioEjecutor; exige @idCorrelacion.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_sesiones_pendientes_aviso_falta]
 (
     @idCorrelacion UNIQUEIDENTIFIER,

@@ -15,6 +15,7 @@ GO
 -- negativos) y SES_001 (sesion inexistente).
 -- ============================================================================
 -- SKILLS-BD lote 8 (2026-11-26): DECLARE en la cabecera, PASO n, IF con BEGIN/END y sesion por uv_sesion (antes, la tabla). La lectura con UPDLOCK/HOLDLOCK sigue en la tabla. Mismo resultado.
+-- SP_SISTEMA (excepcion E1, docs/arquitectura/excepciones-skills-bd.md): job del servidor sin @idUsuarioEjecutor; exige @idCorrelacion.
 CREATE OR ALTER PROCEDURE [dbo].[usp_registrar_aviso_falta_sesion]
 (
     @idSesion                 UNIQUEIDENTIFIER,
