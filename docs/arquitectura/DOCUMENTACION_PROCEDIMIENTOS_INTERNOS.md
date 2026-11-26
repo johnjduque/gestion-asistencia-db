@@ -519,3 +519,17 @@ Mismo nombre, misma firma y mismo comportamiento; prueba `test/test_skills_lote3
 | `usp_validar_titularidad_jerarquica_interno` | Rama `INSTITUCION` por `uv_administrador` (antes, la tabla `Administrador`) |
 | `usp_validar_perfil_existe_por_codigo_interno`, `usp_validar_tipo_identificacion_exista_por_id_interno`, `usp_validar_unicidad_usuario_interno`, `usp_validar_usuario_existe_por_id_interno` | Ya cumplían; el lote solo agrega su prueba directa (`SKL3_R04`) |
 | `usp_obtener_mensaje_catalogo`, `usp_establecer_contexto_usuario_ejecutor` | Utilidades transversales: corregidas con la firma heredada (excepción E8). El primero gana `@estadoResultado` OUTPUT opcional al final |
+
+## Addendum SKILLS-BD lote 4 (2026-11-25): decano, facultad, coordinador y programas
+
+Mismo nombre, misma firma y mismo comportamiento; prueba `test/test_skills_lote4_caracterizacion.sql` (`SKL4_*`).
+
+| Interno | Cambio en el lote 4 |
+| :--- | :--- |
+| `usp_crear_decano_interno` | `DECLARE` en la cabecera; rol de decano por la vista nueva `uv_decano_rol` y tipo de documento por `uv_tipo_identificacion`; `IF` con `BEGIN/END`; `TRY/CATCH` con `SYS_001` que relanza si hay transacción abierta |
+| `usp_crear_coordinador_interno` | Igual que el anterior, con el coordinador leído por `uv_coordinador_identidad` (la reactivación sigue escribiendo en `dbo.Coordinador`) |
+| `usp_resolver_facultad_decano_interno`, `usp_resolver_institucion_administrador_interno`, `usp_resolver_programa_coordinador_interno` | Resolvers que rechazan con `THROW`: `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END`, rol de decano por `uv_decano_rol` y `TRY/CATCH` que relanza (sin triplete, como antes) |
+| `usp_validar_programa_en_facultad_interno` | Validador sin triplete: `DECLARE` en la cabecera, `PASO n` y `TRY/CATCH` que relanza; mismo `THROW` de `GEN_001` |
+| `usp_validar_programa_academico_interno` | `PASO n`; coordinador actual por `uv_programa` (antes, la tabla); `TRY/CATCH`: dentro de una transacción relanza para que el llamador revierta, sin transacción devuelve `SYS_001`. Las lecturas con `UPDLOCK, HOLDLOCK` (`Coordinador`, `Programa`) siguen en la tabla |
+| `usp_validar_coordinador_de_facultad_interno` | `PASO n` y `@idCorrelacionDefecto` en los mensajes |
+| `usp_actualizar_facultad_interno`, `usp_cambiar_estado_facultad_interno`, `usp_insertar_programa_academico_interno`, `usp_actualizar_programa_academico_interno`, `usp_cambiar_estado_programa_academico_interno` | Solo comentarios `PASO n`; ya cumplían el resto |

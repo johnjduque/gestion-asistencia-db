@@ -20,6 +20,8 @@ GO
 -- Ambito: perfil DECANO; filas de uv_auth_programa (fail-closed) restringidas a la facultad a su cargo (uv_decano).
 -- SESSION_CONTEXT: se captura el previo y SIEMPRE se restaura (exito y error).
 -- ============================================================================
+-- SKILLS-BD lote 4 (2026-11-25): vinculos asignatura-plan por uv_asignatura_plan_estudio (antes, la tabla puente),
+-- PASO n y comentario del CATCH de lectura; mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_programas_creditos_facultad_paginado]
 (
     @idUsuarioEjecutor  UNIQUEIDENTIFIER,
@@ -62,12 +64,12 @@ BEGIN
         -- PASO 2: Consulta y retorno de resultados
         WITH totalesPlan AS (
             SELECT  sp.idPlanEstudio,
-                    totalSemestres = ISNULL(MAX(sp.numeroSemestre), 0),
-                    totalAsignaturas = COUNT(a.id),
-                    totalCreditos = SUM(a.credito)
+                    totalSemestres = ISNULL(MAX(sp.numeroSemestre), 0),   -- ISNULL sobre agregacion (permitido)
+                    totalAsignaturas = COUNT(ape.idAsignatura),
+                    totalCreditos = SUM(ape.credito)
             FROM    dbo.uv_semestre_plan_estudio sp
-            LEFT JOIN dbo.AsignaturaPlanEstudio ape ON ape.semestrePlanEstudio = sp.id AND ape.estaActivo = 1   -- CULM-001 B2NM: vinculos activos de la tabla puente
-            LEFT JOIN dbo.uv_asignatura a ON a.id = ape.asignatura
+            -- CULM-001 B2NM: vinculos activos; uv_asignatura_plan_estudio ya trae la asignatura (antes, la tabla puente + uv_asignatura)
+            LEFT JOIN dbo.uv_asignatura_plan_estudio ape ON ape.idSemestrePlanEstudio = sp.id AND ape.estaActivoVinculo = 1
             GROUP BY sp.idPlanEstudio
         )
         SELECT
@@ -100,9 +102,12 @@ BEGIN
         OFFSET @offset ROWS
         FETCH NEXT @tamanoPagina ROWS ONLY;
 
+        -- PASO 3: Restaurar el contexto de sesion previo
         EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
     END TRY
     BEGIN CATCH
+        -- PASO 4: consulta de lectura (READ_QUERY_RESULTSET): se restaura el contexto y el error, incluido el
+        -- rechazo de validacion, se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
         EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
         THROW;
     END CATCH;
