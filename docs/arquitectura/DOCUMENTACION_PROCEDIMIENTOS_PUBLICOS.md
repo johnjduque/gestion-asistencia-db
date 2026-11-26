@@ -596,3 +596,19 @@ Misma firma, mismo resultset y mismos códigos; prueba `test/test_skills_lote5_c
 | `usp_consultar_docentes_facultad_paginado` | Solo el comentario del `CATCH` de lectura |
 
 Los `CATCH` de las consultas relanzan el error (READ_QUERY_RESULTSET), igual que en los lotes anteriores.
+
+## Addendum SKILLS-BD lote 6 (2026-11-26): asignaturas y planes de estudio
+
+Misma firma, mismo resultset y mismos códigos; prueba `test/test_skills_lote6_caracterizacion.sql` más las de dominio de cada SP.
+
+| SP | Cambio en el lote 6 |
+| :--- | :--- |
+| `usp_agregar_semestre_plan_estudio`, `usp_quitar_semestre_plan_estudio` | Plan, semestres y vínculos por `uv_plan_estudio`, `uv_semestre_plan_estudio`, `uv_semestre` y `uv_asignatura_plan_estudio` (antes, las tablas). El bloqueo `UPDLOCK, HOLDLOCK` del plan sigue en la tabla, y las lecturas siguientes van bajo ese bloqueo |
+| `usp_cambiar_estado_plan_estudio` | Programa del plan por `uv_plan_estudio` |
+| `usp_registrar_o_actualizar_plan_estudio` | Plan existente y unicidad `(programa, inp)` por `uv_plan_estudio` (bajo el bloqueo del programa, que sigue en la tabla); `IF` con `BEGIN/END`; `DECLARE` del `CATCH` a la cabecera |
+| `usp_toggle_estado_asignatura` | Sin `COALESCE` (un `IIF` equivalente); `IF` con `BEGIN/END`; `PASO n`. La lectura con `UPDLOCK, HOLDLOCK` sigue en la tabla |
+| `usp_consultar_asignaturas_asociables_paginado`, `usp_consultar_asignaturas_plan_paginado` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END`, `TRY/CATCH` de lectura y plan por `uv_plan_estudio`/`uv_programa` (antes, las tablas) |
+| `usp_consultar_asignaturas_coordinador_paginado`, `usp_consultar_planes_estudio_programa_paginado` | `DECLARE` en la cabecera, `PASO n`, `IF` con `BEGIN/END` y `TRY/CATCH` de lectura |
+| `usp_buscar_asignaturas_paginado`, `usp_consultar_componentes_formacion` | Comentario del `CATCH` de lectura (y `PASO n` en el primero) |
+
+Los `ISNULL`/`COALESCE` que quedan en este grupo son sobre agregaciones (`MAX`, `SUM`), permitidos por la skill.

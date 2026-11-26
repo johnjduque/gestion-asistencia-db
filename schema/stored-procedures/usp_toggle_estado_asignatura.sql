@@ -21,6 +21,8 @@ GO
 --     UPDATE ocurre en la misma transaccion. usp_crear_grupo toma el mismo bloqueo antes de validar ASI_010 e insertar: una
 --     inactivacion y una creacion de grupo simultaneas sobre la misma asignatura se serializan.
 -- =============================================================================
+-- SKILLS-BD lote 6 (2026-11-26): sin COALESCE (IIF equivalente), IF con BEGIN/END y PASO n. La lectura con UPDLOCK,
+-- HOLDLOCK sigue en la tabla. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_toggle_estado_asignatura]
 (
     @idAsignatura   UNIQUEIDENTIFIER,
@@ -83,7 +85,7 @@ BEGIN
             FROM dbo.Asignatura a WITH (UPDLOCK, HOLDLOCK)
             WHERE a.id = @idAsignaturaDefecto;
 
-            SET @estaActivaNueva = COALESCE(@estaActivaDeseada, IIF(@estaActivaActual = 1, 0, 1));
+            SET @estaActivaNueva = IIF(@estaActivaDeseada IS NULL, IIF(@estaActivaActual = 1, 0, 1), @estaActivaDeseada);
 
             IF @estaActivaActual = 1 AND @estaActivaNueva = 0
                AND EXISTS (SELECT 1
@@ -97,14 +99,19 @@ BEGIN
             ELSE
             BEGIN
                 IF @estaActivaNueva <> @estaActivaActual
+                BEGIN
                     UPDATE dbo.Asignatura
                     SET estado = @estaActivaNueva
                     WHERE id = @idAsignaturaDefecto;
+                END
 
                 SET @codigoResultado = IIF(@estaActivaNueva = 1, 'ASI_011', 'ASI_012');
             END
 
-            IF @transaccionPropia = 1 COMMIT TRANSACTION;
+            IF @transaccionPropia = 1
+            BEGIN
+                COMMIT TRANSACTION;
+            END
 
             EXEC dbo.usp_obtener_mensaje_catalogo
                 @p_codigo = @codigoResultado,
@@ -116,7 +123,11 @@ BEGIN
 
     END TRY
     BEGIN CATCH
-        IF XACT_STATE() <> 0 AND @transaccionPropia = 1 ROLLBACK TRANSACTION;
+        -- PASO 4: Error inesperado: revierte la transaccion propia y devuelve SYS_001
+        IF XACT_STATE() <> 0 AND @transaccionPropia = 1
+        BEGIN
+            ROLLBACK TRANSACTION;
+        END
 
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',

@@ -39,6 +39,8 @@ PRINT '======================================================================';
 :r /tmp/test/test_skills_lote4_caracterizacion.sql
 -- SKILLS-BD lote 5 (2026-11-26): docentes y grupos (vinculos docente-programa, grupos y consultas por vistas uv_*)
 :r /tmp/test/test_skills_lote5_caracterizacion.sql
+-- SKILLS-BD lote 6 (2026-11-26): asignaturas y planes de estudio (validadores de asignatura y consultas por vistas uv_*)
+:r /tmp/test/test_skills_lote6_caracterizacion.sql
 :r /tmp/test/test_reactive_academic.sql
 :r /tmp/test/test_mass_period_close.sql
 :r /tmp/test/test_usp_registrar_estudiante_en_grupo_usuario_no_existente.sql

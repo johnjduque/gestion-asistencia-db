@@ -14,6 +14,8 @@ GO
 --     activo en ese plan (ASI_004).
 -- Asignatura inexistente: VAL_002. Sin ningun programa coordinado con vinculo activo: SEC_002.
 -- =============================================================================
+-- SKILLS-BD lote 6 (2026-11-26): asignatura, plan y vinculo por uv_asignatura, uv_plan_estudio y uv_asignatura_plan_estudio
+-- (antes, las tablas), IF con BEGIN/END y PASO n; mismos codigos.
 CREATE OR ALTER PROCEDURE [dbo].[usp_validar_gestion_asignatura_coordinador_interno]
 (
     @idAsignatura            UNIQUEIDENTIFIER,
@@ -66,23 +68,30 @@ BEGIN
         END
 
         -- PASO 3: Existencia de la asignatura
-        IF @estadoResultado = 1 AND NOT EXISTS (SELECT 1 FROM dbo.Asignatura WHERE id = @idAsignaturaDefecto)
+        IF @estadoResultado = 1 AND NOT EXISTS (SELECT 1 FROM dbo.uv_asignatura WHERE id = @idAsignaturaDefecto)
+        BEGIN
             SET @codigoRechazo = 'VAL_002';
+        END
 
         -- PASO 4: Ambito
         IF @estadoResultado = 1 AND @codigoRechazo IS NULL
         BEGIN
             IF @idPlanEstudio IS NOT NULL
             BEGIN
-                SELECT @idProgramaPlan = pe.programa FROM dbo.PlanEstudio pe WHERE pe.id = @idPlanEstudio;
+                SELECT @idProgramaPlan = pe.idPrograma FROM dbo.uv_plan_estudio pe WHERE pe.id = @idPlanEstudio;
                 IF @idProgramaPlan IS NULL
+                BEGIN
                     SET @codigoRechazo = 'PLA_002';
+                END
                 ELSE IF NOT EXISTS (SELECT 1 FROM dbo.ufn_programas_coordinador(@idUsuarioEjecutorDefecto) cp WHERE cp.idPrograma = @idProgramaPlan)
+                BEGIN
                     SET @codigoRechazo = 'SEC_002';
-                ELSE IF NOT EXISTS (SELECT 1 FROM dbo.AsignaturaPlanEstudio ape
-                                    INNER JOIN dbo.SemestrePlanEstudio spe ON spe.id = ape.semestrePlanEstudio
-                                    WHERE ape.asignatura = @idAsignaturaDefecto AND spe.planEstudio = @idPlanEstudio AND ape.estaActivo = 1)
+                END
+                ELSE IF NOT EXISTS (SELECT 1 FROM dbo.uv_asignatura_plan_estudio v
+                                    WHERE v.idAsignatura = @idAsignaturaDefecto AND v.idPlanEstudio = @idPlanEstudio AND v.estaActivoVinculo = 1)
+                BEGIN
                     SET @codigoRechazo = 'ASI_004';
+                END
             END
             ELSE
             BEGIN
@@ -93,12 +102,17 @@ BEGIN
                 WHERE v.idAsignatura = @idAsignaturaDefecto AND v.estaActivoVinculo = 1;
 
                 IF @totalCoordinados = 0
+                BEGIN
                     SET @codigoRechazo = 'SEC_002';
+                END
                 ELSE IF @exigirTodosLosProgramas = 1 AND @totalCoordinados < @totalProgramas
+                BEGIN
                     SET @codigoRechazo = 'ASI_006';
+                END
             END
         END
 
+        -- PASO 5: Rechazo con el mensaje del catalogo
         IF @codigoRechazo IS NOT NULL
         BEGIN
             EXEC dbo.usp_obtener_mensaje_catalogo
@@ -112,6 +126,7 @@ BEGIN
         END
     END TRY
     BEGIN CATCH
+        -- PASO 6: Error inesperado: triplete SYS_001
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,

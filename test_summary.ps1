@@ -1355,6 +1355,8 @@ $criticalIds = @(
     # SKILLS-BD lote 5 2026-11-26 (test/test_skills_lote5_caracterizacion.sql)
     'SKL5_R01_DOCENTE_EXISTE', 'SKL5_R02_VINCULO_ACTIVO', 'SKL5_R03_VINCULAR_NUCLEO', 'SKL5_R04_SINCRONIZAR_DOCENTE', 'SKL5_R05_CUPO_GRUPO',
     'SKL5_R06_CONSULTA_TITULAR',
+    # SKILLS-BD lote 6 2026-11-26 (test/test_skills_lote6_caracterizacion.sql)
+    'SKL6_R01_ASIGNATURA_ACTIVA', 'SKL6_R02_GESTION_VALIDACIONES', 'SKL6_R03_GESTION_PLAN', 'SKL6_R04_GESTION_PROGRAMAS',
     'T-091-13',
     # P3 fase F5 (migracion 71 en test/test_p3_f5_notificaciones_migracion_71.ps1)
     'P3F5_MIG71_UP_DOWN_UP',

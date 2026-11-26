@@ -546,3 +546,12 @@ Mismo nombre, misma firma y mismo comportamiento; prueba `test/test_skills_lote5
 | `usp_sincronizar_docente_interno` | Unicidad del rol de docente por `uv_docente_identidad` (antes, `dbo.Docente`) |
 | `usp_validar_cupo_disponible_grupo_interno` | `DECLARE` de `@cuposRestantes` en la cabecera |
 | `usp_validar_docente_exista_por_id_interno` | Sin cambios: ya cumplía; queda cubierto por la prueba del lote |
+
+## Addendum SKILLS-BD lote 6 (2026-11-26): asignaturas y planes de estudio
+
+Mismo nombre, misma firma y mismo comportamiento; prueba `test/test_skills_lote6_caracterizacion.sql` (`SKL6_*`).
+
+| Interno | Cambio en el lote 6 |
+| :--- | :--- |
+| `usp_validar_asignatura_activa_interno` | `IF` con `BEGIN/END`; `TRY/CATCH`: dentro de una transacción relanza para que el llamador revierta, sin transacción devuelve `SYS_001`. La lectura con `UPDLOCK, HOLDLOCK` (`@bloquearFila = 1`) sigue en la tabla |
+| `usp_validar_gestion_asignatura_coordinador_interno` | Asignatura, plan y vínculo por `uv_asignatura`, `uv_plan_estudio` y `uv_asignatura_plan_estudio` (antes, las tablas); `IF` con `BEGIN/END` y `PASO n`; mismos códigos (`GEN_002`, `VAL_002`, `PLA_002`, `SEC_002`, `ASI_004`, `ASI_006`) |

@@ -19,6 +19,7 @@ GO
 -- que administra el ejecutor (uv_administrador) o a la facultad a su cargo (uv_decano).
 -- SESSION_CONTEXT: se captura el previo y SIEMPRE se restaura (exito y error).
 -- ============================================================================
+-- SKILLS-BD lote 6 (2026-11-26): PASO n y comentario del CATCH de lectura; mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_buscar_asignaturas_paginado]
 (
     @idUsuarioEjecutor  UNIQUEIDENTIFIER,
@@ -102,9 +103,12 @@ BEGIN
         OFFSET @offset ROWS
         FETCH NEXT @tamanoPagina ROWS ONLY;
 
+        -- PASO 3: Restaurar el contexto de sesion previo
         EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
     END TRY
     BEGIN CATCH
+        -- PASO 4: consulta de lectura (READ_QUERY_RESULTSET): se restaura el contexto y el error, incluido el
+        -- rechazo de validacion, se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
         EXEC sys.sp_set_session_context @key = N'idUsuarioEjecutor', @value = @contextoPrevio, @read_only = 0;
         THROW;
     END CATCH;

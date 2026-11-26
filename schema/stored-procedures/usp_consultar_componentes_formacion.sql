@@ -17,6 +17,7 @@ GO
 -- Las fallas se propagan con THROW (VAL_001 / SEC_001).
 -- Ambito: perfiles ADMINISTRADOR, DECANO o COORDINADOR; el catalogo es comun a la institucion.
 -- ============================================================================
+-- SKILLS-BD lote 6 (2026-11-26): comentario del CATCH de lectura; mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_componentes_formacion]
 (
     @idUsuarioEjecutor  UNIQUEIDENTIFIER,
@@ -79,6 +80,8 @@ BEGIN
         ORDER BY c.nombre ASC, c.id ASC;
     END TRY
     BEGIN CATCH
+        -- PASO 5: consulta de lectura (READ_QUERY_RESULTSET): el error, incluido el rechazo de validacion,
+        -- se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
         THROW;
     END CATCH;
 END;
