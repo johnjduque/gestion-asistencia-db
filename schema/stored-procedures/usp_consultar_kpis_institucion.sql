@@ -15,6 +15,8 @@ GO
 -- CIERRE-W3I: columnas nuevas AL FINAL: facultadesActivas, totalDecanos y decanosActivos (decanos de las facultades de la institucion; un decano sin
 -- facultad no tiene institucion resoluble y no se cuenta, igual que el directorio de estudiantes).
 -- ============================================================================
+-- SKILLS-BD lote 10 (2026-11-26): DECLARE en la cabecera (los que dependen del ambito resuelto se asignan con SET en su paso) y
+-- TRY/CATCH de lectura que relanza. Mismas consultas y mismas pistas de consulta. Mismo resultado.
 CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_kpis_institucion]
 (
     @idUsuarioEjecutor  UNIQUEIDENTIFIER,
@@ -22,119 +24,133 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_consultar_kpis_institucion]
     @idPeriodoAcademico UNIQUEIDENTIFIER = NULL
 )
 AS
-BEGIN
-    SET NOCOUNT ON;
     DECLARE @idInstitucion UNIQUEIDENTIFIER, @idPeriodo UNIQUEIDENTIFIER;
-
-    -- PASO 1: Resolver ambito del ejecutor (usp_resolver_institucion_administrador_interno)
-    EXEC dbo.usp_resolver_institucion_administrador_interno @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacion, @validarUmbrales = 1, @idInstitucion = @idInstitucion OUTPUT;
-    -- PASO 2: Resolver ambito del ejecutor (usp_resolver_periodo_kpi_institucion_interno)
-    EXEC dbo.usp_resolver_periodo_kpi_institucion_interno @idInstitucion = @idInstitucion, @idPeriodoSolicitado = @idPeriodoAcademico, @idPeriodo = @idPeriodo OUTPUT;
-
-    DECLARE @facultades INT = (SELECT COUNT(*) FROM dbo.uv_facultad f WHERE f.idInstitucion = @idInstitucion);
-    DECLARE @programas INT = (SELECT COUNT(*) FROM dbo.uv_programa p WHERE p.idInstitucion = @idInstitucion);
-    DECLARE @estudiantesRegistrados INT = (
-        SELECT COUNT(DISTINCT ep.idEstudiante)
-        FROM dbo.uv_estudiante_programa ep
-        INNER JOIN dbo.uv_programa p ON p.id = ep.idPrograma
-        INNER JOIN dbo.uv_estudiante_identidad ei ON ei.id = ep.idEstudiante
-        WHERE p.idInstitucion = @idInstitucion AND ei.estaActivoUsuario = 1);
-    DECLARE @docentesRegistrados INT = (
-        SELECT COUNT(DISTINCT g.idDocente)
-        FROM dbo.uv_grupo g
-        INNER JOIN dbo.uv_grupo_programa gp ON gp.idGrupo = g.id
-        INNER JOIN dbo.uv_programa p ON p.id = gp.idPrograma
-        INNER JOIN dbo.uv_docente_identidad di ON di.id = g.idDocente
-        WHERE p.idInstitucion = @idInstitucion AND di.estaActivoUsuario = 1);
-
-    DECLARE @totalDecanos INT = (SELECT COUNT(DISTINCT d.id) FROM dbo.uv_decano d WHERE d.idInstitucion = @idInstitucion);
-    DECLARE @facultadesActivas INT = (SELECT COUNT(*) FROM dbo.uv_facultad f WHERE f.idInstitucion = @idInstitucion AND f.estaActivaFacultad = 1);
-    DECLARE @decanosActivos INT = (SELECT COUNT(DISTINCT d.id) FROM dbo.uv_decano d WHERE d.idInstitucion = @idInstitucion AND d.estaActivoDecano = 1);
-
     DECLARE @total INT = 0, @regulares INT = 0, @riesgo INT = 0, @perdida INT = 0;
     DECLARE @sesiones INT = 0, @faltas INT = 0;
     DECLARE @tomasDictadas INT = 0, @horasDictadas DECIMAL(12,6) = 0, @horasFalta DECIMAL(12,6) = 0, @horasPeriodo DECIMAL(12,6) = 0;
     DECLARE @vencidas INT = 0, @conRegistro INT = 0;
     DECLARE @docentesActivos INT = 0;
+    DECLARE @facultades INT;
+    DECLARE @programas INT;
+    DECLARE @estudiantesRegistrados INT;
+    DECLARE @docentesRegistrados INT;
+    DECLARE @totalDecanos INT;
+    DECLARE @facultadesActivas INT;
+    DECLARE @decanosActivos INT;
+    DECLARE @ausentismo DECIMAL(5,2);
+BEGIN
+    SET NOCOUNT ON;
 
-    -- PASO 3: Calcular los indicadores del periodo
-    IF @idPeriodo IS NOT NULL
-    BEGIN
-        SELECT  @total = COUNT(*),
-                @regulares = ISNULL(SUM(IIF(x.peor = 1, 1, 0)), 0),
-                @riesgo = ISNULL(SUM(IIF(x.peor = 2, 1, 0)), 0),
-                @perdida = ISNULL(SUM(IIF(x.peor = 3, 1, 0)), 0)
-        FROM (
-                SELECT  r.idEstudiante,
-                        peor = MAX(CASE r.codigoPermanencia WHEN N'PERDIDA' THEN 3 WHEN N'RIESGO' THEN 2 ELSE 1 END)
-                FROM    dbo.uv_resumen_asistencia_estudiante_grupo r
-                WHERE   EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo_programa egp INNER JOIN dbo.uv_programa p ON p.id = egp.idPrograma WHERE egp.id = r.idEstudianteGrupo AND p.idInstitucion = @idInstitucion) AND r.idPeriodoAcademico = @idPeriodo AND r.codigoEstadoEstudiante = N'A'
-                GROUP BY r.idEstudiante
-             ) x
-        OPTION (NO_PERFORMANCE_SPOOL); -- 2026-11-24: sin esta opcion el plan re-evalua las horas por matricula con un spool (~240 s con 6.3 mil matriculas; ~3 s con ella)
+    BEGIN TRY
+        -- PASO 1: Resolver ambito del ejecutor (usp_resolver_institucion_administrador_interno)
+        EXEC dbo.usp_resolver_institucion_administrador_interno @idUsuarioEjecutor = @idUsuarioEjecutor, @idCorrelacion = @idCorrelacion, @validarUmbrales = 1, @idInstitucion = @idInstitucion OUTPUT;
+        -- PASO 2: Resolver ambito del ejecutor (usp_resolver_periodo_kpi_institucion_interno)
+        EXEC dbo.usp_resolver_periodo_kpi_institucion_interno @idInstitucion = @idInstitucion, @idPeriodoSolicitado = @idPeriodoAcademico, @idPeriodo = @idPeriodo OUTPUT;
 
-        SELECT  @sesiones = ISNULL(SUM(r.sesionesEjecutadas), 0),
-                @faltas = ISNULL(SUM(r.faltasSinJustaCausa), 0),
-                @tomasDictadas = ISNULL(SUM(r.tomasDictadas), 0),
-                @horasDictadas = ISNULL(SUM(r.horasDictadas), 0),
-                @horasFalta = ISNULL(SUM(r.horasFalta), 0),
-                @horasPeriodo = ISNULL(SUM(r.horasPeriodo), 0)
-        FROM    dbo.uv_resumen_asistencia_estudiante_grupo r
-        WHERE   EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo_programa egp INNER JOIN dbo.uv_programa p ON p.id = egp.idPrograma WHERE egp.id = r.idEstudianteGrupo AND p.idInstitucion = @idInstitucion) AND r.idPeriodoAcademico = @idPeriodo AND r.codigoEstadoEstudiante = N'A'
-        OPTION (NO_PERFORMANCE_SPOOL);
+        SET @facultades = (SELECT COUNT(*) FROM dbo.uv_facultad f WHERE f.idInstitucion = @idInstitucion);
+        SET @programas = (SELECT COUNT(*) FROM dbo.uv_programa p WHERE p.idInstitucion = @idInstitucion);
+        SET @estudiantesRegistrados = (
+            SELECT COUNT(DISTINCT ep.idEstudiante)
+            FROM dbo.uv_estudiante_programa ep
+            INNER JOIN dbo.uv_programa p ON p.id = ep.idPrograma
+            INNER JOIN dbo.uv_estudiante_identidad ei ON ei.id = ep.idEstudiante
+            WHERE p.idInstitucion = @idInstitucion AND ei.estaActivoUsuario = 1);
+        SET @docentesRegistrados = (
+            SELECT COUNT(DISTINCT g.idDocente)
+            FROM dbo.uv_grupo g
+            INNER JOIN dbo.uv_grupo_programa gp ON gp.idGrupo = g.id
+            INNER JOIN dbo.uv_programa p ON p.id = gp.idPrograma
+            INNER JOIN dbo.uv_docente_identidad di ON di.id = g.idDocente
+            WHERE p.idInstitucion = @idInstitucion AND di.estaActivoUsuario = 1);
 
-        SELECT  @vencidas = ISNULL(SUM(IIF(c.estaVencida = 1, 1, 0)), 0),
-                @conRegistro = ISNULL(SUM(IIF(c.estaVencida = 1 AND c.tieneRegistroAsistencia = 1, 1, 0)), 0)
-        FROM    dbo.uv_cumplimiento_sesion_grupo c
-        WHERE   EXISTS (SELECT 1 FROM dbo.uv_grupo_programa gp INNER JOIN dbo.uv_programa p ON p.id = gp.idPrograma WHERE gp.idGrupo = c.idGrupo AND p.idInstitucion = @idInstitucion) AND c.idPeriodoAcademico = @idPeriodo;
+        SET @totalDecanos = (SELECT COUNT(DISTINCT d.id) FROM dbo.uv_decano d WHERE d.idInstitucion = @idInstitucion);
+        SET @facultadesActivas = (SELECT COUNT(*) FROM dbo.uv_facultad f WHERE f.idInstitucion = @idInstitucion AND f.estaActivaFacultad = 1);
+        SET @decanosActivos = (SELECT COUNT(DISTINCT d.id) FROM dbo.uv_decano d WHERE d.idInstitucion = @idInstitucion AND d.estaActivoDecano = 1);
 
-        SELECT  @docentesActivos = COUNT(DISTINCT g.idDocente)
-        FROM    dbo.uv_grupo g
-        INNER JOIN dbo.uv_grupo_programa gp ON gp.idGrupo = g.id
-        INNER JOIN dbo.uv_programa p ON p.id = gp.idPrograma
-        INNER JOIN dbo.uv_docente_identidad di ON di.id = g.idDocente
-        WHERE   p.idInstitucion = @idInstitucion AND gp.idPeriodoAcademico = @idPeriodo AND gp.grupoEstaHablitado = 1 AND di.estaActivoUsuario = 1;
-    END
+        -- PASO 3: Calcular los indicadores del periodo (ISNULL sobre agregacion (permitido): SUM sin filas es NULL y el KPI es 0)
+        IF @idPeriodo IS NOT NULL
+        BEGIN
+            SELECT  @total = COUNT(*),
+                    @regulares = ISNULL(SUM(IIF(x.peor = 1, 1, 0)), 0),
+                    @riesgo = ISNULL(SUM(IIF(x.peor = 2, 1, 0)), 0),
+                    @perdida = ISNULL(SUM(IIF(x.peor = 3, 1, 0)), 0)
+            FROM (
+                    SELECT  r.idEstudiante,
+                            peor = MAX(CASE r.codigoPermanencia WHEN N'PERDIDA' THEN 3 WHEN N'RIESGO' THEN 2 ELSE 1 END)
+                    FROM    dbo.uv_resumen_asistencia_estudiante_grupo r
+                    WHERE   EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo_programa egp INNER JOIN dbo.uv_programa p ON p.id = egp.idPrograma WHERE egp.id = r.idEstudianteGrupo AND p.idInstitucion = @idInstitucion) AND r.idPeriodoAcademico = @idPeriodo AND r.codigoEstadoEstudiante = N'A'
+                    GROUP BY r.idEstudiante
+                 ) x
+            OPTION (NO_PERFORMANCE_SPOOL); -- 2026-11-24: sin esta opcion el plan re-evalua las horas por matricula con un spool (~240 s con 6.3 mil matriculas; ~3 s con ella)
 
-    -- CULM-001 B.2 (CONTRACT §2.9, DEC-012/DEC-024): ausentismo por horas = 100 * Sigma horasFalta / Sigma horasDictadas de las
-    -- matriculas A (antes faltas / sesiones); con sesiones de igual duracion y una toma, identico.
-    -- ATA D2: el denominador es Sigma horasPeriodo (horas de todas las sesiones del periodo, no solo las ya dictadas).
-    DECLARE @ausentismo DECIMAL(5,2) = CAST(IIF(@horasPeriodo = 0, NULL, 100.0 * @horasFalta / @horasPeriodo) AS DECIMAL(5,2));
+            SELECT  @sesiones = ISNULL(SUM(r.sesionesEjecutadas), 0),
+                    @faltas = ISNULL(SUM(r.faltasSinJustaCausa), 0),
+                    @tomasDictadas = ISNULL(SUM(r.tomasDictadas), 0),
+                    @horasDictadas = ISNULL(SUM(r.horasDictadas), 0),
+                    @horasFalta = ISNULL(SUM(r.horasFalta), 0),
+                    @horasPeriodo = ISNULL(SUM(r.horasPeriodo), 0)
+            FROM    dbo.uv_resumen_asistencia_estudiante_grupo r
+            WHERE   EXISTS (SELECT 1 FROM dbo.uv_estudiante_grupo_programa egp INNER JOIN dbo.uv_programa p ON p.id = egp.idPrograma WHERE egp.id = r.idEstudianteGrupo AND p.idInstitucion = @idInstitucion) AND r.idPeriodoAcademico = @idPeriodo AND r.codigoEstadoEstudiante = N'A'
+            OPTION (NO_PERFORMANCE_SPOOL);
 
-    -- PASO 4: Consulta y retorno de resultados
-    SELECT
-        idInstitucion = i.id,
-        nombreInstitucion = i.nombre,
-        idPeriodoAcademico = pa.id,
-        nombrePeriodoAcademico = pa.nombre,
-        totalFacultades = @facultades,
-        totalProgramas = @programas,
-        totalEstudiantes = @total,
-        estudiantesRegulares = @regulares,
-        estudiantesRiesgo = @riesgo,
-        estudiantesPerdida = @perdida,
-        tasaRetencion = CAST(IIF(@total = 0, NULL, 100.0 * (@regulares + @riesgo) / @total) AS DECIMAL(5,2)),
-        sesionesEjecutadas = @sesiones,
-        faltasSinJustaCausa = @faltas,
-        porcentajeAusentismo = @ausentismo,
-        porcentajeAsistencia = CAST(IIF(@ausentismo IS NULL, NULL, 100.0 - @ausentismo) AS DECIMAL(5,2)),
-        sesionesVencidas = @vencidas,
-        sesionesConRegistro = @conRegistro,
-        porcentajeCumplimiento = CAST(IIF(@vencidas = 0, NULL, 100.0 * @conRegistro / @vencidas) AS DECIMAL(5,2)),
-        estudiantesConMatriculaActiva = @total,
-        estudiantesRegistrados = @estudiantesRegistrados,
-        docentesConGrupoActivo = @docentesActivos,
-        docentesRegistrados = @docentesRegistrados,
-        umbralAdvertencia = TRY_CAST(NULLIF(TRIM(dbo.ufn_obtener_parametro('ASISTENCIA', 'UMBRAL_ALERTA_ADVERTENCIA')), '') AS DECIMAL(5,2)),
-        umbralPerdida = TRY_CAST(NULLIF(TRIM(dbo.ufn_obtener_parametro('ASISTENCIA', 'UMBRAL_ALERTA_PERDIDA')), '') AS DECIMAL(5,2)),
-        tomasDictadas = @tomasDictadas,
-        horasDictadas = @horasDictadas,
-        horasFalta = @horasFalta,
-        totalDecanos = @totalDecanos,
-        decanosActivos = @decanosActivos,
-        facultadesActivas = @facultadesActivas
-    FROM dbo.uv_institucion i
-    LEFT JOIN dbo.uv_periodo_academico pa ON pa.id = @idPeriodo
-    WHERE i.id = @idInstitucion;
+            SELECT  @vencidas = ISNULL(SUM(IIF(c.estaVencida = 1, 1, 0)), 0),
+                    @conRegistro = ISNULL(SUM(IIF(c.estaVencida = 1 AND c.tieneRegistroAsistencia = 1, 1, 0)), 0)
+            FROM    dbo.uv_cumplimiento_sesion_grupo c
+            WHERE   EXISTS (SELECT 1 FROM dbo.uv_grupo_programa gp INNER JOIN dbo.uv_programa p ON p.id = gp.idPrograma WHERE gp.idGrupo = c.idGrupo AND p.idInstitucion = @idInstitucion) AND c.idPeriodoAcademico = @idPeriodo;
+
+            SELECT  @docentesActivos = COUNT(DISTINCT g.idDocente)
+            FROM    dbo.uv_grupo g
+            INNER JOIN dbo.uv_grupo_programa gp ON gp.idGrupo = g.id
+            INNER JOIN dbo.uv_programa p ON p.id = gp.idPrograma
+            INNER JOIN dbo.uv_docente_identidad di ON di.id = g.idDocente
+            WHERE   p.idInstitucion = @idInstitucion AND gp.idPeriodoAcademico = @idPeriodo AND gp.grupoEstaHablitado = 1 AND di.estaActivoUsuario = 1;
+        END
+
+        -- CULM-001 B.2 (CONTRACT §2.9, DEC-012/DEC-024): ausentismo por horas = 100 * Sigma horasFalta / Sigma horasDictadas de las
+        -- matriculas A (antes faltas / sesiones); con sesiones de igual duracion y una toma, identico.
+        -- ATA D2: el denominador es Sigma horasPeriodo (horas de todas las sesiones del periodo, no solo las ya dictadas).
+        SET @ausentismo = CAST(IIF(@horasPeriodo = 0, NULL, 100.0 * @horasFalta / @horasPeriodo) AS DECIMAL(5,2));
+
+        -- PASO 4: Consulta y retorno de resultados
+        SELECT
+            idInstitucion = i.id,
+            nombreInstitucion = i.nombre,
+            idPeriodoAcademico = pa.id,
+            nombrePeriodoAcademico = pa.nombre,
+            totalFacultades = @facultades,
+            totalProgramas = @programas,
+            totalEstudiantes = @total,
+            estudiantesRegulares = @regulares,
+            estudiantesRiesgo = @riesgo,
+            estudiantesPerdida = @perdida,
+            tasaRetencion = CAST(IIF(@total = 0, NULL, 100.0 * (@regulares + @riesgo) / @total) AS DECIMAL(5,2)),
+            sesionesEjecutadas = @sesiones,
+            faltasSinJustaCausa = @faltas,
+            porcentajeAusentismo = @ausentismo,
+            porcentajeAsistencia = CAST(IIF(@ausentismo IS NULL, NULL, 100.0 - @ausentismo) AS DECIMAL(5,2)),
+            sesionesVencidas = @vencidas,
+            sesionesConRegistro = @conRegistro,
+            porcentajeCumplimiento = CAST(IIF(@vencidas = 0, NULL, 100.0 * @conRegistro / @vencidas) AS DECIMAL(5,2)),
+            estudiantesConMatriculaActiva = @total,
+            estudiantesRegistrados = @estudiantesRegistrados,
+            docentesConGrupoActivo = @docentesActivos,
+            docentesRegistrados = @docentesRegistrados,
+            umbralAdvertencia = TRY_CAST(NULLIF(TRIM(dbo.ufn_obtener_parametro('ASISTENCIA', 'UMBRAL_ALERTA_ADVERTENCIA')), '') AS DECIMAL(5,2)),
+            umbralPerdida = TRY_CAST(NULLIF(TRIM(dbo.ufn_obtener_parametro('ASISTENCIA', 'UMBRAL_ALERTA_PERDIDA')), '') AS DECIMAL(5,2)),
+            tomasDictadas = @tomasDictadas,
+            horasDictadas = @horasDictadas,
+            horasFalta = @horasFalta,
+            totalDecanos = @totalDecanos,
+            decanosActivos = @decanosActivos,
+            facultadesActivas = @facultadesActivas
+        FROM dbo.uv_institucion i
+        LEFT JOIN dbo.uv_periodo_academico pa ON pa.id = @idPeriodo
+        WHERE i.id = @idInstitucion;
+    END TRY
+    BEGIN CATCH
+        -- PASO 5: consulta de lectura (READ_QUERY_RESULTSET): el error, incluido el rechazo de validacion,
+        -- se propaga al llamador, que lo traduce a SYS_001 (sin triplete propio).
+        THROW;
+    END CATCH
 END;
 GO
