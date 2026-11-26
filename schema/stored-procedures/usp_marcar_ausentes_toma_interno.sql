@@ -14,8 +14,9 @@ GO
 -- registradoPorEstudiante = 0 y fechaRegistroUtc = @fechaRegistroUtc (= fechaCierreUtc de la toma: asi uv_faltantes_toma
 -- reconoce el SJC marcado al cerrar). Nunca sobrescribe un detalle existente. No abre transaccion: la del llamador, que ya
 -- tiene bloqueadas la sesion y la toma. Codigo desde dbo.seq_detalle_asistencia_codigo.
--- Las lecturas de matriculas, cabeceras y sesion van a la tabla con UPDLOCK/HOLDLOCK (excepcion de lecturas con bloqueo):
--- son las filas que se van a escribir dentro de la transaccion del llamador. Los catalogos se leen por sus vistas.
+-- Las lecturas que bloquean (las mismas que antes del lote 2: matriculas y cabeceras del PASO 3 y el detalle del PASO 4) van a la
+-- tabla con UPDLOCK/HOLDLOCK (excepcion de lecturas con bloqueo). Las del PASO 4 que nunca bloquearon se leen por vistas finas
+-- (SKILLS-BD lote 16: no se agregan bloqueos nuevos al cierre de la toma). Los catalogos se leen por sus vistas.
 -- Un error devuelve @estadoResultado = 0 con SYS_001 (el llamador lo relanza a su CATCH); si condeno la transaccion del llamador,
 -- el CATCH relanza el error original.
 -- ============================================================================
@@ -69,12 +70,14 @@ BEGIN
                                            registradoPorEstudiante, fechaRegistroUtc)
         SELECT NEWID(), NEXT VALUE FOR dbo.seq_detalle_asistencia_codigo, a.id, 0, @idRazonSjc, s.fechaHoraInicio, s.fechaHoraFin, @idToma,
                0, @fechaRegistroUtc
-        FROM dbo.Asistencia a WITH (UPDLOCK, HOLDLOCK)
-        INNER JOIN dbo.EstudianteGrupo eg WITH (UPDLOCK, HOLDLOCK) ON eg.id = a.estudianteGrupo
-        INNER JOIN dbo.uv_estado_estudiante_grupo e ON e.id = eg.estado AND e.codigo = @codigoActiva
-        INNER JOIN dbo.Sesion s WITH (UPDLOCK, HOLDLOCK) ON s.id = a.sesion
-        WHERE a.sesion = @idSesion
-          AND eg.grupo = @idGrupo
+        -- SKILLS-BD lote 16: estas lecturas van sin bloqueo, como antes del lote 2 (solo el NOT EXISTS sobre el detalle bloquea),
+        -- y por eso se leen por las vistas finas y no por la tabla
+        FROM dbo.uv_asistencia_registro a
+        INNER JOIN dbo.uv_estudiante_grupo_registro eg ON eg.id = a.idEstudianteGrupo
+        INNER JOIN dbo.uv_estado_estudiante_grupo e ON e.id = eg.idEstado AND e.codigo = @codigoActiva
+        INNER JOIN dbo.uv_sesion_registro s ON s.id = a.idSesion
+        WHERE a.idSesion = @idSesion
+          AND eg.idGrupo = @idGrupo
           AND NOT EXISTS (SELECT 1 FROM dbo.DetalleAsistencia da WITH (UPDLOCK, HOLDLOCK) WHERE da.asistencia = a.id AND da.toma = @idToma);
 
         SET @totalMarcados = @@ROWCOUNT;

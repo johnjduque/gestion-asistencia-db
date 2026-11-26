@@ -106,9 +106,11 @@ SELECT CONCAT('HASH=', CONVERT(VARCHAR(64), HASHBYTES('SHA2_256', @d), 2));
 $tipos = "('SOLICITUD_INGRESO_REGISTRADA','SOLICITUD_INGRESO_RESUELTA','SOLICITUD_INGRESO_RETIRADA')"
 $archivos = "('zz_archivo_SolicitudIngresoGrupo','zz_archivo_NotificacionSolicitudIngreso','zz_archivo_PlantillaSolicitudIngreso','zz_archivo_PlantillaMarcadorSolicitudIngreso')"
 $spsSolicitud = "('usp_registrar_solicitud_ingreso_grupo','usp_resolver_solicitud_ingreso_grupo','usp_retirar_solicitud_ingreso_grupo','usp_consultar_solicitudes_ingreso_grupo_docente','usp_consultar_solicitudes_ingreso_estudiante','usp_consultar_destinatarios_solicitud_ingreso_grupo')"
+# SKILLS-BD lote 16 (2026-11-26): usp_internal_reactivar_matricula_retirada ya no tiene archivo en schema/: la migracion 78 lo
+# renombro a usp_reactivar_matricula_retirada_interno (su paridad up/down/up la cubre test/test_skills_lote2_migracion_78.ps1).
+# La 13 sigue creando y borrando el nombre viejo, y eso lo siguen comprobando los conteos de T-10.
 $paridad13 = @{
     'usp_consultar_oferta_grupos_estudiante'        = 'schema/stored-procedures/usp_consultar_oferta_grupos_estudiante.sql'
-    'usp_internal_reactivar_matricula_retirada'     = 'schema/stored-procedures/usp_internal_reactivar_matricula_retirada.sql'
     'usp_registrar_estudiante_en_grupo_interno'     = 'schema/stored-procedures/usp_registrar_estudiante_en_grupo_interno.sql'
     'usp_registrar_estudiante_en_grupo'             = 'schema/stored-procedures/usp_registrar_estudiante_en_grupo.sql'
 }

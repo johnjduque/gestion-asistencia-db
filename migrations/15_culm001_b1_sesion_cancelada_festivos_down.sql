@@ -37,6 +37,8 @@ IF OBJECT_ID(N'dbo.usp_cargar_dias_festivos_automatico', N'P') IS NOT NULL
 GO
 IF OBJECT_ID(N'dbo.usp_internal_cargar_dias_festivos', N'P') IS NOT NULL
     DROP PROCEDURE [dbo].[usp_internal_cargar_dias_festivos];
+-- SKILLS-BD lote 16: la migracion 78 renombro este nucleo a usp_cargar_dias_festivos_interno; se borra tambien el nombre nuevo.
+DROP PROCEDURE IF EXISTS [dbo].[usp_cargar_dias_festivos_interno];
 GO
 IF OBJECT_ID(N'dbo.usp_aplicar_festivos_grupo', N'P') IS NOT NULL
     DROP PROCEDURE [dbo].[usp_aplicar_festivos_grupo];
@@ -49,9 +51,13 @@ IF OBJECT_ID(N'dbo.usp_aplicar_festivos_automatico', N'P') IS NOT NULL
 GO
 IF OBJECT_ID(N'dbo.usp_internal_aplicar_festivos_grupos', N'P') IS NOT NULL
     DROP PROCEDURE [dbo].[usp_internal_aplicar_festivos_grupos];
+-- SKILLS-BD lote 16: la migracion 78 renombro este nucleo a usp_aplicar_festivos_grupos_interno; se borra tambien el nombre nuevo.
+DROP PROCEDURE IF EXISTS [dbo].[usp_aplicar_festivos_grupos_interno];
 GO
 IF OBJECT_ID(N'dbo.usp_internal_aplicar_festivos_grupo', N'P') IS NOT NULL
     DROP PROCEDURE [dbo].[usp_internal_aplicar_festivos_grupo];
+-- SKILLS-BD lote 16: la migracion 78 renombro este nucleo a usp_aplicar_festivos_grupo_interno; se borra tambien el nombre nuevo.
+DROP PROCEDURE IF EXISTS [dbo].[usp_aplicar_festivos_grupo_interno];
 GO
 IF OBJECT_ID(N'dbo.usp_consultar_sesiones_festivo_con_asistencia_paginado', N'P') IS NOT NULL
     DROP PROCEDURE [dbo].[usp_consultar_sesiones_festivo_con_asistencia_paginado];

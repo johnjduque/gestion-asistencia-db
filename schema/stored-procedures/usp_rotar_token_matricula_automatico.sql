@@ -46,7 +46,13 @@ BEGIN
             @fechaRotacionUtc = @fechaRotacionUtc OUTPUT, @fechaExpiracionUtc = @fechaExpiracionUtc OUTPUT;
     END TRY
     BEGIN CATCH
-        -- PASO 2: error no controlado (SYS_001). El nucleo gestiona y revierte su propia transaccion
+        -- PASO 2: error no controlado. Si la transaccion del llamador quedo condenada (el nucleo relanza en ese caso)
+        -- se relanza el error original, como antes del lote 2 (SKILLS-BD lote 16); si no, SYS_001. El nucleo gestiona y
+        -- revierte su propia transaccion
+        IF XACT_STATE() = -1 AND @@TRANCOUNT > 0
+        BEGIN
+            THROW;
+        END
         EXEC dbo.usp_obtener_mensaje_catalogo
             @p_codigo = 'SYS_001',
             @mensajeUsuarioResultado = @mensajeUsuarioResultado OUTPUT,

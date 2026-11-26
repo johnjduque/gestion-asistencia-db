@@ -826,6 +826,18 @@ try {
 catch {
     $resultFailures += "PARAM_MIG77_RUNNER $($_.Exception.Message)"
 }
+# SKILLS-BD lote 16: migracion 76 (indice cubriente, up/down/up) y pistas de rendimiento de los KPI en test/test_perf_migracion_76.ps1.
+try {
+    $perfMig76Output = @(& (Join-Path $PSScriptRoot 'test/test_perf_migracion_76.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
+    foreach ($line in $perfMig76Output) { Write-Host $line }
+    foreach ($perfId in @('PERF_HINTS_KPI', 'PERF_MIG76_UP_DOWN_UP')) {
+        if ($perfMig76Output -contains "TEST_PASS:$perfId") { $clientPassed += $perfId }
+        else { $resultFailures += "$perfId not reported by test_perf_migracion_76.ps1" }
+    }
+}
+catch {
+    $resultFailures += "PERF_MIG76_RUNNER $($_.Exception.Message)"
+}
 # SKILLS-BD lote 2: migracion 78 (retiro de los usp_internal_*, up/down/up y up desde el estado anterior) en test/test_skills_lote2_migracion_78.ps1.
 try {
     $skl2Mig78Output = @(& (Join-Path $PSScriptRoot 'test/test_skills_lote2_migracion_78.ps1') -ContainerName $ContainerName -Password $Password *>&1 | ForEach-Object { "$_" })
@@ -1337,7 +1349,7 @@ $criticalIds = @(
     'AUDBD_MIG70_UP_DOWN_UP',
     # Regresion P3 2026-11-22 (test/test_p3_regresion_2026_11_22.sql)
     'P3R_D1_01_ADMIN_PROGRAMAS_SOLO_VINCULADOS', 'P3R_D1_02_ADMIN_SIN_VINCULO_SIN_PROGRAMAS', 'P3R_D1_03_ADMIN_FILTRO_FACULTAD_VINCULADA',
-    'P3R_D1_04_DECANO_SOLO_VINCULADOS', 'P3R_D2_01_MENSAJE_ESTADO_CANCELADA', 'P3R_TRANCOUNT_ZERO', 'P3R_MIG72_UP_DOWN_UP', 'DEC081_MIG75_UP_DOWN_UP', 'PARAM_MIG77_UP_DOWN_UP',
+    'P3R_D1_04_DECANO_SOLO_VINCULADOS', 'P3R_D2_01_MENSAJE_ESTADO_CANCELADA', 'P3R_TRANCOUNT_ZERO', 'P3R_MIG72_UP_DOWN_UP', 'DEC081_MIG75_UP_DOWN_UP', 'PERF_HINTS_KPI', 'PERF_MIG76_UP_DOWN_UP', 'PARAM_MIG77_UP_DOWN_UP',
     # SKILLS-BD lote 1 2026-11-25 (test/test_skills_lote1_cobertura.sql)
     'SKL1_F01_VALIDAR_CORREO', 'SKL1_F02_VALIDAR_NUMERO', 'SKL1_F03_VALIDAR_TEXTO', 'SKL1_F04_IDENTIDAD_USUARIO_JSON',
     'SKL1_F05_PROGRAMAS_AMBITO_EJECUTOR', 'SKL1_V01_CATALOGOS_REFLEJAN_TABLA', 'SKL1_V02_FORMA_VISTAS', 'SKL1_V03_AUDITORIA_EVENTO',
@@ -1374,6 +1386,9 @@ $criticalIds = @(
     # SKILLS-BD lote 15 2026-11-26 (test/test_skills_lote15_cobertura.sql)
     'SKL15_V01_VISTAS_FINAS_COLUMNAS', 'SKL15_V02_VISTAS_FINAS_FILAS', 'SKL15_V03_VISTAS_FINAS_SECRETOS', 'SKL15_I01_NOMBRES_USUARIO',
     'SKL15_I02_AUDITORIA_IDENTIDAD', 'SKL15_I03_AUDITORIA_JSON_INVALIDO',
+    # SKILLS-BD lote 16 2026-11-26 (test/test_skills_lote16_correcciones.sql)
+    'SKL16_S01_VISTAS_INTERNAS_SIN_SELECT', 'SKL16_S02_VISTAS_INTERNAS_EN_SP', 'SKL16_M01_MENSAJE_CODIGO_NULO', 'SKL16_T01_TOKEN_RELANZA_CONDENADA',
+    'SKL16_A01_QR_REVIERTE_FALLO', 'SKL16_B01_CIERRE_SIN_BLOQUEOS_NUEVOS',
     'T-091-13',
     # P3 fase F5 (migracion 71 en test/test_p3_f5_notificaciones_migracion_71.ps1)
     'P3F5_MIG71_UP_DOWN_UP',

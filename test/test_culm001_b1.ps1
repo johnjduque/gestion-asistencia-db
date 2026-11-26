@@ -371,6 +371,8 @@ IF OBJECT_ID(N'dbo.SesionCancelacion', N'U') IS NOT NULL OR OBJECT_ID(N'dbo.Tipo
    OR OBJECT_ID(N'dbo.uv_carga_dia_festivo', N'V') IS NOT NULL OR OBJECT_ID(N'dbo.uv_tipo_cancelacion_sesion', N'V') IS NOT NULL
    OR OBJECT_ID(N'dbo.usp_cancelar_sesion', N'P') IS NOT NULL OR OBJECT_ID(N'dbo.usp_generar_sesiones_grupo_v2', N'P') IS NOT NULL
    OR OBJECT_ID(N'dbo.usp_internal_aplicar_festivos_grupo', N'P') IS NOT NULL OR OBJECT_ID(N'dbo.usp_cargar_dias_festivos', N'P') IS NOT NULL
+   OR OBJECT_ID(N'dbo.usp_aplicar_festivos_grupo_interno', N'P') IS NOT NULL OR OBJECT_ID(N'dbo.usp_aplicar_festivos_grupos_interno', N'P') IS NOT NULL
+   OR OBJECT_ID(N'dbo.usp_cargar_dias_festivos_interno', N'P') IS NOT NULL
    OR OBJECT_ID(N'dbo.usp_consultar_dias_festivos', N'P') IS NOT NULL OR OBJECT_ID(N'dbo.usp_consultar_destinatarios_sesion_cancelada', N'P') IS NOT NULL
    OR (SELECT COUNT(*) FROM sys.parameters WHERE object_id = OBJECT_ID(N'dbo.usp_validar_sesion_ventana_registro_interno')) <> 5
    OR EXISTS (SELECT 1 FROM sys.sql_modules WHERE object_id = OBJECT_ID(N'dbo.usp_precargar_sesiones_grupo_interno') AND definition LIKE N'%festivo%')

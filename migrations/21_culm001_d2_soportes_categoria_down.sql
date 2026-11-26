@@ -980,6 +980,8 @@ GO
 IF OBJECT_ID(N'dbo.usp_radicar_solicitud_revision_asistencia_v3', N'P') IS NOT NULL DROP PROCEDURE [dbo].[usp_radicar_solicitud_revision_asistencia_v3];
 GO
 IF OBJECT_ID(N'dbo.usp_internal_radicar_solicitud_revision', N'P') IS NOT NULL DROP PROCEDURE [dbo].[usp_internal_radicar_solicitud_revision];
+-- SKILLS-BD lote 16: la migracion 78 renombro este nucleo a usp_radicar_solicitud_revision_interno; se borra tambien el nombre nuevo.
+DROP PROCEDURE IF EXISTS [dbo].[usp_radicar_solicitud_revision_interno];
 GO
 IF OBJECT_ID(N'dbo.usp_consultar_configuracion_reclamos', N'P') IS NOT NULL DROP PROCEDURE [dbo].[usp_consultar_configuracion_reclamos];
 GO
